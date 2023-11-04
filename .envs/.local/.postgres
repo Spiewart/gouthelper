@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=gouthelper
+POSTGRES_USER=bxOnznKfGaUyVVauFvDVcurgkdwZjEoB
+POSTGRES_PASSWORD=e9VFx0j7G0PlXCOooG2FYKYtiZITnNL7XgTGmhtiOjb9oAs5eobbBZ3O7wO8miMk
