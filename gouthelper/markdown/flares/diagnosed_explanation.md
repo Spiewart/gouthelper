@@ -1,0 +1,3 @@
+Clinician diagnosis doesn't factor into establishing the Prevalence of gout in a population similar to the Flare reported. Gouthelper does think that a provider's opinion is important, and thus we think that it probably increases the likelihood that a set of symptoms are from a gout flare.
+
+Gouthelper defaults to increasing the Likelihood (i.e. equivocal to strong) if a provider diagnosed the Flare. There is probably wide variation in how good a provider's diagnosis is and we don't have any evidence this pracdtice. If everything else points to the symptoms being due to something other than gout, then the Likelihood will still be something less than strong.

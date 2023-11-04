@@ -34,3 +34,30 @@ $red: #b94a48;
   border-color: $dark-pink;
   color: $red;
 }
+
+.footer-blockquote {
+  font-size: 0.8rem;
+  margin: 10px;
+  text-align: center;
+}
+
+.formset-button {
+  margin-bottom: 10px;
+}
+
+.medhistory_form-check {
+  padding: 0;
+}
+
+.medhistory_form-check .mb-3 {
+  margin-bottom: 0 !important;
+}
+
+.medhistory_select {
+  margin-bottom: 0 !important;
+}
+
+.then {
+  padding-top: 30px;
+  padding-bottom: 30px;
+}

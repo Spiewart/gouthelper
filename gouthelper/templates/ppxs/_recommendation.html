@@ -1,0 +1,200 @@
+<div class="row">
+  <div class="col">
+    <div class="card card-body">
+      <h3 class="card-title">
+        <u>Recommendation(s)</u>:
+      </h3>
+      <ol>
+        {% if object.hyperuricemic is None %}
+          {% include "ppxs/_ppx_rec.html" %}
+          {% if not object.semi_recent_urate %}
+            <li>
+              <strong>Check a Uric Acid</strong>
+            </li>
+          {% else %}
+            <li>
+              <strong>Clarify Uric Acid Status</strong>
+            </li>
+          {% endif %}
+        {% elif object.hyperuricemic is False %}
+          {% include "ppxs/_ppx_rec.html" %}
+          {% if object.at_goal %}
+            {% if object.flaring %}
+              {% if object.recent_urate %}
+                <li>
+                  <strong>Consider Other Causes of Symptoms / Rheumatology Referral</strong>
+                </li>
+              {% elif object.semi_recent_urate %}
+                <li>
+                  <strong>Consider Other Causes of Symptoms / Recheck Uric Acid</strong>
+                </li>
+              {% else %}
+                <li>
+                  <strong>Recheck Uric Acid</strong>
+                </li>
+              {% endif %}
+            {% else %}
+              {% if not object.semi_recent_urate and object.flaring is None %}
+                <li>
+                  <strong>Consider Rechecking Uric Acid and Inquiring About Flares</strong>
+                </li>
+              {% elif not object.semi_recent_urate %}
+                <li>
+                  <strong>Consider Rechecking Uric Acid</strong>
+                </li>
+              {% elif object.flaring is None %}
+                <li>
+                  <strong>Consider Inquiring About Flares</strong>
+                </li>
+              {% endif %}
+            {% endif %}
+          {% else %}
+            {% if not object.recent_urate %}
+              <li>
+                <strong>Check a Uric Acid</strong>
+              </li>
+            {% endif %}
+          {% endif %}
+        {% elif object.hyperuricemic %}
+          {% include "ppxs/_ppx_rec.html" %}
+          {% if object.last_urate_at_goal %}
+            <li>
+              <strong>Clarify Uric Acid Status</strong>
+            </li>
+          {% endif %}
+        {% endif %}
+      </ol>
+      <!-- Hyperuricemic not reported -->
+      {% if object.hyperuricemic is None %}
+        <p class="card-text">
+          The first step in figuring out whether a patient with gout needs flare prophylaxis
+          is establishing whether or not they are on or starting <a href="{% url 'ults:create' %}">ULT</a>.
+          Next, determine if they are hyperuricemic or not. If they are, then they should be on prophylaxis.
+          If they are not, then how long they have been at goal uric acid needs to be determined.
+        </p>
+        <!-- There are Urates but the hyperuricemic field was left blank. -->
+        {% if object.labs_qs %}
+          <p class="card-text">
+            It looks like some urates were reported, but the hyperuricemic field was left blank.
+            Please clarify whether the patient is hyperuricemic or not.
+          </p>
+        {% endif %}
+        <!-- Hyperuricemic was marked False -->
+      {% elif object.hyperuricemic is False %}
+        <!-- Not hyperuricemic but still flaring-->
+        {% if object.flaring %}
+          <!-- Flaring, at goal, and recent uric acid check -->
+          {% if object.at_goal and object.recent_urate or object.at_goal and object.semi_recent_urate %}
+            <p class="card-text">
+              Uric acid is at goal, has been so for 6 months or longer, and has been
+              {% if object.recent_urate %}
+                recently
+              {% else %}
+                semi-recently
+              {% endif %}
+              checked.
+              ACR recommends continuing prophylaxis for six months after achieving
+              and sustaining goal uric acid. Gouthelper defaults to 6 months.
+            </p>
+            {% if object.recent_urate %}
+              <p class="card-text">
+                It is recommended to consider other causes for the
+                patient's symptoms that are being described as gout flares,
+                as all evidence points to the uric acid being under good control.
+              </p>
+              <p class="card-text">It is probably worth checking a uric acid to make sure he or she is still at goal.</p>
+            {% else %}
+              <p class="card-text">It is stronlgy recommended to check a uric acid to make sure the patient is still at goal.</p>
+              <p class="card-text">
+                It is recommended to consider other causes for the
+                patient's symptoms that are being described as gout flares,
+                as considerable evidence points to the uric acid being under good control.
+              </p>
+            {% endif %}
+            <!-- Flaring, at goal but no recent uric acid check -->
+          {% elif object.at_goal %}
+            <p class="card-text">
+              Uric acid was at goal when last checked, but this hasn't been for considerable time (6 months or longer).
+              The patient could have had an increase in his or her uric acid for a variety of reasons (e.g. diet, weight gain, etc).
+              It is recommended to check a uric acid to make sure he or she is still at goal.
+            </p>
+          {% else %}
+            <p class="card-text">
+              {% if object.last_urate_at_goal %}
+                Last uric acid was at goal, but
+              {% else %}
+                Uric acid
+              {% endif %}
+              hasn't been at goal for 6 months or longer. Continued prophylaxis is recommended.
+              {% if not object.semi_recent_urate %}
+                However, it doesn't look like he or she has had a uric acid checked in the last 6 months.
+                Consider checking a uric acid to guide titration of ULT and prophylaxis recommendations.
+              {% endif %}
+            </p>
+          {% endif %}
+          <!-- Not flaring, not hyperuricemic-->
+        {% else %}
+          {% if object.at_goal %}
+            <p class="card-text">
+              Prophylaxis
+              {% if object.on_ppx %}
+                can be stopped
+              {% else %}
+                should not be started
+              {% endif %}
+              .
+              Uric acid is at goal, has been so for 6 months or longer, and has been
+              {% if object.recent_urate %}
+                recently
+              {% else %}
+                semi-recently
+              {% endif %}
+              checked.
+            </p>
+          {% else %}
+            <p class="card-text">
+              {% if not object.on_ppx %}
+                Start and continue
+              {% else %}
+                Continue
+              {% endif %}
+              prophylaxis until uric acid is at goal for 6 months or longer.
+            {% endif %}
+            {% if not object.semi_recent_urate %}
+              However, it doesn't look like he or she has had a uric acid checked in the last 6 months.
+              Consider checking a uric acid to guide titration of ULT and prophylaxis recommendations.
+            {% endif %}
+            {% if object.flaring is None %}
+              It's always wise to check in with patients who have gout to see if they are having flares.
+              A variety of factors can cause an individual's uric acid to change over time, necessitating
+              modification of ULT dosing.
+            {% endif %}
+          </p>
+        {% endif %}
+      {% elif object.hyperuricemic %}
+        <p class="card-text">
+          Prophylaxis should
+          {% if object.indicated %}
+            {% if object.on_ppx %}
+              be continued
+            {% else %}
+              be started
+            {% endif %}
+            while the patient is hyperuricemic and the ULT is being titrated.
+            {% if not object.recent_urate %}
+              However, it doesn't look like he or she has had a uric acid checked in the last 3 months. We typically
+              recommend checking a uric acid every 4-6 weeks to titrate ULT, thus he or she is overdue.
+            {% endif %}
+          {% else %}
+            {% if object.on_ppx %}
+              be stopped.
+            {% else %}
+              not be started.
+            {% endif %}
+            It is not indicated.
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>

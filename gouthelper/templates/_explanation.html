@@ -1,0 +1,56 @@
+{% load project_tags %}
+
+{% block id %}
+  <div class="card card-body" id={{ id }}>
+  {% endblock id %}
+  {% block heading %}
+    <div class="row">
+      <div class="col">
+        <h4 class="card-title collapse-toggle"
+            id="{{ id }}-toggle"
+            data-bs-toggle="collapse"
+            data-bs-target="#{{ id }}-explanation"
+            aria-controls="#{{ id }}-explanation"
+            aria-expanded="false">
+          {{ label }}
+          <span class="collapse-bool">
+            {% if id == "hlab5801" %}
+              {% if object|getattribute:id.value or object|getattribute:id == None %}
+                (+)
+              {% else %}
+                (-)
+              {% endif %}
+            {% elif id == "duration" %}
+              {% if not object.abnormal_duration %}
+                (+)
+              {% else %}
+                (-)
+              {% endif %}
+            {% elif id == "medallergys" %}
+              {% include "_indicator.html" with aidtype=aidtype id=id %}
+            {% elif id == "dateofbirth" or id == "demographics" or id == "age" %}
+              {% include "_indicator.html" with aidtype=aidtype id=id %}
+            {% else %}
+              {% if object|getattribute:id %}
+                (+)
+              {% else %}
+                (-)
+              {% endif %}
+            {% endif %}
+          </span>
+          <span class="collapse-control"><small><i>[expand]</i></small></span>
+        </h4>
+      </div>
+    </div>
+  {% endblock heading %}
+  {% block text %}
+    <div class="card-text collapse collapse-explanation"
+         id="{{ id }}-explanation">
+      <div class="row">
+        <div class="col">
+          {% with con_obj|get_key:"explanation" as page %}{{ page.text_rendered|safe }}{% endwith %}
+        </div>
+      </div>
+    </div>
+  {% endblock text %}
+</div>

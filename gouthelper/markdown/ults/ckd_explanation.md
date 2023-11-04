@@ -1,0 +1,1 @@
+CKD stage III or higher is a conditional indication for ULT in individuals who have only had a single flare of gout. This is based on the higher likelihood of future frequent flares than in an individual with his or her first flare and no history of advanced CKD.

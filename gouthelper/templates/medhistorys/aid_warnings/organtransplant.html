@@ -1,0 +1,10 @@
+{% extends "_warning.html" %}
+
+{% block heading %}
+  {% with label="Organ Transplant" %}{{ block.super }}{% endwith %}
+{% endblock heading %}
+{% block text %}
+  {% with paragraph="Before starting or changing medications on a patient with a history of organ transplantation, please consult with the physician managing the patient's transplant therapies." %}
+    {{ block.super }}
+  {% endwith %}
+{% endblock text %}

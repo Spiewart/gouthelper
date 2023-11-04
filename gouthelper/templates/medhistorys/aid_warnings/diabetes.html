@@ -1,0 +1,10 @@
+{% extends "_warning.html" %}
+
+{% block heading %}
+  {% with label="Diabetes" %}{{ block.super }}{% endwith %}
+{% endblock heading %}
+{% block text %}
+  {% with paragraph="Monitor blood sugar closely while on corticosteroids and seek medical advice if they are persistently elevated." %}
+    {{ block.super }}
+  {% endwith %}
+{% endblock text %}

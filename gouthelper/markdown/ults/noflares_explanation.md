@@ -1,0 +1,1 @@
+Never having had a gout flare is a contraindication to ULT (at least for gout). An elevated uric acid level is generally just a number and treating doesn't result in any beneficial patient-centered outcomes. The only potential exception to this would be if the patient has asymptomatic tophi or erosions, which, while rare, does occur.

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block header %}
+  header
+{% endblock header %}
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>Flare</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'flares:update' pk=object.pk %}"
+             role="button">Update</a>
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'flares:about' %}"
+             role="button">About</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <div id="outcome">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <div class="card card-body" id="likelihood">
+              <h4 class="card-title">
+                <a href="{% url 'flares:about' %}#likelihood">Likelihood</a> of Gout: <u>{{ flare.get_likelihood_display }}</u>
+              </h4>
+              <ul>
+                <li>{{ flare.likelihood_str }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card card-body" id="prevalence">
+              <h4 class="card-title">
+                <a href="{% url 'flares:about' %}#prevalence">Prevalence</a> of Gout: <u>{{ flare.prevalence.lower.capitalize }}</u>
+              </h4>
+              <ul>
+                <li>{{ flare.get_prevalence_display }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="details">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Details</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-auto">
+            <div class="card card-body" id="description">
+              <h4 class="card-title">Clinical Description</h4>
+              <ul>
+                <li>
+                  {% if flare.polyarticular %}
+                    Polyarticular
+                  {% else %}
+                    Monoarticular
+                  {% endif %}
+                  <ul>
+                    {% if object.common_joints %}<li>Common joints: {{ object.common_joints_str }}</li>{% endif %}
+                    {% if object.uncommon_joints %}<li>Uncommon joints: {{ object.uncommon_joints_str }}</li>{% endif %}
+                    {% if object.firstmtp %}
+                      <li>
+                        <a class="samepage-link" href="#joints">1st MTP</a>: {{ object.firstmtp_str|capfirst }}
+                      </li>
+                    {% endif %}
+                  </ul>
+                </li>
+                <li>
+                  {% if object.abnormal_duration %}
+                    {{ flare.duration.days }} days long
+                  {% else %}
+                    <a class="samepage-link" href="#duration">{{ flare.duration.days }} days long</a>
+                  {% endif %}
+                  ({{ flare.date_started }} -
+                  {% if flare.date_ended %}
+                    {{ flare.date_ended }}
+                  {% else %}
+                    present
+                  {% endif %}
+                  )
+                </li>
+                <li>
+                  {% if flare.onset %}
+                    <a class="samepage-link" href="#onset">Onset</a>: rapid
+                  {% else %}
+                    Onset: gradual
+                  {% endif %}
+                </li>
+                <li>
+                  {% if flare.redness %}
+                    <a class="samepage-link" href="#redness">Erythema</a> (redness): present
+                  {% else %}
+                    Erythema (redness): absent
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="card card-body" id="medical-info">
+              <h4 class="card-title">Medical Info</h4>
+              <ul>
+                <li>
+                  {% if flare.diagnosed %}
+                    <a class="samepage-link" href="#diagnosed">Diagnosed</a>
+                  {% else %}
+                    Not diagnosed
+                  {% endif %}
+                  by clinician
+                </li>
+                <li>
+                  {% if not flare.crystal_analysis %}
+                    Not proven
+                  {% else %}
+                    <a class="samepage-link" href="#crystalanalysis">Proven</a>
+                  {% endif %}
+                  by crystal analysis
+                </li>
+                <li>
+                  Uric acid level:
+                  {% if flare.urate %}
+                    {% if flare.urate.high %}
+                      <a class="samepage-link" href="#hyperuricemia">high</a>
+                    {% elif flare.urate.low %}
+                      low
+                    {% else %}
+                      normal
+                    {% endif %}
+                    ({{ flare.urate.value_str }})
+                  {% else %}
+                    not checked
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="card card-body" id="about-patient">
+              <h4>Patient</h4>
+              <h6>
+                Demographics:
+                {% if object.at_risk_for_gout %}
+                  <a class="samepage-link" href="#demographics">at-risk</a>
+                {% else %}
+                  not at-risk
+                {% endif %}
+              </h6>
+              <ul>
+                <li>Age: {{ flare.age }}</li>
+                <li>
+                  Gender: {{ flare.gender }}
+                  {% if flare.menopause %}
+                    , post-menopausal
+                  {% elif object.ckd %}
+                    with <a class="samepage-link" href="#ckd">CKD</a>
+                  {% endif %}
+                </li>
+              </ul>
+              {% if object.cvdiseases or object.gout or object.ckd %}
+                <h6>Medical History</h6>
+                <ul>
+                  {% if object.cvdiseases %}
+                    {% include "medhistorys/partials/cvdiseases.html" with aidtype="Flare" %}
+                  {% endif %}
+                  {% if object.gout %}
+                    {% include '_contra.html' with id="gout" aidtype="Flare" %}
+                  {% endif %}
+                  {% if flare.ckd %}
+                    {% include '_contra.html' with id="ckd" aidtype="Flare" %}
+                  {% endif %}
+                </ul>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="explanations">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Explanations</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            {% include "_explanation.html" with aidtype="Flare" con_obj=demographics id="demographics" label="Demographics" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=hyperuricemia id="hyperuricemia" label="Hyperuricemia" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=diagnosed id="diagnosed" label="Physician Diagnosis" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=onset id="onset" label="Acute Onset" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=erythema id="redness" label="Erythema" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=duration id="duration" label="Duration" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=ckd id="ckd" label="CKD" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=gout id="gout" label="Gout" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=crystalanalysis id="crystal_analysis" label="Crystal Analysis" %}
+            {% include "_explanation.html" with aidtype="Flare" con_obj=joints id="joints" label="Joints" %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="#top">Back to top</a>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

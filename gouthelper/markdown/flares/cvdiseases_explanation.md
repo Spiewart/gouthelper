@@ -1,0 +1,1 @@
+Cardiovascular disease is associated with gout. In fact, the presence of a cardiovascular disease increases the diagnostic rule score, making it more likely a Flare will be in a higher prevalence group. This of course is why Gouthelper asks about it.

@@ -1,0 +1,1 @@
+Cardiovascular diseases are a leading cause of death. Non-steroidal anti-inflammatory drugs (NSAIDs) are associated with an increased risk of adverse events related to cardiovascular diseases when used long-term. Thus a history of cardiovascular disease is a relative contraindication to NSAID use.

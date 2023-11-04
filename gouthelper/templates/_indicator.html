@@ -1,0 +1,50 @@
+{% load project_tags %}
+
+{% if id == "hlab5801" %}
+  {% if object|getattribute:id.value or object|getattribute:id == None %}
+    (+)
+  {% else %}
+    (-)
+  {% endif %}
+{% elif id == "duration" %}
+  {% if not object.abnormal_duration %}
+    (+)
+  {% else %}
+    (-)
+  {% endif %}
+{% elif id == "medallergys" %}
+  {% if aidtype == "UltAid" %}
+    {% if object.allopurinol_allergys or object.febuxostat_allergys or object.probenecid_allergys %}
+      (+)
+    {% else %}
+      (-)
+    {% endif %}
+  {% elif aidtype == "PpxAid" or aidtype == "FlareAid" %}
+    {% if object.nsaid_allergys or object.colchicine_allergys or object.steroid_allergys %}
+      (+)
+    {% else %}
+      (-)
+    {% endif %}
+  {% else %}
+  {% endif %}
+{% elif id == "dateofbirth" or id == "demographics" or id == "age" %}
+  {% if aidtype == "Flare" %}
+    {% if object.at_risk_for_gout %}
+      (+)
+    {% else %}
+      (-)
+    {% endif %}
+  {% else %}
+    {% if object.nsaid_age_contra %}
+      (+)
+    {% else %}
+      (-)
+    {% endif %}
+  {% endif %}
+{% else %}
+  {% if object|getattribute:id %}
+    (+)
+  {% else %}
+    (-)
+  {% endif %}
+{% endif %}

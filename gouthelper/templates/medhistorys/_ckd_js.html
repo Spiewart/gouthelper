@@ -1,0 +1,31 @@
+<script>
+  // this is executed once when the page loads
+  $(document).ready(function() {
+    $('#id_CKD-value').change(CKD_checker);
+    CKD_checker($('#id_CKD-value'));
+    $('#id_dialysis').change(dialysis_checker);
+    dialysis_checker($('#id_dialysis'));
+    $('#id_dateofbirth-value').change(compare_stage_creat);
+    compare_stage_creat($('#id_dateofbirth-value'));
+    $('#id_gender-value').change(compare_stage_creat);
+    compare_stage_creat($('#id_gender-value'));
+    $('#id_baselinecreatinine-value').change(compare_stage_creat);
+    compare_stage_creat($('#id_baselinecreatinine-value'));
+    $('#id_stage').change(compare_stage_creat);
+    compare_stage_creat($('#id_stage'));
+  });
+</script>
+{% if optional %}
+  <script>
+    $(document).ready(function() {
+      $('#id_CKD-value').change(CKD_optional_checker);
+      CKD_optional_checker($('#id_CKD-value'));
+      $('#id_baselinecreatinine-value').change(CKD_optional_checker);
+      CKD_optional_checker($('#id_baselinecreatinine-value'));
+    });
+  </script>
+{% endif %}
+<link rel="stylesheet"
+      href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
+<script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+<script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>

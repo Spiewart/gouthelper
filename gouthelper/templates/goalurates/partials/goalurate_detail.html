@@ -1,0 +1,41 @@
+<div class="col">
+  <div class="card card-body" id="goalurate">
+    <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+    <ul>
+      <li>
+        <a class="samepage-link" href="#erosions">Erosions</a>
+        {% if object.erosions %}
+          (+)
+        {% else %}
+          (-)
+        {% endif %}
+      </li>
+      <li>
+        <a class="samepage-link" href="#tophi">Tophi</a>
+        {% if object.tophi %}
+          (+)
+        {% else %}
+          (-)
+        {% endif %}
+      </li>
+    </ul>
+    <a type="button"
+       class="btn btn-primary btn-lg mini-button"
+       hx-get="{% url 'goalurates:update' object.pk %}"
+       hx-target="#goalurate"
+       hx-trigger="click"
+       role="button">Update Goal Urate</a>
+  </div>
+</div>
+{% block inline_javascript %}
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  <script>
+    $(".samepage-link").click(function() {
+      var href = $(this).attr('href');
+      $(href).effect("highlight", 2000);
+    });
+  </script>
+{% endblock inline_javascript %}

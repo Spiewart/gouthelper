@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block header %}
+  header
+{% endblock header %}
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>FlareAid</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'flareaids:about' %}"
+             role="button">About</a>
+          <a type="button"
+             class="btn btn-primary btn-lg mini-button"
+             href="{% url 'flareaids:update' pk=object.pk %}"
+             role="button">Update</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <div id="recommendation">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <h3>
+            <u>Recommendation</u>
+          </h3>
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Flare" %}
+        </div>
+      </div>
+      {% if object.recommendation %}
+        {% include "treatments/partials/options.html" with options=object.options_str trttype="Flare" %}
+      {% endif %}
+      <div id="contraindications">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Contraindications</u>
+            </h3>
+            <div class="row">
+              {% if object.other_nsaid_contras or object.ckd or object.cvdiseases_str or object.nsaid_allergys %}
+                <div class="col-auto">
+                  <div class="card card-body" id="nsaid-contras">
+                    <h4 class="card-title">NSAIDs</h4>
+                    <ul>
+                      {% if object.other_nsaid_contras %}
+                        {% for contra in object.other_nsaid_contras %}
+                          <li>
+                            <a class="samepage-link" href="#{{ contra.medhistorytype|lower }}">{{ contra }}</a>
+                          </li>
+                        {% endfor %}
+                      {% endif %}
+                      {% if object.ckd %}
+                        {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
+                      {% endif %}
+                      {% if object.cvdiseases %}
+                        {% include "medhistorys/partials/cvdiseases.html" with cvdiseases=object.cvdiseases_str aidtype="FlareAid" %}
+                      {% endif %}
+                      {% if object.nsaid_allergys %}
+                        {% include '_contra.html' with id="medallergys" allergy="nsaid_allergys" aidtype="FlareAid" %}
+                      {% endif %}
+                      {% if object.nsaid_age_contra %}
+                        {% include "_contra.html" with id="age" aidtype="FlareAid" %}
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              {% endif %}
+              {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergys %}
+                <div class="col-auto">
+                  <div class="card card-body">
+                    <h4 class="card-title">Colchicine</h4>
+                    <ul>
+                      {% if object.colchicine_ckd_contra %}
+                        {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
+                      {% endif %}
+                      {% if object.colchicineinteraction %}
+                        {% include '_contra.html' with id="colchicineinteraction" aidtype="FlareAid" %}
+                      {% endif %}
+                      {% if object.colchicine_allergys %}
+                        {% include '_contra.html' with id="medallergys" allergy="colchicine_allergys" aidtype="FlareAid" %}
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              {% endif %}
+              {% if object.steroid_allergys %}
+                <div class="col-auto">
+                  <div class="card card-body" id="steroid-contras">
+                    <h4 class="card-title">Steroids</h4>
+                    <ul>
+                      {% if object.steroid_allergys %}
+                        {% include '_contra.html' with id="medallergys" allergy="steroid_allergys" aidtype="FlareAid" %}
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% if object.organtransplant or "PREDNISONE" in object.options and object.diabetes or object.nsaids_recommended and not object.nsaids_contraindicated and object.age > 65 %}
+        <div id="warnings">
+          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <h3>
+                <u>Warnings</u>
+              </h3>
+            </div>
+          </div>
+          <div class="row">
+            {% if object.organtransplant %}
+              <div class="col">
+                {% include "medhistorys/aid_warnings/organtransplant.html" with id="organtransplant" aidtype="FlareAid" %}
+              </div>
+            {% endif %}
+            {% if object.recommendation.0 == "PREDNISONE" and object.diabetes or object.options and "PREDNISONE" in object.options and object.diabetes %}
+              <div class="col">{% include "medhistorys/aid_warnings/diabetes.html" with id="diabetes" aidtype="FlareAid" %}</div>
+            {% endif %}
+            {% if object.age > 65 and object.nsaids_recommended and not object.nsaids_contraindicated %}
+              {% include "dateofbirths/aid_warnings/dateofbirth.html" with id="age" aidtype="PpxAid" %}
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+      <div id="explanations">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Explanations</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=ibd id="ibd" label="Inflammatory Bowel Disease" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=colchicineinteraction id="colchicineinteraction" label="Colchicine Medication Interactions" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=ckd id="ckd" label="CKD" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=anticoagulation id="anticoagulation" label="Anticoagulation" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=bleed id="bleed" label="Bleed" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=gastricbypass id="gastricbypass" label="Gastric Bypass" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=diabetes id="diabetes" label="Diabetes" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=dateofbirth id="age" label="Age" %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

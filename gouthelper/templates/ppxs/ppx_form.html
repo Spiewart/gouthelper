@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+{% load project_tags %}
+{% load static %}
+
+{% block title %}
+  New PpxAid
+{% endblock title %}
+{% block header %}
+  <h1>PPx</h1>
+  <span>Does a patient need flare prophylaxis?</span>
+{% endblock header %}
+{% block content %}
+  {% if form.instance.created %}
+    <form class="form-horizontal"
+          id="ppx-form"
+          method="post"
+          action="{% url 'ppxs:update' form.instance.pk %}">
+      {% csrf_token %}
+      {% crispy form %}
+      {% include '_submit_button.html' %}
+    </form>
+  {% else %}
+    <form class="form-horizontal"
+          id="ppx-form"
+          method="post"
+          action="{% url 'ppxs:create' %}">
+      {% csrf_token %}
+      {% crispy form %}
+      {% include '_submit_button.html' %}
+    </form>
+  {% endif %}
+{% endblock content %}
+{% block inline_javascript %}
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  <script>
+    $(document).ready(function() {
+      $(function() {
+        $('#ppx-form tbody tr').formset({
+          prefix: '{{ lab_formset.prefix }}',
+          added: function() {
+            $('input[id*="date_drawn"]').each(function() {
+              var css_class = $(this).attr('class');
+              // check if css_class is not undefined and if it has 'hasDatepicker' in the class
+              // https://stackoverflow.com/questions/44624656/js-jquery-how-to-dynamically-update-refresh-datepicker-value-after-changing-th
+              // datepicker class needs to be removed by the cloneUrate function
+              if (css_class !== undefined && css_class.includes('hasDatepicker')) {
+                css_class = css_class.replace('hasDatepicker', '');
+                $(this).attr('class', css_class)
+              }
+              $(this).datepicker({
+                changeYear: true,
+                minDate: "-2y",
+                maxDate: "0",
+              });
+            })
+          },
+          addCssClass: 'formset-add',
+          addText: "Add Urate",
+          deleteCssClass: 'formset-delete',
+          deleteText: "Remove",
+          // Giant patch of monkies to use the remove button from django-dynamic-formsets
+          // which was meant to be used with an inlineformset, not a regular formset,
+          // on a regular formset. The remove button would decrement the TOTAL_FORMS count
+          // and the view would delete extra forms because they wouldn't make it to cleaned_data.
+          removed: function(row) {
+            id_input = $(row).find("input[id$='-id']")
+            // Check if the input has a value
+            if (id_input.val()) {
+              // If it does, check if TOTAL_FORMS is less than INITIAL_FORMS
+              var initial_forms = '{{ lab_formset.prefix }}' + '-INITIAL_FORMS';
+              var initial_forms_input = $('#id_' + initial_forms);
+              // If it does, then add one back to formset TOTAL_FORMS
+              var total_forms = '{{ lab_formset.prefix }}' + '-TOTAL_FORMS';
+              var total_forms_input = $('#id_' + total_forms);
+              var total_initial_dif = (parseInt(initial_forms_input.val()) - parseInt(total_forms_input.val()) + 1);
+              if (total_initial_dif > 0) {
+                total_forms_input.val(parseInt(total_forms_input.val()) + total_initial_dif);
+              }
+            }
+          },
+        });
+      })
+    });
+    $('input[id*="date_drawn"]').each(function() {
+      $(this).datepicker({
+        changeYear: true,
+        minDate: "-2y",
+        maxDate: "0",
+      });
+    });
+    document.ready = function() {
+      // call starting_ult_help_text() to set the help text for the starting_ult field
+      $('#id_on_ult').change(starting_ult_help_text);
+      starting_ult_help_text($('#id_on_ult'));
+    };
+  </script>
+{% endblock inline_javascript %}

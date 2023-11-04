@@ -1,0 +1,23 @@
+{% extends "_warning.html" %}
+
+{% block heading %}
+  {% with label="Cardiovascular Diseases" %}{{ block.super }}{% endwith %}
+{% endblock heading %}
+{% block text %}
+  <div class="row">
+    <div class="col">
+      <ul>
+        {% for cvdisease in object.cvdiseases %}<li>{{ cvdisease }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% if aidtype == "UltAid" %}
+    {% with paragraph="Febuxostat should be used cautiously in patients with or at-risk for cardiovascular disease." %}
+      {{ block.super }}
+    {% endwith %}
+  {% else %}
+    {% with paragraph="Cardiovascular disease is a relative contraindication to NSAID use." %}
+      {{ block.super }}
+    {% endwith %}
+  {% endif %}
+{% endblock text %}

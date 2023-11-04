@@ -1,0 +1,1 @@
+Uric acid kidney stones (urate nephrolithiasis) makes ULT conditionally recommended for a patient's first gout flare. This is due to the combinatorial benefits for prevention of future urate kidney stones and prevention of gout flares.

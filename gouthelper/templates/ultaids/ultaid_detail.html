@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>UltAid</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'ultaids:about' %}"
+             role="button">About</a>
+          <a type="button"
+             class="btn btn-primary btn-lg mini-button"
+             href="{% url 'ultaids:update' pk=object.pk %}"
+             role="button">Update</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <div id="recommendation">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <h3>
+            <u>Recommendation</u>
+          </h3>
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Ult" %}
+          {% if object.goalurate %}
+            {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate %}
+          {% else %}
+            <div class="col">
+              <div id="goalurate">
+                <a type="button"
+                   class="btn btn-primary btn-lg mini-button"
+                   hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
+                   hx-target="#goalurate"
+                   hx-trigger="click"
+                   role="button">Goal Urate</a>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% if object.contraindications %}
+        <div id="contraindications">
+          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <h3>
+                <u>Contraindications</u>
+              </h3>
+              <div class="row">
+                {% if object.allopurinolhypersensitivity or object.allopurinol_allergys or object.xoiinteraction or object.hlab5801_contra %}
+                  <div class="col">
+                    <div class="card card-body" id="allopurinol-contraindications">
+                      <h4 class="card-title">Allopurinol</h4>
+                      <ul>
+                        {% if object.allopurinolhypersensitivity %}
+                          {% include '_contra.html' with id="allopurinolhypersensitivity" %}
+                        {% endif %}
+                        {% if object.allopurinol_allergys %}
+                          {% include '_contra.html' with id="medallergys" allergy="allopurinol_allergys" %}
+                        {% endif %}
+                        {% if object.xoiinteraction %}
+                          {% include '_contra.html' with id="xoiinteraction" %}
+                        {% endif %}
+                        {% if object.hlab5801_contra %}
+                          {% include '_contra.html' with id="hlab5801" %}
+                        {% endif %}
+                      </ul>
+                    </div>
+                  {% endif %}
+                  {% if object.febuxostathypersensitivity or object.febuxostat_allergys or object.xoiinteraction %}
+                    <div class="col">
+                      <div class="card card-body" id="febuxostat-contraindications">
+                        <h4 class="card-title">Febuxostat</h4>
+                        <ul>
+                          {% if object.febuxostathypersensitivity %}
+                            {% include '_contra.html' with id="febuxostathypersensitivity" %}
+                          {% endif %}
+                          {% if object.febuxostat_allergys %}
+                            {% include '_contra.html' with id="medallergys" allergy="febuxostat_allergys" %}
+                          {% endif %}
+                          {% if object.xoiinteraction %}
+                            {% include '_contra.html' with id="xoiinteraction" %}
+                          {% endif %}
+                        </ul>
+                      </div>
+                    </div>
+                  {% endif %}
+                  {% if object.probenecid_ckd_contra or object.probenecid_allergys %}
+                    <div class="col">
+                      <div class="card card-body" id="probenecid-contraindications">
+                        <h4 class="card-title">Probenecid</h4>
+                        <ul>
+                          {% if object.probenecid_ckd_contra %}
+                            {% include '_contra.html' with id="ckd" aidtype="UltAid" %}
+                          {% endif %}
+                          {% if object.probenecid_allergys %}
+                            {% include '_contra.html' with id="medallergys" allergy="probenecid_allergys" %}
+                          {% endif %}
+                        </ul>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+          {% if object.recommendation %}
+            {% include "treatments/partials/options.html" with options=object.options_str trttype="Ult" %}
+          {% endif %}
+          {% if object.organtransplant or object.recommendation.0 == "FEBUXOSTAT" and object.cvdiseases or object.options and "FEBUXOSTAT" in object.options and object.cvdiseases %}
+            <div id="warnings">
+              <hr size="3" color="dark" />
+              <div class="row">
+                <div class="col">
+                  <h3>
+                    <u>Warnings</u>
+                  </h3>
+                </div>
+              </div>
+              <div class="row">
+                {% if object.organtransplant %}
+                  <div class="col">{% include "medhistorys/aid_warnings/organtransplant.html" with id="organtransplant" %}</div>
+                {% endif %}
+                {% if object.recommendation.0 == "FEBUXOSTAT" and object.cvdiseases or object.options and "FEBUXOSTAT" in object.options and object.cvdiseases %}
+                  <div class="col">{% include "medhistorys/aid_warnings/cvdiseases.html" with id="cvdiseases" aidtype="UltAid" %}</div>
+                {% endif %}
+                {% if not object.hlab5801 and not object.hlab5801_contra %}
+                  <div class="col">{% include "labs/aid_warnings/hlab5801.html" with id="hlab5801" %}</div>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+          <div id="explanations">
+            <hr size="3" color="dark" />
+            <div class="row">
+              <div class="col">
+                <h3>
+                  <u>Explanations</u>
+                </h3>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Disease(s)" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=hlab5801 id="hlab5801" label="HLA-B*58:01" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=ckd id="ckd" label="CKD" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=tophi id="tophi" label="Tophi" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=xoiinteraction id="xoiinteraction" label="XOI Interaction" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=allopurinolhypersensitivity id="allopurinolhypersensitivity" label="Allopurinol Hypersensitivity" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=febuxostathypersensitivity id="febuxostathypersensitivity" label="Febuxostat Hypersensitivity" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
+                {% include "_explanation.html" with aidtype="UltAid" con_obj=erosions id="erosions" label="Erosions" %}
+              </div>
+            </div>
+          </div>
+          <a href="#top">Back to top</a>
+        </div>
+      </div>
+    </div>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

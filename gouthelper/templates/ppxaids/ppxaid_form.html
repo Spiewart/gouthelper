@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+{% load project_tags %}
+
+{% block title %}
+  New PpxAid
+{% endblock title %}
+{% block header %}
+  <h1>Gout PpxAid</h1>
+  <span>Get patient-specific flare treatment recommendations.</span>
+{% endblock header %}
+{% block content %}
+  {% if form.instance.created %}
+    <form class="form-horizontal"
+          method="post"
+          action="{% url 'ppxaids:update' form.instance.pk %}">
+      {% csrf_token %}
+      {% crispy form %}
+      {% include '_submit_button.html' %}
+    </form>
+  {% else %}
+    <form class="form-horizontal"
+          method="post"
+          action="{% url 'ppxaids:create' %}">
+      {% csrf_token %}
+      {% crispy form %}
+      {% include '_submit_button.html' %}
+    </form>
+  {% endif %}
+{% endblock content %}
+{% block inline_javascript %}
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  <script>
+    $(document).ready(function() {
+      // For Flare datepicker
+      $('input[id*="dateofbirth"]').each(function() {
+        $(this).datepicker({
+          changeYear: true,
+          yearRange: "-100:-18",
+          minDate: "-100y",
+          maxDate: "-18y"
+        });
+      });
+    });
+  </script>
+  {% include 'medhistorys/_ckd_js.html' %}
+{% endblock inline_javascript %}

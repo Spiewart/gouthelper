@@ -1,4 +1,4 @@
-{% load static i18n %}
+{% load static i18n django_htmx project_tags %}
 
 <!DOCTYPE html>
 {% get_current_language as LANGUAGE_CODE %}
@@ -26,6 +26,11 @@
     {% block javascript %}
       <!-- Vendor dependencies bundled as one file -->
       <script defer src="{% static 'js/vendors.min.js' %}"></script>
+      <!-- 3rd party JS dependencies not merged into vendor file above -->
+      <script defer src="{% static 'js/htmx/htmx.min.js' %}"></script>
+      <script defer src="{% static 'js/htmx/debug.js' %}"></script>
+      <!-- Script for django-dynamic-formset -->
+      <script defer src="{% static 'js/jquery.formset.js' %}"></script>
       <!-- place project specific Javascript in this file -->
       <script defer src="{% static 'js/project.min.js' %}"></script>
     {% endblock javascript %}
@@ -51,6 +56,30 @@
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'about' %}">About</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'blog:list' %}">Blog</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'flares:create' %}">Flare</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'flareaids:create' %}">FlareAid</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'goalurates:create' %}">GoalUrate</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'ppxaids:create' %}">PpxAid</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'ppxs:create' %}">Ppx</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'ultaids:create' %}">UltAid</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'ults:create' %}">Ult</a>
               </li>
               {% if request.user.is_authenticated %}
                 <li class="nav-item">
@@ -93,6 +122,18 @@
       {% block content %}
         <p>Use this document as a way to quick start any new project.</p>
       {% endblock content %}
+      {% block footer %}
+        <footer class="footer">
+          <hr size="3" color="dark" />
+          <blockquote class="blockquote footer-blockquote">
+            <p class="text-muted small">
+              Gouthelper is the private opinion of one amateur web developer who also happens to be a rheumatologist.
+              It does not represent his professional opinion, that of his employer, or any referenced professional society.
+              Gouthelper is not a substitute for actual medical advice from a real provider and should not be used as such.
+            </p>
+          </blockquote>
+        </footer>
+      {% endblock footer %}
     </div>
     <!-- /container -->
     {% block modal %}
@@ -107,6 +148,34 @@
       });
     </script>
       {% endcomment %}
+      <link rel="stylesheet"
+            href="https://code.jquery.com/ui/1.13.2/themes/smoothness/jquery-ui.css" />
+      <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+      <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+      <script>
+        $(".samepage-link").click(function() {
+          var href = $(this).attr('href');
+          var explanation = href + "-explanation";
+          // check if the link is collapsed
+          if (!$(explanation).hasClass('show')) {
+            // if so, expand it
+            $(explanation).collapse('show');
+          }
+          $(href).effect("highlight", 2000);
+        });
+        // https://stackoverflow.com/questions/34617802/load-page-and-highlight-anchor-div-using-jquery-ui
+        $(document).ready(function() {
+          var url = window.location.href; // returns full current url
+          if (url.indexOf("#") == -1) {
+            // if there is no hash in the url, do nothing
+            return;
+          } else {
+            // if there is a hash in the url, highlight the div by id
+            var hash = url.substring(url.indexOf("#"));
+            $(hash).effect("highlight", 2000);
+          }
+        });
+      </script>
     {% endblock inline_javascript %}
   </body>
 </html>

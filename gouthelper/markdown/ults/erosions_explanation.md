@@ -1,0 +1,1 @@
+Erosions are are a sign of chronic joint inflammation from gout and represent permanent damage to the joint. They are an indication for ULT and necessitate aggressive treatment to prevent further joint destruction.

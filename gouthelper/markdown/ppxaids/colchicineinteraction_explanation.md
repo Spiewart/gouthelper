@@ -1,0 +1,1 @@
+Colchicine has <a href='https://www.goodrx.com/colchicine/interactions'>many</a> medication interactions, some of which are more serious than others. If a patient has a colchicine medication interaction, consultation with a physician or a pharmacist is recommended prior to starting colchicine."

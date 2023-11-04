@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block content %}
+  <main>
+    <header class="container">
+      <h1>{{ object.title }}</h1>
+      <p>
+        <small>By {{ object.author }}</small>
+      </p>
+      <p>
+        <small>Published: {{ object.published_date }}
+          {% if object.updated_date %}(Updated: {{ object.updated_date }}){% endif %}
+        </small>
+      </p>
+    </header>
+    <div class="container bodytainer">{{ object.text_rendered|safe }}</div>
+    <footer class="container">
+      <p>
+        <small>Tags:
+          {% for tag in object.tags.all %}
+            <a href="{% url 'pages:blog_tag_list' tag.name %}">{{ tag.name }}</a>
+            {% if not forloop.last %},{% endif %}
+          {% endfor %}
+        </small>
+      </p>
+      <a href="#top">Back to top</a>
+    </footer>
+  </main>
+{% endblock content %}

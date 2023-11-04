@@ -1,0 +1,1 @@
+Allopurinol hypersensitivity syndrome is a potentially life-threatening condition. Any history of allopurinol hypersensitivity should be documented and preclude further use of allopurinol. For less severe cases, some individuals can be de-sensitized to allopurinol. This should be done under the direction of a rheumatologist.

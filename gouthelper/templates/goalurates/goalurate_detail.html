@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>GoalUrate</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'goalurates:about' %}"
+             role="button">About</a>
+          <a type="button"
+             class="btn btn-primary btn-lg mini-button"
+             href="{% url 'goalurates:update' pk=object.pk %}"
+             role="button">Update</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <hr size="3" color="dark" />
+      <div class="row">
+        <div class="col">
+          <h3>{{ object.get_goal_urate_display }}</h3>
+          <p>
+            This is the goal serum uric acid level based on the
+            {% if object.erosions or object.tophi %}
+              presence of
+              {% if object.erosions and object.tophi %}
+                <a class="samepage-link" href="#erosions">erosions</a> and
+                <a class="samepage-link" href="#tophi">tophi</a>
+              {% elif object.tophi %}
+                <a class="samepage-link" href="#tophi">tophi</a>
+              {% elif object.erosions %}
+                <a class="samepage-link" href="#erosions">erosions</a>
+              {% endif %}
+            {% else %}
+              absence
+              <a class="samepage-link" href="#erosions">erosions</a> and
+              <a class="samepage-link" href="#tophi">tophi</a>
+            {% endif %}
+            .
+          </p>
+        </div>
+      </div>
+      <div id="explanations">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Explanations</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            {% include "_explanation.html" with aidtype="GoalUrate" con_obj=tophi id="tophi" label='Tophi' %}
+            {% include "_explanation.html" with aidtype="GoalUrate" con_obj=erosions id="erosions" label='Erosions' %}
+          </div>
+        </div>
+      </div>
+      <a href="#top">Back to top</a>
+    </div>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

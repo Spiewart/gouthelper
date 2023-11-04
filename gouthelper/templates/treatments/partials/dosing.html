@@ -1,0 +1,114 @@
+{% load project_tags %}
+
+<div class="card card-body">
+  <h4 class="card-title">{{ trt }}</h4>
+  <div class="row">
+    {% if trt_dict|get_key:"dose2" %}
+      {% if trt_dict|get_key:"duration2" %}
+        <div class="col-auto">
+          <ul>
+            <li>Dose: {{ trt_dict|get_key:"dose" }} mg</li>
+            <li>Frequency: {{ trt_dict|get_key:"freq" }}</li>
+            {% with trt_dict|get_key:"duration" as duration %}
+              <li>
+                Duration:
+                {{ duration }}
+              </li>
+            {% endwith %}
+          </ul>
+        </div>
+        <div class="col-auto then">
+          <span><strong>then</strong></span>
+        </div>
+        <div class="col-auto">
+          <ul>
+            <li>Dose: {{ trt_dict|get_key:"dose2" }} mg</li>
+            <li>Frequency: {{ trt_dict|get_key:"freq2" }}</li>
+            {% if trt_dict|get_key:"duration2" %}
+              <li>
+                Duration:
+                {% with trt_dict|get_key:"duration2" as duration %}{{ duration }}{% endwith %}
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+      {% else %}
+        <div class="col-auto">
+          <ul>
+            <li>Dose: {{ trt_dict|get_key:"dose2" }} mg</li>
+            <li>Frequency: {{ trt_dict|get_key:"freq2" }}</li>
+            {% if trt_dict|get_key:"duration2" %}
+              <li>
+                Duration:
+                {% with trt_dict|get_key:"duration2" as duration %}{{ duration }}{% endwith %}
+              </li>
+            {% endif %}
+          </ul>
+        </div>
+        <div class="col-auto then">
+          <span><strong>then</strong></span>
+        </div>
+        {% if trt_dict|get_key:"dose3" %}
+          <div class="col-auto">
+            <ul>
+              <li>Dose: {{ trt_dict|get_key:"dose3" }} mg</li>
+              <li>
+                Frequency: {{ trt_dict|get_key:"freq3" }}
+                {% if colchicine %}an hour later{% endif %}
+              </li>
+            </ul>
+          </div>
+          <div class="col-auto then">
+            <span><strong>then</strong></span>
+          </div>
+        {% endif %}
+        <div class="col-auto">
+          <ul>
+            <li>Dose: {{ trt_dict|get_key:"dose" }} mg</li>
+            <li>Frequency: {{ trt_dict|get_key:"freq" }}</li>
+            {% with trt_dict|get_key:"duration" as duration %}
+              {% if duration %}
+                <li>
+                  Duration:
+                  {{ duration }}
+                </li>
+              {% endif %}
+            {% endwith %}
+          </ul>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="col-auto">
+        <ul>
+          <li>Dose: {{ trt_dict|get_key:"dose" }} mg</li>
+          <li>Frequency: {{ trt_dict|get_key:"freq" }}</li>
+          {% with trt_dict|get_key:"duration" as duration %}
+            {% if duration %}
+              <li>
+                Duration:
+                {{ duration }}
+              </li>
+            {% endif %}
+          {% endwith %}
+          {% with trt_dict|get_key:"dose_adj" as dose_adj %}
+            {% if dose_adj and trttype == "Ult" %}
+              <li>Dose adjustment: {{ dose_adj }} mg every 4-6 weeks until uric acid at goal</li>
+              {% if object.dose_adj_xois and trt == "Allopurinol" or trt == "Febuxostat" %}
+                <ul>
+                  <li>
+                    Reduced dosing for <a class="samepage-link" href="#ckd">CKD</a>
+                  </li>
+                </ul>
+              {% endif %}
+            {% endif %}
+          {% endwith %}
+          {% if trttype == "Ppx" %}
+            <li>
+              Take until uric acid <a href="{% url "goalurates:about" %}">at goal</a> for 3-6 months
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+</div>

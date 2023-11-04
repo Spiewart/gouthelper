@@ -80,11 +80,34 @@ THIRD_PARTY_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
+    "rules.apps.AutodiscoverRulesConfig",
+    "django_htmx",
+    "markdownfield",
+    "multiselectfield",
+    "simple_history",
 ]
 
 LOCAL_APPS = [
     "gouthelper.users",
-    # Your stuff: custom apps go here
+    "gouthelper.blog.apps.BlogConfig",
+    "gouthelper.contents.apps.ContentsConfig",
+    "gouthelper.dateofbirths.apps.DateofbirthsConfig",
+    "gouthelper.defaults.apps.DefaultsConfig",
+    "gouthelper.ethnicitys.apps.EthnicitysConfig",
+    "gouthelper.flareaids.apps.FlareaidsConfig",
+    "gouthelper.flares.apps.FlaresConfig",
+    "gouthelper.genders.apps.GendersConfig",
+    "gouthelper.goalurates.apps.GoaluratesConfig",
+    "gouthelper.medallergys.apps.MedallergysConfig",
+    "gouthelper.medhistorys.apps.MedhistorysConfig",
+    "gouthelper.medhistorydetails.apps.MedhistorydetailsConfig",
+    "gouthelper.labs.apps.LabsConfig",
+    "gouthelper.ppxs.apps.PpxsConfig",
+    "gouthelper.ppxaids.apps.PpxaidsConfig",
+    # "gouthelper.profiles.apps.ProfilesConfig",
+    "gouthelper.treatments.apps.TreatmentsConfig",
+    "gouthelper.ults.apps.UltsConfig",
+    "gouthelper.ultaids.apps.UltaidsConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -100,6 +123,7 @@ MIGRATION_MODULES = {"sites": "gouthelper.contrib.sites.migrations"}
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
+    "rules.permissions.ObjectPermissionBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
 AUTH_USER_MODEL = "users.User"
@@ -140,6 +164,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
 ]
 
 # STATIC
@@ -187,6 +213,10 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "gouthelper.users.context_processors.allauth_settings",
             ],
+            "libraries": {
+                "project_tags": "gouthelper.template_tags",
+                "admin.urls": "django.contrib.admin.templatetags.admin_urls",
+            },
         },
     }
 ]
@@ -253,6 +283,13 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         }
+    },
+    "loggers": {
+        "rules": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }

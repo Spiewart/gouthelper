@@ -1,0 +1,35 @@
+{% load project_tags %}
+
+<div class="card card-body" id="{{ id }}-warning">
+  {% block heading %}
+    <div class="row">
+      <div class="col">
+        <h4 class="card-title">
+          <a class="samepage-link" href="#{{ id }}">{{ label }}</a>
+          {% if id == "hlab5801" %}
+            {% if object|getattribute:id.value %}
+              (+)
+            {% elif object|getattribute:id == None %}
+              (unknown)
+            {% else %}
+              (-)
+            {% endif %}
+          {% else %}
+            {% if object|getattribute:id %}
+              (+)
+            {% else %}
+              (-)
+            {% endif %}
+          {% endif %}
+        </h4>
+      </div>
+    </div>
+  {% endblock heading %}
+  {% block text %}
+    <div class="row">
+      <div class="col">
+        <p class="card-text">{{ paragraph }}</p>
+      </div>
+    </div>
+  {% endblock text %}
+</div>

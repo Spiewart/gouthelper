@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>ULT</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'ults:about' %}"
+             role="button">About</a>
+          <a type="button"
+             class="btn btn-primary btn-lg mini-button"
+             href="{% url 'ults:update' pk=object.pk %}"
+             role="button">Update</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <hr size="3" color="dark" />
+      <div id="recommendation">
+        <div class="row">
+          <div class="col">
+            <div class="card card-body">
+              <h3 div class="card-title">
+                <b><u>{{ object.get_indication_display }}</u></b>
+              </h3>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card card-body">
+              {% if object.indicated %}
+                {% if object.strong_indication %}
+                  <h3 class="card-title">Indications</h3>
+                  <ul>
+                    {% if object.frequentflares %}
+                      <li>
+                        <a class="samepage-link" href=#frequentflares>Frequent Flares</a> (>2 / year)
+                      </li>
+                    {% endif %}
+                    {% if object.erosions %}
+                      <li>
+                        <a class="samepage-link" href=#erosions>Erosions</a>
+                      </li>
+                    {% endif %}
+                    {% if object.tophi %}
+                      <li>
+                        <a class="samepage-link" href=#tophi>Tophi</a>
+                      </li>
+                    {% endif %}
+                  </ul>
+                {% elif object.conditional_indication %}
+                  <h3 class="card-title">Conditional Indications</h3>
+                  <ul>
+                    {% if object.multipleflares %}
+                      <li>
+                        <a class="samepage-link" href=#multipleflares>Multiple Flares</a>
+                      </li>
+                    {% elif object.first_flare_plus %}
+                      {% if object.ckddetail.stage >= 3 %}
+                        <li>
+                          1st Flare + <a class="samepage-link" href="#ckd">CKD</a> {{ object.ckddetail.get_stage_display }}
+                        </li>
+                      {% endif %}
+                      {% if object.uratestones %}
+                        <li>
+                          1st Flare + <a class="samepage-link" href=#uratestones>Urate Stones</a>
+                        </li>
+                      {% endif %}
+                      {% if object.hyperuricemia %}
+                        <li>
+                          1st Flare + <a class="samepage-link" href=#hyperuricemia>Hyperuricemia</a>
+                        </li>
+                      {% endif %}
+                    {% endif %}
+                  </ul>
+                {% endif %}
+              {% else %}
+                <h3 class="card-title">Contraindications</h3>
+                <ul>
+                  {% if object.firstflare %}
+                    <li>
+                      <a class="samepage-link" href=#firstflare>1st Flare</a>
+                    </li>
+                  {% elif object.noflares %}
+                    <li>
+                      <a class="samepage-link" href=#noflares>No Flares</a>
+                    </li>
+                  {% endif %}
+                </ul>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="explanations">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Explanations</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <h4>
+              <b><u><a href="{% url 'ults:about' %}#strong">Strong Indications</a></u></b>
+            </h4>
+            {% include "_explanation.html" with aidtype="Ult" con_obj=frequentflares id="frequentflares" label="Frequent Flares" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=erosions id="erosions" label="Erosions" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=tophi id="tophi" label="Tophi" %}
+            <h4>
+              <b><u><a href="{% url 'ults:about' %}#conditional">Conditional Indications</a></u></b>
+            </h4>
+            {% include "_explanation.html" with aidtype="Ult" con_obj=multipleflares id="multipleflares" label="Multiple Flares" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=ckd id="ckd" label="CKD" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=hyperuricemia id="hyperuricemia" label="Hyperuricemia" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=uratestones id="uratestones" label="Urate Nephrolithiasis" %}
+            <h4>
+              <b><u><a href="{% url 'ults:about' %}#notindicated">Not Indicateds</a></u></b>
+            </h4>
+            {% include "_explanation.html" with aidtype="Ult" con_obj=noflares id="noflares" label="No Flares" %}
+            {% include "_explanation.html" with aidtype="Ult" con_obj=firstflare id="firstflare" label="First Flare" %}
+          </div>
+        </div>
+      </div>
+      <a href="#top">Back to top</a>
+    </div>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

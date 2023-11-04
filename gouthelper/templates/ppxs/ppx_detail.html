@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block content %}
+  <main role="main">
+    <header class="container">
+      <div class="row">
+        <div class="col">
+          <h2>Ppx</h2>
+        </div>
+        <div class="col">
+          <a type="button"
+             class="btn btn-primary btn-lg"
+             href="{% url 'ppxs:about' %}"
+             role="button">About</a>
+          <a type="button"
+             class="btn btn-primary btn-lg mini-button"
+             href="{% url 'ppxs:update' pk=object.pk %}"
+             role="button">Update</a>
+        </div>
+      </div>
+    </header>
+    <div class="container bodytainer">
+      <hr size="3" color="dark" />
+      <div id="indication">
+        <div class="row">
+          <div class="col">
+            <div class="card card-body">
+              <h3 class="card-title">
+                <u>Indication</u>: <strong>{{ object.get_indication_display }}</strong>
+              </h3>
+              <p class="card-text">{% include "ppxs/_indication_explanation.html" %}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="recommendation">
+        <hr size="3" color="dark" />
+        {% include 'ppxs/_recommendation.html' %}
+      </div>
+      <div id="details">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">{% include "ppxs/_details.html" %}</div>
+        </div>
+      </div>
+      {% if object.labs_qs %}
+        <div id="urates">
+          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <div class="card card-body">
+                <h3 class="card-title">
+                  <u>Urates</u>
+                </h3>
+                <ol>
+                  {% for lab in object.labs_qs %}<li>{{ lab }} - {{ lab.date.date }}</li>{% endfor %}
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+      <div id="explanations">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Explanations</u>
+            </h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=gout id="gout" label="Gout" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ppx id="on_ppx" label="Already On PPx" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ult id="on_ult" label="Already On ULT" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=starting_ult id="starting_ult" label="Starting ULT" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=flaring id="flaring" label="Flaring" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=at_goal id="at_goal" label="At Goal" %}
+            {% include "_explanation.html" with aidtype="Ppx" con_obj=hyperuricemic id="hyperuricemic" label="Hyperuricemic" %}
+          </div>
+        </div>
+      </div>
+      <a href="#top">Back to top</a>
+    </div>
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $(".collapse-toggle").each(function() {
+        check_plusminus($(this).attr('id'));
+      })
+      $('.collapse-explanation').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse-explanation').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

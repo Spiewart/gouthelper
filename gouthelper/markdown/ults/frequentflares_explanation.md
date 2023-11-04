@@ -1,0 +1,1 @@
+Having frequent gout flares, defined as 2 or more per year, is a strong indication for ULT. This is due to the severe disability associated with gout flares and the high likelihood of recurrent flares in the future.

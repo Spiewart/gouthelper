@@ -1,0 +1,1 @@
+Having a history of gout is a risk factor for having more gout flares. This is supported by the Gout Diagnostic Rule study. This being said, everyone has gout has to have their first flare at some point.

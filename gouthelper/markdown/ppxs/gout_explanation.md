@@ -1,0 +1,1 @@
+Having a history of gout is sort of a pre-requisite for starting ULT and prophylaxis. As described in [About PPX](/ppxs/about/), the evidence supporting prophylaxis is for individuals who are _starting_ ULT. Individuals who are already on ULT and whose uric acid is not at goal are not specifically commented on in the 2020 ACR guidelines.

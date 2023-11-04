@@ -1,0 +1,1 @@
+Hyperuricemia, defined as a serum uric acid of 9.0 mg/dL, is a conditional indication for ULT in individuals with their first gout flare. This is due to the higher likelihood of frequent flares in the future than in a patient with his or her first flare without hyperuricemia.

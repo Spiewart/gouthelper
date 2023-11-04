@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container bodytainer">
+    <div class="row">
+      <div class="col">
+        <h1 class="text-center">Treatment Pickers</h1>
+        {% include "flareaids/card.html" %}
+        {% include "ppxaids/card.html" %}
+        {% include "ultaids/card.html" %}
+      </div>
+      <div class="col">
+        <h1 class="text-center">Decision Aids</h1>
+        {% include "flares/card.html" %}
+        {% include "ults/card.html" %}
+        {% include "goalurates/card.html" %}
+      </div>
+    </div>
+  </div>
+{% endblock content %}
