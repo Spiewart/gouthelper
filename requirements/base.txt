@@ -7,7 +7,7 @@ hiredis==2.2.3  # https://github.com/redis/hiredis-py
 rules==3.3.0 #https://github.com/dfunckt/django-rules
 # Django
 # ------------------------------------------------------------------------------
-django==4.2.6  # pyup: < 5.0  # https://www.djangoproject.com/
+django==4.2.7  # pyup: < 5.0  # https://www.djangoproject.com/
 django-autoslug==1.9.9 # https://django-autoslug.readthedocs.io/en/latest/#
 django-environ==0.11.2  # https://github.com/joke2k/django-environ
 django-model-utils==4.3.1  # https://github.com/jazzband/django-model-utils
