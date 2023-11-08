@@ -20,7 +20,6 @@ urlpatterns = [
     path("goalurates/", include("gouthelper.goalurates.urls", namespace="goalurates")),
     path("ppxaids/", include("gouthelper.ppxaids.urls", namespace="ppxaids")),
     path("ppxs/", include("gouthelper.ppxs.urls", namespace="ppxs")),
-    path("treatments/", include("gouthelper.treatments.urls", namespace="treatments")),
     path("ultaids/", include("gouthelper.ultaids.urls", namespace="ultaids")),
     path("ults/", include("gouthelper.ults.urls", namespace="ults")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

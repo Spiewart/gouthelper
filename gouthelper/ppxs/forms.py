@@ -3,7 +3,7 @@ from crispy_forms.layout import Div, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..medhistorys.models import MedHistoryTypes
-from ..utils.form_helpers import forms_helper_insert_medhistory, forms_helper_insert_urates_formset
+from ..utils.helpers.form_helpers import forms_helper_insert_medhistory, forms_helper_insert_urates_formset
 from .models import Ppx
 
 
@@ -20,7 +20,6 @@ class PpxForm(
             "indication",
             "labs",
             "medhistorys",
-            "uptodate",
             "user",
         )
 

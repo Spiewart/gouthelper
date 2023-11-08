@@ -9,7 +9,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
-from ..utils.aid_helpers import aids_json_to_trt_dict, aids_options
+from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .services import PpxAidDecisionAid
 
@@ -105,7 +105,7 @@ class PpxAid(
                             return None
 
     def update(self, decisionaid: PpxAidDecisionAid | None = None, qs: Union["PpxAid", None] = None) -> "PpxAid":
-        """Updates PpxAid decisionaid JSON field and uptodate field.
+        """Updates PpxAid decisionaid JSON field field.
 
         Args:
             decisionaid (PpxAidDecisionAid, optional): PpxAidDecisionAid object. Defaults to None.

@@ -79,8 +79,6 @@ class MedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=R
     objects = models.Manager()
 
     def __str__(self):
-        if self.user:
-            return f"{self.user.username}'s {self.MedHistoryTypes(self.medhistorytype).label}"
         return f"{self.MedHistoryTypes(self.medhistorytype).label}"
 
     def delete(

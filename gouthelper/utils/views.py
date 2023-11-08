@@ -6,7 +6,6 @@ from django.views.generic import CreateView, UpdateView  # type: ignore
 from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
-from ..defaults.selectors import defaults_defaultmedhistorys_trttype_user
 from ..genders.choices import Genders
 from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
@@ -142,17 +141,8 @@ class MedHistorysModelCreateView(CreateView):
             self.create_medallergy_qs(object=self.object, medallergys=medallergys_to_add)
         if self.medhistorys:
             if medhistorys_to_add:
-                default_medhistorys = defaults_defaultmedhistorys_trttype_user(
-                    medhistorys=medhistorys_to_add, user=None
-                )
                 for medhistory in medhistorys_to_add:
-                    medhistory.save(
-                        default_medhistorys=[
-                            default
-                            for default in default_medhistorys
-                            if default.medhistorytype == medhistory.medhistorytype
-                        ]
-                    )
+                    medhistory.save()
             for medhistorydetail in medhistorydetails_to_add:
                 medhistorydetail.save()
             # Create and populate the medhistory_qs attribute on the object
@@ -520,13 +510,13 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         # Save the OneToOne related models
         if self.onetoones:
             for onetoone in onetoones_to_save:
-                onetoone.save(updating=self.object)
+                onetoone.save()
             for onetoone in onetoones_to_delete:
-                onetoone.delete(updating=self.object)
+                onetoone.delete()
         if self.medallergys:
             # Modify and remove medallergys from the object
             for medallergy in medallergys_to_add:
-                medallergy.save(updating=self.object)
+                medallergy.save()
             # Create and populate the medallegy_qs attribute on the object
             self.create_medallergy_qs(object=self.object, medallergys=medallergys_to_add)
             for medallergy in medallergys_to_remove:
@@ -535,20 +525,10 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             # Modify and remove medhistorydetails from the object
             # Add and remove medhistorys from the object
             if medhistorys_to_add:
-                default_medhistorys = defaults_defaultmedhistorys_trttype_user(
-                    medhistorys=medhistorys_to_add, user=None
-                )
                 for medhistory in medhistorys_to_add:
-                    medhistory.save(
-                        default_medhistorys=[
-                            default
-                            for default in default_medhistorys
-                            if default.medhistorytype == medhistory.medhistorytype
-                        ],
-                        updating=self.object,
-                    )
+                    medhistory.save()
             for medhistorydetail in medhistorydetails_to_add:
-                medhistorydetail.save(updating=self.object)
+                medhistorydetail.save()
             # Create and populate the medhistory_qs attribute on the object
             self.create_medhistory_qs(object=self.object, medhistorys=medhistorys_to_add)
             for medhistory in medhistorys_to_remove:
@@ -556,10 +536,10 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         if self.labs:
             # Modify and remove labs from the object
             for lab in labs_to_add:
-                lab.save(updating=self.object)
+                lab.save()
             # Save the labs to be updated
             for lab in labs_to_update:
-                lab.save(updating=self.object)
+                lab.save()
             # Combine the labs_to_add and labs_to_update lists
             labs_to_add.extend(labs_to_update)
             # Create and populate the labs_qs attribute on the object
@@ -568,16 +548,18 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         if self.medallergys:
             self.saved_object.add_medallergys(medallergys=medallergys_to_add, commit=False)
             self.saved_object.remove_medallergys(
-                medallergys=medallergys_to_remove, commit=False, updating=self.saved_object
+                medallergys=medallergys_to_remove,
+                commit=False,
             )
         if self.medhistorys:
             self.saved_object.add_medhistorys(medhistorys=medhistorys_to_add, commit=False)
             self.saved_object.remove_medhistorys(
-                medhistorys=medhistorys_to_remove, commit=False, updating=self.saved_object
+                medhistorys=medhistorys_to_remove,
+                commit=False,
             )
         if self.labs:
             self.saved_object.add_labs(labs=labs_to_add, commit=False)
-            self.saved_object.remove_labs(labs=labs_to_remove, commit=False, updating=self.saved_object)
+            self.saved_object.remove_labs(labs=labs_to_remove, commit=False)
         # Update the DecisionAidModel by calling the update method with the QuerySet
         # of the object, which will hopefully have been annotated by the view to
         # include the related models
@@ -1068,17 +1050,11 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         labs_to_remove: list["Lab"] = []
         labs_to_update: list["Lab"] = []
         if lab_formset:
-            print("cleaned data")
-            print(lab_formset.cleaned_data)
-            print("deleted forms")
-            print(lab_formset.deleted_forms)
             # Iterate over the object's existing labs
             for lab in self.object.labs_qs:
-                print(lab)
                 cleaned_data = lab_formset.cleaned_data
                 # Check if the lab is not in the formset's cleaned_data list by id key
                 for lab_form in cleaned_data:
-                    print(lab_form)
                     try:
                         if lab_form["id"] == lab:
                             # Check if the form is not marked for deletion
@@ -1102,7 +1078,6 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                     # If there's a value but no instance, add the form's instance to the labs_to_add list
                     elif form.instance is None:
                         labs_to_add.append(form.instance)
-        print(labs_to_remove)
         return labs_to_add, labs_to_remove, labs_to_update
 
     def post(self, request, *args, **kwargs):

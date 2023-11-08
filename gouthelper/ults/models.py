@@ -187,7 +187,7 @@ class Ult(
         return False
 
     def update(self, decisionaid: UltDecisionAid | None = None, qs: Union["Ult", None] = None) -> "Ult":
-        """Updates Ult indication and uptodate field.
+        """Updates Ult indication field.
 
         Args:
             decisionaid (UltDecisionAid, optional): UltDecisionAid object. Defaults to None.

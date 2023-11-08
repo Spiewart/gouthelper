@@ -63,8 +63,9 @@ class GoalUrate(
         self,
         qs: Union["GoalUrate", None] = None,
     ) -> "GoalUrate":
-        """Method that updates the uptodate field to True and sets the goal_urate
+        """Method that sets the goal_urate
         depending on whether or not tophi or erosions are present."""
+        updated = False
         if qs:
             if qs.medhistorys_qs:
                 if self.goal_urate != GoalUrates.FIVE:

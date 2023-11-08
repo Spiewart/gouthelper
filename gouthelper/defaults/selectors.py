@@ -8,7 +8,6 @@ from ..treatments.choices import Treatments, TrtTypes
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
-    from ..medhistorys.choices import MedHistoryTypes
     from ..medhistorys.models import MedHistory
     from ..users.models import User
 
@@ -125,94 +124,6 @@ def defaults_defaultmedhistorys_trttype(
         .distinct(
             "medhistorytype",
             "treatment",
-            "trttype",
-        )
-    )
-
-
-def defaults_defaultmedhistory_trttype_user(medhistory: "MedHistory", user: Union["User", None]) -> "QuerySet":
-    """QuerySet that takes a MedHistory and a User and returns a QuerySet between 0 and 3 in length,
-    fetches a single DefaultMedhistory object for each trttype match with the MedHistory.
-    For processing MedHistory objects' save() and delete() methods, which will modify the User's
-    PatientProfile flareaid/ppxaid/ultaid_uptodate fields to be False.
-
-    Args:
-        medhistory (MedHistory): MedHistory object
-        user (User): optional User object
-
-    Returns: QuerySet
-    """
-    return (
-        apps.get_model("defaults.DefaultMedHistory")
-        .objects.filter((Q(user=user) | Q(user=None)) & Q(medhistorytype=medhistory.medhistorytype))
-        .order_by(
-            "medhistorytype",
-            "trttype",
-            "user",
-        )
-        .distinct(
-            "medhistorytype",
-            "trttype",
-        )
-    )
-
-
-def defaults_defaultmedhistorys_trttype_user(
-    medhistorys: Union["QuerySet[MedHistory]", list["MedHistory"]], user: Union["User", None]
-) -> "QuerySet":
-    """QuerySet that takes a MedHistory and a User and returns a QuerySet between 0 and 3 in length,
-    fetches a single DefaultMedhistory object for each trttype match with the MedHistory.
-    For processing MedHistory objects' save() and delete() methods, which will modify the User's
-    PatientProfile flareaid/ppxaid/ultaid_uptodate fields to be False.
-
-    Args:
-        medhistory (MedHistory): MedHistory object
-        user (User): optional User object
-
-    Returns: QuerySet
-    """
-    medhistorytypes_Q = Q()
-    for medhistory in medhistorys:
-        medhistorytypes_Q |= Q(medhistorytype=medhistory.medhistorytype)
-    return (
-        apps.get_model("defaults.DefaultMedHistory")
-        .objects.filter((Q(user=user) | Q(user=None)) & medhistorytypes_Q)
-        .order_by(
-            "medhistorytype",
-            "trttype",
-            "user",
-        )
-        .distinct(
-            "medhistorytype",
-            "trttype",
-        )
-    )
-
-
-def defaults_defaultmedhistorytype_trttype_user(
-    medhistorytype: "MedHistoryTypes", user: Union["User", None]
-) -> "QuerySet":
-    """QuerySet that takes a MedHistoryTypes enum and a User and returns a QuerySet between 0 and 3 in length,
-    fetches a single DefaultMedhistory object for each trttype match with the MedHistoryTypes.
-    For processing MedHistory objects' save() and delete() methods, which will modify the User's
-    PatientProfile flareaid/ppxaid/ultaid_uptodate fields to be False.
-
-    Args:
-        medhistorytype (MedHistoryTypes): MedHistoryTypes enum object
-        user (User): optional User object
-
-    Returns: QuerySet
-    """
-    return (
-        apps.get_model("defaults.DefaultMedHistory")
-        .objects.filter((Q(user=user) | Q(user=None)) & Q(medhistorytype=medhistorytype))
-        .order_by(
-            "medhistorytype",
-            "trttype",
-            "user",
-        )
-        .distinct(
-            "medhistorytype",
             "trttype",
         )
     )

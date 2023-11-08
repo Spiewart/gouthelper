@@ -21,7 +21,7 @@
       <p>
         <small>Tags:
           {% for tag in object.tags.all %}
-            <a href="{% url 'pages:blog_tag_list' tag.name %}">{{ tag.name }}</a>
+            <a href="{% url 'blog:blog_tag_list' tag.name %}">{{ tag.name }}</a>
             {% if not forloop.last %},{% endif %}
           {% endfor %}
         </small>

@@ -1,11 +1,11 @@
-from datetime import timedelta
+from datetime import timedelta  # type: ignore
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.utils import timezone  # type: ignore
 
-from ..choices.defaults import GoalUrates
 from ..genders.choices import Genders
+from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
 from .choices import LabTypes, LowerLimits, Units
 from .dicts import LABS_LABTYPES_LOWER_LIMITS, LABS_LABTYPES_UNITS, LABS_LABTYPES_UPPER_LIMITS

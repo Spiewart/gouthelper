@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
-from ..lists.medhistorys import ULT_MEDHISTORYS
+from ..medhistorys.lists import ULT_MEDHISTORYS
 
 if TYPE_CHECKING:
     from uuid import UUID

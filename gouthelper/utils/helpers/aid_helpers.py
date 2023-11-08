@@ -3,14 +3,13 @@ from typing import TYPE_CHECKING, Union
 
 from django.core.serializers.json import DjangoJSONEncoder  # type: ignore
 
-from ..dateofbirths.helpers import age_calc
-from ..defaults.helpers import defaults_treatments_create_dosing_dict
-from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
-from ..helpers import duration_decimal_parser
-from ..medhistorydetails.choices import DialysisChoices, Stages
-from ..medhistorys.choices import Contraindications, MedHistoryTypes
-from ..medhistorys.dicts import CVD_CONTRAS
-from ..treatments.choices import (
+from ...dateofbirths.helpers import age_calc
+from ...defaults.helpers import defaults_treatments_create_dosing_dict
+from ...ethnicitys.helpers import ethnicitys_hlab5801_risk
+from ...medhistorydetails.choices import DialysisChoices, Stages
+from ...medhistorys.choices import Contraindications, MedHistoryTypes
+from ...medhistorys.dicts import CVD_CONTRAS
+from ...treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
     Freqs,
@@ -19,17 +18,18 @@ from ..treatments.choices import (
     Treatments,
     TrtTypes,
 )
+from .helpers import duration_decimal_parser
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
-    from ..dateofbirths.models import DateOfBirth
-    from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
-    from ..ethnicitys.models import Ethnicity
-    from ..labs.models import BaselineCreatinine, Hlab5801
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.models import CkdDetail, GoutDetail
-    from ..medhistorys.models import Ckd, MedHistory
+    from ...dateofbirths.models import DateOfBirth
+    from ...defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
+    from ...ethnicitys.models import Ethnicity
+    from ...labs.models import BaselineCreatinine, Hlab5801
+    from ...medallergys.models import MedAllergy
+    from ...medhistorydetails.models import CkdDetail, GoutDetail
+    from ...medhistorys.models import Ckd, MedHistory
 
 
 def aids_assign_userless_baselinecreatinine(

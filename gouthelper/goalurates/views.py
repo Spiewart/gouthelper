@@ -2,13 +2,12 @@ from typing import TYPE_CHECKING, Any
 
 from django.apps import apps  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.db.models import Q  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
 
+from ..contents.choices import Contexts
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
-from ..pages.choices import Contexts
 from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import GoalUrateForm
 from .models import GoalUrate
@@ -25,12 +24,12 @@ class GoalUrateAbout(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"page": self.page})
+        context.update({"content": self.content})
         return context
 
     @property
-    def page(self):
-        return apps.get_model("pages.Page").objects.get(slug="about", context=Contexts.GOALURATE, tag=None)
+    def content(self):
+        return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.GOALURATE, tag=None)
 
 
 class GoalUrateBase(View):
@@ -119,8 +118,8 @@ class GoalUrateDetail(DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for page in self.pages:
-            context.update({page.slug: {page.tag: page}})  # type: ignore
+        for content in self.contents:
+            context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
     def get_queryset(self) -> "QuerySet[Any]":
@@ -128,13 +127,12 @@ class GoalUrateDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> GoalUrate:
         goalurate: GoalUrate = super().get_object(*args, **kwargs)  # type: ignore
-        if goalurate.uptodate is False:
-            goalurate.update()
+        goalurate.update(qs=goalurate)
         return goalurate
 
     @property
-    def pages(self):
-        return apps.get_model("pages.Page").objects.filter(Q(tag__isnull=False), context=Contexts.GOALURATE)
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE)
 
 
 class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageMixin):

@@ -11,7 +11,6 @@ from ..choices import BOOL_CHOICES
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
-from ..helpers import now_date
 from ..medallergys.helpers import (
     medallergys_allopurinol_allergys,
     medallergys_colchicine_allergys,
@@ -45,12 +44,13 @@ from ..medhistorys.helpers import (
 )
 from ..treatments.choices import NsaidChoices
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from .aid_helpers import (
+from .helpers.aid_helpers import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
     aids_probenecid_ckd_contra,
     aids_xois_ckd_contra,
 )
+from .helpers.helpers import now_date
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -58,18 +58,11 @@ if TYPE_CHECKING:
     from ..dateofbirths.models import DateOfBirth
     from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
     from ..ethnicitys.models import Ethnicity
-    from ..flareaids.models import FlareAid
-    from ..flares.models import Flare
-    from ..goalurates.models import GoalUrate
     from ..labs.models import BaselineCreatinine, Hlab5801, Lab
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
-    from ..ppxaids.models import PpxAid
-    from ..ppxs.models import Ppx
     from ..treatments.choices import Treatments
-    from ..ultaids.models import UltAid
-    from ..ults.models import Ult
     from ..users.models import User
 
 
@@ -219,7 +212,7 @@ class DecisionAidModel(models.Model):
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Method that returns DefaultUltTrtSettings object from the objects user
         attribute/property or the Gouthelper default if User doesn't exist."""
-        return defaults_defaultulttrtsettings(user=self.user)
+        return defaults_defaultulttrtsettings(user=None)
 
     @cached_property
     def diabetes(self) -> Union["MedHistory", None]:
@@ -500,9 +493,7 @@ class DecisionAidModel(models.Model):
 
 
 class LabAidModel(models.Model):
-    """Abstract base model to add labs to a model without a User.
-    Also adds methods to add and remove labs that change the uptodate
-    field to False."""
+    """Abstract base model to add labs to a model without a User."""
 
     class Meta:
         abstract = True
@@ -525,15 +516,9 @@ class LabAidModel(models.Model):
         Returns: None"""
         for lab in labs:
             if lab.labtype in self.__class__.aid_labs():  # type: ignore
-                if lab.user is not None:
-                    raise ValueError(f"{lab} has a User and shouldn't be added with this method.")
-                elif self.user is not None:
-                    raise ValueError(f"{self} has a User {lab} and shouldn't be added with this method.")
                 self.labs.add(lab)
             else:
                 raise TypeError(f"{lab} is not a valid Lab for {self}")
-        if self.uptodate is not False:
-            self.uptodate = False
         if commit:
             self.full_clean()
             self.save()
@@ -542,7 +527,6 @@ class LabAidModel(models.Model):
         self,
         labs: list["Lab"],
         commit: bool = True,
-        updating: Union["FlareAid", "Flare", "GoalUrate", "Ppx", "PpxAid", "UltAid", "Ult", None] = None,
     ) -> None:
         """Method that removes a list of labs to a DecisionAid without a User.
 
@@ -553,23 +537,15 @@ class LabAidModel(models.Model):
 
         Returns: None"""
         for lab in labs:
-            if lab.user is not None:
-                raise ValueError(f"{lab} has a User and shouldn't be removed with this method.")
-            elif self.user is not None:
-                raise ValueError(f"{self} has a User and {lab} shouldn't be removed with this method.")
             self.labs.remove(lab)
-            lab.delete(updating=updating)
-        if self.uptodate is not False:
-            self.uptodate = False
+            lab.delete()
         if commit:
             self.full_clean()
             self.save()
 
 
 class MedAllergyAidModel(models.Model):
-    """Abstract base model to add medallergys to a DecisionAid without a User.
-    Also adds methods to add and remove medallergys that change the uptodate
-    field to False."""
+    """Abstract base model to add medallergys to a DecisionAid without a User."""
 
     class Meta:
         abstract = True
@@ -591,13 +567,7 @@ class MedAllergyAidModel(models.Model):
 
         Returns: None"""
         for medallergy in medallergys:
-            if medallergy.user is not None:
-                raise ValueError(f"{medallergy} has a User and shouldn't be added with this method.")
-            elif self.user is not None:
-                raise ValueError(f"{self} has a User and {medallergy} shouldn't be added with this method.")
             self.medallergys.add(medallergy)
-        if self.uptodate is not False:
-            self.uptodate = False
         if commit:
             self.full_clean()
             self.save()
@@ -606,7 +576,6 @@ class MedAllergyAidModel(models.Model):
         self,
         medallergys: list["MedAllergy"],
         commit=True,
-        updating: Union["FlareAid", "Flare", "GoalUrate", "Ppx", "PpxAid", "UltAid", "Ult", None] = None,
     ) -> None:
         """Method that removes a list of medallergys to a UltAid without a User.
 
@@ -616,23 +585,15 @@ class MedAllergyAidModel(models.Model):
 
         Returns: None"""
         for medallergy in medallergys:
-            if medallergy.user is not None:
-                raise ValueError(f"{medallergy} has a User and shouldn't be removed with this method.")
-            elif self.user is not None:
-                raise ValueError(f"{self} has a User and {medallergy} shouldn't be removed with this method.")
             self.medallergys.remove(medallergy)
-            medallergy.delete(updating=updating)
-        if self.uptodate is not False:
-            self.uptodate = False
+            medallergy.delete()
         if commit:
             self.full_clean()
             self.save()
 
 
 class MedHistoryAidModel(models.Model):
-    """Abstract base model to add medhistorys to a model without a User.
-    Also adds methods to add and remove medhistorys that change the uptodate
-    field to False."""
+    """Abstract base model to add medhistorys to a model without a User."""
 
     class Meta:
         abstract = True
@@ -655,15 +616,9 @@ class MedHistoryAidModel(models.Model):
         Returns: None"""
         for medhistory in medhistorys:
             if medhistory.medhistorytype in self.__class__.aid_medhistorys():  # type: ignore
-                if medhistory.user is not None:
-                    raise ValueError(f"{medhistory} has a User and shouldn't be added with this method.")
-                elif self.user is not None:
-                    raise ValueError(f"{self} has a User {medhistory} and shouldn't be added with this method.")
                 self.medhistorys.add(medhistory)
             else:
                 raise TypeError(f"{medhistory} is not a valid MedHistory for {self}")
-        if self.uptodate is not False:
-            self.uptodate = False
         if commit:
             self.full_clean()
             self.save()
@@ -672,7 +627,6 @@ class MedHistoryAidModel(models.Model):
         self,
         medhistorys: list["MedHistory"],
         commit: bool = True,
-        updating: Union["FlareAid", "Flare", "GoalUrate", "Ppx", "PpxAid", "UltAid", "Ult", None] = None,
     ) -> None:
         """Method that removes a list of medhistorys to a UltAid without a User.
 
@@ -683,14 +637,8 @@ class MedHistoryAidModel(models.Model):
 
         Returns: None"""
         for medhistory in medhistorys:
-            if medhistory.user is not None:
-                raise ValueError(f"{medhistory} has a User and shouldn't be removed with this method.")
-            elif self.user is not None:
-                raise ValueError(f"{self} has a User and {medhistory} shouldn't be removed with this method.")
             self.medhistorys.remove(medhistory)
-            medhistory.delete(updating=updating)
-        if self.uptodate is not False:
-            self.uptodate = False
+            medhistory.delete()
         if commit:
             self.full_clean()
             self.save()

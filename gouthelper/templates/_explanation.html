@@ -48,7 +48,7 @@
          id="{{ id }}-explanation">
       <div class="row">
         <div class="col">
-          {% with con_obj|get_key:"explanation" as page %}{{ page.text_rendered|safe }}{% endwith %}
+          {% with con_obj|get_key:"explanation" as content %}{{ content.text_rendered|safe }}{% endwith %}
         </div>
       </div>
     </div>

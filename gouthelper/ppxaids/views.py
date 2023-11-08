@@ -4,6 +4,7 @@ from django.apps import apps  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
 
+from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderFormOptional
@@ -43,7 +44,6 @@ from ..medhistorys.models import (
     Pvd,
     Stroke,
 )
-from ..pages.choices import Contexts
 from ..treatments.choices import FlarePpxChoices
 from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import PpxAidForm
@@ -61,12 +61,12 @@ class PpxAidAbout(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"page": self.page})
+        context.update({"content": self.content})
         return context
 
     @property
-    def page(self):
-        return apps.get_model("pages.Page").objects.get(slug="about", context=Contexts.PPXAID, tag=None)
+    def content(self):
+        return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.PPXAID, tag=None)
 
 
 class PpxAidBase(View):
@@ -148,8 +148,8 @@ class PpxAidDetail(DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for page in self.pages:
-            context.update({page.slug: {page.tag: page}})  # type: ignore
+        for content in self.contents:
+            context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
     def get_queryset(self) -> "QuerySet[Any]":
@@ -157,13 +157,12 @@ class PpxAidDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> PpxAid:
         ppxaid: PpxAid = super().get_object(*args, **kwargs)  # type: ignore
-        if ppxaid.uptodate is False:
-            ppxaid.update()
+        ppxaid.update(qs=ppxaid)
         return ppxaid
 
     @property
-    def pages(self):
-        return apps.get_model("pages.Page").objects.filter(context=Contexts.PPXAID)
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPXAID)
 
 
 class PpxAidUpdate(PpxAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):

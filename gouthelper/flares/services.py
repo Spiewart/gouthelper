@@ -7,7 +7,7 @@ from ..medhistorys.helpers import (
     medhistorys_get_gout,
     medhistorys_get_menopause,
 )
-from ..utils.aid_helpers import aids_assign_userless_baselinecreatinine, aids_assign_userless_ckddetail
+from ..utils.helpers.aid_helpers import aids_assign_userless_baselinecreatinine, aids_assign_userless_ckddetail
 from .helpers import (
     flares_calculate_likelihood,
     flares_calculate_prevalence,
@@ -46,7 +46,7 @@ class FlareDecisionAid:
         self.menopause = medhistorys_get_menopause(medhistorys=self.medhistorys)
 
     def _update(self, commit=True) -> "Flare":
-        """Updates the Flare likelihood, prevalence, and uptodate fields.
+        """Updates the Flare likelihood and prevalence fields.
 
         Args:
             commit (bool): defaults to True, True will clean/save, False will not

@@ -10,7 +10,7 @@ from ..defaults.selectors import (
     defaults_defaulttrts_trttype,
 )
 from ..treatments.choices import FlarePpxChoices, TrtTypes
-from ..utils.aid_helpers import (
+from ..utils.helpers.aid_helpers import (
     aids_assign_userless_baselinecreatinine,
     aids_assign_userless_ckddetail,
     aids_create_trts_dosing_dict,
@@ -97,7 +97,7 @@ class PpxAidDecisionAid:
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
-        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.PPX, user=self.user)
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.PPX, user=None)
 
     @cached_property
     def defaultppxtrtsettings(self) -> "DefaultPpxTrtSettings":
@@ -130,7 +130,7 @@ class PpxAidDecisionAid:
         return self.ppxaid.decisionaid
 
     def _update(self, trt_dict: dict | None = None, commit=True) -> "PpxAid":
-        """Updates the PpxAid decisionaid and uptodate fields.
+        """Updates the PpxAid decisionaid field.
 
         Args:
             trt_dict {dict}: defaults to None, trt_dict from _create_trts_dict()

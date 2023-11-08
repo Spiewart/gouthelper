@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
@@ -16,7 +18,7 @@ class DateOfBirth(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=
         # exactly 18 years ago from now
         constraints = [
             models.CheckConstraint(
-                check=models.Q(value__gte=models.functions.Now() - models.Duration(years=18)),
+                check=models.Q(value__lte=(models.functions.Now() - timedelta(days=365 * 18))),
                 name="dateofbirth_18_years_or_older",
             )
         ]

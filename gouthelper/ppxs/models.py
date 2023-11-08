@@ -188,7 +188,7 @@ class Ppx(
             )
 
     def update(self, decisionaid: PpxDecisionAid | None = None, qs: Union["Ppx", None] = None) -> "Ppx":
-        """Updates the Ppx indication and uptodate field.
+        """Updates the Ppx indication field.
 
         Args:
             decisionaid: PpxDecisionAid object

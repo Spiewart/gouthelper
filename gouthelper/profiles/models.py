@@ -35,7 +35,7 @@ class PatientProfile(Profile):
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="provider",
+        related_name="patient_provider",
         null=True,
         blank=True,
         default=None,
@@ -78,7 +78,7 @@ class PseudopatientProfile(Profile):
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="provider",
+        related_name="pseudopatient_provider",
         null=True,
         blank=True,
         default=None,

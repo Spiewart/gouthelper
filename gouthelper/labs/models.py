@@ -121,20 +121,19 @@ class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
     def low(self):
         return self.value < self.lower_limit
 
-    def save(self, *args, **kwargs):
-        if self._state.adding is True:
-            lab_name = self._meta.model.__name__.upper()
-            if lab_name.startswith("BASELINE"):
-                lab_name = lab_name.replace("BASELINE", "")
-            if not self.labtype:
-                self.labtype = labs_get_default_labtype(lab_name=lab_name)
-            if not self.lower_limit:
-                self.lower_limit = labs_get_default_lower_limit(lab_name=lab_name)
-            if not self.units:
-                self.units = labs_get_default_units(lab_name=lab_name)
-            if not self.upper_limit:
-                self.upper_limit = labs_get_default_upper_limit(lab_name=lab_name)
-        super().save(*args, **kwargs)
+    def set_fields(self):
+        """Method that sets the default values for the labtype, lower_limit, units, and upper_limit."""
+        lab_name = self._meta.model.__name__.upper()
+        if lab_name.startswith("BASELINE"):
+            lab_name = lab_name.replace("BASELINE", "")
+        if not self.labtype:
+            self.labtype = labs_get_default_labtype(lab_name=lab_name)
+        if not self.lower_limit:
+            self.lower_limit = labs_get_default_lower_limit(lab_name=lab_name)
+        if not self.units:
+            self.units = labs_get_default_units(lab_name=lab_name)
+        if not self.upper_limit:
+            self.upper_limit = labs_get_default_upper_limit(lab_name=lab_name)
 
 
 class BaselineLab(LabBase):
@@ -145,7 +144,20 @@ class BaselineLab(LabBase):
     medhistory = models.OneToOneField("medhistorys.MedHistory", on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"Baseline {self.labtype}: {self.value} {self.units}"
+        return f"{self.labtype}: {self.value} {self.units}"
+
+    def save(
+        self,
+        *args,
+        **kwargs,
+    ):
+        """Overwritten to change class before and after calling super().save()
+        so Django-Simple-History works."""
+        # Change class to MedHistory, call super().save(), then change class back
+        # to proxy model class in order for Django-Simple-History to work properly
+        if self._state.adding is True:
+            self.set_fields()
+        super().save(*args, **kwargs)
 
 
 class Lab(LabBase):
@@ -165,7 +177,7 @@ class Lab(LabBase):
         *args,
         **kwargs,
     ):
-        """Overwritten to change class before and after calling super().save()
+        """Overwritten to change class before and after calling super().delete()
         so Django-Simple-History works."""
         # Change class to Lab, call super().delete(), then change class back
         # to proxy model class in order for Django-Simple-History to work properly
@@ -182,6 +194,8 @@ class Lab(LabBase):
         so Django-Simple-History works."""
         # Change class to MedHistory, call super().save(), then change class back
         # to proxy model class in order for Django-Simple-History to work properly
+        if self._state.adding is True:
+            self.set_fields()
         self.__class__ = Lab
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"labs.{self.labtype}")
@@ -249,6 +263,10 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
     @cached_property
     def value_str(self) -> str:
         return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+
+    def __str__(self):
+        return f"Baseline {getattr(self.LabTypes, self.labtype).label}: \
+{self.value.quantize(Decimal('1.00'))} {getattr(self.Units, self.units).label}"
 
 
 class Urate(Lab):

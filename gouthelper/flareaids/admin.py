@@ -9,6 +9,5 @@ from .models import FlareAid
 class FlareAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "__str__",
-        "user",
         "pk",
     )

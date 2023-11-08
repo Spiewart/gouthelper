@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 
 
 class Contexts(TextChoices):
-    """TextChoices to describe different contexts for Page objects."""
+    """TextChoices to describe different contexts for Content objects."""
 
     FLARE = "FLARE", _("Flare")
     FLAREAID = "FLAREAID", _("FlareAid")

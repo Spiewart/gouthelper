@@ -86,8 +86,8 @@ class CkdDetailFormProcessor:
                     creatinine=self.baselinecreatinine,
                     age=self.age,
                     gender=self.gender,
-                )[0],
-            )[0]
+                ),
+            )
         # If not all necessary data is present, return None
         return None
 
@@ -182,7 +182,7 @@ Please double check and try again."
         django-simple-history saving a model on delete()."""
         if instance.value != self.baselinecreatinine_initial:
             instance.value = self.baselinecreatinine_initial
-        instance.delete(updating=self.updating)
+        instance.delete()
 
     def get_stage(self) -> Stages | None:
         """Method that returns the stage to be saved in the CkdDetail instance.
@@ -233,7 +233,7 @@ Please double check and try again."
                     # If so, set it's fields to the initial values and delete it
                     for field in self.ckddetail_form.changed_data:
                         setattr(self.ckddetail, field, self.ckddetail_form.initial[field])
-                    self.ckddetail_form.instance.delete(updating=self.updating)
+                    self.ckddetail_form.instance.delete()
                 self.ckddetail = None
                 # Call set_baselinecreatinine() to delete the BaselineCreatinine instance
                 self.set_baselinecreatinine()

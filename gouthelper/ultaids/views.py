@@ -5,6 +5,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.db.models import Q  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
 
+from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthFormOptional
 from ..dateofbirths.models import DateOfBirth
 from ..ethnicitys.forms import EthnicityForm
@@ -40,7 +41,6 @@ from ..medhistorys.models import (
     Stroke,
     Xoiinteraction,
 )
-from ..pages.choices import Contexts
 from ..treatments.choices import UltChoices
 from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import UltAidForm
@@ -58,12 +58,12 @@ class UltAidAbout(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"page": self.page})
+        context.update({"content": self.content})
         return context
 
     @property
-    def page(self):
-        return apps.get_model("pages.Page").objects.get(slug="about", context=Contexts.ULTAID, tag=None)
+    def content(self):
+        return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULTAID, tag=None)
 
 
 class UltAidBase(View):
@@ -149,8 +149,8 @@ class UltAidDetail(DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for page in self.pages:
-            context.update({page.slug: {page.tag: page}})  # type: ignore
+        for content in self.contents:
+            context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
     def get_queryset(self) -> "QuerySet[Any]":
@@ -161,16 +161,14 @@ class UltAidDetail(DetailView):
         # Prefetch goalurate medhistory_qs for use in the template and to avoid additional queries
         if hasattr(ultaid, "goalurate"):
             ultaid.goalurate.medhistorys_qs = ultaid.goalurate.medhistorys.all()
-            if ultaid.goalurate.uptodate is False:
-                ultaid.goalurate.update(qs=ultaid.goalurate)
+            ultaid.goalurate.update(qs=ultaid.goalurate)
         # Check if UltAid is up to date and update if not
-        if ultaid.uptodate is False:
-            ultaid.update()
+        ultaid.update(qs=ultaid)
         return ultaid
 
     @property
-    def pages(self):
-        return apps.get_model("pages.Page").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
 
 
 class UltAidUpdate(UltAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):

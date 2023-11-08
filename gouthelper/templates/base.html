@@ -48,17 +48,17 @@
                   aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
           </button>
-          <a class="navbar-brand" href="{% url 'home' %}">Gouthelper</a>
+          <a class="navbar-brand" href="{% url 'contents:home' %}">Gouthelper</a>
           <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
               <li class="nav-item active">
-                <a class="nav-link" href="{% url 'home' %}">Home <span class="visually-hidden">(current)</span></a>
+                <a class="nav-link" href="{% url 'contents:home' %}">Home <span class="visually-hidden">(current)</span></a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="{% url 'about' %}">About</a>
+                <a class="nav-link" href="{% url 'contents:about' %}">About</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="{% url 'blog:list' %}">Blog</a>
+                <a class="nav-link" href="{% url 'blog:blog' %}">Blog</a>
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'flares:create' %}">Flare</a>
@@ -96,11 +96,11 @@
                     {# URL provided by django-allauth/account/urls.py #}
                     <a id="sign-up-link" class="nav-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
                   </li>
+                  <li class="nav-item">
+                    {# URL provided by django-allauth/account/urls.py #}
+                    <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
+                  </li>
                 {% endif %}
-                <li class="nav-item">
-                  {# URL provided by django-allauth/account/urls.py #}
-                  <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
-                </li>
               {% endif %}
             </ul>
           </div>

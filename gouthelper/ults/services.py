@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.aid_helpers import aids_assign_userless_ckddetail
+from ..utils.helpers.aid_helpers import aids_assign_userless_ckddetail
 from .choices import FlareFreqs, FlareNums, Indications
 from .selectors import ult_userless_qs
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class UltDecisionAid:
-    """Class method for creating/updating Ult indication and uptodate fields."""
+    """Class method for creating/updating Ult indication fields."""
 
     def __init__(
         self,
@@ -76,7 +76,7 @@ class UltDecisionAid:
             return Indications.NOTINDICATED
 
     def _update(self, commit=True) -> "Ult":
-        """Updates Ult indication and uptodate fields.
+        """Updates Ult indication field.
 
         Args:
             commit (bool): defaults to True, True will clean/save, False will not

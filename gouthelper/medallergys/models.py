@@ -36,6 +36,4 @@ class MedAllergy(
     history = HistoricalRecords()
 
     def __str__(self):
-        if self.user:
-            return "Allergy: " + self.treatment.lower().capitalize() + f" {self.user.username}"
         return "Allergy: " + self.treatment.lower().capitalize()

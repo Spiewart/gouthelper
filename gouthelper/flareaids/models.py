@@ -10,7 +10,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..treatments.choices import Treatments
-from ..utils.aid_helpers import aids_json_to_trt_dict, aids_options
+from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .services import FlareAidDecisionAid
 
@@ -32,9 +32,7 @@ class FlareAid(
 
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
     )
     decisionaid = models.JSONField(
         default=dict,
@@ -46,7 +44,6 @@ class FlareAid(
         null=True,
         blank=True,
     )
-
     history = HistoricalRecords()
 
     def __str__(self):
@@ -116,11 +113,12 @@ class FlareAid(
                             return None
 
     def update(self, decisionaid: FlareAidDecisionAid | None = None, qs: Union["FlareAid", None] = None) -> "FlareAid":
-        """Updates FlareAid decisionaid JSON field and uptodate field.
+        """Updates FlareAid decisionaid JSON field field.
 
         Args:
             decisionaid (FlareAidDecisionAid, optional): FlareAidDecisionAid object. Defaults to None.
-            qs (FlareAid, optional): FlareAid object. Defaults to None.
+            qs (FlareAid, optional): FlareAid object. Defaults to None. Should have related field objects
+            prefetched and select_related.
 
         Returns:
             FlareAid: FlareAid object."""

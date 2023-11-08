@@ -6,7 +6,7 @@ from ..defaults.helpers import defaults_get_goalurate
 from ..labs.helpers import labs_urate_months_at_goal, labs_urates_hyperuricemic, labs_urates_recent_urate
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..ults.choices import Indications
-from ..utils.aid_helpers import aids_assign_userless_goutdetail
+from ..utils.helpers.aid_helpers import aids_assign_userless_goutdetail
 from .selectors import ppx_userless_qs
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class PpxDecisionAid:
-    """Class method for creating/updating Ppx indication and uptodate fields."""
+    """Class method for creating/updating Ppx indication field."""
 
     def __init__(
         self,
@@ -30,9 +30,6 @@ class PpxDecisionAid:
             self.ppx = qs
         else:
             self.ppx = ppx_userless_qs(pk=pk).get()
-        if self.ppx.user is not None:
-            raise ValueError("Ppx has a user, but user is False.")
-        self.user = None
         self.medhistorys = self.ppx.medhistorys_qs
         self.goutdetail = aids_assign_userless_goutdetail(medhistorys=self.medhistorys)
         self.urates = self.ppx.labs_qs
@@ -130,7 +127,7 @@ class PpxDecisionAid:
         return False
 
     def _update(self, commit=True) -> "Ppx":
-        """Updates Ppx indication and uptodate fields.
+        """Updates Ppx indication fields.
 
         Args:
             commit (bool): defaults to True, True will clean/save, False will not

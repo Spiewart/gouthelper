@@ -8,8 +8,8 @@ from markdownfield.validators import VALIDATOR_CLASSY  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..helpers import now_date
 from ..utils.fields import GouthelperMarkdownField
+from ..utils.helpers.helpers import now_date
 from ..utils.models import GouthelperModel
 from .choices import StatusChoices
 
@@ -29,10 +29,10 @@ class Blogpost(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rul
 
     class Meta:
         constraints = [
-            # Constrain slug to be unique for entire table
+            # Constrain title to be unique for entire table
             models.UniqueConstraint(
-                fields=["slug"],
-                name="%(app_label)s_%(class)s_unique_slug",
+                fields=["title"],
+                name="%(app_label)s_%(class)s_unique_title",
             ),
             # Enforce that status is a valid StatusChoices choice
             models.CheckConstraint(
@@ -54,3 +54,6 @@ class Blogpost(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rul
 
     def get_absolute_url(self):
         return reverse("blog:blog_detail", kwargs={"slug": self.slug})
+
+    def __str__(self):
+        return self.title

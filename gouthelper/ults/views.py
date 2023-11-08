@@ -5,6 +5,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.db.models import Q  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
 
+from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthFormOptional
 from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderFormOptional
@@ -12,7 +13,6 @@ from ..genders.models import Gender
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
 from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
-from ..pages.choices import Contexts
 from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import UltForm
 from .models import Ult
@@ -29,12 +29,12 @@ class UltAbout(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"page": self.page})
+        context.update({"content": self.content})
         return context
 
     @property
-    def page(self):
-        return apps.get_model("pages.Page").objects.get(slug="about", context=Contexts.ULT, tag=None)
+    def content(self):
+        return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULT, tag=None)
 
 
 class UltBaseView(View):
@@ -116,8 +116,8 @@ class UltDetail(DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for page in self.pages:
-            context.update({page.slug: {page.tag: page}})  # type: ignore
+        for content in self.contents:
+            context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
     def get_queryset(self) -> "QuerySet[Any]":
@@ -125,13 +125,12 @@ class UltDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> Ult:
         ult: Ult = super().get_object(*args, **kwargs)  # type: ignore
-        if ult.uptodate is False:
-            ult.update()
+        ult.update(qs=ult)
         return ult
 
     @property
-    def pages(self):
-        return apps.get_model("pages.Page").objects.filter(Q(tag__isnull=False), context=Contexts.ULT)
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULT)
 
 
 class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):

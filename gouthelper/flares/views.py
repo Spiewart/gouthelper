@@ -5,6 +5,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
 
+from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
@@ -27,7 +28,6 @@ from ..medhistorys.forms import (
     StrokeForm,
 )
 from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
-from ..pages.choices import Contexts
 from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import FlareForm
 from .models import Flare
@@ -47,12 +47,12 @@ class FlareAbout(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"page": self.page})
+        context.update({"content": self.content})
         return context
 
     @property
-    def page(self):
-        return apps.get_model("pages.Page").objects.get(slug="about", context=Contexts.FLARE, tag=None)
+    def content(self):
+        return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.FLARE, tag=None)
 
 
 class FlareBase(View):
@@ -171,8 +171,8 @@ class FlareDetail(DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for page in self.pages:
-            context.update({page.slug: {page.tag: page}})  # type: ignore
+        for content in self.contents:
+            context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
     def get_queryset(self) -> "QuerySet[Any]":
@@ -180,13 +180,12 @@ class FlareDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> Flare:
         flare: Flare = super().get_object(*args, **kwargs)  # type: ignore
-        if flare.uptodate is False:
-            flare.update()
+        flare.update()
         return flare
 
     @property
-    def pages(self):
-        return apps.get_model("pages.Page").objects.filter(context=Contexts.FLARE)
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE)
 
 
 class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):

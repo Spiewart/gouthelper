@@ -21,9 +21,9 @@ from ..flares.helpers import (
     flares_uncommon_joints,
 )
 from ..genders.choices import Genders
-from ..helpers import calculate_duration, now_date
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
+from ..utils.helpers.helpers import calculate_duration, now_date
 from ..utils.models import DecisionAidModel, GouthelperModel, MedHistoryAidModel
 from .services import FlareDecisionAid
 
@@ -42,11 +42,6 @@ class Flare(
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                fields=["user"],
-                condition=models.Q(date_ended=None),
-                name="flare_solo_active",
-            ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_diagnosed_valid",
                 check=(
@@ -316,7 +311,7 @@ monosodium urate crystals on polarized microscopy?"
         return ", ".join([str(joint.label).lower() for joint in enum_list])
 
     def update(self, decisionaid: FlareDecisionAid | None = None, qs: Union["Flare", None] = None) -> "Flare":
-        """Updates Flare prevalence, likelihood, and uptodate fields.
+        """Updates Flare prevalence and likelihood fields.
 
         args:
             decisionaid: FlareDecisionAid object to use for updating prevalence and likelihood
@@ -324,8 +319,5 @@ monosodium urate crystals on polarized microscopy?"
 
         returns: [Flare]: [Flare object]"""
         if decisionaid is None:
-            if self.user:
-                decisionaid = FlareDecisionAid(pk=self.pk, user=True)
-            else:
-                decisionaid = FlareDecisionAid(pk=self.pk, user=False, qs=qs)
+            decisionaid = FlareDecisionAid(pk=self.pk, qs=qs)
         return decisionaid._update()

@@ -1,3 +1,4 @@
+from django.contrib.auth.base_user import BaseUserManager  # type: ignore
 from django.contrib.auth.models import AbstractUser
 from django.db.models import SET_NULL, CharField, CheckConstraint, ForeignKey, Q
 from django.urls import reverse
@@ -6,7 +7,6 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords
 
 from .choices import Roles
-from .managers import AdminManager, PatientManager, ProviderManager, PseudopatientManager
 
 
 class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
@@ -64,6 +64,30 @@ class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
         if not self.pk and hasattr(self, "base_role"):
             self.role = self.base_role
         return super().save(*args, **kwargs)
+
+
+class PatientManager(BaseUserManager):
+    def get_queryset(self, *args, **kwargs):
+        results = super().get_queryset(*args, **kwargs)
+        return results.filter(role=User.Roles.PATIENT)
+
+
+class ProviderManager(BaseUserManager):
+    def get_queryset(self, *args, **kwargs):
+        results = super().get_queryset(*args, **kwargs)
+        return results.filter(role=User.Roles.PROVIDER)
+
+
+class PseudopatientManager(BaseUserManager):
+    def get_queryset(self, *args, **kwargs):
+        results = super().get_queryset(*args, **kwargs)
+        return results.filter(role=User.Roles.PSEUDOPATIENT)
+
+
+class AdminManager(BaseUserManager):
+    def get_queryset(self, *args, **kwargs):
+        results = super().get_queryset(*args, **kwargs)
+        return results.filter(role=User.Roles.ADMIN)
 
 
 class Admin(User):

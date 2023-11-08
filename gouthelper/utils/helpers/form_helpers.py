@@ -2,13 +2,13 @@ from typing import TYPE_CHECKING, Union
 
 from crispy_forms.layout import HTML, Div  # type: ignore
 
-from ..medhistorys.choices import CVDiseases, MedHistoryTypes
-from ..medhistorys.lists import OTHER_NSAID_CONTRAS
+from ...medhistorys.choices import CVDiseases, MedHistoryTypes
+from ...medhistorys.lists import OTHER_NSAID_CONTRAS
 
 if TYPE_CHECKING:
     from crispy_forms.layout import Layout  # type: ignore
 
-    from ..choices import FlarePpxChoices, UltChoices  # type: ignore
+    from ...choices import FlarePpxChoices, UltChoices  # type: ignore
 
 
 def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) -> "Layout":

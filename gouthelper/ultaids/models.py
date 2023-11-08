@@ -11,7 +11,7 @@ from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
 from ..treatments.choices import Treatments
 from ..ultaids.services import UltAidDecisionAid
-from ..utils.aid_helpers import aids_json_to_trt_dict, aids_options
+from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ class UltAid(
     )
     ethnicity = models.OneToOneField(
         "ethnicitys.Ethnicity",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
     )
     gender = models.OneToOneField(
         "genders.Gender",
@@ -92,7 +92,7 @@ class UltAid(
     def defaulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
         Gouthelper DefaultSettings."""
-        return defaults_defaultulttrtsettings(user=self.user)
+        return defaults_defaultulttrtsettings(user=None)
 
     @cached_property
     def erosions(self) -> bool:
@@ -132,7 +132,7 @@ class UltAid(
             return False
 
     def update(self, decisionaid: UltAidDecisionAid | None = None, qs: Union["UltAid", None] = None) -> "UltAid":
-        """Updates UltAid decisionaid JSON field and uptodate field.
+        """Updates UltAid decisionaid JSON  field.
 
         Args:
             decisionaid (UltAidDecisionAid, optional): UltAidDecisionAid object. Defaults to None.

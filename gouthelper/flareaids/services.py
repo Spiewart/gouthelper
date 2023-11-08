@@ -10,7 +10,7 @@ from ..defaults.selectors import (
     defaults_defaulttrts_trttype,
 )
 from ..treatments.choices import FlarePpxChoices, TrtTypes
-from ..utils.aid_helpers import (
+from ..utils.helpers.aid_helpers import (
     aids_assign_userless_baselinecreatinine,
     aids_assign_userless_ckddetail,
     aids_create_trts_dosing_dict,
@@ -91,19 +91,17 @@ class FlareAidDecisionAid:
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
-        return defaults_defaultmedhistorys_trttype(
-            medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=self.user
-        )
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=None)
 
     @cached_property
     def defaultflaretrtsettings(self) -> "DefaultFlareTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
         Gouthelper DefaultSettings."""
-        return defaults_defaultflaretrtsettings(user=self.user)
+        return defaults_defaultflaretrtsettings(user=None)
 
     @cached_property
     def default_trts(self) -> "QuerySet":
-        return defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=self.user)
+        return defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=None)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the FlareAid decisionaid field as a JSON string.
@@ -121,7 +119,7 @@ class FlareAidDecisionAid:
         return self.flareaid.decisionaid
 
     def _update(self, trt_dict: dict | None = None, commit=True) -> "FlareAid":
-        """Updates the FlareAid decisionaid and uptodate fields.
+        """Updates the FlareAid decisionaid field.
 
         Args:
             trt_dict {dict}: defaults to None, trt_dict from _create_trts_dict()
@@ -133,7 +131,6 @@ class FlareAidDecisionAid:
         if trt_dict is None:
             trt_dict = self._create_decisionaid_dict()
         self.flareaid.decisionaid = self._save_trt_dict_to_decisionaid(trt_dict=trt_dict, commit=False)
-        self.flareaid.uptodate = True
         if commit:
             self.flareaid.full_clean()
             self.flareaid.save()

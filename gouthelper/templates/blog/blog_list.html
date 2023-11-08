@@ -16,13 +16,13 @@
               <a href={{ blog.get_absolute_url }}>{{ blog.title }}</a>
             </h2>
             <p class="card-text">
-              <small><a href="{% url 'pages:blog_author_list' author=blog.author %}">{{ blog.author }}</a>, {{ blog.published_date }}</small>
+              <small><a href="{% url 'blog:blog_author_list' author=blog.author %}">{{ blog.author }}</a>, {{ blog.published_date }}</small>
             </p>
             {% if blog.tags %}
               <p class="card-text">
                 Tags:
                 {% for tag in blog.tags.all %}
-                  <a href="{% url 'pages:blog_tag_list' tag=tag %}" class="card-link">{{ tag }}</a>
+                  <a href="{% url 'blog:blog_tag_list' tag=tag %}" class="card-link">{{ tag }}</a>
                 {% endfor %}
               </p>
             {% endif %}

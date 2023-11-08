@@ -5,6 +5,7 @@ CV_DISEASES = [
     MedHistoryTypes.CAD,
     MedHistoryTypes.CHF,
     MedHistoryTypes.HEARTATTACK,
+    MedHistoryTypes.HYPERTENSION,
     MedHistoryTypes.STROKE,
     MedHistoryTypes.PVD,
 ]

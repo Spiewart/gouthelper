@@ -146,8 +146,6 @@ Physician evaluation is recommended."
         flare_str = "Gout is very likely. Not a whole lot else needs to be done, other than treat the gout!"
     else:
         flare_str = "Flare hasn't been processed yet..."
-    if flare.uptodate is False:
-        flare_str += "Flare is not up to date."
     return flare_str
 
 

@@ -9,7 +9,7 @@ from ..defaults.selectors import (
     defaults_defaultulttrtsettings,
 )
 from ..treatments.choices import TrtTypes, UltChoices
-from ..utils.aid_helpers import (
+from ..utils.helpers.aid_helpers import (
     aids_assign_userless_baselinecreatinine,
     aids_assign_userless_ckddetail,
     aids_create_trts_dosing_dict,
@@ -101,13 +101,13 @@ class UltAidDecisionAid:
         Returns:
             QuerySet: of DefaultMedhistorys filtered for trttype=ULT
         """
-        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.ULT, user=self.user)
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.ULT, user=None)
 
     @cached_property
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
         Gouthelper DefaultUltTrtSettings."""
-        return defaults_defaultulttrtsettings(user=self.user)
+        return defaults_defaultulttrtsettings(user=None)
 
     @cached_property
     def default_trts(self) -> "QuerySet":
@@ -117,7 +117,7 @@ class UltAidDecisionAid:
         Returns:
             QuerySet: ULT DefaultTrts for the user or Gouthelper
         """
-        return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=self.user)
+        return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the UltAid decisionaid field as a JSON string.
@@ -135,7 +135,7 @@ class UltAidDecisionAid:
         return self.ultaid.decisionaid
 
     def _update(self, trt_dict: dict | None = None, commit=True) -> "UltAid":
-        """Updates the UltAid decisionaid and uptodate fields.
+        """Updates the UltAid decisionaid fields.
 
         Args:
             trt_dict {dict}: defaults to None, trt_dict from _create_trts_dict()

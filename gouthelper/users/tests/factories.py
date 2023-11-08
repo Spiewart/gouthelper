@@ -2,8 +2,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from factory import Faker, post_generation
+from factory import Faker, RelatedFactory, post_generation
 from factory.django import DjangoModelFactory
+
+from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...ethnicitys.tests.factories import EthnicityFactory
+from ...genders.tests.factories import GenderFactory
+from ...profiles.tests.factories import PatientProfileFactory
+from ..choices import Roles
 
 
 class UserFactory(DjangoModelFactory):
@@ -37,3 +43,15 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = get_user_model()
         django_get_or_create = ["username"]
+
+
+class AdminFactory(UserFactory):
+    role = Roles.ADMIN
+
+
+class PatientFactory(UserFactory):
+    role = Roles.PATIENT
+    dateofbirth = RelatedFactory(DateOfBirthFactory, "user")
+    gender = RelatedFactory(GenderFactory, "user")
+    patientprofile = RelatedFactory(PatientProfileFactory, "user")
+    ethnicity = RelatedFactory(EthnicityFactory, "user")
