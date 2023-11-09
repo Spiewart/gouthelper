@@ -28,6 +28,7 @@ class BlogpostHistoryAdmin(SimpleHistoryAdmin):
     )
     list_display = (
         "title",
+        "author",
         "status",
         "published_date",
         "pk",

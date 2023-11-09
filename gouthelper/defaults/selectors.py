@@ -3,16 +3,13 @@ from typing import TYPE_CHECKING, Any, Union
 from django.apps import apps  # type: ignore
 from django.db.models import Q  # type: ignore
 
-from ..treatments.choices import Treatments, TrtTypes
+from ..treatments.choices import TrtTypes
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
     from ..medhistorys.models import MedHistory
     from ..users.models import User
-
-
-# TODO: CLEAN THIS UP FOR REDUNDANCY
 
 
 def defaults_defaultflaretrtsettings(user: Union["User", None]) -> Any:
@@ -52,20 +49,6 @@ def defaults_defaultulttrtsettings(user: Union["User", None]) -> Any:
         .order_by("user")
         .first()
     )
-
-
-def defaults_defaulttrt_trt_trttype(treatment: "Treatments", trttype: TrtTypes, user: Union["User", None]) -> Any:
-    """Method that takes a Treatments enum, TrtTypes enum, and an optional User object
-    to return a QuerySet fetching the DefaultTrt object for that Treatment and TrtType.
-
-    Args:
-        trt (Treatments): Treatment enum
-        trttype (TrtTypes): TrtTypes enum = FLARE, PPX, or ULT
-        user (User): User object
-
-    Returns: DefaultTrt object
-    """
-    return apps.get_model("defaults.DefaultTrt").objects.get(user=user, treatment=treatment, trttype=trttype)
 
 
 def defaults_defaulttrts_trttype(trttype: TrtTypes, user: Union["User", None]) -> "QuerySet":
