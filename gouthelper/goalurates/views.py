@@ -127,7 +127,8 @@ class GoalUrateDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> GoalUrate:
         goalurate: GoalUrate = super().get_object(*args, **kwargs)  # type: ignore
-        goalurate.update(qs=goalurate)
+        if not self.request.GET.get("updated", None):
+            goalurate.update(qs=goalurate)
         return goalurate
 
     @property
@@ -137,14 +138,6 @@ class GoalUrateDetail(DetailView):
 
 class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        """Add ultaid to context if it exists."""
-        context = super().get_context_data(**kwargs)
-        ultaid = self.kwargs.get("ultaid", None)
-        if ultaid and "ultaid" not in context:
-            context["ultaid"] = ultaid
-        return context
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()

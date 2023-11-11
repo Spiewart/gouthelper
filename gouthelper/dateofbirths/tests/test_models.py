@@ -1,4 +1,5 @@
 import pytest  # type: ignore
+from django.db.utils import IntegrityError  # type: ignore
 from django.test import TestCase  # type: ignore
 
 from .factories import DateOfBirthFactory
@@ -15,3 +16,7 @@ class TestDateOfBirthMethods(TestCase):
             self.dateofbirth.__str__(),
             self.dateofbirth.value.strftime("%Y-%m-%d"),
         )
+
+    def test__18_years_or_older_constraint(self):
+        with self.assertRaises(IntegrityError):
+            DateOfBirthFactory(value="2018-01-01")

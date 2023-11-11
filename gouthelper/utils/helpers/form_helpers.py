@@ -34,7 +34,7 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) 
     return layout
 
 
-def forms_helper_insert_cvdiseases(layout: "Layout") -> "Layout":
+def forms_helper_insert_cvdiseases(layout: "Layout", hypertension: bool = False) -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
     layout[layout_len - 1][sub_len - 1].append(
@@ -43,8 +43,7 @@ def forms_helper_insert_cvdiseases(layout: "Layout") -> "Layout":
                 Div(
                     HTML(
                         """
-                        <label class="form-label">
-                        Cardiovascular Diseases </label>
+                        <label class="form-label">Cardiovascular Diseases</label>
                         """
                     ),
                     Div(),
@@ -73,6 +72,18 @@ def forms_helper_insert_cvdiseases(layout: "Layout") -> "Layout":
                     f"""
                     {{% load crispy_forms_tags %}}
                     {{% crispy {cv_disease.name}_form %}}
+                    """
+                ),
+                css_class="form-check form-check-inline medhistory_form-check",
+            ),
+        )
+    if hypertension:
+        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
+            Div(
+                HTML(
+                    f"""
+                    {{% load crispy_forms_tags %}}
+                    {{% crispy {MedHistoryTypes.HYPERTENSION}_form %}}
                     """
                 ),
                 css_class="form-check form-check-inline medhistory_form-check",

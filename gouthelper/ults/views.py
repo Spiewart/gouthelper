@@ -125,7 +125,9 @@ class UltDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> Ult:
         ult: Ult = super().get_object(*args, **kwargs)  # type: ignore
-        ult.update(qs=ult)
+        # Check if Ult is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            ult.update(qs=ult)
         return ult
 
     @property

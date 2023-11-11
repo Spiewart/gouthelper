@@ -1,6 +1,7 @@
 from datetime import timedelta  # type: ignore
 
 import pytest  # type: ignore
+from factory import SubFactory, fuzzy  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
 from ...treatments.choices import (
@@ -13,6 +14,7 @@ from ...treatments.choices import (
     Treatments,
     TrtTypes,
 )
+from ...users.tests.factories import UserFactory
 from ..models import (
     DefaultFlareTrtSettings,
     DefaultMedHistory,
@@ -24,7 +26,30 @@ from ..models import (
 pytestmark = pytest.mark.django_db
 
 
-class DefaultAllopurinolFactory(DjangoModelFactory):
+class DefaultMedHistoryFactory(DjangoModelFactory):
+    class Meta:
+        model = DefaultMedHistory
+
+    contraindication = fuzzy.FuzzyChoice(DefaultMedHistory.Contraindications.values)
+    medhistorytype = fuzzy.FuzzyChoice(DefaultMedHistory.MedHistoryTypes.values)
+    treatment = fuzzy.FuzzyChoice(DefaultMedHistory.Treatments.values)
+    trttype = fuzzy.FuzzyChoice(DefaultMedHistory.TrtTypes.values)
+    user = SubFactory(UserFactory)
+
+
+class DefaultTrtFactory(DjangoModelFactory):
+    """Abstract base calss for DefaultTrt factories.
+    Abstract because it is highly unlikely that randomly picking
+    from each field's choices will result in a violated constraint."""
+
+    class Meta:
+        model = DefaultTrt
+        abstract = True
+
+    user = SubFactory(UserFactory)
+
+
+class DefaultAllopurinolFactory(DefaultTrtFactory):
     dose = AllopurinolDoses.ONE
     dose_adj = AllopurinolDoses.FIFTY
     freq = Freqs.QDAY
@@ -36,7 +61,7 @@ class DefaultAllopurinolFactory(DjangoModelFactory):
         model = DefaultTrt
 
 
-class DefaultCelecoxibFlareFactory(DjangoModelFactory):
+class DefaultCelecoxibFlareFactory(DefaultTrtFactory):
     dose = CelecoxibDoses.TWO
     dose2 = CelecoxibDoses.FOUR
     dose_adj = CelecoxibDoses.TWO
@@ -51,7 +76,7 @@ class DefaultCelecoxibFlareFactory(DjangoModelFactory):
         model = DefaultTrt
 
 
-class DefaultColchicineFlareFactory(DjangoModelFactory):
+class DefaultColchicineFlareFactory(DefaultTrtFactory):
     dose = ColchicineDoses.ONEPOINTTWO
     dose2 = ColchicineDoses.POINTSIX
     dose3 = ColchicineDoses.POINTSIX
@@ -68,7 +93,7 @@ class DefaultColchicineFlareFactory(DjangoModelFactory):
         model = DefaultTrt
 
 
-class DefaultFebuxostatFactory(DjangoModelFactory):
+class DefaultFebuxostatFactory(DefaultTrtFactory):
     dose = FebuxostatDoses.TWENTY
     dose_adj = FebuxostatDoses.FORTY
     freq = Freqs.QDAY
@@ -80,7 +105,7 @@ class DefaultFebuxostatFactory(DjangoModelFactory):
         model = DefaultTrt
 
 
-class DefaultNaproxenPpxFactory(DjangoModelFactory):
+class DefaultNaproxenPpxFactory(DefaultTrtFactory):
     dose = NaproxenDoses.FIVE
     dose_adj = NaproxenDoses.TWOFIFTY
     duration = None
@@ -93,21 +118,16 @@ class DefaultNaproxenPpxFactory(DjangoModelFactory):
         model = DefaultTrt
 
 
-class DefaultMedHistoryFactory(DjangoModelFactory):
-    class Meta:
-        model = DefaultMedHistory
-
-
-class DefaultFlareTrtSettingsFactory(DjangoModelFactory):
+class DefaultFlareTrtSettingsFactory(DefaultTrtFactory):
     class Meta:
         model = DefaultFlareTrtSettings
 
 
-class DefaultPpxTrtSettingsFactory(DjangoModelFactory):
+class DefaultPpxTrtSettingsFactory(DefaultTrtFactory):
     class Meta:
         model = DefaultPpxTrtSettings
 
 
-class DefaultUltTrtSettingsFactory(DjangoModelFactory):
+class DefaultUltTrtSettingsFactory(DefaultTrtFactory):
     class Meta:
         model = DefaultUltTrtSettings

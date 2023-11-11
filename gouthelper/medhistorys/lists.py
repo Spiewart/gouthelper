@@ -5,7 +5,6 @@ CV_DISEASES = [
     MedHistoryTypes.CAD,
     MedHistoryTypes.CHF,
     MedHistoryTypes.HEARTATTACK,
-    MedHistoryTypes.HYPERTENSION,
     MedHistoryTypes.STROKE,
     MedHistoryTypes.PVD,
 ]
@@ -92,7 +91,6 @@ ULTAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.CKD,  # Chronic Kidney Disease
     MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,  # Febuxostat Hypersensitivity
     MedHistoryTypes.HEARTATTACK,  # Heart Attack
-    MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke

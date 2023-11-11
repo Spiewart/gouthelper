@@ -157,7 +157,9 @@ class PpxAidDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> PpxAid:
         ppxaid: PpxAid = super().get_object(*args, **kwargs)  # type: ignore
-        ppxaid.update(qs=ppxaid)
+        # Check if PpxAid is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            ppxaid.update(qs=ppxaid)
         return ppxaid
 
     @property

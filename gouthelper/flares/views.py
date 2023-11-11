@@ -180,7 +180,9 @@ class FlareDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> Flare:
         flare: Flare = super().get_object(*args, **kwargs)  # type: ignore
-        flare.update()
+        # Check if Flare is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            flare.update()
         return flare
 
     @property

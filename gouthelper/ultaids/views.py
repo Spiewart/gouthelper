@@ -161,9 +161,11 @@ class UltAidDetail(DetailView):
         # Prefetch goalurate medhistory_qs for use in the template and to avoid additional queries
         if hasattr(ultaid, "goalurate"):
             ultaid.goalurate.medhistorys_qs = ultaid.goalurate.medhistorys.all()
-            ultaid.goalurate.update(qs=ultaid.goalurate)
-        # Check if UltAid is up to date and update if not
-        ultaid.update(qs=ultaid)
+            if not self.request.GET.get("goalurate_updated", None):
+                ultaid.goalurate.update(qs=ultaid.goalurate)
+        # Check if UltAid is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            ultaid.update(qs=ultaid)
         return ultaid
 
     @property

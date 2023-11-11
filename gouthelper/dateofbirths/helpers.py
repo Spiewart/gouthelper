@@ -37,6 +37,7 @@ def dateofbirths_get_nsaid_contra(
         Union[bool, None]: [if datebirth is not None, returns bool, None if it is None]
         defaulttrtsettings: [either a DefaultFlareTrtSettings or a DefaultPpxTrtSettings]
     """
-    if defaulttrtsettings.nsaid_age is False and dateofbirth and age_calc(dateofbirth.value) > 65:
-        return True
-    return None
+    if dateofbirth:
+        return age_calc(dateofbirth.value) > 65 and not defaulttrtsettings.nsaid_age
+    else:
+        return None

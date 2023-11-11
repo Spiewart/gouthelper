@@ -11,7 +11,7 @@ def tests_print_form_errors(response: Union["HttpResponse", None] = None) -> Non
             if key.endswith("_form") or key == "form":
                 if getattr(val, "errors", None):
                     print(key, val.errors)
-            elif key.endswith("_formset"):
+            elif key.endswith("_formset") and val:
                 non_form_errors = val.non_form_errors()
                 if non_form_errors:
                     print(key, non_form_errors)

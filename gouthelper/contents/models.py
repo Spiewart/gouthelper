@@ -58,3 +58,6 @@ class Content(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
     tag = models.CharField(max_length=255, choices=Tags.choices, null=True, blank=True)
     text = GouthelperMarkdownField(rendered_field="text_rendered", validator=VALIDATOR_CLASSY)
     text_rendered = RenderedMarkdownField()
+
+    def __str__(self):
+        return f"Content: {self.slug} ({self.context}, {self.tag})"

@@ -118,7 +118,7 @@ class DefaultMedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, meta
                     "treatment",
                     "trttype",
                 ],
-                name="%(app_label)s_%(class)s_unique_user_sideeffect_default",
+                name="%(app_label)s_%(class)s_unique_user_default",
             ),
             models.UniqueConstraint(
                 fields=["contraindication", "medhistorytype", "treatment", "trttype"],
@@ -238,7 +238,7 @@ class DefaultTrt(
         constraints = TreatmentMixin.Meta.constraints + [
             models.UniqueConstraint(
                 fields=["user", "treatment", "trttype"],
-                name="unique_user_trt_default",
+                name="%(app_label)s_%(class)s_user_trt",
             ),
             models.UniqueConstraint(
                 fields=["treatment", "trttype"],
@@ -498,7 +498,11 @@ class DefaultTrt(
         return default_dict
 
     def __str__(self):
-        return f"User: {self.user} {self.treatment} {self.trttype}"
+        def_str = f"Default {self.Treatments(self.treatment).label} {self.TrtTypes(self.trttype).label}"
+        if self.user:
+            return f"{self.user.username}'s "
+        else:
+            return f"{def_str}"
 
 
 class DefaultFlareTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -580,6 +584,8 @@ class DefaultFlareTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel
         blank=True,
         default=None,
     )
+    # Field to indicate whether NSAIDs should be recommended for use after age 65
+    # Gouthelper defaults to True
     nsaid_age = models.BooleanField(
         choices=BOOL_CHOICES,
         verbose_name="NSAIDs after age 65",

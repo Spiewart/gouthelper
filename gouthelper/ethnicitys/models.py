@@ -12,7 +12,7 @@ class Ethnicity(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Ru
     class Meta:
         constraints = [
             models.CheckConstraint(
-                name="%(app_label)s_%(class)s_value_check",
+                name="%(app_label)s_%(class)s_value_valid",
                 check=models.Q(value__in=Ethnicitys.values),
             ),
         ]

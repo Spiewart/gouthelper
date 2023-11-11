@@ -147,12 +147,14 @@ class FlareAidDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> FlareAid:
         flareaid: FlareAid = super().get_object(*args, **kwargs)  # type: ignore
-        flareaid.update()
+        # Check if FlareAid is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            flareaid.update()
         return flareaid
 
     @property
     def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID)
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
 
 
 class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):

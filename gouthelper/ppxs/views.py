@@ -101,7 +101,9 @@ class PpxDetail(DetailView):
 
     def get_object(self, *args, **kwargs) -> Ppx:
         ppx: Ppx = super().get_object(*args, **kwargs)  # type: ignore
-        ppx.update(qs=ppx)
+        # Check if Ppx is up to date and update if not update
+        if not self.request.GET.get("updated", None):
+            ppx.update(qs=ppx)
         return ppx
 
     @property

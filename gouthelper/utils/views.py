@@ -566,7 +566,8 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         form.instance.update(qs=self.object)
         if self.request.htmx:
             return HttpResponseClientRefresh()
-        return HttpResponseRedirect(self.get_success_url())
+        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
+        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 
     def context_onetoones(
         self, onetoones: dict[str, "FormModelDict"], kwargs: dict, object: "MedAllergyAidHistoryModel"

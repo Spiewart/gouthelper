@@ -23,6 +23,21 @@ class TestDefaultsGetGoalUrate(TestCase):
         self.assertEqual(goalurate, self.userless_goalurate.goal_urate)
         self.assertEqual(goalurate, GoalUrates.FIVE)
 
+    def test__returns_gouthelper_default_goal_urate_from_object_without_GoalUrate(self):
+        """Method that returns the default goal_urate from a UltAid object."""
+        ultaid = UltAidFactory()
+        goalurate = defaults_get_goalurate(goal_urate_object=ultaid)
+        self.assertTrue(isinstance(goalurate, GoalUrates))
+        self.assertNotEqual(goalurate, getattr(ultaid, "goal_urate", None))
+        self.assertEqual(goalurate, GoalUrates.SIX)
+
+    def test__returns_goal_urate_from_GoalUrate(self):
+        """Method that returns the goal_urate from a GoalUrate object."""
+        goalurate = defaults_get_goalurate(goal_urate_object=self.userless_goalurate)
+        self.assertTrue(isinstance(goalurate, GoalUrates))
+        self.assertEqual(goalurate, self.userless_goalurate.goal_urate)
+        self.assertEqual(goalurate, GoalUrates.FIVE)
+
 
 class TestDefaultsTreatmentsCreateDosingDict(TestCase):
     def setUp(self):

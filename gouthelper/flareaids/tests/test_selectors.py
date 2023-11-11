@@ -11,8 +11,10 @@ from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import eGFR_calculator, stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
+from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.tests.factories import CkdFactory
+from ...treatments.choices import FlarePpxChoices
 from ..selectors import flareaid_userless_qs
 from .factories import FlareAidFactory
 
@@ -35,10 +37,12 @@ class TestFlareAidQuerySet(TestCase):
                 ),
             ),
         )
+        self.medallergy = MedAllergyFactory(treatment=FlarePpxChoices.COLCHICINE)
         self.flareaid = FlareAidFactory(
             dateofbirth=self.dateofbirth,
             gender=self.gender,
         )
+        self.flareaid.medallergys.add(self.medallergy)
         self.flareaid.medhistorys.add(self.ckd)
 
     def test__queryset_returns_correctly(self):
@@ -49,4 +53,5 @@ class TestFlareAidQuerySet(TestCase):
         with CaptureQueriesContext(connection) as queries:
             queryset = queryset.get()
         self.assertEqual(len(queries.captured_queries), 3)
+        self.assertIn(self.medallergy, queryset.medallergys_qs)
         self.assertIn(self.ckd, queryset.medhistorys_qs)
