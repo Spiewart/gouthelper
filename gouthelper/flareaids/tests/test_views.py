@@ -202,21 +202,37 @@ class TestFlareAidCreate(TestCase):
 class TestFlareAidDetail(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view: FlareAidDetail = FlareAidDetail()
-
-    def test__contents(self):
-        self.assertTrue(self.view.contents)
-        self.assertTrue(isinstance(self.view.contents, QuerySet))
-        content_qs = Content.objects.filter(
+        self.view: FlareAidDetail = FlareAidDetail
+        self.content_qs = Content.objects.filter(
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.FLAREAID, slug__isnull=False
         ).all()
-        for content in self.view.contents:
-            self.assertIn(content, content_qs)
-        for content in content_qs:
-            self.assertIn(content, self.view.contents)
+        self.flareaid = FlareAidFactory()
+
+    def test__contents(self):
+        self.assertTrue(self.view().contents)
+        self.assertTrue(isinstance(self.view().contents, QuerySet))
+        for content in self.view().contents:
+            self.assertIn(content, self.content_qs)
+        for content in self.content_qs:
+            self.assertIn(content, self.view().contents)
 
     def test__get_context_data(self):
-        pass
+        response = self.client.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
+        context = response.context_data
+        for content in self.content_qs:
+            self.assertIn(content.slug, context)
+            self.assertEqual(context[content.slug], {content.tag: content})
+
+    def test__get_queryset(self):
+        qs = self.view(kwargs={"pk": self.flareaid.pk}).get_queryset()
+        self.assertTrue(isinstance(qs, QuerySet))
+        self.assertEqual(qs.first(), self.flareaid)
+        self.assertTrue(hasattr(qs.first(), "medhistorys_qs"))
+        self.assertTrue(hasattr(qs.first(), "medallergys_qs"))
+        self.assertTrue(hasattr(qs.first(), "ckddetail"))
+        self.assertTrue(hasattr(qs.first(), "baselinecreatinine"))
+        self.assertTrue(hasattr(qs.first(), "dateofbirth"))
+        self.assertTrue(hasattr(qs.first(), "gender"))
 
 
 class TestFlareAidUpdate(TestCase):

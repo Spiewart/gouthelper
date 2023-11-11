@@ -1,7 +1,10 @@
-from django.db.models import QuerySet
+import pytest  # type: ignore
+from django.db.models import QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 
+from ...contents.choices import Contexts, Tags
+from ...contents.models import Content
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import ErosionsForm, TophiForm
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
@@ -13,6 +16,8 @@ from ..choices import GoalUrates
 from ..models import GoalUrate
 from ..views import GoalUrateCreate, GoalUrateDetail, GoalUrateUpdate
 from .factories import GoalUrateFactory
+
+pytestmark = pytest.mark.django_db
 
 
 class TestGoalUrateCreate(TestCase):
@@ -127,21 +132,28 @@ class TestGoalUrateCreate(TestCase):
         self.assertTrue(response.context[f"{MedHistoryTypes.TOPHI}_form"].errors)
 
 
+@pytest.mark.usefixtures("contents_setup")
 class TestGoalUrateDetail(TestCase):
     def setUp(self):
         self.goalurate = GoalUrateFactory()
         self.view: GoalUrateDetail = GoalUrateDetail
         self.request = RequestFactory().get(reverse("goalurates:detail", kwargs={"pk": self.goalurate.id}))
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
+        self.content_qs = Content.objects.filter(context=Contexts.GOALURATE, tag=Tags.EXPLANATION, slug__isnull=False)
 
     def test__contents(self):
         view_instance = self.view()
         self.assertTrue(isinstance(view_instance.contents, QuerySet))
+        for content in view_instance.contents:
+            self.assertIn(content, self.content_qs)
+        for content in self.content_qs:
+            self.assertIn(content, view_instance.contents)
 
     def test__get_context_data(self):
         view_instance = self.view()
         for content in view_instance.contents:
-            self.assertIn({content.slug: {content.tag: content}}, self.response.context_data["contents"])
+            self.assertIn(content.slug, self.response.context_data)
+            self.assertEqual(self.response.context_data[content.slug], {content.tag: content})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.goalurate.pk}).get_queryset()

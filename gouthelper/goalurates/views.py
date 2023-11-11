@@ -133,7 +133,7 @@ class GoalUrateDetail(DetailView):
 
     @property
     def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE)
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE, tag__isnull=False)
 
 
 class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageMixin):
