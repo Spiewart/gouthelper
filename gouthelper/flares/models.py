@@ -16,7 +16,6 @@ from ..flares.choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..flares.helpers import (
     flares_abnormal_duration,
     flares_common_joints,
-    flares_get_caveat,
     flares_get_likelihood_str,
     flares_uncommon_joints,
 )
@@ -209,10 +208,6 @@ monosodium urate crystals on polarized microscopy?"
             )
         return False
 
-    @property
-    def caveat(self):
-        return flares_get_caveat(self.polyarticular)
-
     @cached_property
     def common_joints(self) -> list[LimitedJointChoices]:
         """Method that returns a list of the joints of a Flare that are
@@ -251,6 +246,9 @@ monosodium urate crystals on polarized microscopy?"
         mtp_str += " first metatarsophalangeal joint"
         return mtp_str
 
+    def get_absolute_url(self):
+        return reverse("flares:detail", kwargs={"pk": self.pk})
+
     @cached_property
     def hyperuricemia(self) -> bool:
         """Method that returns True if a Flare has a Urate that is
@@ -258,9 +256,6 @@ monosodium urate crystals on polarized microscopy?"
         if self.urate:
             return self.urate.value > Decimal("5.88")
         return False
-
-    def get_absolute_url(self):
-        return reverse("flares:detail", kwargs={"pk": self.pk})
 
     def joints_str(self):
         """
@@ -277,6 +272,10 @@ monosodium urate crystals on polarized microscopy?"
         return flares_get_likelihood_str(flare=self)
 
     @property
+    def monoarticular(self):
+        return not self.polyarticular
+
+    @property
     def polyarticular(self):
         if len(self.joints) > 1:
             return True
@@ -291,10 +290,10 @@ monosodium urate crystals on polarized microscopy?"
         return self.age and self.age >= 60 or self.menopause
 
     def __str__(self):
-        if self.created:
-            return f'{self.joints_str()}, {self.created.date().strftime("%b. %d, %Y")}'
-        else:
-            return f"{self.joints_str()}"
+        flare_str = "Monoarticular" if self.monoarticular else "Polyarticular"
+        flare_str += f", {self.date_started} - "
+        flare_str += f"{self.date_ended}" if self.date_ended else "present"
+        return flare_str
 
     @cached_property
     def uncommon_joints(self) -> list[LimitedJointChoices]:

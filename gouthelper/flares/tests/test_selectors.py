@@ -31,7 +31,7 @@ from .factories import FlareFactory
 pytestmark = pytest.mark.django_db
 
 
-class TestPpxAidUserlessQuerySet(TestCase):
+class TestFlareUserlessQuerySet(TestCase):
     def setUp(self):
         self.ckd = CkdFactory()
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))

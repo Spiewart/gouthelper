@@ -2,10 +2,6 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
-from django.urls import reverse_lazy  # type: ignore
-from django.utils.safestring import mark_safe  # type: ignore
-from django.utils.text import format_lazy  # type: ignore
-
 from ..genders.choices import Genders
 from ..medhistorys.helpers import medhistorys_get_cvdiseases, medhistorys_get_gout
 from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
@@ -115,27 +111,6 @@ def flares_get_less_likelys(
     return less_likelys
 
 
-def flares_get_caveat(polyarticular: bool) -> str:
-    """Return caveat for a Flare."""
-    if not polyarticular:
-        caveat_str = format_lazy(
-            """You're flare was only a single joint, \
-which is great because this <a href='' hx-get={} hx-target='#dialog'>calculator</a> \
-has only been validated for monoarticular (1 joint) flares. It can't \
-necessarily be applied to polyarticular (more than 1 joint) flares.""",
-            reverse_lazy("flares:about-calculator"),
-        )
-        return mark_safe(caveat_str)
-    else:
-        caveat_str = format_lazy(
-            """This <a href='' hx-get={} hx-target='#dialog'>calculator</a> \
-has only been validated for monoarticular (1 joint) flares. It can't \
-necessarily be applied to this polyarticular (more than 1 joint) flare.""",
-            reverse_lazy("flares:about-calculator"),
-        )
-        return mark_safe(caveat_str)
-
-
 def flares_get_likelihood_str(flare: "Flare") -> str:
     if flare.likelihood == Likelihoods.UNLIKELY:
         flare_str = "Gout isn't likely and alternative causes of the symptoms should be investigated."
@@ -166,8 +141,20 @@ def flares_calculate_likelihood(
     Returns:
         Likelihoods: enum representing the likelihood of a flare being gout
     """
+    # Check if the flare was diagnosed by a clinician
+    if diagnosed:
+        # If the clinician performed and aspiration and found gout, then
+        # gout is likely
+        if crystal_analysis is True:
+            likelihood = Likelihoods.LIKELY
+        # If the clinician performed an aspiration and didn't find gout,
+        # then gout is unlikely
+        elif crystal_analysis is False:
+            likelihood = Likelihoods.UNLIKELY
+        # If no aspiration was performed, then gout is probably is not any
+        # more or less likely than if the flare was not diagnosed by a clinician
     # Set baseline likelihood based on the presence or absence of less likelys
-    if less_likelys:
+    elif less_likelys:
         # If there are less likely gout factors
         # reduce the likelihood dependent on the prevalence
         if prevalence == Prevalences.HIGH:
@@ -184,25 +171,6 @@ def flares_calculate_likelihood(
             likelihood = Likelihoods.EQUIVOCAL
         else:
             likelihood = Likelihoods.UNLIKELY
-    # Check if the flare was diagnosed by a clinician
-    if diagnosed:
-        # If the clinician performed and aspiration and found gout, then
-        # gout is likely
-        if crystal_analysis is True:
-            likelihood = Likelihoods.LIKELY
-        # If the clinician performed an aspiration and didn't find gout,
-        # then gout is unlikely
-        elif crystal_analysis is False:
-            likelihood = Likelihoods.UNLIKELY
-        # If no aspiration was performed, then gout is probably more likely
-        # than not if not diagnosed bya  clinician
-        else:
-            if likelihood == Likelihoods.LIKELY:
-                pass
-            elif likelihood == Likelihoods.EQUIVOCAL:
-                likelihood = Likelihoods.LIKELY
-            else:
-                likelihood = Likelihoods.EQUIVOCAL
     return likelihood
 
 

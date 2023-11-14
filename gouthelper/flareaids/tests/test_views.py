@@ -234,6 +234,22 @@ class TestFlareAidDetail(TestCase):
         self.assertTrue(hasattr(qs.first(), "dateofbirth"))
         self.assertTrue(hasattr(qs.first(), "gender"))
 
+    def test__get_object_updates(self):
+        self.assertTrue(self.flareaid.recommendation[0] == Treatments.NAPROXEN)
+        medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
+        self.flareaid.medallergys.add(medallergy)
+        request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
+        self.view.as_view()(request, pk=self.flareaid.pk)
+        # This needs to be manually refetched from the db
+        self.assertFalse(FlareAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
+
+    def test__get_object_does_not_update(self):
+        self.assertTrue(self.flareaid.recommendation[0] == Treatments.NAPROXEN)
+        request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}) + "?updated=True")
+        self.view.as_view()(request, pk=self.flareaid.pk)
+        # This needs to be manually refetched from the db
+        self.assertTrue(FlareAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
+
 
 class TestFlareAidUpdate(TestCase):
     def setUp(self):

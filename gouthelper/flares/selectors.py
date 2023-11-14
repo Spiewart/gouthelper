@@ -1,9 +1,7 @@
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
-from django.utils import timezone  # type: ignore
 
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 
@@ -36,22 +34,3 @@ def medhistory_userless_prefetch() -> Prefetch:
         queryset=medhistory_userless_qs(),
         to_attr="medhistorys_qs",
     )
-
-
-def recent_flare(user):
-    """
-    Function that takes a user as an argument and checks for Flare in last 6 months
-    """
-    rec_flares = apps.get_model("flare.flare").objects.filter(
-        user=user,
-        date_started__gte=(timezone.now() - timedelta(days=180)),
-        date_started__lte=(timezone.now()),
-    )
-    if rec_flares:
-        real_flares = []
-        for flare in rec_flares:
-            if flare.crystal_analysis or flare.diagnosed or flare.clinically_proven:
-                real_flares.append(flare)
-        if real_flares:
-            return real_flares
-    return None
