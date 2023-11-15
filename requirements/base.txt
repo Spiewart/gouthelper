@@ -19,7 +19,7 @@ django-markdownfield==0.11.0  # https://github.com/dmptrluke/django-markdownfiel
 django-multiselectfield==0.1.12  # https://pypi.org/project/django-multiselectfield/
 django-simple-history==3.0.0 # https://django-simple-history.readthedocs.io/en/stable/quick_start.html
 django-braces==1.15.0 # https://github.com/brack3t/django-braces/
-django-htmx==1.16.0 #https://github.com/adamchainz/django-htmx
+django-htmx==1.17.1 #https://github.com/adamchainz/django-htmx
 # Django REST Framework
 djangorestframework==3.14.0  # https://github.com/encode/django-rest-framework
 django-cors-headers==4.3.0  # https://github.com/adamchainz/django-cors-headers
