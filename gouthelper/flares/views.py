@@ -83,11 +83,11 @@ class FlareBase(View):
     def post_process_menopause(
         self,
         medhistorys_forms: dict[str, "ModelForm"],
-        object: "MedAllergyAidHistoryModel",
-        errors: bool,
+        post_object: "MedAllergyAidHistoryModel",
+        errors_bool: bool = False,
     ) -> tuple[dict[str, "ModelForm"], bool]:
-        if object.gender and object.gender.value == Genders.FEMALE and object.dateofbirth:
-            age = age_calc(object.dateofbirth.value)
+        if post_object.gender and post_object.gender.value == Genders.FEMALE and post_object.dateofbirth:
+            age = age_calc(post_object.dateofbirth.value)
             if (
                 age >= 40
                 and age < 60
@@ -105,24 +105,26 @@ menopause status to evaluate their flare."
                 medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
                     f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
                 )
-                errors = True
-        return medhistorys_forms, errors
+                errors_bool = True
+        return medhistorys_forms, errors_bool
 
     def post_process_urate_check(
         self,
         form: "ModelForm",
-        object: "MedAllergyAidHistoryModel",
+        post_object: "MedAllergyAidHistoryModel",
         onetoone_forms: dict[str, "ModelForm"],
-        errors: bool,
+        errors_bool: bool = False,
     ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
         if form.cleaned_data.get("urate_check", None) and (
-            not getattr(object, "urate") or not getattr(object.urate, "value")
+            not getattr(post_object, "urate", None)
+            or not getattr(post_object.urate, "value", None)
+            or not onetoone_forms["urate_form"].cleaned_data.get("value", None)
         ):
             urate_error = ValidationError(message="If urate was checked, we should know it!")
             form.add_error("urate_check", urate_error)
             onetoone_forms["urate_form"].add_error("value", urate_error)
-            errors = True
-        return form, onetoone_forms, errors
+            errors_bool = True
+        return form, onetoone_forms, errors_bool
 
 
 class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
@@ -146,14 +148,22 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        medhistorys_forms, errors = self.post_process_menopause(
-            medhistorys_forms=medhistorys_forms, object=object_data, errors=errors
+        medhistorys_forms, errors_bool = self.post_process_menopause(
+            medhistorys_forms=medhistorys_forms, post_object=object_data
         )
-        form, onetoone_forms, errors = self.post_process_urate_check(
-            form=form, object=object_data, onetoone_forms=onetoone_forms, errors=errors
+        form, onetoone_forms, errors_bool = self.post_process_urate_check(
+            form=form, post_object=object_data, onetoone_forms=onetoone_forms, errors_bool=errors_bool
         )
-        if errors:
-            return super().post.render_errors()
+        if errors_bool:
+            return super().render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                medallergys_forms=medallergys_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
         else:
             return self.form_valid(
                 form=form,  # type: ignore
@@ -187,7 +197,7 @@ class FlareDetail(DetailView):
 
     @property
     def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE)
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE, tag__isnull=False)
 
 
 class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
@@ -234,14 +244,22 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        medhistorys_forms, errors = self.post_process_menopause(
-            medhistorys_forms=medhistorys_forms, object=object_data, errors=errors
+        medhistorys_forms, errors_bool = self.post_process_menopause(
+            medhistorys_forms=medhistorys_forms, post_object=object_data
         )
-        form, onetoone_forms, errors = self.post_process_urate_check(
-            form=form, object=object_data, onetoone_forms=onetoone_forms, errors=errors
+        form, onetoone_forms, errors_bool = self.post_process_urate_check(
+            form=form, post_object=object_data, onetoone_forms=onetoone_forms, errors_bool=errors_bool
         )
-        if errors:
-            return super().post.render_errors()
+        if errors_bool:
+            return super().render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                medallergys_forms=medallergys_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
         return self.form_valid(
             form=form,  # type: ignore
             medallergys_to_add=medallergys_to_add,

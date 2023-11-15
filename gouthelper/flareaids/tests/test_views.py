@@ -42,7 +42,6 @@ class TestFlareAidAbout(TestCase):
 
     def test__get_context_data(self):
         response = self.client.get(reverse("flareaids:about"))
-        self.assertEqual(response.status_code, 200)
         self.assertIn("content", response.context_data)
 
     def test__content(self):

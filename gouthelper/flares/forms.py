@@ -50,7 +50,7 @@ class FlareForm(
         )
         self.fields["crystal_analysis"].help_text = "Was monosodium urate found in the synovial fluid?"
         self.fields["joints"].label = "Joint(s)"
-        self.fields["joints"].help_text = "Which joints was it in?"
+        self.fields["joints"].help_text = "Which joints were affected?"
         self.fields.update(
             {
                 "onset": forms.TypedChoiceField(
@@ -64,7 +64,7 @@ class FlareForm(
             }
         )
         self.fields["onset"].label = "Rapid Onset"
-        self.fields["onset"].help_text = "Symptoms start and peak in a day or less?"
+        self.fields["onset"].help_text = "Did the symptoms start and peak in a day or less?"
         self.fields.update(
             {
                 "redness": forms.TypedChoiceField(
@@ -258,13 +258,11 @@ class FlareForm(
         if diagnosed and aspiration is None:
             self.add_error("aspiration", "Joint aspiration must be selected if a clinician diagnosed the flare.")
         # If diagnosed is False (or None = not selected), crystal_analysis must be None
-        if not diagnosed:
-            if crystal_analysis is not None:
-                cleaned_data["crystal_analysis"] = ""
+        if not diagnosed and crystal_analysis is not None:
+            cleaned_data["crystal_analysis"] = ""
         # If aspiration is False (or None = not selected), then crystal_analysis must be None
-        elif not aspiration:
-            if crystal_analysis is not None:
-                cleaned_data["crystal_analysis"] = ""
+        elif not aspiration and crystal_analysis is not None:
+            cleaned_data["crystal_analysis"] = ""
         if aspiration and crystal_analysis is None:
             self.add_error(
                 "crystal_analysis", "Results of crystal analysis must be selected if aspiration is selected."

@@ -142,36 +142,30 @@ def flares_calculate_likelihood(
         Likelihoods: enum representing the likelihood of a flare being gout
     """
     # Check if the flare was diagnosed by a clinician
-    if diagnosed:
+    if diagnosed and crystal_analysis is True:
         # If the clinician performed and aspiration and found gout, then
         # gout is likely
-        if crystal_analysis is True:
-            likelihood = Likelihoods.LIKELY
+        return Likelihoods.LIKELY
+    elif diagnosed and crystal_analysis is not None and crystal_analysis is False:
         # If the clinician performed an aspiration and didn't find gout,
         # then gout is unlikely
-        elif crystal_analysis is False:
-            likelihood = Likelihoods.UNLIKELY
+        return Likelihoods.UNLIKELY
         # If no aspiration was performed, then gout is probably is not any
         # more or less likely than if the flare was not diagnosed by a clinician
     # Set baseline likelihood based on the presence or absence of less likelys
     elif less_likelys:
         # If there are less likely gout factors
         # reduce the likelihood dependent on the prevalence
-        if prevalence == Prevalences.HIGH:
-            likelihood = Likelihoods.EQUIVOCAL
-        elif prevalence == Prevalences.MEDIUM:
-            likelihood = Likelihoods.UNLIKELY
-        else:
-            likelihood = Likelihoods.UNLIKELY
+        return Likelihoods.EQUIVOCAL if prevalence == Prevalences.HIGH else Likelihoods.UNLIKELY
     else:
         # Otherwise set the likelihood based on the prevalence
-        if prevalence == Prevalences.HIGH:
-            likelihood = Likelihoods.LIKELY
-        elif prevalence == Prevalences.MEDIUM:
-            likelihood = Likelihoods.EQUIVOCAL
-        else:
-            likelihood = Likelihoods.UNLIKELY
-    return likelihood
+        return (
+            Likelihoods.LIKELY
+            if prevalence == Prevalences.HIGH
+            else Likelihoods.EQUIVOCAL
+            if prevalence == Prevalences.MEDIUM
+            else Likelihoods.UNLIKELY
+        )
 
 
 def flares_calculate_prevalence(

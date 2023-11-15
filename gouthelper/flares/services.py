@@ -33,6 +33,7 @@ class FlareDecisionAid:
         else:
             self.flare = flare_userless_qs(pk=pk).get()
         self.dateofbirth = self.flare.dateofbirth
+        self.age = age_calc(self.dateofbirth.value)
         self.gender = self.flare.gender
         self.medhistorys = self.flare.medhistorys_qs
         self.urate = self.flare.urate
@@ -41,7 +42,6 @@ class FlareDecisionAid:
         # Separate here when adding User to class method
         self.ckd = medhistorys_get_ckd(medhistorys=self.medhistorys)
         self.cvdiseases = medhistorys_get_cvdiseases(medhistorys=self.medhistorys)
-        self.age = age_calc(self.dateofbirth.value)
         self.gout = medhistorys_get_gout(medhistorys=self.medhistorys)
         self.menopause = medhistorys_get_menopause(medhistorys=self.medhistorys)
 

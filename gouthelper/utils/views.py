@@ -355,7 +355,7 @@ class MedHistorysModelCreateView(CreateView):
         medhistorys_forms: dict[str, "ModelForm"],
         medhistorydetails_forms: dict[str, "ModelForm"],
         onetoone_forms: dict[str, "ModelForm"],
-        errors: bool,
+        errors_bool: bool,
     ) -> tuple[list["MedHistory"], list[Union["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"]], bool]:
         medhistorys_to_add = []
         medhistorydetails_to_add = []
@@ -378,8 +378,8 @@ class MedHistorysModelCreateView(CreateView):
                         dateofbirth_form=onetoone_forms["dateofbirth_form"],
                         gender_form=onetoone_forms["gender_form"],
                     ).process()
-                    if ckddetail_errors and errors is not True:
-                        errors = True
+                    if ckddetail_errors and errors_bool is not True:
+                        errors_bool = True
                     if baselinecreatinine:
                         medhistorydetails_to_add.append(baselinecreatinine)
                     if ckddetail:
@@ -388,25 +388,10 @@ class MedHistorysModelCreateView(CreateView):
                     goutdetail = medhistorydetails_forms["goutdetail_form"].save(commit=False)
                     goutdetail.medhistory = medhistory
                     medhistorydetails_to_add.append(goutdetail)
-        return medhistorys_to_add, medhistorydetails_to_add, errors
+        return medhistorys_to_add, medhistorydetails_to_add, errors_bool
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
-
-        def render_errors() -> "HttpResponse":
-            """To shorten code for rendering forms with errors in multiple
-            locations in post()."""
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    **onetoone_forms,
-                    **medallergys_forms,
-                    **medhistorys_forms,
-                    **medhistorydetails_forms,
-                    lab_formset=lab_formset,
-                    lab_formset_helper=self.labs[1] if self.labs else None,
-                )
-            )
 
         self.object = self.model
         form_class = self.get_form_class()
@@ -433,24 +418,35 @@ class MedHistorysModelCreateView(CreateView):
             and validate_form_list(form_list=list(medhistorydetails_forms.values()))
             and (lab_formset.is_valid() if lab_formset else True)
         ):
-            errors = False
+            errors_bool = False
             object_data: "MedAllergyAidHistoryModel" = form.save(commit=False)
             onetoones_to_save = self.post_process_onetoone_forms(onetoone_forms=onetoone_forms, object=object_data)
             # Iterate through the MedAllergyTreatmentForms and mark those with value for save()
             medallergys_to_add: list[MedAllergy] = self.post_process_medallergys_forms(
                 medallergys_forms=medallergys_forms
             )
-            medhistorys_to_add, medhistorydetails_to_add, errors = self.post_process_medhistorys_forms(
+            medhistorys_to_add, medhistorydetails_to_add, errors_bool = self.post_process_medhistorys_forms(
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
                 onetoone_forms=onetoone_forms,
-                errors=errors,
+                errors_bool=errors_bool,
             )
             # Process the lab formset forms if it exists
             labs_to_add = self.post_process_lab_formset(lab_formset=lab_formset)
             self.object = object_data
-            if errors:
-                errors = render_errors()
+            errors = (
+                self.render_errors(
+                    form=form,
+                    onetoone_forms=onetoone_forms,
+                    medallergys_forms=medallergys_forms,
+                    medhistorys_forms=medhistorys_forms,
+                    medhistorydetails_forms=medhistorydetails_forms,
+                    lab_formset=lab_formset,
+                    labs=self.labs if hasattr(self, "labs") else None,
+                )
+                if errors_bool
+                else None
+            )
             return (
                 errors,
                 form,
@@ -469,7 +465,15 @@ class MedHistorysModelCreateView(CreateView):
         else:
             # If all the forms aren't valid unpack the related model form dicts into the context
             # and return the CreateView with the invalid forms
-            errors = render_errors()
+            errors = self.render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medallergys_forms=medallergys_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
             return (
                 errors,
                 form,
@@ -486,6 +490,30 @@ class MedHistorysModelCreateView(CreateView):
                 [],
                 [],
             )
+
+    def render_errors(
+        self,
+        form: "ModelForm",
+        onetoone_forms: dict,
+        medallergys_forms: dict,
+        medhistorys_forms: dict,
+        medhistorydetails_forms: dict,
+        lab_formset: "BaseModelFormSet",
+        labs: tuple["BaseModelFormSet", "FormHelper", "QuerySet", str] | None,
+    ) -> "HttpResponse":
+        """To shorten code for rendering forms with errors in multiple
+        locations in post()."""
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                **onetoone_forms,
+                **medallergys_forms,
+                **medhistorys_forms,
+                **medhistorydetails_forms,
+                lab_formset=lab_formset,
+                lab_formset_helper=labs[1] if labs else None,
+            )
+        )
 
 
 class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
@@ -716,14 +744,16 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
     def post_populate_medallergys_forms(
         self,
         medallergys: None | type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"],
-        object: "MedAllergyAidHistoryModel",
+        post_object: "MedAllergyAidHistoryModel",
         request: "HttpRequest",
     ) -> dict[str, "ModelForm"]:
         medallergys_forms: dict[str, "ModelForm"] = {}
         if medallergys:
             for treatment in medallergys:
                 medallergy_list = [
-                    qs_medallergy for qs_medallergy in object.medallergys_qs if qs_medallergy.treatment == treatment
+                    qs_medallergy
+                    for qs_medallergy in post_object.medallergys_qs
+                    if qs_medallergy.treatment == treatment
                 ]
                 if medallergy_list:
                     medallergy = medallergy_list[0]
@@ -743,7 +773,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
     def post_populate_medhistorys_details_forms(
         self,
         medhistorys: dict[MedHistoryTypes, "FormModelDict"],
-        object: "MedAllergyAidHistoryModel",
+        post_object: "MedAllergyAidHistoryModel",
         request: "HttpRequest",
     ) -> tuple[dict[str, "ModelForm"], dict[str, "ModelForm"]]:
         """Method to populate the forms for the MedHistory and MedHistoryDetail
@@ -754,7 +784,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             for medhistory in medhistorys:
                 medhistory_list = [
                     qs_medhistory
-                    for qs_medhistory in object.medhistorys_qs
+                    for qs_medhistory in post_object.medhistorys_qs
                     if qs_medhistory.medhistorytype == medhistory
                 ]
                 if medhistory_list:
@@ -870,20 +900,24 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         return medhistorys_forms, medhistorydetails_forms
 
     def post_populate_onetoone_forms(
-        self, onetoones: dict[str, "FormModelDict"], object: "MedAllergyAidHistoryModel", request: "HttpRequest"
+        self, onetoones: dict[str, "FormModelDict"], post_object: "MedAllergyAidHistoryModel", request: "HttpRequest"
     ) -> dict[str, "ModelForm"]:
         onetoone_forms: dict[str, "ModelForm"] = {}
         if onetoones:
             for onetoone in onetoones:
                 onetoone_forms.update(
-                    {f"{onetoone}_form": onetoones[onetoone]["form"](request.POST, instance=getattr(object, onetoone))}
+                    {
+                        f"{onetoone}_form": onetoones[onetoone]["form"](
+                            request.POST, instance=getattr(post_object, onetoone)
+                        )
+                    }
                 )
         return onetoone_forms
 
     def post_process_medallergys_forms(
         self,
         medallergys_forms: dict[str, "ModelForm"],
-        object: "MedAllergyAidHistoryModel",
+        post_object: "MedAllergyAidHistoryModel",
     ) -> tuple[list["MedAllergy"], list["MedAllergy"]]:
         medallergys_to_add: list["MedAllergy"] = []
         medallergys_to_remove: list["MedAllergy"] = []
@@ -891,7 +925,9 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             treatment = medallergy_form_str.split("_")[1]
             if f"medallergy_{treatment}" in medallergys_forms[medallergy_form_str].cleaned_data:
                 medallergy_list = [
-                    qs_medallergy for qs_medallergy in object.medallergys_qs if qs_medallergy.treatment == treatment
+                    qs_medallergy
+                    for qs_medallergy in post_object.medallergys_qs
+                    if qs_medallergy.treatment == treatment
                 ]
                 if medallergy_list:
                     medallergy = medallergy_list[0]
@@ -909,9 +945,9 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         self,
         medhistorys_forms: dict[str, "ModelForm"],
         medhistorydetails_forms: dict[str, "ModelForm"],
-        object: "MedAllergyAidHistoryModel",
+        post_object: "MedAllergyAidHistoryModel",
         onetoone_forms: dict[str, "ModelForm"],
-        errors: bool,
+        errors_bool: bool,
     ) -> tuple[
         list["MedHistory"],
         list["MedHistory"],
@@ -930,12 +966,11 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                 # Check if the Object has a medhistory that no longer has a value in the form data
                 medhistory_list = [
                     qs_medhistory
-                    for qs_medhistory in object.medhistorys_qs
+                    for qs_medhistory in post_object.medhistorys_qs
                     if qs_medhistory.medhistorytype == medhistorytype
                 ]
                 if medhistory_list:
                     medhistory = medhistory_list[0]
-                    medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]
                     if not medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]:
                         # Mark it for deletion if so
                         medhistorys_to_remove.append(medhistorys_forms[medhistory_form_str].instance)
@@ -960,8 +995,8 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                             medhistorydetails_to_add.append(baselinecreatinine)
                         if ckddetail:
                             medhistorydetails_to_add.append(ckddetail)
-                        if ckddetail_errors and errors is not True:
-                            errors = True
+                        if ckddetail_errors and errors_bool is not True:
+                            errors_bool = True
                     elif medhistorytype == MedHistoryTypes.GOUT and self.goutdetail:
                         goutdetail_form = medhistorydetails_forms["goutdetail_form"]
                         if (
@@ -1003,9 +1038,9 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                                 medhistorydetails_to_add.append(baselinecreatinine)
                             if ckddetail:
                                 medhistorydetails_to_add.append(ckddetail)
-                            if ckddetail_errors and errors is not True:
-                                errors = True
-        return medhistorys_to_add, medhistorys_to_remove, medhistorydetails_to_add, errors
+                            if ckddetail_errors and errors_bool is not True:
+                                errors_bool = True
+        return medhistorys_to_add, medhistorys_to_remove, medhistorydetails_to_add, errors_bool
 
     def post_process_one_to_one_forms(
         self, onetoone_forms: dict[str, "ModelForm"], object_data: "MedAllergyAidHistoryModel"
@@ -1084,21 +1119,6 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
 
-        def render_errors() -> "HttpResponse":
-            """To shorten code for rendering forms with errors in multiple
-            locations in post()."""
-            return self.render_to_response(
-                self.get_context_data(
-                    form=form,
-                    **onetoone_forms,
-                    **medallergys_forms,
-                    **medhistorys_forms,
-                    **medhistorydetails_forms,
-                    lab_formset=lab_formset,
-                    lab_formset_helper=self.labs[1] if self.labs else None,
-                )
-            )
-
         self.object: "MedAllergyAidHistoryModel" = self.get_object()  # type: ignore
         form_class = self.get_form_class()
         if self.medallergys:
@@ -1107,13 +1127,13 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             form = form_class(request.POST, instance=self.object)
         # Populate dicts for related models with POST data
         onetoone_forms = self.post_populate_onetoone_forms(
-            onetoones=self.onetoones, object=self.object, request=request
+            onetoones=self.onetoones, post_object=self.object, request=request
         )
         medallergys_forms = self.post_populate_medallergys_forms(
-            medallergys=self.medallergys, object=self.object, request=request
+            medallergys=self.medallergys, post_object=self.object, request=request
         )
         medhistorys_forms, medhistorydetails_forms = self.post_populate_medhistorys_details_forms(
-            medhistorys=self.medhistorys, object=self.object, request=request
+            medhistorys=self.medhistorys, post_object=self.object, request=request
         )
         lab_formset = self.post_populate_labformset(request=request)
         # Call is_valid() on all forms, using validate_form_list() for dicts of related model forms
@@ -1125,34 +1145,47 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             and validate_form_list(form_list=medhistorydetails_forms.values())
             and (not lab_formset or lab_formset.is_valid())
         ):
-            errors = False
+            errors_bool = False
             object_data: "MedHistoryAidModel" = form.save(commit=False)
             # Set related models for saving and set as attrs of the UpdateView model instance
             onetoones_to_save, onetoones_to_delete = self.post_process_one_to_one_forms(
                 onetoone_forms=onetoone_forms, object_data=object_data
             )
             medallergys_to_add, medallergys_to_remove = self.post_process_medallergys_forms(
-                medallergys_forms=medallergys_forms, object=object_data
+                medallergys_forms=medallergys_forms, post_object=object_data
             )
             (
                 medhistorys_to_add,
                 medhistorys_to_remove,
                 medhistorydetails_to_add,
-                errors,
+                errors_bool,
             ) = self.post_process_medhistorys_details_forms(
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                object=object_data,
+                post_object=object_data,
                 onetoone_forms=onetoone_forms,
-                errors=errors,
+                errors_bool=errors_bool,
             )
             (
                 labs_to_add,
                 labs_to_remove,
                 labs_to_update,
             ) = self.post_process_lab_formset(lab_formset=lab_formset)
-            if errors:
-                errors = render_errors()
+            # If there are errors picked up after the initial validation step
+            # render the errors as errors and include in the return tuple
+            errors = (
+                self.render_errors(
+                    form=form,
+                    onetoone_forms=onetoone_forms,
+                    medallergys_forms=medallergys_forms,
+                    medhistorys_forms=medhistorys_forms,
+                    medhistorydetails_forms=medhistorydetails_forms,
+                    lab_formset=lab_formset,
+                    labs=self.labs if hasattr(self, "labs") else None,
+                )
+                if errors_bool
+                else None
+            )
             return (
                 errors,
                 form,
@@ -1176,7 +1209,15 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         else:
             # If all the forms aren't valid unpack the related model form dicts into the context
             # and return the UpdateView with the invalid forms
-            errors = render_errors()
+            errors = self.render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medallergys_forms=medallergys_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
             return (
                 errors,
                 form,

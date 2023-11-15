@@ -217,6 +217,7 @@ Please double check and try again."
         """
         # Check for errors, which will populate errors on the forms, mark errors bool as True if so
         errors = self.check_for_errors()
+        # If there are no errors, process the forms
         if not errors:
             # Check if there is supposed to be a CkdDetail instance added/updated
             if self.ckddetail_check():
@@ -237,6 +238,8 @@ Please double check and try again."
                 self.ckddetail = None
                 # Call set_baselinecreatinine() to delete the BaselineCreatinine instance
                 self.set_baselinecreatinine()
+        # Return the forms and errors, forms and their instances will NOT have been
+        # processed if there are errors to avoid making saves to the database
         return self.ckddetail, self.baselinecreatinine_form, errors
 
     def set_baselinecreatinine(self) -> None:

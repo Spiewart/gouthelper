@@ -222,9 +222,9 @@ class UrateFlareForm(BaseLabForm):
         self.fields["value"].label = "Flare Urate"
         self.fields["value"].decimal_places = 1
         self.fields["value"].help_text = mark_safe(
-            "Was the patient's uric acid checked during the flare?\
-                If not, leave it blank. \
-                    Uric acid is typically reported in micrograms per deciliter (mg/dL)."
+            "Was the patient's uric acid checked during the flare? \
+If not, leave it blank. \
+Uric acid is typically reported in micrograms per deciliter (mg/dL)."
         )
         self.fields["value"].validators.append(urate_max_value)
         self.helper = FormHelper(self)
