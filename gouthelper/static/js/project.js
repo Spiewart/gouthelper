@@ -190,7 +190,7 @@ function egfr_calc(creatinine, age, gender) {
   return egfr;
 }
 
-function stage_calculator(egfr) {
+function labs_stage_calculator(egfr) {
   var egfr = parseInt(egfr);
   if (egfr >= 90) {
     var stage = 1;
@@ -277,7 +277,7 @@ function compare_stage_creat() {
         (age = age),
         (gender = gender),
       );
-      var stage_calc = stage_calculator((egfr = egfr));
+      var stage_calc = labs_stage_calculator((egfr = egfr));
       if (stage.length & (stage_calc != stage)) {
         var stage_error = `<span id='stage_error' css_class='invalid-feedback'><strong>The stage (${stage}) selected does not match the calculated stage (${stage_calc}) from the baseline creatinine, age, and gender.</strong></span>`;
         var baselinecreatinine_error = `<span id='baselinecreatinine_error' css_class='invalid-feedback'><strong>The stage (${stage_calc}) calculated from the baseline creatinine, age, and gender does not match the select stage (${stage}).</strong></span>`;

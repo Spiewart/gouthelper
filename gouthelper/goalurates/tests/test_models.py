@@ -13,8 +13,14 @@ pytestmark = pytest.mark.django_db
 
 
 class TestGoalUrateMethods(TestCase):
+    def setUp(self):
+        self.goal_urate = GoalUrateFactory()
+
     def test__aid_medhistorys(self):
         self.assertEqual(GoalUrate.aid_medhistorys(), [MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI])
+
+    def test__get_absolute_url(self):
+        self.assertEqual(self.goal_urate.get_absolute_url(), f"/goalurates/{self.goal_urate.pk}/")
 
     def test__str__(self):
         goal_urate = GoalUrateFactory()
@@ -114,7 +120,7 @@ class TestGoalUrateMethods(TestCase):
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
-    def test__update_with_qs_6_queries(self):
+    def test__update_with_qs_5_queries(self):
         tophi = TophiFactory()
         goal_urate = GoalUrateFactory()
         goal_urate.add_medhistorys(medhistorys=[tophi])

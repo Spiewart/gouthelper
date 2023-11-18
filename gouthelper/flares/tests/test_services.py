@@ -9,7 +9,7 @@ from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...flares.tests.factories import FlareFactory
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import eGFR_calculator, stage_calculator
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.lists import FLARE_MEDHISTORYS
@@ -49,8 +49,8 @@ class TestFlareMethods(TestCase):
         )
         self.userless_ckddetail = CkdDetailFactory(
             medhistory=self.userless_ckd,
-            stage=stage_calculator(
-                eGFR_calculator(
+            stage=labs_stage_calculator(
+                labs_eGFR_calculator(
                     self.userless_baselinecreatinine.value,
                     age_calc(self.userless_dateofbirth.value),
                     self.userless_gender,

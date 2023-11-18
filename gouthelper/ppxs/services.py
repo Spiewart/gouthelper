@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from django.utils.functional import cached_property  # type: ignore
 
 from ..defaults.helpers import defaults_get_goalurate
-from ..labs.helpers import labs_urate_months_at_goal, labs_urates_hyperuricemic, labs_urates_recent_urate
+from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal, labs_urates_recent_urate
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..ults.choices import Indications
 from ..utils.helpers.aid_helpers import aids_assign_userless_goutdetail
@@ -41,7 +41,7 @@ class PpxDecisionAid:
         if labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
             self.at_goal = False
         else:
-            self.at_goal = labs_urate_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
+            self.at_goal = labs_urates_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
         # Check if there is a recent_urate
         self.recent_urate = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
 

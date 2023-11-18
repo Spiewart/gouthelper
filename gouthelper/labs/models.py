@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from django.apps import apps  # type: ignore
 from django.db import models  # type: ignore
-from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
@@ -16,12 +15,12 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GouthelperModel
 from .choices import Abnormalitys, LabTypes, LowerLimits, Units, UpperLimits
 from .helpers import (
-    eGFR_calculator,
+    labs_eGFR_calculator,
     labs_get_default_labtype,
     labs_get_default_lower_limit,
     labs_get_default_units,
     labs_get_default_upper_limit,
-    stage_calculator,
+    labs_stage_calculator,
 )
 from .managers import CreatinineManager, UrateManager
 
@@ -40,7 +39,7 @@ class CreatinineBase:
         Requires age, gender, race, and a creatinine value.
         Required variables can be called with method or pulled from object's user's profile.
         """
-        return eGFR_calculator(creatinine=self)
+        return labs_eGFR_calculator(creatinine=self)
 
     @property
     def stage(self: "BaselineCreatinine") -> "Stages":  # type: ignore
@@ -49,8 +48,8 @@ class CreatinineBase:
         Returns:
             [Stages / int]: [CKD stage]
         """
-        # self.eGFR returns a Decimal for stage_calculator()
-        return stage_calculator(self.eGFR)
+        # self.eGFR returns a Decimal for labs_stage_calculator()
+        return labs_stage_calculator(self.eGFR)
 
 
 class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -103,19 +102,9 @@ class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
         else:
             return None
 
-    def get_absolute_url(self):
-        return reverse("lab:detail", kwargs={"lab": self.labtype, "pk": self.pk})
-
     @property
     def high(self):
         return self.value > self.upper_limit
-
-    @cached_property
-    def lab_value(self):
-        """Method for returning the lab value. Future versions will have logic for converting
-        different types of units to different values for interoperability. For now, it just
-        returns the value and its included to avoid large amounts of editing in the future."""
-        return self.value
 
     @property
     def low(self):
@@ -151,10 +140,7 @@ class BaselineLab(LabBase):
         *args,
         **kwargs,
     ):
-        """Overwritten to change class before and after calling super().save()
-        so Django-Simple-History works."""
-        # Change class to MedHistory, call super().save(), then change class back
-        # to proxy model class in order for Django-Simple-History to work properly
+        """Overwritten to set fields on object creation."""
         if self._state.adding is True:
             self.set_fields()
         super().save(*args, **kwargs)
@@ -231,7 +217,9 @@ class Lab(LabBase):
         If not var *arg, lab.upper_limit used for calculation.
 
         Args:
-            var (Float): Float percentage for calculating where the current Lab value is relative to baseline
+            var (Decimal): Percentage for calculating where the current Lab value is relative to baseline
+            baseline (Decimal, optional): Baseline value for calculating where the current Lab value is relative to
+                baseline. Defaults to None.
         Returns:
             bool: True if Lab.value is > var * baseline, False if not
         """
@@ -247,7 +235,9 @@ class Lab(LabBase):
         If no var *arg, uses lab.lower_limit for comparison.
 
         Args:
-            var (Float): Float percentage for calculating where the current Lab value is relative to baseline
+            var (Decimal): Percentage for calculating where the current Lab value is relative to baseline
+            baseline (Decimal, optional): Baseline value for calculating where the current Lab value is relative to
+                baseline. Defaults to None.
         Returns:
             bool: True if Lab.value is < var * baseline, False if not
         """
@@ -291,6 +281,14 @@ class Urate(Lab):
 
 
 class Hlab5801(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(date_drawn__lte=models.functions.Now()),
+                name="%(app_label)s_%(class)s_date_drawn_not_in_future",
+            ),
+        ]
+
     date_drawn = models.DateTimeField(help_text="What day was the HLA-B*5801 drawn?", default=timezone.now, blank=True)
     value = models.BooleanField(
         choices=BOOL_CHOICES,

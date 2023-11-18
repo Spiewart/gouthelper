@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from django.core.exceptions import ValidationError  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
-from ..labs.helpers import eGFR_calculator, stage_calculator
+from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
@@ -81,8 +81,8 @@ class CkdDetailFormProcessor:
         # Check if all necessary data is present to calculate a stage
         if self.baselinecreatinine and self.age and self.gender is not None:
             # If so, calculate and return stage
-            return stage_calculator(
-                eGFR=eGFR_calculator(
+            return labs_stage_calculator(
+                eGFR=labs_eGFR_calculator(
                     creatinine=self.baselinecreatinine,
                     age=self.age,
                     gender=self.gender,

@@ -12,7 +12,7 @@ from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...genders.choices import Genders
 from ...genders.models import Gender
-from ...labs.helpers import eGFR_calculator, stage_calculator
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
@@ -130,8 +130,8 @@ class TestFlareAidCreate(TestCase):
         self.assertEqual(BaselineCreatinine.objects.count(), 1)
         self.assertEqual(
             CkdDetail.objects.get().stage,
-            stage_calculator(
-                eGFR_calculator(
+            labs_stage_calculator(
+                labs_eGFR_calculator(
                     BaselineCreatinine.objects.get(),
                     age_calc(DateOfBirth.objects.get().value),
                     Gender.objects.get().value,

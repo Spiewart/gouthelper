@@ -14,10 +14,30 @@ from ...ultaids.tests.factories import UltAidFactory
 from ...utils.helpers.test_helpers import tests_print_form_errors
 from ..choices import GoalUrates
 from ..models import GoalUrate
-from ..views import GoalUrateCreate, GoalUrateDetail, GoalUrateUpdate
+from ..views import GoalUrateAbout, GoalUrateCreate, GoalUrateDetail, GoalUrateUpdate
 from .factories import GoalUrateFactory
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.usefixtures("contents_setup")
+class TestGoalUrateAbout(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view: GoalUrateAbout = GoalUrateAbout()
+
+    def test__get(self):
+        response = self.client.get(reverse("goalurates:about"))
+        self.assertEqual(response.status_code, 200)
+
+    def test__get_context_data(self):
+        response = self.client.get(reverse("goalurates:about"))
+        self.assertIn("content", response.context_data)
+
+    def test__content(self):
+        self.assertEqual(
+            self.view.content, Content.objects.get(context=Content.Contexts.GOALURATE, slug="about", tag=None)
+        )
 
 
 class TestGoalUrateCreate(TestCase):

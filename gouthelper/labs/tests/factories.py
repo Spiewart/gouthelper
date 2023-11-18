@@ -54,7 +54,7 @@ class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
         right_digits=2,
         positive=True,
         min_value=2,
-        max_value=30,
+        max_value=10,
     )
 
 

@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import make_custom_datetimefield
+from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
 from .models import BaselineCreatinine, Hlab5801, Urate
 
 
@@ -84,16 +85,6 @@ class LabForm(BaseLabForm):
                     self.add_error("date_drawn", error_message)
 
 
-def baselinecreatinine_max_value(value):
-    if value > 10:
-        raise ValidationError(
-            _(
-                "A baseline creatinine value greater than 6 mg/dL isn't very likely. \
-                    This would typically mean the patient is on dialysis."
-            )
-        )
-
-
 class BaselineCreatinineForm(BaseLabForm):
     prefix = "baselinecreatinine"
 
@@ -111,9 +102,9 @@ class BaselineCreatinineForm(BaseLabForm):
         self.fields["value"].decimal_places = 2
         self.fields["value"].help_text = mark_safe(
             "What is the patient's baseline creatinine? \
-                Creatinine is typically reported in micrograms per deciliter (mg/dL)."
+Creatinine is typically reported in micrograms per deciliter (mg/dL)."
         )
-        self.fields["value"].validators.append(baselinecreatinine_max_value)
+        self.fields["value"].validators.append(labs_baselinecreatinine_max_value)
         self.helper = FormHelper(self)
         self.helper.form_tag = False
 
@@ -127,15 +118,6 @@ class BaselineCreatinineForm(BaseLabForm):
             pass
         else:
             raise EmptyRelatedModel
-
-    def save(self, commit: bool = True, *args, **kwargs):
-        """Method to update BaselineCreatinine form to accomodate updating
-        kwarg. This is required for transferring to the model save() method
-        which will use it to avoid DB queries when updating related Aid objects."""
-        obj = super().save(commit, *args, **kwargs)
-        if commit:
-            obj.save()
-        return obj
 
 
 class Hlab5801Form(BaseLabForm):
@@ -172,16 +154,6 @@ class Hlab5801Form(BaseLabForm):
         return ["value"]
 
 
-def urate_max_value(value):
-    if value > 30:
-        raise ValidationError(
-            _(
-                "Uric acid values above 30 mg/dL are very unlikely. \
-                    If this value is correct, an emergency medical evaluation is warranted."
-            )
-        )
-
-
 class UrateForm(LabForm):
     prefix = "urate"
     formfield_callback = make_custom_datetimefield
@@ -201,7 +173,7 @@ class UrateForm(LabForm):
         self.fields["value"].label = "Uric Acid (mg/dL)"
         self.fields["value"].decimal_places = 1
         self.fields["value"].required = False
-        self.fields["value"].validators.append(urate_max_value)
+        self.fields["value"].validators.append(labs_urates_max_value)
         self.fields["value"].help_text = mark_safe("Serum uric acid in micrograms per deciliter (mg/dL).")
         self.fields["date_drawn"].help_text = mark_safe("When was this uric acid drawn?")
 
@@ -222,11 +194,10 @@ class UrateFlareForm(BaseLabForm):
         self.fields["value"].label = "Flare Urate"
         self.fields["value"].decimal_places = 1
         self.fields["value"].help_text = mark_safe(
-            "Was the patient's uric acid checked during the flare? \
-If not, leave it blank. \
+            "Was the patient's uric acid checked during the flare? If not, leave it blank. \
 Uric acid is typically reported in micrograms per deciliter (mg/dL)."
         )
-        self.fields["value"].validators.append(urate_max_value)
+        self.fields["value"].validators.append(labs_urates_max_value)
         self.helper = FormHelper(self)
         self.helper.form_tag = False
 

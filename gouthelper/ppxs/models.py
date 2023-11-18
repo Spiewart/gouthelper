@@ -14,7 +14,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..choices import BOOL_CHOICES
 from ..defaults.helpers import defaults_get_goalurate
 from ..labs.choices import LabTypes
-from ..labs.helpers import labs_urate_last_at_goal, labs_urate_months_at_goal, labs_urates_recent_urate
+from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal, labs_urates_recent_urate
 from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..ults.choices import Indications
@@ -67,14 +67,14 @@ class Ppx(
         """Method that interprets the Ppx's labs (Urates) and returns a bool
         indicating whether the patient is at goal."""
         if hasattr(self, "labs_qs"):
-            return labs_urate_months_at_goal(
+            return labs_urates_months_at_goal(
                 urates=self.labs_qs,
                 goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
                 goal_urate=self.goalurate,
                 commit=False,
             )
         else:
-            return labs_urate_months_at_goal(
+            return labs_urates_months_at_goal(
                 urates=dated_urates(self.labs).all(),
                 goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
                 goal_urate=self.goalurate,
@@ -121,14 +121,14 @@ class Ppx(
     def last_urate_at_goal(self) -> bool:
         """Method that determines if the last urate in the Ppx's labs was at goal."""
         if hasattr(self, "labs_qs"):
-            return labs_urate_last_at_goal(
+            return labs_urates_last_at_goal(
                 urates=self.labs_qs,
                 goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
                 goal_urate=self.goalurate,
                 commit=False,
             )
         else:
-            return labs_urate_last_at_goal(
+            return labs_urates_last_at_goal(
                 urates=dated_urates(self.labs).all(),
                 goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
                 goal_urate=self.goalurate,

@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import eGFR_calculator, stage_calculator
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.tests.factories import CkdFactory
@@ -27,8 +27,8 @@ class TestPpxAidQuerySet(TestCase):
         self.gender = GenderFactory()
         self.ckddetail = CkdDetailFactory(
             medhistory=self.ckd,
-            stage=stage_calculator(
-                eGFR=eGFR_calculator(
+            stage=labs_stage_calculator(
+                eGFR=labs_eGFR_calculator(
                     creatinine=self.baselinecreatinine.value,
                     age=age_calc(self.dateofbirth.value),
                     gender=self.gender.value,
