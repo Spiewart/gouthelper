@@ -35,7 +35,7 @@ Creatinine is typically reported in micrograms per deciliter (mg/dL)."
         self.assertFalse(form.is_valid())
         self.assertEqual(
             form.errors["value"][0],
-            "A baseline creatinine value greater than 6 mg/dL isn't very likely. \
+            "A baseline creatinine value greater than 10 mg/dL isn't very likely. \
 This would typically mean the patient is on dialysis.",
         )
 

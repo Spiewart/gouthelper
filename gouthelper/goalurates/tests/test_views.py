@@ -11,7 +11,7 @@ from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, Tophi
 from ...medhistorys.tests.factories import ErosionsFactory, TophiFactory
 from ...ultaids.tests.factories import UltAidFactory
-from ...utils.helpers.test_helpers import tests_print_form_errors
+from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import GoalUrates
 from ..models import GoalUrate
 from ..views import GoalUrateAbout, GoalUrateCreate, GoalUrateDetail, GoalUrateUpdate
@@ -106,7 +106,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": False,
         }
         response = self.client.post(reverse("goalurates:create"), data=data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}))
@@ -119,7 +119,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:create"), data=data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         erosions = Erosions.objects.first()
@@ -133,7 +133,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:ultaid-create", kwargs={"ultaid": self.ultaid.id}), data=data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         self.assertTrue(goal_urate.ultaid)
@@ -237,7 +237,7 @@ class TestGoalUrateUpdate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": False,
         }
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}), data=data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
@@ -255,7 +255,7 @@ class TestGoalUrateUpdate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(goalurate.medhistorys.all())
         self.assertTrue(goalurate.medhistorys.get(medhistorytype=MedHistoryTypes.EROSIONS))

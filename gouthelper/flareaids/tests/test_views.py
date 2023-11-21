@@ -22,7 +22,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import Treatments
-from ...utils.helpers.test_helpers import tests_print_form_errors
+from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import FlareAid
 from ..views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidUpdate
 from .factories import FlareAidFactory
@@ -65,14 +65,14 @@ class TestFlareAidCreate(TestCase):
 
     def test__successful_post(self):
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
         self.assertEqual(response.status_code, 302)
 
     def test__post_creates_medhistory(self):
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
@@ -85,7 +85,7 @@ class TestFlareAidCreate(TestCase):
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         self.flareaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
@@ -108,7 +108,7 @@ class TestFlareAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertTrue(CkdDetail.objects.get())
         self.assertTrue(FlareAid.objects.get().ckddetail)
 
@@ -123,7 +123,7 @@ class TestFlareAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(BaselineCreatinine.objects.get())
         self.assertEqual(FlareAid.objects.get().ckd.baselinecreatinine.value, Decimal("2.2"))

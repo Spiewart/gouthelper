@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse  # type: ignore
 
 
-def tests_print_form_errors(response: Union["HttpResponse", None] = None) -> None:
+def tests_print_response_form_errors(response: Union["HttpResponse", None] = None) -> None:
     """Will print errors for all forms and formsets in the context_data."""
     if response and hasattr(response, "context_data"):
         for key, val in response.context_data.items():

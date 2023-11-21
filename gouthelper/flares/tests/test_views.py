@@ -35,7 +35,7 @@ from ...medhistorys.forms import (
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Menopause, Pvd, Stroke
 from ...medhistorys.tests.factories import AnginaFactory, ChfFactory, GoutFactory, MenopauseFactory
-from ...utils.helpers.test_helpers import tests_print_form_errors
+from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
@@ -911,7 +911,7 @@ menopause status to evaluate their flare.",
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), data=self.flare_data)
         self.assertEqual(response.status_code, 200)
         # Assert that the UrateForm has an error
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
             response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"

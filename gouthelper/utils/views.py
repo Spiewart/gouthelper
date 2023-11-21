@@ -152,13 +152,13 @@ class MedHistorysModelCreateView(CreateView):
                 lab.save()
             # Create and populate the labs_qs attribute on the object
             self.create_labs_qs(object=self.object, labs=labs_to_add)
-        self.saved_object = form.save()
+        saved_object = form.save()
         if self.medallergys:
-            self.saved_object.add_medallergys(medallergys=medallergys_to_add, commit=False)
+            saved_object.add_medallergys(medallergys=medallergys_to_add, commit=False)
         if self.medhistorys:
-            self.saved_object.add_medhistorys(medhistorys=medhistorys_to_add, commit=False)
+            saved_object.add_medhistorys(medhistorys=medhistorys_to_add, commit=False)
         if self.labs:
-            self.saved_object.add_labs(labs=labs_to_add, commit=False)
+            saved_object.add_labs(labs=labs_to_add, commit=False)
         # Update object / form instance
         self.object.update(qs=self.object)
         # If request is an htmx request, return HttpResponseClientRefresh
@@ -371,7 +371,11 @@ class MedHistorysModelCreateView(CreateView):
                 medhistory = medhistorys_forms[medhistory_form_str].save(commit=False)
                 medhistorys_to_add.append(medhistory)
                 if medhistorytype == MedHistoryTypes.CKD and self.ckddetail:
-                    ckddetail, baselinecreatinine, ckddetail_errors = CkdDetailFormProcessor(
+                    (
+                        medhistorydetails_forms["ckddetail_form"],
+                        medhistorydetails_forms["baselinecreatinine_form"],
+                        ckddetail_errors,
+                    ) = CkdDetailFormProcessor(
                         ckd=medhistory,
                         ckddetail_form=medhistorydetails_forms["ckddetail_form"],
                         baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],
@@ -380,10 +384,14 @@ class MedHistorysModelCreateView(CreateView):
                     ).process()
                     if ckddetail_errors and errors_bool is not True:
                         errors_bool = True
-                    if baselinecreatinine:
-                        medhistorydetails_to_add.append(baselinecreatinine)
-                    if ckddetail:
-                        medhistorydetails_to_add.append(ckddetail)
+                    # Check if the returned baselinecreatinine_form's instance has the to_save attr
+                    if hasattr(medhistorydetails_forms["baselinecreatinine_form"].instance, "to_save"):
+                        # If so, add the baselinecreatinine_form's to the medhistorydetails_to_add list
+                        medhistorydetails_to_add.append(medhistorydetails_forms["baselinecreatinine_form"])
+                    # Check if the returned ckddetail_form's instance has the to_save attr
+                    if hasattr(medhistorydetails_forms["ckddetail_form"].instance, "to_save"):
+                        # If so, add the ckddetail_form's to the medhistorydetails_to_add list
+                        medhistorydetails_to_add.append(medhistorydetails_forms["ckddetail_form"])
                 elif medhistorytype == MedHistoryTypes.GOUT and self.goutdetail:
                     goutdetail = medhistorydetails_forms["goutdetail_form"].save(commit=False)
                     goutdetail.medhistory = medhistory
@@ -526,6 +534,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         onetoones_to_save: list["Model"],
         onetoones_to_delete: list["Model"],
         medhistorydetails_to_add: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm],
+        medhistorydetails_to_remove: Union["BaselineCreatinine", None],
         medallergys_to_add: list["MedAllergy"],
         medallergys_to_remove: list["MedAllergy"],
         medhistorys_to_add: list["MedHistory"],
@@ -561,6 +570,8 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             self.create_medhistory_qs(object=self.object, medhistorys=medhistorys_to_add)
             for medhistory in medhistorys_to_remove:
                 self.object.medhistorys_qs.remove(medhistory)
+            for medhistorydetail in medhistorydetails_to_remove:
+                medhistorydetail.delete()
         if self.labs:
             # Modify and remove labs from the object
             for lab in labs_to_add:
@@ -952,11 +963,13 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         list["MedHistory"],
         list["MedHistory"],
         list[CkdDetailForm | BaselineCreatinine | GoutDetailForm],
+        list[CkdDetail | BaselineCreatinine | None],
         bool,
     ]:
         medhistorys_to_add: list["MedHistory"] = []
         medhistorys_to_remove: list["MedHistory"] = []
         medhistorydetails_to_add: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm] = []
+        medhistorydetails_to_remove: list[CkdDetail | BaselineCreatinine | None] = []
         for medhistory_form_str in medhistorys_forms:
             medhistorytype = medhistory_form_str.split("_")[0]
             # MedHistorysForms have a "value" input field that if checked means the
@@ -976,25 +989,29 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                         medhistorys_to_remove.append(medhistorys_forms[medhistory_form_str].instance)
                     # Check if the MedHistory is CKD or Gout and process related models/forms
                     elif medhistorytype == MedHistoryTypes.CKD and self.ckddetail:
-                        ckddetail, baselinecreatinine, ckddetail_errors = CkdDetailFormProcessor(
+                        (
+                            medhistorydetails_forms["ckddetail_form"],
+                            medhistorydetails_forms["baselinecreatinine_form"],
+                            ckddetail_errors,
+                        ) = CkdDetailFormProcessor(
                             ckd=medhistory,
                             ckddetail_form=medhistorydetails_forms["ckddetail_form"],  # type: ignore
                             baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],  # type: ignore
                             dateofbirth_form=onetoone_forms["dateofbirth_form"],  # type: ignore
                             gender_form=onetoone_forms["gender_form"],  # type: ignore
                         ).process()
-                        # Need mark baselinecreatinine and ckddetail for saving because their
-                        # related Ckd object will not have been saved yet
-                        if baselinecreatinine and (
-                            (
-                                hasattr(baselinecreatinine, "changed_data")
-                                and "value" in baselinecreatinine.changed_data
-                            )
-                            or not hasattr(baselinecreatinine, "changed_data")
-                        ):
-                            medhistorydetails_to_add.append(baselinecreatinine)
-                        if ckddetail:
-                            medhistorydetails_to_add.append(ckddetail)
+                        # Check if the returned baselinecreatinine_form's instance has the to_save attr
+                        if hasattr(medhistorydetails_forms["baselinecreatinine_form"].instance, "to_save"):
+                            # If so, add the baselinecreatinine_form's to the medhistorydetails_to_add list
+                            medhistorydetails_to_add.append(medhistorydetails_forms["baselinecreatinine_form"])
+                        elif hasattr(medhistorydetails_forms["baselinecreatinine_form"].instance, "to_delete"):
+                            medhistorydetails_to_remove.append(medhistorydetails_forms["baselinecreatinine_form"])
+                        # Check if the returned ckddetail_form's instance has the to_save attr
+                        if hasattr(medhistorydetails_forms["ckddetail_form"].instance, "to_save"):
+                            # If so, add the ckddetail_form's to the medhistorydetails_to_add list
+                            medhistorydetails_to_add.append(medhistorydetails_forms["ckddetail_form"])
+                        elif hasattr(medhistorydetails_forms["ckddetail_form"].instance, "to_delete"):
+                            medhistorydetails_to_remove.append(medhistorydetails_forms["ckddetail_form"])
                         if ckddetail_errors and errors_bool is not True:
                             errors_bool = True
                     elif medhistorytype == MedHistoryTypes.GOUT and self.goutdetail:
@@ -1028,19 +1045,30 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                             ).process()
                             # Need mark baselinecreatinine and ckddetail for saving because their
                             # related Ckd object will not have been saved yet
-                            if baselinecreatinine and (
-                                (
+                            if baselinecreatinine:
+                                # Check if the baselinecreatinine has a to_delete attr, and mark for deletion if so
+                                if baselinecreatinine.instance and hasattr(baselinecreatinine.instance, "to_delete"):
+                                    medhistorydetails_to_remove.append(baselinecreatinine)
+                                elif (
                                     hasattr(baselinecreatinine, "changed_data")
                                     and "value" in baselinecreatinine.changed_data
-                                )
-                                or not hasattr(baselinecreatinine, "changed_data")
-                            ):
-                                medhistorydetails_to_add.append(baselinecreatinine)
+                                ) or not hasattr(baselinecreatinine, "changed_data"):
+                                    medhistorydetails_to_add.append(baselinecreatinine)
+
                             if ckddetail:
-                                medhistorydetails_to_add.append(ckddetail)
+                                if hasattr(ckddetail, "to_delete"):
+                                    medhistorydetails_to_remove.append(ckddetail)
+                                else:
+                                    medhistorydetails_to_add.append(ckddetail)
                             if ckddetail_errors and errors_bool is not True:
                                 errors_bool = True
-        return medhistorys_to_add, medhistorys_to_remove, medhistorydetails_to_add, errors_bool
+        return (
+            medhistorys_to_add,
+            medhistorys_to_remove,
+            medhistorydetails_to_add,
+            medhistorydetails_to_remove,
+            errors_bool,
+        )
 
     def post_process_one_to_one_forms(
         self, onetoone_forms: dict[str, "ModelForm"], object_data: "MedAllergyAidHistoryModel"
@@ -1158,6 +1186,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                 medhistorys_to_add,
                 medhistorys_to_remove,
                 medhistorydetails_to_add,
+                medhistorydetails_to_remove,
                 errors_bool,
             ) = self.post_process_medhistorys_details_forms(
                 medhistorys_forms=medhistorys_forms,
@@ -1200,6 +1229,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                 onetoones_to_delete,
                 onetoones_to_save,
                 medhistorydetails_to_add,
+                medhistorydetails_to_remove,
                 medhistorys_to_add,
                 medhistorys_to_remove,
                 labs_to_add,
@@ -1227,7 +1257,8 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                 medhistorydetails_forms,
                 medallergys_forms,
                 lab_formset if self.labs else None,
-                # 10 empty lists to match the return type
+                # 11 empty lists to match the return type
+                [],
                 [],
                 [],
                 [],

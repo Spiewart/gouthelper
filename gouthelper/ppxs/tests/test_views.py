@@ -13,7 +13,7 @@ from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import Gout
 from ...medhistorys.tests.factories import GoutFactory
-from ...utils.helpers.test_helpers import tests_print_form_errors
+from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import Ppx
 from ..views import PpxCreate, PpxUpdate
 from .factories import PpxFactory
@@ -38,7 +38,7 @@ class TestPpxCreate(TestCase):
         }
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Ppx.objects.get())
         self.assertTrue(Gout.objects.get())
@@ -65,7 +65,7 @@ class TestPpxCreate(TestCase):
         }
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goutdetail = GoutDetail.objects.get()
         # Assert that the GoutDetail object attrs are correct
@@ -87,7 +87,7 @@ class TestPpxCreate(TestCase):
         }
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         urates = Urate.objects.all()
         self.assertEqual(response.status_code, 302)
         self.assertEqual(urates.count(), 1)
@@ -116,7 +116,7 @@ class TestPpxCreate(TestCase):
         }
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         urates = Urate.objects.order_by("-date_drawn").all()
         self.assertEqual(response.status_code, 302)
         self.assertEqual(urates.count(), 2)
@@ -174,7 +174,7 @@ class TestPpxUpdate(TestCase):
         }
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
 
     def test__post_adds_urate(self):
@@ -205,7 +205,7 @@ class TestPpxUpdate(TestCase):
         }
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         ppx = Ppx.objects.get()
         urates = ppx.labs.order_by("-date_drawn").all()
@@ -242,7 +242,7 @@ class TestPpxUpdate(TestCase):
         }
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.ppx.labs.count(), 0)
 
@@ -278,7 +278,7 @@ class TestPpxUpdate(TestCase):
         }
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.ppx.labs.count(), 1)
         self.assertIn(self.urate3, self.ppx.labs.all())
@@ -309,7 +309,9 @@ class TestPpxUpdate(TestCase):
             "labs-4-value": Decimal("11.5"),
             "labs-4-date_drawn": timezone.now() - timedelta(days=729),
         }
-        tests_print_form_errors(self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data))
+        tests_print_response_form_errors(
+            self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
+        )
         # Test that a partially filled out Urate form returns a 200 status code
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         self.assertEqual(response.status_code, 200)
@@ -352,7 +354,7 @@ class TestPpxUpdate(TestCase):
         }
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_form_errors(response)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         # Test that the GoutDetail object attrs are correct
         goutdetail = GoutDetail.objects.get()

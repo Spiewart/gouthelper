@@ -53,7 +53,7 @@ class TestFlareForm(TestCase):
         self.assertIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
         self.assertIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
 
-    def test__clean_method(self):
+    def test__clean(self):
         self.flare_data.update(
             {
                 "date_started": timezone.now() + timedelta(days=8),

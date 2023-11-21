@@ -5,7 +5,6 @@ from django.utils.safestring import mark_safe  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE, YES_OR_NO_OR_UNKNOWN
 from ..medhistorydetails.choices import Stages
-from ..utils.exceptions import EmptyRelatedModel
 from .models import CkdDetail, GoutDetail
 
 
@@ -112,18 +111,6 @@ class CkdDetailForm(forms.ModelForm):
             if cleaned_data["dialysis_duration"] is not None:
                 cleaned_data["dialysis_duration"] = None
 
-    @property
-    def required_fields(self) -> list[str]:
-        """Return a list of required fields"""
-        # TODO: WHY IS THIS HERE?
-        return ["value"]
-
-    def check_for_value(self):
-        if self.cleaned_data["value"] is not None:
-            pass
-        else:
-            raise EmptyRelatedModel
-
 
 class GoutDetailForm(forms.ModelForm):
     """Form for GoutDetail model. Embeds Urate forms within,
@@ -210,15 +197,3 @@ you can do so <a href='#labs_formset_table'>below</a> and we will make this dete
                 ),
             ),
         )
-
-    @property
-    def required_fields(self) -> list[str]:
-        """Return a list of required fields"""
-        # TODO: WHY IS THIS HERE?
-        return ["value"]
-
-    def check_for_value(self):
-        if self.cleaned_data["value"] is not None:
-            pass
-        else:
-            raise EmptyRelatedModel
