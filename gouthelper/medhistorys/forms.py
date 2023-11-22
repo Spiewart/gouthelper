@@ -71,10 +71,9 @@ class AllopurinolhypersensitivityForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -83,9 +82,9 @@ class AllopurinolhypersensitivityForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"].label = "Allopurinol Hypersensitivity"
+        self.fields[self.value].label = "Allopurinol Hypersensitivity"
         self.fields[
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"
+            self.value
         ].help_text = "Does the patient have any history of allopurinol hypersensitivity syndrome?"
 
 
@@ -96,8 +95,8 @@ class AnginaForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.ANGINA}-value"].label = "Angina"
-        self.fields[f"{MedHistoryTypes.ANGINA}-value"].help_text = "Exertional chest pain"
+        self.fields[self.value].label = "Angina"
+        self.fields[self.value].help_text = "Exertional chest pain"
 
 
 class AnticoagulationForm(MHCheckForm):
@@ -107,8 +106,8 @@ class AnticoagulationForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.ANTICOAGULATION}-value"].label = "Anticoagulation"
-        self.fields[f"{MedHistoryTypes.ANTICOAGULATION}-value"].help_text = "Is the patient on anticoagulation?"
+        self.fields[self.value].label = "Anticoagulation"
+        self.fields[self.value].help_text = "Is the patient on anticoagulation?"
 
 
 class BleedForm(MHCheckForm):
@@ -118,8 +117,8 @@ class BleedForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.BLEED}-value"].label = "Bleed"
-        self.fields[f"{MedHistoryTypes.BLEED}-value"].help_text = "Has the patient had a major bleed (GI, etc.)?"
+        self.fields[self.value].label = "Bleed"
+        self.fields[self.value].help_text = "Has the patient had a major bleed (GI, etc.)?"
 
 
 class CadForm(MHCheckForm):
@@ -129,8 +128,8 @@ class CadForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.CAD}-value"].label = "Coronary Artery Disease"
-        self.fields[f"{MedHistoryTypes.CAD}-value"].help_text = "Blocked arteries in the heart"
+        self.fields[self.value].label = "Coronary Artery Disease"
+        self.fields[self.value].help_text = "Blocked arteries in the heart"
 
 
 class ChfForm(MHCheckForm):
@@ -140,8 +139,8 @@ class ChfForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.CHF}-value"].label = "CHF"
-        self.fields[f"{MedHistoryTypes.CHF}-value"].help_text = "Congestive Heart Failure"
+        self.fields[self.value].label = "CHF"
+        self.fields[self.value].help_text = "Congestive Heart Failure"
 
 
 class CkdForm(MedHistoryForm):
@@ -152,10 +151,9 @@ class CkdForm(MedHistoryForm):
     def __init__(self, *args, **kwargs):
         ckddetail = kwargs.pop("ckddetail")
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.CKD}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -164,8 +162,8 @@ class CkdForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[value].help_text = "Does the patient have chronic kidney disease (CKD)?"
-        self.fields[value].label = "CKD"
+        self.fields[self.value].help_text = "Does the patient have chronic kidney disease (CKD)?"
+        self.fields[self.value].label = "CKD"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -174,7 +172,7 @@ class CkdForm(MedHistoryForm):
                 Div(
                     Div(
                         Div(
-                            f"{value}",
+                            f"{self.value}",
                             css_class="col",
                         ),
                         div_class="row",
@@ -209,10 +207,9 @@ class ColchicineinteractionForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -221,8 +218,8 @@ class ColchicineinteractionForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].label = "Colchicine Interaction"
-        self.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].help_text = mark_safe(
+        self.fields[self.value].label = "Colchicine Interaction"
+        self.fields[self.value].help_text = mark_safe(
             "Is the patient on any <a href='https://www.goodrx.com/colchicine/interactions' target='_blank'>\
 medications that interact with colchicine</a> (simvastatin, clarithromycin, diltiazem, etc.)?"
         )
@@ -235,10 +232,9 @@ class DiabetesForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.DIABETES}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -247,8 +243,8 @@ class DiabetesForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.DIABETES}-value"].label = "Diabetes"
-        self.fields[f"{MedHistoryTypes.DIABETES}-value"].help_text = "Is the patient a diabetic?"
+        self.fields[self.value].label = "Diabetes"
+        self.fields[self.value].help_text = "Is the patient a diabetic?"
 
 
 class ErosionsForm(MedHistoryForm):
@@ -261,10 +257,9 @@ class ErosionsForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.EROSIONS}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -273,8 +268,8 @@ class ErosionsForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.EROSIONS}-value"].label = "Erosions"
-        self.fields[f"{MedHistoryTypes.EROSIONS}-value"].help_text = "Does the patient have gouty erosions on x-ray?"
+        self.fields[self.value].label = "Erosions"
+        self.fields[self.value].help_text = "Does the patient have gouty erosions on x-ray?"
 
 
 class FebuxostathypersensitivityForm(MedHistoryForm):
@@ -284,10 +279,9 @@ class FebuxostathypersensitivityForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -296,9 +290,9 @@ class FebuxostathypersensitivityForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"].label = "Febuxostat Hypersensitivity"
+        self.fields[self.value].label = "Febuxostat Hypersensitivity"
         self.fields[
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"
+            self.value
         ].help_text = "Does the patient have any history of febuxostat hypersensitivity syndrome?"
 
 
@@ -311,8 +305,8 @@ class GastricbypassForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.GASTRICBYPASS}-value"].label = "Gastric Bypass"
-        self.fields[f"{MedHistoryTypes.GASTRICBYPASS}-value"].help_text = "Has the patient had a gastric bypass?"
+        self.fields[self.value].label = "Gastric Bypass"
+        self.fields[self.value].help_text = "Has the patient had a gastric bypass?"
 
 
 class GoutForm(MedHistoryForm):
@@ -323,10 +317,9 @@ class GoutForm(MedHistoryForm):
     def __init__(self, *args, **kwargs):
         goutdetail = kwargs.pop("goutdetail")
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.GOUT}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -339,12 +332,12 @@ class GoutForm(MedHistoryForm):
         # If it is, then the patient has had gout before
         if goutdetail:
             # Set the initial value to True
-            self.fields[value].initial = True
+            self.fields[self.value].initial = True
             # Hide the field
-            self.fields[value].widget = forms.HiddenInput()
+            self.fields[self.value].widget = forms.HiddenInput()
         else:
-            self.fields[value].help_text = "Has the patient had gout or symptoms compatible with gout before?"
-            self.fields[value].label = "Gout"
+            self.fields[self.value].help_text = "Has the patient had gout or symptoms compatible with gout before?"
+            self.fields[self.value].label = "Gout"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -352,7 +345,7 @@ class GoutForm(MedHistoryForm):
                 "",
                 Div(
                     Div(
-                        value,
+                        self.value,
                         css_class="col inline-cb",
                     ),
                     css_class="row",
@@ -386,8 +379,8 @@ class HeartattackForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.HEARTATTACK}-value"].label = "Heart Attack"
-        self.fields[f"{MedHistoryTypes.HEARTATTACK}-value"].help_text = "Myocardial infarction"
+        self.fields[self.value].label = "Heart Attack"
+        self.fields[self.value].help_text = "Myocardial infarction"
 
 
 class HypertensionForm(MedHistoryForm):
@@ -397,8 +390,8 @@ class HypertensionForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.HYPERTENSION}-value"].label = "Hypertension"
-        self.fields[f"{MedHistoryTypes.HYPERTENSION}-value"].help_text = "High blood pressure"
+        self.fields[self.value].label = "Hypertension"
+        self.fields[self.value].help_text = "High blood pressure"
 
 
 class HyperuricemiaForm(MedHistoryForm):
@@ -411,10 +404,9 @@ class HyperuricemiaForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.HYPERURICEMIA}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -423,9 +415,9 @@ class HyperuricemiaForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.HYPERURICEMIA}-value"].label = "Hyperuricemia"
+        self.fields[self.value].label = "Hyperuricemia"
         self.fields[
-            f"{MedHistoryTypes.HYPERURICEMIA}-value"
+            self.value
         ].help_text = "Does the patient have an elevated serum uric acid (greater than 9.0 mg/dL)?"
 
 
@@ -436,10 +428,8 @@ class IbdForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.IBD}-value"].label = "Inflammatory Bowel Disease"
-        self.fields[
-            f"{MedHistoryTypes.IBD}-value"
-        ].help_text = "Does the patient have a history of inflammatory bowel disease?"
+        self.fields[self.value].label = "Inflammatory Bowel Disease"
+        self.fields[self.value].help_text = "Does the patient have a history of inflammatory bowel disease?"
 
 
 class MenopauseForm(MedHistoryForm):
@@ -449,10 +439,9 @@ class MenopauseForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{self._meta.model.__name__.upper()}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=False,
                     initial=None,
@@ -462,9 +451,9 @@ class MenopauseForm(MedHistoryForm):
             }
         )
         self.fields[
-            f"{MedHistoryTypes.MENOPAUSE}-value"
+            self.value
         ].help_text = "Has the patient gone through menopause? (Either biologically or medically)"
-        self.fields[f"{MedHistoryTypes.MENOPAUSE}-value"].label = "Menopause"
+        self.fields[self.value].label = "Menopause"
 
 
 class OrgantransplantForm(MedHistoryForm):
@@ -474,10 +463,9 @@ class OrgantransplantForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.ORGANTRANSPLANT}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -486,8 +474,8 @@ class OrgantransplantForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.ORGANTRANSPLANT}-value"].label = "Organ Transplant"
-        self.fields[f"{MedHistoryTypes.ORGANTRANSPLANT}-value"].help_text = "Has the patient had an organ transplant?"
+        self.fields[self.value].label = "Organ Transplant"
+        self.fields[self.value].help_text = "Has the patient had an organ transplant?"
 
 
 class PvdForm(MHCheckForm):
@@ -497,8 +485,8 @@ class PvdForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.PVD}-value"].label = "Peripheral Arterial Disease"
-        self.fields[f"{MedHistoryTypes.PVD}-value"].help_text = "Blocked arteries in the legs or arms"
+        self.fields[self.value].label = "Peripheral Arterial Disease"
+        self.fields[self.value].help_text = "Blocked arteries in the legs or arms"
 
 
 class StrokeForm(MHCheckForm):
@@ -508,8 +496,8 @@ class StrokeForm(MHCheckForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields[f"{MedHistoryTypes.STROKE}-value"].label = "Stroke"
-        self.fields[f"{MedHistoryTypes.STROKE}-value"].help_text = "Cerebrovascular accident"
+        self.fields[self.value].label = "Stroke"
+        self.fields[self.value].help_text = "Cerebrovascular accident"
 
 
 class TophiForm(MedHistoryForm):
@@ -522,10 +510,9 @@ class TophiForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.TOPHI}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -534,8 +521,8 @@ class TophiForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.TOPHI}-value"].label = "Tophi"
-        self.fields[f"{MedHistoryTypes.TOPHI}-value"].help_text = "Does the patient have gouty tophi?"
+        self.fields[self.value].label = "Tophi"
+        self.fields[self.value].help_text = "Does the patient have gouty tophi?"
 
 
 class UratestonesForm(MedHistoryForm):
@@ -548,10 +535,9 @@ class UratestonesForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.URATESTONES}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -560,10 +546,8 @@ class UratestonesForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.URATESTONES}-value"].label = "Urate Kidney Stones"
-        self.fields[
-            f"{MedHistoryTypes.URATESTONES}-value"
-        ].help_text = "Does the patient have a history of urate kidney stones?"
+        self.fields[self.value].label = "Urate Kidney Stones"
+        self.fields[self.value].help_text = "Does the patient have a history of urate kidney stones?"
 
 
 class XoiinteractionForm(MedHistoryForm):
@@ -573,10 +557,9 @@ class XoiinteractionForm(MedHistoryForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        value = f"{MedHistoryTypes.XOIINTERACTION}-value"
         self.fields.update(
             {
-                value: forms.TypedChoiceField(
+                self.value: forms.TypedChoiceField(
                     choices=YES_OR_NO_OR_NONE,
                     required=True,
                     initial=None,
@@ -585,7 +568,5 @@ class XoiinteractionForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[f"{MedHistoryTypes.XOIINTERACTION}-value"].label = "Xanthine Oxidase Inhibitor Interaction"
-        self.fields[
-            f"{MedHistoryTypes.XOIINTERACTION}-value"
-        ].help_text = "Is the patient on 6-mercaptopurine or azathioprine?"
+        self.fields[self.value].label = "Xanthine Oxidase Inhibitor Interaction"
+        self.fields[self.value].help_text = "Is the patient on 6-mercaptopurine or azathioprine?"

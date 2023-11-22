@@ -174,27 +174,27 @@ class MedHistorysModelCreateView(CreateView):
         return kwargs
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        for onetoone in self.onetoones:
+        for onetoone, onetoone_dict in self.onetoones.items():
             form_str = f"{onetoone}_form"
             if form_str not in kwargs:
-                kwargs[form_str] = self.onetoones[onetoone]["form"]()
+                kwargs[form_str] = onetoone_dict["form"]()
         if self.medallergys:
             for treatment in self.medallergys:
                 form_str = f"medallergy_{treatment}_form"
                 if form_str not in kwargs:
                     kwargs[form_str] = MedAllergyTreatmentForm(treatment=treatment)
-        for medhistory in self.medhistorys:
+        for medhistory, mh_dict in self.medhistorys.items():
             form_str = f"{medhistory}_form"
             if form_str not in kwargs:
                 if medhistory == MedHistoryTypes.CKD:
-                    kwargs[form_str] = self.medhistorys[medhistory]["form"](ckddetail=self.ckddetail)
+                    kwargs[form_str] = mh_dict["form"](ckddetail=self.ckddetail)
                     if self.ckddetail:
                         if "ckddetail_form" not in kwargs:
                             kwargs["ckddetail_form"] = CkdDetailForm()
                         if "baselinecreatinine_form" not in kwargs:
                             kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
                 elif medhistory == MedHistoryTypes.GOUT:
-                    kwargs[form_str] = self.medhistorys[medhistory]["form"](goutdetail=self.goutdetail)
+                    kwargs[form_str] = mh_dict["form"](goutdetail=self.goutdetail)
                     if self.goutdetail:
                         if "goutdetail_form" not in kwargs:
                             kwargs["goutdetail_form"] = GoutDetailForm()

@@ -141,7 +141,6 @@ class Anticoagulation(MedHistory):
         proxy = True
 
     objects = AnticoagulationManager()
-    all_objects = AnticoagulationManager()
 
 
 class Bleed(MedHistory):
