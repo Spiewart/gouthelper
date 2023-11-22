@@ -6,7 +6,7 @@
       {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 trttype=trttype %}
     {% endif %}
   {% else %}
-    <p>No recommendation available. See a rheumatologist for further evaluation.</p>
+    <p>No recommendation available.</p>
     {% if trttype == "Ult" %}
       {% if object.xoiinteraction %}
         <p>

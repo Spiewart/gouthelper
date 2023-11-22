@@ -154,11 +154,10 @@ class DecisionAidModel(models.Model):
     def ckddetail(self) -> Union["CkdDetail", None]:
         """Method that returns CkdDetail object from the objects ckd attribute/property
         or None if either doesn't exist."""
-        if self.ckd:
-            try:
-                return self.ckd.ckddetail
-            except AttributeError:
-                pass
+        try:
+            return self.ckd.ckddetail if self.ckd else None
+        except AttributeError:
+            pass
         return None
 
     @cached_property

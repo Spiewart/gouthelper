@@ -10,6 +10,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorydetails.choices import Stages
+from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..utils.models import DecisionAidModel, GouthelperModel, MedHistoryAidModel
 from .choices import FlareFreqs, FlareNums, Indications
@@ -17,6 +18,7 @@ from .services import UltDecisionAid
 
 if TYPE_CHECKING:
     from ..medhistorys.choices import MedHistoryTypes
+    from ..medhistorys.models import Ckd
 
 
 class Ult(
@@ -94,6 +96,14 @@ class Ult(
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return ULT_MEDHISTORYS
+
+    @cached_property
+    def ckd(self) -> Union["Ckd", None]:
+        """Overwritten to only return Ckd if the stage is III or higher."""
+        try:
+            return medhistorys_get_ckd_3_or_higher(self.medhistorys_qs)  # type: ignore
+        except AttributeError:
+            return medhistorys_get_ckd_3_or_higher(self.medhistorys.all())
 
     @cached_property
     def conditional_indication(self) -> bool:

@@ -62,6 +62,26 @@ def medhistorys_get_ckd(medhistorys: Union[list["MedHistory"], "QuerySet[MedHist
     return False
 
 
+def medhistorys_get_ckd_3_or_higher(
+    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
+) -> Union[bool, "MedHistory"]:
+    """Method that iterates over a list of medhistorys and returns one
+    whose medhistorytype field is CKD and that has an associated ckddetail
+    with a stage field that is Stages.THREE or higher.
+
+    Args:
+        medhistorys (Union[list["MedHistory"], "QuerySet[MedHistory]"])
+
+    returns:
+        Union[bool, "MedHistory"]
+    """
+    for medhistory in medhistorys:
+        if medhistory.medhistorytype == MedHistoryTypes.CKD and hasattr(medhistory, "ckddetail"):
+            if medhistory.ckddetail.stage >= medhistory.ckddetail.Stages.THREE:
+                return medhistory
+    return False
+
+
 def medhistorys_get_colchicineinteraction(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:

@@ -571,7 +571,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             for medhistory in medhistorys_to_remove:
                 self.object.medhistorys_qs.remove(medhistory)
             for medhistorydetail in medhistorydetails_to_remove:
-                medhistorydetail.delete()
+                medhistorydetail.instance.delete()
         if self.labs:
             # Modify and remove labs from the object
             for lab in labs_to_add:
