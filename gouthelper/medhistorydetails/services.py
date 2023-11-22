@@ -309,9 +309,8 @@ Please double check and try again."
                         dialysis=self.dialysis,
                         ckd=self.ckd,
                     )
-            # If there's no CkdDetail instance to be added/updated
+            # If there's no CkdDetail instance to be added or updated
             else:
-                self.ckddetail_form.instance.to_delete = True
                 # Call set_baselinecreatinine() to mark the BaselineCreatinine instance for deletion
                 self.baselinecreatinine_form = self.set_baselinecreatinine(
                     ckddetail_bool=self.ckddetail_bool,
@@ -390,7 +389,7 @@ Please double check and try again."
             # Set the ckddetail_form's instance to_save attr to True
             ckddetail_form.instance.to_save = True
             ckddetail_form.instance.medhistory = ckd
-        # Otherwise, this is an update. Check if the CkdDetail instance has changed
-        elif self.changed_data and self.ckddetail_bool:
+        # Otherwise, this is a potential update. Check if the CkdDetail instance has changed
+        elif self.changed_data and self.ckddetail_bool and ckddetail_form.changed_data:
             # If so, set the CkdDetail instance to_save attr to True
             ckddetail_form.instance.to_save = True
