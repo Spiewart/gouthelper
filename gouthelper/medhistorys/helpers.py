@@ -104,7 +104,16 @@ def medhistorys_get_default_medhistorytype(medhistory: "MedHistory") -> MedHisto
     """Method that returns the defualt MedHistoryType for a given MedHistory proxy model.
     Will raise an error if called on a Generic Lab parent model because it won't
     find a MedHistoryType for MEDHISTORY in MedHistoryTypes."""
-    return MedHistoryTypes(medhistory._meta.model.__name__.upper())
+    try:
+        return (
+            MedHistoryTypes(medhistory._meta.model.__name__.upper())
+            if not medhistory.medhistorytype
+            else medhistory.medhistorytype
+        )
+    except ValueError as e:
+        raise (
+            ValueError(f"MedHistoryType for {medhistory._meta.model.__name__.upper()} not found in MedHistoryTypes.")
+        ) from e
 
 
 def medhistorys_get_erosions(

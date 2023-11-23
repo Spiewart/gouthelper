@@ -138,7 +138,7 @@ class TestLab(TestCase):
             urate.save()
         self.assertTrue("date_drawn_not_in_future" in str(context.exception))
 
-    def test__delete_deletes_historical_lab(self):
+    def test__delete_creates_lab_history(self):
         self.assertTrue(Lab.history.filter(labtype=LabTypes.URATE).exists())
         self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 1)
         self.urate.delete()
@@ -158,7 +158,7 @@ class TestLab(TestCase):
         self.assertEqual(urate.upper_limit, UpperLimits.URATEMGDL)
         self.assertEqual(urate.units, Units.MGDL)
 
-    def test__save_creates_historical_record(self):
+    def test__save_creates_lab_history(self):
         self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 1)
         self.urate.save()
         self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 2)

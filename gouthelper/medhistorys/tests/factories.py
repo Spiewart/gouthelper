@@ -1,5 +1,7 @@
+from factory import fuzzy  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
+from ..choices import MedHistoryTypes
 from ..models import (
     Allopurinolhypersensitivity,
     Angina,
@@ -33,6 +35,8 @@ from ..models import (
 class MedHistoryFactory(DjangoModelFactory):
     class Meta:
         model = MedHistory
+
+    medhistorytype = fuzzy.FuzzyChoice(MedHistoryTypes.values)
 
 
 class AllopurinolhypersensitivityFactory(MedHistoryFactory):
