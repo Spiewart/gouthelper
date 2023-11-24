@@ -45,12 +45,8 @@ class PpxAidDecisionAid:
             # Otherwise, use the ppxaid_userless_qs selector to assign the PpxAid
             self.ppxaid = ppxaid_userless_qs(pk=pk).get()
         # Assign PpxAid attributes to the class Method for processing
-        if self.ppxaid.dateofbirth is not None:
-            self.dateofbirth = self.ppxaid.dateofbirth
-            self.age = age_calc(self.ppxaid.dateofbirth.value)
-        else:
-            self.dateofbirth = None
-            self.age = None
+        self.dateofbirth = self.ppxaid.dateofbirth
+        self.age = age_calc(self.ppxaid.dateofbirth.value)
         if self.ppxaid.gender is not None:
             self.gender = self.ppxaid.gender.value
         else:
@@ -59,6 +55,7 @@ class PpxAidDecisionAid:
         self.medhistorys = self.ppxaid.medhistorys_qs
         self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+        # Sideeffects are set to None because there are no User's in Gouthelper yet...
         self.sideeffects = None
 
     FlarePpxChoices = FlarePpxChoices
@@ -77,23 +74,23 @@ class PpxAidDecisionAid:
 
         Returns:
             dict: keys = Treatments, vals = sub-dict of dosing + contra, which defaults to False."""
-        self.trt_dict = self._create_trts_dict()
-        self.trt_dict = aids_process_medhistorys(
-            trt_dict=self.trt_dict,
+        trt_dict = self._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
             medhistorys=self.medhistorys,
             ckddetail=self.ckddetail,
             default_medhistorys=self.default_medhistorys,
             defaulttrtsettings=self.defaultppxtrtsettings,
         )
-        self.trt_dict = aids_process_medallergys(trt_dict=self.trt_dict, medallergys=self.medallergys)
-        self.trt_dict = aids_process_sideeffects(trt_dict=self.trt_dict, sideeffects=self.sideeffects)
-        self.trt_dict = aids_process_nsaids(
-            trt_dict=self.trt_dict,
+        trt_dict = aids_process_medallergys(trt_dict=trt_dict, medallergys=self.medallergys)
+        trt_dict = aids_process_sideeffects(trt_dict=trt_dict, sideeffects=self.sideeffects)
+        trt_dict = aids_process_nsaids(
+            trt_dict=trt_dict,
             dateofbirth=self.dateofbirth,
             defaulttrtsettings=self.defaultppxtrtsettings,
         )
-        self.trt_dict = aids_process_steroids(trt_dict=self.trt_dict, defaulttrtsettings=self.defaultppxtrtsettings)
-        return self.trt_dict
+        trt_dict = aids_process_steroids(trt_dict=trt_dict, defaulttrtsettings=self.defaultppxtrtsettings)
+        return trt_dict
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":

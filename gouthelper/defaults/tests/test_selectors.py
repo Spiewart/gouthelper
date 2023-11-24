@@ -15,26 +15,7 @@ from ..selectors import (
 pytestmark = pytest.mark.django_db
 
 
-class TestDefaultsTrtTypeTrts(TestCase):
-    def test__defaults_trttype_trts_no_user(self):
-        """Test no user. Should return Gouthelper defaults for ULT"""
-        default_ult_trts = defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
-        self.assertTrue(isinstance(default_ult_trts, QuerySet))
-        self.assertEqual(len(default_ult_trts), 3)
-        for default in default_ult_trts:
-            self.assertTrue(isinstance(default, DefaultTrt))
-            self.assertTrue(default.user is None)
-            self.assertTrue(default.trttype == TrtTypes.ULT)
-        default_flare_trts = defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=None)
-        self.assertTrue(isinstance(default_flare_trts, QuerySet))
-        self.assertEqual(len(default_flare_trts), 9)
-        for default in default_flare_trts:
-            self.assertTrue(isinstance(default, DefaultTrt))
-            self.assertTrue(default.user is None)
-            self.assertTrue(default.trttype == TrtTypes.FLARE)
-
-
-class TestDefaultsTrtTypeTrtsHistorys(TestCase):
+class TestDefaultsDefaultMedhistorysTrtType(TestCase):
     def setUp(self):
         self.medhistorys = [
             ChfFactory(),
@@ -77,6 +58,31 @@ class TestDefaultsTrtTypeTrtsHistorys(TestCase):
                     MedHistoryTypes.HEARTATTACK,
                 ],
             )
+
+    def test__empty_medhistorys_returns_empty_qs(self):
+        """Test empty medhistorys. Should return empty QuerySet"""
+        default_medhistorys = defaults_defaultmedhistorys_trttype(medhistorys=[], trttype=TrtTypes.PPX, user=None)
+        self.assertTrue(isinstance(default_medhistorys, QuerySet))
+        self.assertEqual(len(default_medhistorys), 0)
+
+
+class TestDefaultsTrtTypeTrts(TestCase):
+    def test__defaults_trttype_trts_no_user(self):
+        """Test no user. Should return Gouthelper defaults for ULT"""
+        default_ult_trts = defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
+        self.assertTrue(isinstance(default_ult_trts, QuerySet))
+        self.assertEqual(len(default_ult_trts), 3)
+        for default in default_ult_trts:
+            self.assertTrue(isinstance(default, DefaultTrt))
+            self.assertTrue(default.user is None)
+            self.assertTrue(default.trttype == TrtTypes.ULT)
+        default_flare_trts = defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=None)
+        self.assertTrue(isinstance(default_flare_trts, QuerySet))
+        self.assertEqual(len(default_flare_trts), 9)
+        for default in default_flare_trts:
+            self.assertTrue(isinstance(default, DefaultTrt))
+            self.assertTrue(default.user is None)
+            self.assertTrue(default.trttype == TrtTypes.FLARE)
 
 
 class TestDefaultsDefaultFlareTrtSettings(TestCase):

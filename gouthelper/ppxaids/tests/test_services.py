@@ -11,6 +11,7 @@ from ...genders.tests.factories import GenderFactory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import (
     AnginaFactory,
@@ -24,7 +25,7 @@ from ...medhistorys.tests.factories import (
     HeartattackFactory,
 )
 from ...ppxaids.tests.factories import PpxAidFactory
-from ...treatments.choices import FlarePpxChoices, Freqs, Treatments
+from ...treatments.choices import FlarePpxChoices, Freqs, Treatments, TrtTypes
 from ..services import PpxAidDecisionAid
 
 pytestmark = pytest.mark.django_db
@@ -49,6 +50,9 @@ class TestPpxAidMethods(TestCase):
             self.ppxaid.medhistorys.add(medhistory)
         self.allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
         self.ppxaid.medallergys.add(self.allopurinolallergy)
+        self.decisionaid = PpxAidDecisionAid(pk=self.ppxaid.pk)
+        self.empty_ppxaid = PpxAidFactory()
+        self.empty_decisionaid = PpxAidDecisionAid(pk=self.empty_ppxaid.pk)
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
@@ -61,6 +65,52 @@ class TestPpxAidMethods(TestCase):
             self.assertIn(medhistory, decisionaid.medhistorys)
         self.assertEqual(self.ppxaid, decisionaid.ppxaid)
         self.assertIn(self.allopurinolallergy, decisionaid.medallergys)
+
+    def test__init_with_empty_ppxaid(self):
+        with CaptureQueriesContext(connection) as context:
+            empty_decisionaid = PpxAidDecisionAid(pk=self.empty_ppxaid.pk)
+        self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
+        self.assertTrue(empty_decisionaid.age)
+        self.assertIsNone(empty_decisionaid.ckddetail)
+        self.assertIsNone(empty_decisionaid.baselinecreatinine)
+        self.assertIsNone(empty_decisionaid.gender)
+        self.assertFalse(empty_decisionaid.medhistorys)
+        self.assertFalse(empty_decisionaid.medallergys)
+
+    def test__default_medhistorys(self):
+        empty_defaults = self.empty_decisionaid.default_medhistorys
+        self.assertEqual(len(empty_defaults), 0)
+        ppxaid_medhistorys = [
+            medhistory.medhistorytype
+            for medhistory in self.empty_decisionaid.medhistorys
+            if medhistory.medhistorytype in PPXAID_MEDHISTORYS
+        ]
+        for medhistory in [medhistory for medhistory in ppxaid_medhistorys if medhistory in PPXAID_MEDHISTORYS]:
+            self.assertIn(medhistory.medhistorytype, [default.medhistorytype for default in empty_defaults])
+        for default in empty_defaults:
+            self.assertEqual(default.trttype, TrtTypes.PPX)
+        defaults = self.empty_decisionaid.default_medhistorys
+        self.assertEqual(len(defaults), 0)
+        ppxaid_medhistorys = [
+            medhistory.medhistorytype
+            for medhistory in self.empty_decisionaid.medhistorys
+            if medhistory.medhistorytype in PPXAID_MEDHISTORYS
+        ]
+        for medhistory in [medhistory for medhistory in ppxaid_medhistorys if medhistory in PPXAID_MEDHISTORYS]:
+            self.assertIn(medhistory.medhistorytype, [default.medhistorytype for default in defaults])
+        for default in defaults:
+            self.assertEqual(default.trttype, TrtTypes.PPX)
+
+    def test__defaultppxtrtsettings(self):
+        default_ppx_trt_settings = DefaultPpxTrtSettings.objects.get()
+        self.assertEqual(self.empty_decisionaid.defaultppxtrtsettings, default_ppx_trt_settings)
+
+    def test__default_trts(self):
+        defaults = self.empty_decisionaid.default_trts
+        for treatment in FlarePpxChoices.values:
+            self.assertIn(treatment, [default.treatment for default in defaults])
+        for default in defaults:
+            self.assertEqual(default.trttype, TrtTypes.PPX)
 
     def test__baseline_methods_work(self):
         self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)

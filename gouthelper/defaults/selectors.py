@@ -80,10 +80,13 @@ def defaults_defaulttrts_trttype(trttype: TrtTypes, user: Union["User", None]) -
 def defaults_defaultmedhistorys_trttype(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"], trttype: TrtTypes, user: Union["User", None]
 ) -> "QuerySet":
-    """QuerySet that takes a list of MedHistory objects, a TrtTypes enum, and an optional
-    User object and returns a QuerySet fetching all the DefaultMedHistory objects for
-    DefaultMedhistory objects that are matched by trttype and medhistorytype. Preferentially
-    picks custom User DefaultMedHistory objects over their Gouthelper defaults.
+    """
+    Returns a QuerySet of DefaultMedHistory objects filtered by the medhistorytype from a list
+    of medhistorys, trttype, and optional User. Returns only a single DefaultMedHistory object
+    for each medhistorytype and trttype, preferring custom User DefaultMedHistory objects over
+    Gouthelper defaults.
+
+    If no medhistorys are passed, returns an empty QuerySet.
 
     Args:
         trttype (TrtTypes): TrtTypes enum = FLARE, PPX, or ULT
@@ -92,12 +95,16 @@ def defaults_defaultmedhistorys_trttype(
 
     Returns: QuerySet
     """
+    queryset = apps.get_model("defaults.DefaultMedHistory").objects
+    if not medhistorys:
+        # Return empty QuerySet
+        return queryset.none()
+    # Otherwise filter the QuerySet by the medhistorys
     mhQTerm = Q()
     for medhistory in medhistorys:
         mhQTerm = mhQTerm | Q(medhistorytype=medhistory.medhistorytype)
     return (
-        apps.get_model("defaults.DefaultMedHistory")
-        .objects.filter((Q(user=user) | Q(user=None)) & Q(trttype=trttype) & mhQTerm)
+        queryset.filter((Q(user=user) | Q(user=None)) & Q(trttype=trttype) & mhQTerm)
         .order_by(
             "medhistorytype",
             "treatment",

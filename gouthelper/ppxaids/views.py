@@ -164,7 +164,7 @@ class PpxAidDetail(DetailView):
 
     @property
     def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPXAID)
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPXAID, tag__isnull=False)
 
 
 class PpxAidUpdate(PpxAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
