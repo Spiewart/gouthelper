@@ -19,6 +19,7 @@ from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..ults.choices import Indications
 from ..utils.models import DecisionAidModel, GouthelperModel, LabAidModel, MedHistoryAidModel
+from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
 from .services import PpxDecisionAid
 
 if TYPE_CHECKING:
@@ -37,6 +38,8 @@ class Ppx(
 ):
     """Model to collate information for a patient and determine if he or she has
     an indication for gout flare prophylaxis."""
+
+    Indications = Indications
 
     indication = models.IntegerField(
         _("Indication"),
@@ -76,7 +79,7 @@ class Ppx(
         else:
             return labs_urates_months_at_goal(
                 urates=dated_urates(self.labs).all(),
-                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
+                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,  # type: ignore
                 goal_urate=self.goalurate,
                 commit=False,
             )
@@ -85,9 +88,7 @@ class Ppx(
     def conditional_indication(self) -> bool:
         """Method that returns whether or not the Ult
         has a conditional recommendation for ULT."""
-        if self.indication == Indications.CONDITIONAL:
-            return True
-        return False
+        return self.indication == Indications.CONDITIONAL
 
     @cached_property
     def flaring(self) -> bool | None:
@@ -113,9 +114,7 @@ class Ppx(
     @cached_property
     def indicated(self) -> bool:
         """Method that returns a bool indicating whether Ult is indicated."""
-        if self.indication == Indications.INDICATED or self.indication == Indications.CONDITIONAL:
-            return True
-        return False
+        return self.indication == Indications.INDICATED or self.indication == Indications.CONDITIONAL
 
     @cached_property
     def last_urate_at_goal(self) -> bool:
@@ -167,25 +166,15 @@ class Ppx(
         """Method that returns True if the patient has had his or her uric acid checked
         in the last 6 months, False if not."""
         if hasattr(self, "labs_qs"):
-            return (
-                True
-                if [
-                    lab
-                    for lab in self.labs_qs
-                    if lab.date_drawn and lab.date_drawn > timezone.now() - timedelta(days=180)
-                ]
-                else False
-            )
+            return [
+                lab for lab in self.labs_qs if lab.date_drawn and lab.date_drawn > timezone.now() - timedelta(days=180)
+            ]
         else:
-            return (
-                True
-                if [
-                    lab
-                    for lab in dated_urates(self.labs).all()
-                    if lab.date and lab.date > timezone.now() - timedelta(days=180)
-                ]
-                else False
-            )
+            return [
+                lab
+                for lab in dated_urates(self.labs).all()
+                if lab.date and lab.date > timezone.now() - timedelta(days=180)
+            ]
 
     def update(self, decisionaid: PpxDecisionAid | None = None, qs: Union["Ppx", None] = None) -> "Ppx":
         """Updates the Ppx indication field.
@@ -200,28 +189,50 @@ class Ppx(
             decisionaid = PpxDecisionAid(pk=self.pk, qs=qs)
         return decisionaid._update()
 
-    def urates_discrepant(self) -> str | None:
-        """Method that determines if the labs (Urates) are discrepant with the
-        Ppx object's GoutDetail hyperuricemic field. Returns True if so, False if not."""
-        if hasattr(self, "labs_qs"):
-            # Nest this if statement to avoid defaulting to else and hitting the db
-            if self.labs_qs:
-                if self.goutdetail.hyperuricemic is None:
-                    return (
-                        "Clarify hyperuricemic status. At least one uric acid was reported but hyperuricemic was not."
-                    )
-                elif self.labs_qs[0].value > self.goalurate and not self.goutdetail.hyperuricemic:
-                    return "Clarify hyperuricemic status. Last Urate was above goal, but hyperuricemic reported False."
-                elif self.labs_qs[0].value < self.goalurate and self.goutdetail.hyperuricemic:
-                    return "Clarify hyperuricemic status. Last Urate was at goal, but hyperuricemic reported True."
-        else:
-            if self.labs.exists():
-                first_lab = self.labs.order_by("-date_drawn").first()
-                if self.goutdetail.hyperuricemic is None:
-                    return (
-                        "Clarify hyperuricemic status. At least one uric acid was reported but hyperuricemic was not."
-                    )
-                elif first_lab.value > self.goalurate and not self.goutdetail.hyperuricemic:
-                    return "Clarify hyperuricemic status. Last Urate was above goal, but hyperuricemic reported False."
-                elif first_lab.value < self.goalurate and not self.goutdetail.hyperuricemic:
-                    return "Clarify hyperuricemic status. Last Urate was at goal, but hyperuricemic reported True."
+    @cached_property
+    def urates_discrepant(self) -> bool:
+        """Method that implements the ppxs_check_urate_hyperuricemic_discrepant helper
+        method to determine if the labs (Urates) and the goutdetail hyperuricemic field
+        are discrepant.
+
+        returns:
+            bool: True if the labs (Urates) and the goutdetail hyperuricemic field are
+            discrepant (i.e. hyperuricemic is True but the last urate was at goal),
+            False if not.
+        """
+        return (
+            ppxs_check_urate_hyperuricemic_discrepant(
+                urate=(
+                    self.labs_qs[0]
+                    if hasattr(self, "labs_qs") and self.labs_qs
+                    else self.labs.order_by("-date_drawn").first()
+                ),
+                goutdetail=self.goutdetail,  # type: ignore
+                goalurate=self.goalurate,
+            )
+            if (hasattr(self, "labs_qs") and self.labs_qs or self.labs.exists()) and self.goutdetail
+            else False
+        )
+
+    @property
+    def urates_discrepant_str(self) -> str | None:
+        """Property that implements the ppxs_urate_hyperuricemic_discrepancy_str helper
+        method. Calling this property implies that: There is at least 1 Urate, and a
+        GoutDetail object associated with the Ppx.
+
+        returns:
+            str: A string indicating the discrepant status of the labs (Urates) and the
+            goutdetail hyperuricemic field."""
+        return (
+            ppxs_urate_hyperuricemic_discrepancy_str(
+                urate=(
+                    self.labs_qs[0]
+                    if hasattr(self, "labs_qs") and self.labs_qs
+                    else self.labs.order_by("-date_drawn").first()
+                ),
+                goutdetail=self.goutdetail,  # type: ignore
+                goalurate=self.goalurate,
+            )
+            if (hasattr(self, "labs_qs") and self.labs_qs or self.labs.exists()) and self.goutdetail
+            else None
+        )
