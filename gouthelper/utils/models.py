@@ -3,11 +3,8 @@ from typing import TYPE_CHECKING, Union
 
 from django.db import models  # type: ignore
 from django.db.models.query import QuerySet  # type: ignore
-from django.utils import timezone  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
-from django.utils.translation import gettext_lazy as _  # type: ignore
 
-from ..choices import BOOL_CHOICES
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
@@ -50,11 +47,8 @@ from .helpers.aid_helpers import (
     aids_probenecid_ckd_contra,
     aids_xois_ckd_contra,
 )
-from .helpers.helpers import now_date
 
 if TYPE_CHECKING:
-    from datetime import timedelta
-
     from ..dateofbirths.models import DateOfBirth
     from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
     from ..ethnicitys.models import Ethnicity
@@ -641,145 +635,6 @@ class MedHistoryAidModel(models.Model):
         if commit:
             self.full_clean()
             self.save()
-
-
-class ArchiveQuerySet(QuerySet):
-    def archive(self):
-        return super().update(
-            archived=True,
-            archived_at=timezone.now(),
-        )
-
-    def archived_objects(self):
-        return self.filter(archived=True)
-
-
-class ArchiveManager(models.Manager):
-    def __init__(self, *args, **kwargs):
-        self.archived_objects = kwargs.pop("archived_objects", False)
-        super().__init__(*args, **kwargs)
-
-    def get_queryset(self):
-        if self.archived_objects:
-            return ArchiveQuerySet(self.model).filter(archived=True)
-        return ArchiveQuerySet(self.model)
-
-
-class ArchiveModel(models.Model):
-    archived = models.BooleanField(
-        choices=BOOL_CHOICES,
-        verbose_name=_("Archive Status"),
-        help_text=_("Is this object archived?"),
-        default=False,
-    )
-    archived_at = models.DateTimeField(_("Archive Date"), help_text=_("Date of archive?"), blank=True, null=True)
-
-    objects = ArchiveManager()
-    archived_objects = ArchiveManager(archived_objects=True)
-
-    class Meta:
-        abstract = True
-
-    def archive(self):
-        self.archived = True
-        self.archived_at = timezone.now()
-        self.save()
-
-    def save(self, *args, **kwargs):
-        if self.archived is True and not self.archived_at:
-            self.archived_at = timezone.now()
-        super().save(*args, **kwargs)
-
-
-class CompletedQuerySet(QuerySet):
-    """
-    Custom Queryset to select / modify completed objects
-    """
-
-    def complete(self):
-        return super().update(completed=True, date_ended=timezone.now().date())
-
-    def completed(self):
-        return self.filter(completed=True)
-
-    def incompleted(self):
-        return self.exclude(completed=True)
-
-
-class CompletedManager(models.Manager):
-    """
-    Custom model manager to mark models completed.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.completed_only = kwargs.pop("completed_only", None)
-        super().__init__(*args, **kwargs)
-
-    def get_queryset(self):
-        if self.completed_only:
-            return CompletedQuerySet(self.model).filter(end_date__isnull=False)
-        elif self.completed_only is False:
-            return CompletedQuerySet(self.model).get(end_date__isnull=True)
-        return CompletedQuerySet(self.model)
-
-
-class CompletedModel(models.Model):
-    """
-    Model Mixin to add date_started and date_ended fields.
-    """
-
-    class Meta:
-        abstract = True
-        constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_start_end_date_valid",
-                check=(
-                    (
-                        models.Q(
-                            date_started__lte=models.functions.Now(),
-                            date_ended__gte=models.F("date_started"),
-                        )
-                    )
-                    | (
-                        models.Q(
-                            date_started__lte=models.functions.Now(),
-                            date_ended__isnull=True,
-                        )
-                    )
-                ),
-            ),
-        ]
-
-    date_started = models.DateField(
-        _("Date Started"),
-        help_text="What day did it start?",
-        default=now_date,
-    )
-    date_ended = models.DateField(
-        _("Date Resolved"),
-        help_text="What day did it resolve?",
-        blank=True,
-        null=True,
-        default=None,
-    )
-    incomplete_objects = CompletedManager(completed_only=False)
-    complete_objects = CompletedManager(completed_only=True)
-
-    def complete(self) -> None:
-        if not self.date_ended:
-            self.date_ended = timezone.now().date()
-            self.full_clean()
-            self.save()
-
-    @cached_property
-    def completed(self) -> bool:
-        return self.date_ended is not None
-
-    @cached_property
-    def duration(self) -> "timedelta":
-        if self.date_ended is not None:
-            return self.date_ended - self.date_started
-        return timezone.now().date() - self.date_started
 
 
 class GouthelperModel(models.Model):

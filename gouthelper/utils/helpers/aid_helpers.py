@@ -126,6 +126,12 @@ def aids_create_trts_dosing_dict(default_trts: "QuerySet") -> dict:
     return default_dosing_dict
 
 
+def aids_dict_to_json(aid_dict: dict) -> str:
+    """Converts a dictionary trt_dict to JSON for saving to decisionaid field and
+    for comparison."""
+    return json.dumps(aid_dict, indent=4, cls=DjangoJSONEncoder)
+
+
 def aids_dose_adjust_allopurinol_ckd(
     trt_dict: dict,
     defaulttrtsettings: "DefaultUltTrtSettings",
@@ -273,6 +279,7 @@ def aids_hlab5801_contra(
 
 def aids_json_to_trt_dict(decisionaid: str) -> dict:
     """Method that converts a trt_dict json and converts it to a python dict.
+    Converts duration and decimal strings into their native Python types.
 
     Args:
         json "{json}": of the trt_dict
@@ -625,9 +632,3 @@ def aids_process_steroids(
                 if sub_dict["contra"] is False:
                     sub_dict["contra"] = True
     return trt_dict
-
-
-def aids_dict_to_json(aid_dict: dict) -> str:
-    """Converts a dictionary trt_dict to JSON for saving to decisionaid field and
-    for comparison."""
-    return json.dumps(aid_dict, indent=4, cls=DjangoJSONEncoder)

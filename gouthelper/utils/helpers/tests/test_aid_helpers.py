@@ -18,10 +18,16 @@ from ....labs.tests.factories import BaselineCreatinineFactory, Hlab5801Factory
 from ....medallergys.models import MedAllergy
 from ....medallergys.tests.factories import MedAllergyFactory
 from ....medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
-from ....medhistorydetails.tests.factories import CkdDetailFactory
+from ....medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
 from ....medhistorys.choices import Contraindications
 from ....medhistorys.models import MedHistory
-from ....medhistorys.tests.factories import ChfFactory, CkdFactory, GastricbypassFactory, HeartattackFactory
+from ....medhistorys.tests.factories import (
+    ChfFactory,
+    CkdFactory,
+    GastricbypassFactory,
+    GoutFactory,
+    HeartattackFactory,
+)
 from ....ppxaids.tests.factories import PpxAidFactory
 from ....treatments.choices import (
     AllopurinolDoses,
@@ -38,6 +44,8 @@ from ....ultaids.tests.factories import UltAidFactory
 from ..aid_helpers import (
     aids_assign_userless_baselinecreatinine,
     aids_assign_userless_ckddetail,
+    aids_assign_userless_goutdetail,
+    aids_colchicine_ckd_contra,
     aids_create_trts_dosing_dict,
     aids_dict_to_json,
     aids_dose_adjust_allopurinol_ckd,
@@ -54,56 +62,6 @@ from ..aid_helpers import (
 )
 
 pytestmark = pytest.mark.django_db
-
-
-class TestAidsAdjustFebuxostatForCVDisease(TestCase):
-    def setUp(self):
-        self.userless_chf = ChfFactory()
-        self.userless_heartattack = HeartattackFactory()
-
-    def test__no_chf_or_heartattack_returns_uncontraindicated(self):
-        ultaid = UltAidFactory()
-        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
-        trt_dict = decisionaid._create_trts_dict()
-        trt_dict = aids_process_medhistorys(
-            trt_dict=trt_dict,
-            medhistorys=decisionaid.medhistorys,
-            ckddetail=decisionaid.ckddetail,
-            default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
-        )
-        self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
-
-    def test__chf_heartattack_returns_uncontraindicated(self):
-        ultaid = UltAidFactory()
-        ultaid.medhistorys.add(self.userless_chf, self.userless_heartattack)
-        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
-        trt_dict = decisionaid._create_trts_dict()
-        trt_dict = aids_process_medhistorys(
-            trt_dict=trt_dict,
-            medhistorys=decisionaid.medhistorys,
-            ckddetail=decisionaid.ckddetail,
-            default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
-        )
-        self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
-
-    def test__chf_heartattack_custom_ult_settings_returns_contraindicated(self):
-        default_ult_trt_settings = DefaultUltTrtSettings.objects.get()
-        default_ult_trt_settings.febu_cv_disease = False
-        default_ult_trt_settings.save()
-        ultaid = UltAidFactory()
-        ultaid.add_medhistorys([self.userless_chf, self.userless_heartattack])
-        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
-        trt_dict = decisionaid._create_trts_dict()
-        trt_dict = aids_process_medhistorys(
-            trt_dict=trt_dict,
-            medhistorys=decisionaid.medhistorys,
-            ckddetail=decisionaid.ckddetail,
-            default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
-        )
-        self.assertTrue(trt_dict[Treatments.FEBUXOSTAT]["contra"])
 
 
 class TestAidsAssignUserlessBaselineCreatinine(TestCase):
@@ -150,19 +108,88 @@ class TestAidsAssignUserlessCkdDetail(TestCase):
         self.assertEqual(aids_assign_userless_ckddetail(medhistorys=medhistorys), ckddetail)
 
 
+class TestAidsAssignUserlessGoutDetail(TestCase):
+    def setUp(self):
+        HeartattackFactory()
+        ChfFactory()
+        GastricbypassFactory()
+
+    def test__no_gout_returns_None(self):
+        medhistorys = MedHistory.objects.filter().all()
+        self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
+
+    def test__gout_but_not_goutdetail_returns_None(self):
+        GoutFactory()
+        medhistorys = MedHistory.objects.filter().all()
+        self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
+
+    def test__gout_with_goutdetail_returns_goutdetail(self):
+        gout = GoutFactory()
+        goutdetail = GoutDetailFactory(medhistory=gout)
+        medhistorys = MedHistory.objects.filter().all()
+        self.assertEqual(aids_assign_userless_goutdetail(medhistorys=medhistorys), goutdetail)
+
+
+class TestAidsColchicineCkdContra(TestCase):
+    def setUp(self):
+        self.ckd = CkdFactory()
+        self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.TWO)
+        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+
+    def test__no_ckd_returns_None(self):
+        self.assertIsNone(
+            aids_colchicine_ckd_contra(ckd=None, ckddetail=None, defaulttrtsettings=self.defaulttrtsettings)
+        )
+
+    def test__ckd_no_ckddetail_returns_absolute_contraindication(self):
+        self.assertEqual(
+            Contraindications.ABSOLUTE,
+            aids_colchicine_ckd_contra(ckd=self.ckd, ckddetail=None, defaulttrtsettings=self.defaulttrtsettings),
+        )
+
+    def test__ckd_stage_2_returns_dose_adjust(self):
+        self.assertEqual(
+            Contraindications.DOSEADJ,
+            aids_colchicine_ckd_contra(
+                ckd=self.ckd, ckddetail=self.ckddetail, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__ckd_stage_3_returns_absolute_contraindication(self):
+        self.ckddetail.stage = Stages.FOUR
+        self.ckddetail.save()
+        self.assertEqual(
+            Contraindications.ABSOLUTE,
+            aids_colchicine_ckd_contra(
+                ckd=self.ckd, ckddetail=self.ckddetail, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__no_colch_with_ckd_returns_absolute_contraindication(self):
+        self.defaulttrtsettings.colch_ckd = False
+        self.defaulttrtsettings.save()
+        self.assertEqual(
+            Contraindications.ABSOLUTE,
+            aids_colchicine_ckd_contra(
+                ckd=self.ckd, ckddetail=self.ckddetail, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+
 class TestAidsCreateTrtsDosingDict(TestCase):
     def setUp(self):
         self.default_trts = DefaultTrt.objects.filter(trttype=TrtTypes.PPX).all()
 
     def test__proper_items_in_dosing_dict(self):
-        self.dosing_dict = aids_create_trts_dosing_dict(default_trts=self.default_trts)
-        self.assertTrue(isinstance(self.dosing_dict, dict))
+        dosing_dict = aids_create_trts_dosing_dict(default_trts=self.default_trts)
+        self.assertTrue(isinstance(dosing_dict, dict))
         for trttype in FlarePpxChoices.values:
-            self.assertIn(trttype, self.dosing_dict.keys())
-        for val in self.dosing_dict.values():
+            self.assertIn(trttype, dosing_dict.keys())
+        for val in dosing_dict.values():
             self.assertIn("dose", val.keys())
             self.assertIn("dose2", val.keys())
             self.assertIn("dose3", val.keys())
+            self.assertIn("dose_adj", val.keys())
             self.assertIn("duration", val.keys())
             self.assertIn("duration2", val.keys())
             self.assertIn("duration3", val.keys())
@@ -171,85 +198,23 @@ class TestAidsCreateTrtsDosingDict(TestCase):
             self.assertIn("freq3", val.keys())
 
 
-class TestAidsProcessAllopurinolCkdContraindication(TestCase):
+class TestAidsDictToJson(TestCase):
     def setUp(self):
-        self.userless_ultaid = UltAidFactory()
-
-    def test_no_ckd_returns_unchanged_dose(self):
-        contra_interp = aids_xois_ckd_contra(ckd=None, ckddetail=None)
-        self.assertEqual(contra_interp, (None, None, None))
-
-    def test_ckd_no_ckddetail_returns_dose_change(self):
-        ckd = CkdFactory()
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, None))
-
-    def test_ckd_ckddetail_stage_2_returns_unchanged_dose(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(medhistory=ckd, stage=2)
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (None, None, 2))
-
-    def test_ckd_ckddetail_stage_3_returns_changed_dose(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(medhistory=ckd, stage=3)
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 3))
-
-    def test_ckd_ckddetail_stage_4_returns_changed_dose(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(medhistory=ckd, stage=4)
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 4))
-
-    def test_ckd_ckddetail_stage_5_returns_changed_dose(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(medhistory=ckd, stage=5)
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 5))
-
-    def test__pd_returns_pd(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(
-            medhistory=ckd,
-            stage=5,
-            dialysis=True,
-            dialysis_duration=DialysisDurations.LESSTHANSIX,
-            dialysis_type=DialysisChoices.PERITONEAL,
+        self.medhistorys = MedHistory.objects.all()
+        self.default_medhistorys = defaults_defaultmedhistorys_trttype(
+            medhistorys=self.medhistorys,
+            trttype=TrtTypes.FLARE,
+            user=None,
         )
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, DialysisChoices.PERITONEAL, Stages.FIVE))
-
-    def test__hd_returns_hd(self):
-        ckd = CkdFactory()
-        ckdetail = CkdDetailFactory(
-            medhistory=ckd,
-            stage=5,
-            dialysis=True,
-            dialysis_duration=DialysisDurations.LESSTHANSIX,
-            dialysis_type=DialysisChoices.HEMODIALYSIS,
+        self.trt_dict = aids_create_trts_dosing_dict(
+            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all()
         )
-        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
-        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, DialysisChoices.HEMODIALYSIS, Stages.FIVE))
 
-
-class TestAidsProcessFebuxostatCkdContraindication(TestCase):
-    def test__no_ckd_returns_None(self):
-        self.assertIsNone(aids_xois_ckd_contra(ckd=None, ckddetail=None)[0])
-
-    def test__ckd_no_ckddetail_returns_doseadj_contra(self):
-        ckd = CkdFactory()
-        self.assertEqual(Contraindications.DOSEADJ, aids_xois_ckd_contra(ckd=ckd, ckddetail=None)[0])
-
-    def test__ckd_stage_less_than_3_returns_None(self):
-        ckd = CkdFactory()
-        ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.TWO)
-        self.assertIsNone(aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)[0])
-
-    def test__ckd_stage_greater_than_or_equal_to_3_returns_False(self):
-        ckd = CkdFactory()
-        ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        self.assertEqual(Contraindications.DOSEADJ, aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)[0])
+    def test__returns_json(self):
+        json = aids_dict_to_json(self.trt_dict)
+        self.assertTrue(isinstance(json, str))
+        for trt in FlarePpxChoices.choices:
+            self.assertIn(trt[0], json)
 
 
 class TestAidsDoseAdjustAllopurinolCkd(TestCase):
@@ -262,7 +227,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.userless_ultaid.add_medhistorys([ckd])
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
-        dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
+        _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
             trt_dict=trt_dict,
             defaulttrtsettings=self.defaultulttrtsettings,
@@ -280,7 +245,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.userless_ultaid.add_medhistorys([ckd])
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
-        dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
+        _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
             trt_dict=trt_dict,
             defaulttrtsettings=self.defaultulttrtsettings,
@@ -391,6 +356,95 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.QDAY)
 
 
+class TestAidsDoseAdjustColchicine(TestCase):
+    def setUp(self):
+        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+
+    def test__flare_dose_is_cut_in_half(self):
+        trt_dict = aids_create_trts_dosing_dict(default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all())
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("1.2"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
+        trt_dict = aids_dose_adjust_colchicine(
+            trt_dict,
+            aid_type=TrtTypes.FLARE,
+            defaulttrtsettings=self.defaulttrtsettings,
+        )
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.3"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.3"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
+
+    def test__ppx_dose_is_cut_in_half(self):
+        trt_dict = aids_create_trts_dosing_dict(default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.PPX).all())
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose3"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq3"])
+        trt_dict = aids_dose_adjust_colchicine(
+            trt_dict,
+            aid_type=TrtTypes.PPX,
+            defaulttrtsettings=self.defaulttrtsettings,
+        )
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.3"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose3"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq3"])
+
+    def test__flare_freq_is_cut_in_half(self):
+        self.defaulttrtsettings.colch_dose_adjust = False
+        self.defaulttrtsettings.save()
+        trt_dict = aids_create_trts_dosing_dict(default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all())
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("1.2"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
+        trt_dict = aids_dose_adjust_colchicine(
+            trt_dict,
+            aid_type=TrtTypes.FLARE,
+            defaulttrtsettings=self.defaulttrtsettings,
+        )
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
+
+    def test__ppx_freq_is_cut_in_half(self):
+        self.defaulttrtsettings.colch_dose_adjust = False
+        self.defaulttrtsettings.save()
+        trt_dict = aids_create_trts_dosing_dict(default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.PPX).all())
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose3"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq3"])
+        trt_dict = aids_dose_adjust_colchicine(
+            trt_dict,
+            aid_type=TrtTypes.PPX,
+            defaulttrtsettings=self.defaulttrtsettings,
+        )
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
+        self.assertEqual(trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QOTHERDAY)
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq2"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose3"])
+        self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq3"])
+
+
 class TestAidsDoseAdjustFebuxostatCkd(TestCase):
     def setUp(self):
         self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=None)
@@ -438,6 +492,146 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         self.assertEqual(febu_dict["dose_adj"], FebuxostatDoses.TWENTY)
         self.assertEqual(febu_dict["dose"], FebuxostatDoses.TWENTY)
         self.assertEqual(febu_dict["freq"], Freqs.QDAY)
+
+    def test__ckd_custom_ult_default_doesnt_reduce_dose(self):
+        custom_settings = DefaultUltTrtSettings.objects.get()
+        custom_settings.febu_ckd_initial_dose = FebuxostatDoses.FORTY
+        custom_settings.save()
+        ckd = CkdFactory()
+        CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR, dialysis=False)
+        self.ultaid.add_medhistorys([ckd])
+        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        trt_dict = decisionaid._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
+            medhistorys=decisionaid.medhistorys,
+            ckddetail=decisionaid.ckddetail,
+            default_medhistorys=decisionaid.default_medhistorys,
+            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+        )
+        febu_dict = trt_dict[Treatments.FEBUXOSTAT]
+        self.assertEqual(febu_dict["dose"], Decimal("40"))
+
+
+class TestAidsJsonToTrtDict(TestCase):
+    def test__converts_json_to_dict_simple(self):
+        user_flareaid = FlareAidFactory()
+        user_flareaid.update()
+        user_flareaid.refresh_from_db()
+        user_ppxaid = PpxAidFactory()
+        user_ppxaid.update()
+        user_ppxaid.refresh_from_db()
+        flareaid_json = user_flareaid.decisionaid
+        flareaid_dict = aids_json_to_trt_dict(flareaid_json)
+        self.assertTrue(isinstance(flareaid_dict, dict))
+        for key, value_dict in flareaid_dict.items():
+            self.assertIn(key, FlarePpxChoices.values)
+            self.assertTrue(isinstance(value_dict["dose"], Decimal))
+            dose2 = value_dict.get("dose2", None)
+            if dose2:
+                self.assertTrue(isinstance(dose2, Decimal))
+            duration = value_dict.get("duration", None)
+            if duration:
+                self.assertTrue(isinstance(duration, timedelta))
+            duration2 = value_dict.get("duration2", None)
+            if duration2:
+                self.assertTrue(isinstance(duration2, timedelta))
+        ppxaid_json = user_ppxaid.decisionaid
+        ppxaid_dict = aids_json_to_trt_dict(ppxaid_json)
+        self.assertTrue(isinstance(ppxaid_dict, dict))
+        for key, value_dict in ppxaid_dict.items():
+            self.assertIn(key, FlarePpxChoices.values)
+            self.assertTrue(isinstance(value_dict["dose"], Decimal))
+            dose2 = value_dict.get("dose2", None)
+            if dose2:
+                self.assertTrue(isinstance(dose2, Decimal))
+            duration = value_dict.get("duration", None)
+            if duration:
+                self.assertTrue(isinstance(duration, timedelta))
+            duration2 = value_dict.get("duration2", None)
+            if duration2:
+                self.assertTrue(isinstance(duration2, timedelta))
+
+
+class TestAidsProcessAllopurinolCkdContraindication(TestCase):
+    def setUp(self):
+        self.userless_ultaid = UltAidFactory()
+
+    def test_no_ckd_returns_unchanged_dose(self):
+        contra_interp = aids_xois_ckd_contra(ckd=None, ckddetail=None)
+        self.assertEqual(contra_interp, (None, None, None))
+
+    def test_ckd_no_ckddetail_returns_dose_change(self):
+        ckd = CkdFactory()
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, None))
+
+    def test_ckd_ckddetail_stage_2_returns_unchanged_dose(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(medhistory=ckd, stage=2)
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (None, None, 2))
+
+    def test_ckd_ckddetail_stage_3_returns_changed_dose(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(medhistory=ckd, stage=3)
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 3))
+
+    def test_ckd_ckddetail_stage_4_returns_changed_dose(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(medhistory=ckd, stage=4)
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 4))
+
+    def test_ckd_ckddetail_stage_5_returns_changed_dose(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(medhistory=ckd, stage=5)
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, None, 5))
+
+    def test__pd_returns_pd(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(
+            medhistory=ckd,
+            stage=5,
+            dialysis=True,
+            dialysis_duration=DialysisDurations.LESSTHANSIX,
+            dialysis_type=DialysisChoices.PERITONEAL,
+        )
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, DialysisChoices.PERITONEAL, Stages.FIVE))
+
+    def test__hd_returns_hd(self):
+        ckd = CkdFactory()
+        ckdetail = CkdDetailFactory(
+            medhistory=ckd,
+            stage=5,
+            dialysis=True,
+            dialysis_duration=DialysisDurations.LESSTHANSIX,
+            dialysis_type=DialysisChoices.HEMODIALYSIS,
+        )
+        contra_interp = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckdetail)
+        self.assertEqual(contra_interp, (Contraindications.DOSEADJ, DialysisChoices.HEMODIALYSIS, Stages.FIVE))
+
+
+class TestAidsProcessFebuxostatCkdContraindication(TestCase):
+    def test__no_ckd_returns_None(self):
+        self.assertIsNone(aids_xois_ckd_contra(ckd=None, ckddetail=None)[0])
+
+    def test__ckd_no_ckddetail_returns_doseadj_contra(self):
+        ckd = CkdFactory()
+        self.assertEqual(Contraindications.DOSEADJ, aids_xois_ckd_contra(ckd=ckd, ckddetail=None)[0])
+
+    def test__ckd_stage_less_than_3_returns_None(self):
+        ckd = CkdFactory()
+        ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.TWO)
+        self.assertIsNone(aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)[0])
+
+    def test__ckd_stage_greater_than_or_equal_to_3_returns_False(self):
+        ckd = CkdFactory()
+        ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
+        self.assertEqual(Contraindications.DOSEADJ, aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)[0])
 
 
 class TestAidsProcessHlab5801(TestCase):
@@ -752,141 +946,6 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
         self.assertTrue(self.trt_dict[Treatments.COLCHICINE]["contra"])
 
 
-class TestAidsDoseAdjustColchicine(TestCase):
-    def test__flare_dose_is_cut_in_half(self):
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
-        self.trt_dict = aids_create_trts_dosing_dict(
-            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all()
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("1.2"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
-        self.trt_dict = aids_dose_adjust_colchicine(
-            self.trt_dict,
-            aid_type=TrtTypes.FLARE,
-            defaulttrtsettings=self.defaulttrtsettings,
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.3"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.3"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
-
-    def test__ppx_dose_is_cut_in_half(self):
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
-        self.trt_dict = aids_create_trts_dosing_dict(
-            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.PPX).all()
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose3"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq3"])
-        self.trt_dict = aids_dose_adjust_colchicine(
-            self.trt_dict,
-            aid_type=TrtTypes.PPX,
-            defaulttrtsettings=self.defaulttrtsettings,
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.3"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose3"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq3"])
-
-    def test__flare_freq_is_cut_in_half(self):
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
-        self.defaulttrtsettings.colch_dose_adjust = False
-        self.defaulttrtsettings.save()
-        self.trt_dict = aids_create_trts_dosing_dict(
-            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all()
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.BID)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("1.2"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
-        self.trt_dict = aids_dose_adjust_colchicine(
-            self.trt_dict,
-            aid_type=TrtTypes.FLARE,
-            defaulttrtsettings=self.defaulttrtsettings,
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose2"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq2"], Freqs.ONCE)
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose3"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq3"], Freqs.ONCE)
-
-    def test__ppx_freq_is_cut_in_half(self):
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
-        self.defaulttrtsettings.colch_dose_adjust = False
-        self.defaulttrtsettings.save()
-        self.trt_dict = aids_create_trts_dosing_dict(
-            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.PPX).all()
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QDAY)
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose3"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq3"])
-        self.trt_dict = aids_dose_adjust_colchicine(
-            self.trt_dict,
-            aid_type=TrtTypes.PPX,
-            defaulttrtsettings=self.defaulttrtsettings,
-        )
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["dose"], Decimal("0.6"))
-        self.assertEqual(self.trt_dict[Treatments.COLCHICINE]["freq"], Freqs.QOTHERDAY)
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq2"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["dose3"])
-        self.assertIsNone(self.trt_dict[Treatments.COLCHICINE]["freq3"])
-
-
-class TestAidsDoseAdjustFebuxostat(TestCase):
-    def setUp(self):
-        self.ultaid = UltAidFactory()
-        self.ckd = CkdFactory()
-        self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.FOUR)
-        self.ultaid.add_medhistorys([self.ckd])
-
-    def test__ckd_reduces_dose_gouthelper_defaults(self):
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
-        trt_dict = decisionaid._create_trts_dict()
-        trt_dict = aids_process_medhistorys(
-            trt_dict=trt_dict,
-            medhistorys=decisionaid.medhistorys,
-            ckddetail=decisionaid.ckddetail,
-            default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
-        )
-        febu_dict = trt_dict[Treatments.FEBUXOSTAT]
-        self.assertEqual(febu_dict["dose"], Decimal("20"))
-
-    def test__ckd_custom_ult_default_doesnt_reduce_dose(self):
-        default_ult_trt_settings = DefaultUltTrtSettings.objects.get()
-        default_ult_trt_settings.febu_ckd_initial_dose = FebuxostatDoses.FORTY
-        default_ult_trt_settings.save()
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
-        trt_dict = decisionaid._create_trts_dict()
-        trt_dict = aids_process_medhistorys(
-            trt_dict=trt_dict,
-            medhistorys=decisionaid.medhistorys,
-            ckddetail=decisionaid.ckddetail,
-            default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
-        )
-        febu_dict = trt_dict[Treatments.FEBUXOSTAT]
-        self.assertEqual(febu_dict["dose"], Decimal("40"))
-
-
 class TestAidsOptions(TestCase):
     def test__returns_unchanged_dict(self):
         self.medhistorys = MedHistory.objects.all()
@@ -961,25 +1020,6 @@ class TestAidsOptions(TestCase):
         self.assertNotIn(Treatments.ALLOPURINOL, options)
 
 
-class TestAidsTrtDictToJson(TestCase):
-    def setUp(self):
-        self.medhistorys = MedHistory.objects.all()
-        self.default_medhistorys = defaults_defaultmedhistorys_trttype(
-            medhistorys=self.medhistorys,
-            trttype=TrtTypes.FLARE,
-            user=None,
-        )
-        self.trt_dict = aids_create_trts_dosing_dict(
-            default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all()
-        )
-
-    def test__returns_json(self):
-        json = aids_dict_to_json(self.trt_dict)
-        self.assertTrue(isinstance(json, str))
-        for trt in FlarePpxChoices.choices:
-            self.assertIn(trt[0], json)
-
-
 class TestAidsProcessNsaids(TestCase):
     def test__returns_unchanged_dictionary(self):
         self.medhistorys = MedHistory.objects.all()
@@ -1039,43 +1079,3 @@ class TestAidsProcessNsaids(TestCase):
         )
         for nsaid in NsaidChoices.values:
             self.assertTrue(mod_trt_dict[nsaid]["contra"])
-
-
-class TestAidsJsonToTrtDict(TestCase):
-    def test__converts_json_to_dict_simple(self):
-        user_flareaid = FlareAidFactory()
-        user_flareaid.update()
-        user_flareaid.refresh_from_db()
-        user_ppxaid = PpxAidFactory()
-        user_ppxaid.update()
-        user_ppxaid.refresh_from_db()
-        flareaid_json = user_flareaid.decisionaid
-        flareaid_dict = aids_json_to_trt_dict(flareaid_json)
-        self.assertTrue(isinstance(flareaid_dict, dict))
-        for key, value_dict in flareaid_dict.items():
-            self.assertIn(key, FlarePpxChoices.values)
-            self.assertTrue(isinstance(value_dict["dose"], Decimal))
-            dose2 = value_dict.get("dose2", None)
-            if dose2:
-                self.assertTrue(isinstance(dose2, Decimal))
-            duration = value_dict.get("duration", None)
-            if duration:
-                self.assertTrue(isinstance(duration, timedelta))
-            duration2 = value_dict.get("duration2", None)
-            if duration2:
-                self.assertTrue(isinstance(duration2, timedelta))
-        ppxaid_json = user_ppxaid.decisionaid
-        ppxaid_dict = aids_json_to_trt_dict(ppxaid_json)
-        self.assertTrue(isinstance(ppxaid_dict, dict))
-        for key, value_dict in ppxaid_dict.items():
-            self.assertIn(key, FlarePpxChoices.values)
-            self.assertTrue(isinstance(value_dict["dose"], Decimal))
-            dose2 = value_dict.get("dose2", None)
-            if dose2:
-                self.assertTrue(isinstance(dose2, Decimal))
-            duration = value_dict.get("duration", None)
-            if duration:
-                self.assertTrue(isinstance(duration, timedelta))
-            duration2 = value_dict.get("duration2", None)
-            if duration2:
-                self.assertTrue(isinstance(duration2, timedelta))

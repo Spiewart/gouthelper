@@ -208,6 +208,50 @@ class TestUltAidDecisionAid(TestCase):
             FebuxostatDoses.TWENTY,
         )
 
+    def test__process_febuxostat_without_cvd(self):
+        ultaid = UltAidFactory()
+        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
+        trt_dict = decisionaid._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
+            medhistorys=decisionaid.medhistorys,
+            ckddetail=decisionaid.ckddetail,
+            default_medhistorys=decisionaid.default_medhistorys,
+            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+        )
+        self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
+
+    def test__process_febuxostat_with_cvd(self):
+        ultaid = UltAidFactory()
+        ultaid.add_medhistorys([self.userless_heartattack, self.userless_angina])
+        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
+        trt_dict = decisionaid._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
+            medhistorys=decisionaid.medhistorys,
+            ckddetail=decisionaid.ckddetail,
+            default_medhistorys=decisionaid.default_medhistorys,
+            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+        )
+        self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
+
+    def test__process_febuxostat_with_cvd_custom_settings(self):
+        settings = DefaultUltTrtSettings.objects.get()
+        settings.febu_cv_disease = False
+        settings.save()
+        ultaid = UltAidFactory()
+        ultaid.add_medhistorys([self.userless_angina, self.userless_heartattack])
+        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
+        trt_dict = decisionaid._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
+            medhistorys=decisionaid.medhistorys,
+            ckddetail=decisionaid.ckddetail,
+            default_medhistorys=decisionaid.default_medhistorys,
+            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+        )
+        self.assertTrue(trt_dict[Treatments.FEBUXOSTAT]["contra"])
+
     def test__process_probenecid_with_ckd_2(self):
         self.userless_ckddetail.stage = Stages.TWO
         self.userless_ckddetail.save()
