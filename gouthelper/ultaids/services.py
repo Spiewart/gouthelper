@@ -48,10 +48,7 @@ class UltAidDecisionAid:
         else:
             self.dateofbirth = None
             self.age = None
-        if self.ultaid.ethnicity is not None:
-            self.ethnicity = self.ultaid.ethnicity
-        else:
-            self.ethnicity = None
+        self.ethnicity = self.ultaid.ethnicity
         if self.ultaid.gender is not None:
             self.gender = self.ultaid.gender
         else:
@@ -75,24 +72,24 @@ class UltAidDecisionAid:
 
     def _create_decisionaid_dict(self) -> dict:
         """Creates the decisionaid dictionary."""
-        self.trt_dict = self._create_trts_dict()
-        self.trt_dict = aids_process_medhistorys(
-            trt_dict=self.trt_dict,
+        trt_dict = self._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
             medhistorys=self.medhistorys,
             ckddetail=self.ckddetail,
             default_medhistorys=self.default_medhistorys,
             defaulttrtsettings=self.defaultulttrtsettings,
         )
-        self.trt_dict = aids_process_medallergys(trt_dict=self.trt_dict, medallergys=self.medallergys)
-        self.trt_dict = aids_process_sideeffects(trt_dict=self.trt_dict, sideeffects=self.sideeffects)
+        trt_dict = aids_process_medallergys(trt_dict=trt_dict, medallergys=self.medallergys)
+        trt_dict = aids_process_sideeffects(trt_dict=trt_dict, sideeffects=self.sideeffects)
         # Process HLA-B*5801
-        self.trt_dict = aids_process_hlab5801(
-            trt_dict=self.trt_dict,
+        trt_dict = aids_process_hlab5801(
+            trt_dict=trt_dict,
             hlab5801=self.hlab5801,
             ethnicity=self.ethnicity,
             defaultulttrtsettings=self.defaultulttrtsettings,
         )
-        return self.trt_dict
+        return trt_dict
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
@@ -104,12 +101,6 @@ class UltAidDecisionAid:
         return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.ULT, user=None)
 
     @cached_property
-    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultUltTrtSettings."""
-        return defaults_defaultulttrtsettings(user=None)
-
-    @cached_property
     def default_trts(self) -> "QuerySet":
         """Uses defaults_defaulttrts_trttype to fetch the ULT DefaultTrts for the user or
         Gouthelper DefaultTrts.
@@ -118,6 +109,12 @@ class UltAidDecisionAid:
             QuerySet: ULT DefaultTrts for the user or Gouthelper
         """
         return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
+
+    @cached_property
+    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
+        """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
+        Gouthelper DefaultUltTrtSettings."""
+        return defaults_defaultulttrtsettings(user=None)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the UltAid decisionaid field as a JSON string.

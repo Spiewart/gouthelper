@@ -46,34 +46,39 @@ class UltDecisionAid:
         medhistory in self.medhistorys if it exists, None if not."""
         for medhistorytype in ULT_MEDHISTORYS:
             medhistory = [medhistory for medhistory in self.medhistorys if medhistory.medhistorytype == medhistorytype]
-            if medhistory:
-                setattr(self, medhistorytype.lower(), medhistory[0])
-            else:
-                setattr(self, medhistorytype.lower(), None)
+            setattr(self, medhistorytype.lower(), medhistory[0] if medhistory else None)
 
     def _get_indication(self) -> Indications:
         """Calculates the indication for the Ult object.
 
         Returns: Indications enum
         """
-        # If either erosions or tophi are present, then ULT is indicated.
-        if self.erosions or self.tophi:
-            return Indications.INDICATED
-        # Two or more flares per year is an indication for ULT.
-        elif self.ult.freq_flares == FlareFreqs.TWOORMORE:
-            return Indications.INDICATED
-        # One flare per year but with a history of more than 1 gout flare is a conditional indication for ULT.
-        elif self.ult.freq_flares == FlareFreqs.ONEORLESS and self.ult.num_flares == FlareNums.TWOPLUS:
-            return Indications.CONDITIONAL
-        # First and only gout flare with either CKD >= III,
-        # hyperuricemia, or history of urate kidney stones is a conditional indication for ULT
-        elif self.ult.num_flares == FlareNums.ONE and (
-            (self.ckddetail is not None and self.ckddetail.stage >= 3) or self.hyperuricemia or self.uratestones
-        ):
-            return Indications.CONDITIONAL
-        # Otherwise ULT is not indicated.
-        else:
-            return Indications.NOTINDICATED
+        return (
+            Indications.INDICATED
+            if (
+                # ULT is indicated if either erosions or tophi are present, or if there are two
+                # or more flares per year.
+                self.erosions
+                or self.tophi
+                or self.ult.freq_flares == FlareFreqs.TWOORMORE
+            )
+            else Indications.CONDITIONAL
+            if (
+                # ULT is conditionally indicated if there is one flare per year but with a history of more than 1 gout
+                # flare, or if there is a first and only gout flare with either CKD >= III, hyperuricemia, or history
+                # of urate kidney stones.
+                self.ult.freq_flares == FlareFreqs.ONEORLESS
+                and self.ult.num_flares == FlareNums.TWOPLUS
+                or self.ult.num_flares == FlareNums.ONE
+                and (
+                    (self.ckddetail is not None and self.ckddetail.stage >= 3)
+                    or self.hyperuricemia
+                    or self.uratestones
+                )
+                # Otherwise, ULT is not indicated.
+            )
+            else Indications.NOTINDICATED
+        )
 
     def _update(self, commit=True) -> "Ult":
         """Updates Ult indication field.

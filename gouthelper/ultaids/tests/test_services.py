@@ -5,6 +5,7 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...defaults.models import DefaultUltTrtSettings
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.tests.factories import GenderFactory
@@ -34,17 +35,15 @@ from ...medhistorys.tests.factories import (
     StrokeFactory,
     XoiinteractionFactory,
 )
-from ...treatments.choices import FebuxostatDoses, Freqs, Treatments
-from ...utils.helpers.aid_helpers import aids_process_medhistorys
+from ...treatments.choices import FebuxostatDoses, Freqs, Treatments, UltChoices
+from ...utils.helpers.aid_helpers import aids_dict_to_json, aids_process_medhistorys
 from ..services import UltAidDecisionAid
 from .factories import UltAidFactory
 
 pytestmark = pytest.mark.django_db
 
-# TODO: rewrite this whole file
 
-
-class TestUltAidMethods(TestCase):
+class TestUltAidDecisionAid(TestCase):
     def setUp(self):
         self.userless_allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
         self.userless_allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
@@ -76,8 +75,6 @@ class TestUltAidMethods(TestCase):
         for medhistory in MedHistory.objects.filter().all():
             self.ultaid_userless.medhistorys.add(medhistory)
         self.ultaid_userless.add_medallergys([self.userless_allopurinolallergy])
-        # TODO: rewrite custom DefaultTrt for this test
-        # self.custom_colchicine_default = DefaultColchicineFlareFactory(user=self.user)
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
@@ -93,14 +90,19 @@ class TestUltAidMethods(TestCase):
         self.assertEqual(self.ultaid_userless, decisionaid.ultaid)
         self.assertIn(self.userless_allopurinolallergy, decisionaid.medallergys)
 
-    def test__create_trts_dict_no_user(self):
+    def test___create_trts_dict_no_user(self):
         decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
         trt_dict = decisionaid._create_trts_dict()
+        self.assertTrue(isinstance(trt_dict, dict))
         self.assertIn(Treatments.ALLOPURINOL, trt_dict)
         self.assertIn(Treatments.FEBUXOSTAT, trt_dict)
         self.assertIn(Treatments.PROBENECID, trt_dict)
+        for _, trt_dict in trt_dict.items():
+            self.assertIn("dose", trt_dict)
+            self.assertIn("freq", trt_dict)
+            self.assertIn("contra", trt_dict)
 
-    def test__create_decisionaid_dict_no_user(self):
+    def test___create_decisionaid_dict_no_user(self):
         decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
         decisionaid_dict = decisionaid._create_decisionaid_dict()
         self.assertIn(Treatments.ALLOPURINOL, decisionaid_dict)
@@ -121,6 +123,31 @@ class TestUltAidMethods(TestCase):
         decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
         default_trts = decisionaid.default_trts
         self.assertEqual(len(default_trts), 3)
+        for trt in UltChoices.values:
+            self.assertIn(trt, [default.treatment for default in default_trts])
+
+    def test__defaultulttrtsettings_no_user(self):
+        decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
+        defaultulttrtsettings = decisionaid.defaultulttrtsettings
+        self.assertEqual(
+            defaultulttrtsettings,
+            DefaultUltTrtSettings.objects.filter(user=None).get(),
+        )
+
+    def test___save_trt_dict_to_decisionaid(self):
+        self.assertFalse(self.ultaid_userless.decisionaid)
+        decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
+        trt_dict = decisionaid._create_trts_dict()
+        decisionaid._save_trt_dict_to_decisionaid(trt_dict)
+        self.ultaid_userless.refresh_from_db()
+        self.assertEqual(self.ultaid_userless.decisionaid, aids_dict_to_json(trt_dict))
+
+    def test___update(self):
+        self.assertFalse(self.ultaid_userless.decisionaid)
+        decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)
+        decisionaid._update()
+        self.ultaid_userless.refresh_from_db()
+        self.assertTrue(self.ultaid_userless.decisionaid)
 
     def test__process_medhistorys_ckd_reduces_allopurinol_dose(self):
         decisionaid = UltAidDecisionAid(pk=self.ultaid_userless.pk)

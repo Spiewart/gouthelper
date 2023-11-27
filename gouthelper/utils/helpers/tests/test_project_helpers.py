@@ -4,7 +4,7 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ..helpers.helpers import calculate_duration
+from ..helpers import calculate_duration
 
 pytestmark = pytest.mark.django_db
 

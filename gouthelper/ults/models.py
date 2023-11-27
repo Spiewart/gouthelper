@@ -117,8 +117,16 @@ class Ult(
     def contraindicated(self) -> bool:
         return (
             self.num_flares == FlareNums.ONE
-            and not (self.ckddetail and self.ckddetail.stage >= 3 or self.hyperuricemia or self.uratestones)
+            and not (
+                self.ckddetail
+                and self.ckddetail.stage >= 3
+                or self.erosions
+                or self.hyperuricemia
+                or self.tophi
+                or self.uratestones
+            )
             or self.num_flares == FlareNums.ZERO
+            and not (self.erosions or self.tophi)
         )
 
     @cached_property
@@ -132,12 +140,14 @@ class Ult(
             and not (self.ckddetail and self.ckddetail.stage >= 3)
             and not self.hyperuricemia
             and not self.uratestones
+            and not self.erosions
+            and not self.tophi
         ):
             return True
         return False
 
     @cached_property
-    def first_flare_plus(self) -> bool:
+    def firstflare_plus(self) -> bool:
         """Method that returns True if a Ult indicates that the patient
         has only had a single gout flare but does have a secondary
         medical conditions that conditionally indicates ULT."""

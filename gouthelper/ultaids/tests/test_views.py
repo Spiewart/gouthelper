@@ -1,22 +1,48 @@
 from datetime import timedelta
 
 import pytest  # type: ignore
+from django.db.models import Q, QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...contents.choices import Tags
+from ...contents.models import Content
 from ...ethnicitys.choices import Ethnicitys
+from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
+from ...goalurates.tests.factories import GoalUrateFactory
 from ...labs.models import Hlab5801
 from ...labs.tests.factories import Hlab5801Factory
+from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import Xoiinteraction
 from ...treatments.choices import Treatments
 from ..models import UltAid
-from ..views import UltAidCreate, UltAidUpdate
+from ..views import UltAidAbout, UltAidCreate, UltAidDetail, UltAidUpdate
 from .factories import UltAidFactory
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.usefixtures("contents_setup")
+class TestUltAidAbout(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view: UltAidAbout = UltAidAbout()
+
+    def test__get(self):
+        response = self.client.get(reverse("ultaids:about"))
+        self.assertEqual(response.status_code, 200)
+
+    def test__get_context_data(self):
+        response = self.client.get(reverse("ultaids:about"))
+        self.assertIn("content", response.context_data)
+
+    def test__content(self):
+        self.assertEqual(
+            self.view.content, Content.objects.get(context=Content.Contexts.ULTAID, slug="about", tag=None)
+        )
 
 
 class TestUltAidCreate(TestCase):
@@ -126,6 +152,59 @@ class TestUltAidCreate(TestCase):
         self.assertNotIn(Treatments.ALLOPURINOL, ultaid.options)
         self.assertNotIn(Treatments.FEBUXOSTAT, ultaid.options)
         self.assertEqual(Treatments.PROBENECID, ultaid.recommendation[0])
+
+
+@pytest.mark.usefixtures("contents_setup")
+class TestUltAidDetail(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view: UltAidDetail = UltAidDetail
+        self.content_qs = Content.objects.filter(
+            Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.ULTAID, slug__isnull=False
+        ).all()
+        # Need to set ethnicity to Caucasian to avoid HLA-B*5801 contraindication with high risk ethnicity
+        self.ultaid = UltAidFactory(ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
+
+    def test__contents(self):
+        self.assertTrue(self.view().contents)
+        self.assertTrue(isinstance(self.view().contents, QuerySet))
+        for content in self.view().contents:
+            self.assertIn(content, self.content_qs)
+        for content in self.content_qs:
+            self.assertIn(content, self.view().contents)
+
+    def test__get_context_data(self):
+        response = self.client.get(reverse("ultaids:detail", kwargs={"pk": self.ultaid.pk}))
+        context = response.context_data
+        for content in self.content_qs:
+            self.assertIn(content.slug, context)
+            self.assertEqual(context[content.slug], {content.tag: content})
+
+    def test__get_queryset(self):
+        # Create a GoalUrate to and add it to the ultaid object to test the qs
+        GoalUrateFactory(ultaid=self.ultaid)
+        qs = self.view(kwargs={"pk": self.ultaid.pk}).get_queryset()
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs_obj = qs.first()
+        self.assertEqual(qs_obj, self.ultaid)
+        self.assertTrue(hasattr(qs_obj, "medhistorys_qs"))
+        self.assertTrue(hasattr(qs_obj, "medallergys_qs"))
+        self.assertTrue(hasattr(qs_obj, "ckddetail"))
+        self.assertTrue(hasattr(qs_obj, "baselinecreatinine"))
+        self.assertTrue(hasattr(qs_obj, "dateofbirth"))
+        self.assertTrue(hasattr(qs_obj, "gender"))
+        self.assertTrue(hasattr(qs_obj, "ethnicity"))
+        self.assertTrue(hasattr(qs_obj, "hlab5801"))
+        self.assertTrue(hasattr(qs_obj, "goalurate"))
+
+    def test__get_object_updates(self):
+        self.assertTrue(self.ultaid.recommendation[0] == Treatments.ALLOPURINOL)
+        medallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
+        self.ultaid.medallergys.add(medallergy)
+        request = self.factory.get(reverse("ultaids:detail", kwargs={"pk": self.ultaid.pk}))
+        self.view.as_view()(request, pk=self.ultaid.pk)
+        # This needs to be manually refetched from the db
+        self.assertFalse(UltAid.objects.get().recommendation[0] == Treatments.ALLOPURINOL)
 
 
 class TestUltAidUpdate(TestCase):

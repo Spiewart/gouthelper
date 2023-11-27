@@ -1,19 +1,217 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
+from ...defaults.models import DefaultUltTrtSettings
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import EthnicityFactory
+from ...goalurates.tests.factories import GoalUrateFactory
+from ...labs.tests.factories import Hlab5801Factory
+from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.lists import ULTAID_MEDHISTORYS
+from ...medhistorys.models import Erosions, Tophi
 from ...medhistorys.tests.factories import (
     AllopurinolhypersensitivityFactory,
     CkdFactory,
+    ErosionsFactory,
     FebuxostathypersensitivityFactory,
+    TophiFactory,
+    XoiinteractionFactory,
 )
 from ...treatments.choices import AllopurinolDoses, FebuxostatDoses, Treatments
+from ..models import UltAid
 from .factories import UltAidFactory
 
 pytestmark = pytest.mark.django_db
+
+
+class TestUltAid(TestCase):
+    def setUp(self):
+        self.ultaid = UltAidFactory(ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
+
+    def test___str__(self):
+        self.assertEqual(str(self.ultaid), f"UltAid: {self.ultaid.created}")
+
+    def test__aid_dict(self):
+        self.assertFalse(self.ultaid.decisionaid)
+        self.ultaid.update()
+        self.ultaid.refresh_from_db()
+        self.assertTrue(self.ultaid.decisionaid)
+        self.assertIn(
+            Treatments.ALLOPURINOL,
+            self.ultaid.aid_dict,
+        )
+
+    def test__aid_medhistorys(self):
+        self.assertEqual(
+            self.ultaid.aid_medhistorys(),
+            ULTAID_MEDHISTORYS,
+        )
+
+    def test__contraindications_allopurinolhypersensitivity(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.allopurinolhypersensitivity
+        del self.ultaid.contraindications
+        self.ultaid.add_medhistorys([AllopurinolhypersensitivityFactory()])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_allopurinol_allergy(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.allopurinol_allergys
+        del self.ultaid.contraindications
+        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.ALLOPURINOL)])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_xoiinteraction(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.xoiinteraction
+        del self.ultaid.contraindications
+        self.ultaid.add_medhistorys([XoiinteractionFactory()])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_hlab5801_contra(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.hlab5801_contra
+        del self.ultaid.contraindications
+        self.ultaid.hlab5801 = Hlab5801Factory(value=True)
+        self.ultaid.save()
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_febuxostathypersensitivity(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.febuxostathypersensitivity
+        del self.ultaid.contraindications
+        self.ultaid.add_medhistorys([FebuxostathypersensitivityFactory()])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_febuxostat_allergys(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.febuxostat_allergys
+        del self.ultaid.contraindications
+        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.FEBUXOSTAT)])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_probenecid_ckd_contra(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.ckd
+        del self.ultaid.probenecid_ckd_contra
+        del self.ultaid.contraindications
+        ckd = CkdFactory()
+        CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
+        self.ultaid.add_medhistorys([ckd])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__contraindications_probenecid_allergys(self):
+        self.assertFalse(
+            self.ultaid.contraindications,
+        )
+        del self.ultaid.probenecid_allergys
+        del self.ultaid.contraindications
+        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.PROBENECID)])
+        self.assertTrue(self.ultaid.contraindications)
+
+    def test__defaulttrtsettings(self):
+        self.assertEqual(
+            self.ultaid.defaulttrtsettings,
+            DefaultUltTrtSettings.objects.get(),
+        )
+
+    def test__erosions(self):
+        self.assertEqual(
+            self.ultaid.erosions,
+            False,
+        )
+        del self.ultaid.erosions
+        goalurate = GoalUrateFactory(ultaid=self.ultaid)
+        goalurate.add_medhistorys([ErosionsFactory()])
+        self.assertEqual(self.ultaid.erosions, Erosions.objects.get())
+
+    def test__options(self):
+        self.assertTrue(isinstance(self.ultaid.options, dict))
+        self.assertIn(
+            Treatments.ALLOPURINOL,
+            self.ultaid.options,
+        )
+        self.assertIn(
+            Treatments.FEBUXOSTAT,
+            self.ultaid.options,
+        )
+        self.assertIn(
+            Treatments.PROBENECID,
+            self.ultaid.options,
+        )
+
+    def test__recommendation(self):
+        self.assertEqual(
+            self.ultaid.recommendation,
+            (Treatments.ALLOPURINOL, self.ultaid.options[Treatments.ALLOPURINOL]),
+        )
+        self.ultaid.add_medhistorys([AllopurinolhypersensitivityFactory()])
+        self.ultaid.update()
+        self.ultaid.refresh_from_db()
+        del self.ultaid.aid_dict
+        self.assertEqual(
+            self.ultaid.recommendation,
+            (Treatments.FEBUXOSTAT, self.ultaid.options[Treatments.FEBUXOSTAT]),
+        )
+        self.ultaid.add_medhistorys([FebuxostathypersensitivityFactory()])
+        self.ultaid.update()
+        self.ultaid.refresh_from_db()
+        del self.ultaid.aid_dict
+        self.assertEqual(
+            self.ultaid.recommendation,
+            (Treatments.PROBENECID, self.ultaid.options[Treatments.PROBENECID]),
+        )
+        ckd = CkdFactory()
+        CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
+        self.ultaid.add_medhistorys([ckd])
+        self.ultaid.update()
+        self.ultaid.refresh_from_db()
+        del self.ultaid.aid_dict
+        self.assertIsNone(self.ultaid.recommendation)
+
+    def test__tophi(self):
+        self.assertEqual(
+            self.ultaid.tophi,
+            False,
+        )
+        del self.ultaid.tophi
+        goalurate = GoalUrateFactory(ultaid=self.ultaid)
+        goalurate.add_medhistorys([TophiFactory()])
+        self.assertEqual(self.ultaid.tophi, Tophi.objects.get())
+
+    def test__update(self):
+        self.assertFalse(self.ultaid.decisionaid)
+        self.assertTrue(isinstance(self.ultaid.update(), UltAid))
+        self.ultaid.refresh_from_db()
+        self.assertTrue(self.ultaid.decisionaid)
+        self.assertIn(
+            Treatments.ALLOPURINOL,
+            self.ultaid.aid_dict,
+        )
+        self.assertIn(
+            Treatments.FEBUXOSTAT,
+            self.ultaid.aid_dict,
+        )
+        self.assertIn(
+            Treatments.PROBENECID,
+            self.ultaid.aid_dict,
+        )
 
 
 class TestUltAidUpdate(TestCase):
@@ -41,7 +239,7 @@ class TestUltAidUpdate(TestCase):
         self.assertTrue(self.ultaid.aid_dict[Treatments.FEBUXOSTAT]["contra"])
         self.assertEqual(Treatments.PROBENECID, self.ultaid.recommendation[0])
 
-    def test__ckd_3_dose_adjusts_xois(self):
+    def test__ckd_3_dose_adjusts_xois_contraindicates_probenecid(self):
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
         self.ultaid.add_medhistorys(medhistorys=[ckd])

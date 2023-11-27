@@ -2,10 +2,12 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
+from django.db.models import Q, QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...contents.models import Content
 from ...dateofbirths.models import DateOfBirth
 from ...genders.choices import Genders
 from ...genders.models import Gender
@@ -16,10 +18,28 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
 from ..choices import FlareFreqs, FlareNums
 from ..models import Ult
-from ..views import UltCreate, UltUpdate
+from ..views import UltAbout, UltCreate, UltDetail, UltUpdate
 from .factories import UltFactory
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.usefixtures("contents_setup")
+class TestUltAbout(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view: UltAbout = UltAbout()
+
+    def test__get(self):
+        response = self.client.get(reverse("ults:about"))
+        self.assertEqual(response.status_code, 200)
+
+    def test__get_context_data(self):
+        response = self.client.get(reverse("ults:about"))
+        self.assertIn("content", response.context_data)
+
+    def test__content(self):
+        self.assertEqual(self.view.content, Content.objects.get(context=Content.Contexts.ULT, slug="about", tag=None))
 
 
 class TestUltCreate(TestCase):
@@ -103,6 +123,61 @@ class TestUltCreate(TestCase):
         }
         with self.assertNumQueries(46):
             self.client.post(reverse("ults:create"), ult_data)
+
+
+@pytest.mark.usefixtures("contents_setup")
+class TestUltDetail(TestCase):
+    def setUp(self):
+        self.ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        self.factory = RequestFactory()
+        self.view: UltDetail = UltDetail
+        self.content_qs = Content.objects.filter(
+            Q(tag=Content.Tags.EXPLANATION) | Q(tag=Content.Tags.WARNING),
+            context=Content.Contexts.ULT,
+            slug__isnull=False,
+        ).all()
+
+    def test__contents(self):
+        self.assertTrue(self.view().contents)
+        self.assertTrue(isinstance(self.view().contents, QuerySet))
+        for content in self.view().contents:
+            self.assertIn(content, self.content_qs)
+        for content in self.content_qs:
+            self.assertIn(content, self.view().contents)
+
+    def test__get_context_data(self):
+        response = self.client.get(reverse("ults:detail", kwargs={"pk": self.ult.pk}))
+        context = response.context_data
+        for content in self.content_qs:
+            self.assertIn(content.slug, context)
+            self.assertEqual(context[content.slug], {content.tag: content})
+
+    def test__get_queryset(self):
+        qs = self.view(kwargs={"pk": self.ult.pk}).get_queryset()
+        self.assertTrue(isinstance(qs, QuerySet))
+        self.assertEqual(qs.first(), self.ult)
+        self.assertTrue(hasattr(qs.first(), "medhistorys_qs"))
+        self.assertTrue(hasattr(qs.first(), "ckddetail"))
+        self.assertTrue(hasattr(qs.first(), "baselinecreatinine"))
+        self.assertTrue(hasattr(qs.first(), "dateofbirth"))
+        self.assertTrue(hasattr(qs.first(), "gender"))
+
+    def test__get_object_updates(self):
+        self.assertEqual(self.ult.indication, self.ult.Indications.NOTINDICATED)
+        request = self.factory.get(reverse("ults:detail", kwargs={"pk": self.ult.pk}))
+        self.view.as_view()(request, pk=self.ult.pk)
+        # This needs to be manually refetched from the db
+        self.assertIsNotNone(
+            Ult.objects.get().indication,
+            Ult.Indications.INDICATED,
+        )
+
+    def test__get_object_does_not_update(self):
+        self.assertEqual(self.ult.indication, self.ult.Indications.NOTINDICATED)
+        request = self.factory.get(reverse("ults:detail", kwargs={"pk": self.ult.pk}) + "?updated=True")
+        self.view.as_view()(request, pk=self.ult.pk)
+        # This needs to be manually refetched from the db
+        self.assertEqual(Ult.objects.get().indication, self.ult.Indications.NOTINDICATED)
 
 
 class TestUltUpdate(TestCase):

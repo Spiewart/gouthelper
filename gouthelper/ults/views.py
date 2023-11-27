@@ -83,12 +83,12 @@ class UltCreate(UltBaseView, MedHistorysModelCreateView, SuccessMessageMixin):
         (
             errors,
             form,
-            object_data,
-            onetoone_forms,
-            medallergys_forms,
-            medhistorys_forms,
-            medhistorydetails_forms,
-            lab_formset,
+            _,  # object_data
+            _,  # onetoone_forms
+            _,  # medallergys_forms
+            _,  # medhistorys_forms
+            _,  # medhistorydetails_forms
+            _,  # lab_formset
             onetoones_to_save,
             medallergys_to_add,
             medhistorys_to_add,
@@ -145,12 +145,12 @@ class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):
         (
             errors,
             form,
-            object_data,
-            onetoone_forms,
-            medhistorys_forms,
-            medhistorydetails_forms,
-            medallergys_forms,
-            lab_formset,
+            _,  # object_data
+            _,  # onetoone_forms
+            _,  # medhistorys_forms
+            _,  # medhistorydetails_forms
+            _,  # medallergys_forms
+            _,  # lab_formset
             medallergys_to_add,
             medallergys_to_remove,
             onetoones_to_delete,

@@ -60,6 +60,9 @@ class UltAid(
 
     objects = models.Manager()
 
+    def __str__(self):
+        return f"UltAid: {self.created}"
+
     @cached_property
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
@@ -143,6 +146,3 @@ class UltAid(
         if decisionaid is None:
             decisionaid = UltAidDecisionAid(pk=self.pk, qs=qs)
         return decisionaid._update()
-
-    def __str__(self):
-        return "Anonymous ULTAid"
