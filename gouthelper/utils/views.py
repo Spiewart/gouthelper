@@ -59,68 +59,8 @@ class MedHistorysModelCreateView(CreateView):
 
     @cached_property
     def ckddetail(self) -> bool:
-        """Method that returns True if CKD is in the medhistorys dict."""
+        """Method thataid_obj returns True if CKD is in the medhistorys dict."""
         return MedHistoryTypes.CKD in self.medhistory_details
-
-    @cached_property
-    def goutdetail(self) -> bool:
-        """Method that returns True if GOUT is in the medhistorys dict."""
-        return MedHistoryTypes.GOUT in self.medhistory_details
-
-    def create_labs_qs(self, object: "MedAllergyAidHistoryModel", labs: list["Lab"]) -> None:
-        """Method that first checks if there is a labs_qs attribute
-        to the object, creates it if not, and adds the labs to the labs_qs attribute.
-
-        Args:
-            object: MedAllergyAidHistoryModel object to add to the labs_qs attribute
-            labs: Lab object to add to the labs_qs attribute
-
-        Returns: None"""
-        if hasattr(object, "labs_qs") is False:
-            object.labs_qs = []
-        for lab in labs:
-            if lab not in object.labs_qs:
-                object.labs_qs.append(lab)
-            # Check if the lab has a date attr and set it if not
-            if hasattr(lab, "date") is False:
-                # Check if the lab has a date drawn and set date to that if so
-                if hasattr(lab, "date_drawn"):
-                    lab.date = lab.date_drawn
-                # Otherwise set the date to the date_started of the Flare
-                elif hasattr(lab, "flare"):
-                    lab.date = lab.flare.date_started
-        # Sort the labs by date
-        object.labs_qs.sort(key=lambda x: x.date, reverse=True)
-
-    def create_medallergy_qs(self, object: "MedAllergyAidHistoryModel", medallergys: list["MedAllergy"]) -> None:
-        """Method that first checks if there is a medallegy_qs attribute
-        to the object, creates it if not, and adds the medallergys to the medallegy_qs attribute.
-
-        Args:
-            object: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
-            medallegy: MedAllegy object to add to the medallegy_qs attribute
-
-        Returns: None"""
-        if hasattr(object, "medallergys_qs") is False:
-            object.medallergys_qs = []
-        for medallergy in medallergys:
-            if medallergy not in object.medallergys_qs:
-                object.medallergys_qs.append(medallergy)
-
-    def create_medhistory_qs(self, object: "MedAllergyAidHistoryModel", medhistorys: list["MedHistory"]) -> None:
-        """Method that first checks if there is a medhistory_qs attribute
-        to the object, creates it if not, and adds the medhistorys to the medhistory_qs attribute.
-
-        Args:
-            object: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
-            medhistorys: MedHistory object to add to the medhistory_qs attribute
-
-        Returns: None"""
-        if hasattr(object, "medhistorys_qs") is False:
-            object.medhistorys_qs = []
-        for medhistory in medhistorys:
-            if medhistory not in object.medhistorys_qs:
-                object.medhistorys_qs.append(medhistory)
 
     def form_valid(
         self,
@@ -138,7 +78,7 @@ class MedHistorysModelCreateView(CreateView):
         if self.medallergys:
             for medallergy in medallergys_to_add:
                 medallergy.save()
-            self.create_medallergy_qs(object=self.object, medallergys=medallergys_to_add)
+            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_add)
         if self.medhistorys:
             if medhistorys_to_add:
                 for medhistory in medhistorys_to_add:
@@ -146,12 +86,12 @@ class MedHistorysModelCreateView(CreateView):
             for medhistorydetail in medhistorydetails_to_add:
                 medhistorydetail.save()
             # Create and populate the medhistory_qs attribute on the object
-            self.create_medhistory_qs(object=self.object, medhistorys=medhistorys_to_add)
+            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_add)
         if self.labs:
             for lab in labs_to_add:
                 lab.save()
             # Create and populate the labs_qs attribute on the object
-            self.create_labs_qs(object=self.object, labs=labs_to_add)
+            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_add)
         saved_object = form.save()
         if self.medallergys:
             saved_object.add_medallergys(medallergys=medallergys_to_add, commit=False)
@@ -166,12 +106,6 @@ class MedHistorysModelCreateView(CreateView):
         if self.request.htmx:
             return HttpResponseClientRefresh()
         return HttpResponseRedirect(self.get_success_url())
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        if self.medallergys:
-            kwargs["medallergys"] = self.medallergys
-        return kwargs
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         for onetoone, onetoone_dict in self.onetoones.items():
@@ -202,9 +136,22 @@ class MedHistorysModelCreateView(CreateView):
                     kwargs[form_str] = self.medhistorys[medhistory]["form"]()
         if self.labs:
             if "lab_formset" not in kwargs:
-                kwargs["lab_formset"] = self.labs[0](queryset=self.labs[2], prefix=self.labs[3])
-                kwargs["lab_formset_helper"] = self.labs[1]
+                kwargs["lab_formset"] = self.labs[0](  # pylint: disable=unsubscriptable-object
+                    queryset=self.labs[2], prefix=self.labs[3]  # pylint: disable=unsubscriptable-object
+                )
+                kwargs["lab_formset_helper"] = self.labs[1]  # pylint: disable=unsubscriptable-object
         return super().get_context_data(**kwargs)
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        return kwargs
+
+    @cached_property
+    def goutdetail(self) -> bool:
+        """Method that returns True if GOUT is in the medhistorys dict."""
+        return MedHistoryTypes.GOUT in self.medhistory_details
 
     def post_populate_labformset(
         self,
@@ -523,6 +470,65 @@ class MedHistorysModelCreateView(CreateView):
             )
         )
 
+    def update_or_create_labs_qs(self, aid_obj: "MedAllergyAidHistoryModel", labs: list["Lab"]) -> None:
+        """Method that first checks if there is a labs_qs attribute
+        to the aid_obj, creates it if not, and adds the labs to the labs_qs attribute.
+
+        Args:
+            aid_obj: MedAllergyAidHistoryModel object to add to the labs_qs attribute
+            labs: Lab object to add to the labs_qs attribute
+
+        Returns: None"""
+        if hasattr(aid_obj, "labs_qs") is False:
+            aid_obj.labs_qs = []
+        for lab in labs:
+            if lab not in aid_obj.labs_qs:
+                aid_obj.labs_qs.append(lab)
+            # Check if the lab has a date attr and set it if not
+            if hasattr(lab, "date") is False:
+                # Check if the lab has a date drawn and set date to that if so
+                if hasattr(lab, "date_drawn"):
+                    lab.date = lab.date_drawn
+                # Otherwise set the date to the date_started of the Flare
+                elif hasattr(lab, "flare"):
+                    lab.date = lab.flare.date_started
+        # Sort the labs by date
+        aid_obj.labs_qs.sort(key=lambda x: x.date, reverse=True)
+
+    def update_or_create_medallergy_qs(
+        self, aid_obj: "MedAllergyAidHistoryModel", medallergys: list["MedAllergy"]
+    ) -> None:
+        """Method that first checks if there is a medallegy_qs attribute
+        to the aid_obj, creates it if not, and adds the medallergys to the medallegy_qs attribute.
+
+        Args:
+            aid_obj: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
+            medallegy: MedAllegy object to add to the medallegy_qs attribute
+
+        Returns: None"""
+        if hasattr(aid_obj, "medallergys_qs") is False:
+            aid_obj.medallergys_qs = []
+        for medallergy in medallergys:
+            if medallergy not in aid_obj.medallergys_qs:
+                aid_obj.medallergys_qs.append(medallergy)
+
+    def update_or_create_medhistory_qs(
+        self, aid_obj: "MedAllergyAidHistoryModel", medhistorys: list["MedHistory"]
+    ) -> None:
+        """Method that first checks if there is a medhistory_qs attribute
+        to the aid_obj, creates it if not, and adds the medhistorys to the medhistory_qs attribute.
+
+        Args:
+            aid_obj: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
+            medhistorys: MedHistory object to add to the medhistory_qs attribute
+
+        Returns: None"""
+        if hasattr(aid_obj, "medhistorys_qs") is False:
+            aid_obj.medhistorys_qs = []
+        for medhistory in medhistorys:
+            if medhistory not in aid_obj.medhistorys_qs:
+                aid_obj.medhistorys_qs.append(medhistory)
+
 
 class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
     class Meta:
@@ -555,7 +561,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             for medallergy in medallergys_to_add:
                 medallergy.save()
             # Create and populate the medallegy_qs attribute on the object
-            self.create_medallergy_qs(object=self.object, medallergys=medallergys_to_add)
+            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_add)
             for medallergy in medallergys_to_remove:
                 self.object.medallergys_qs.remove(medallergy)
         if self.medhistorys:
@@ -567,7 +573,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             for medhistorydetail in medhistorydetails_to_add:
                 medhistorydetail.save()
             # Create and populate the medhistory_qs attribute on the object
-            self.create_medhistory_qs(object=self.object, medhistorys=medhistorys_to_add)
+            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_add)
             for medhistory in medhistorys_to_remove:
                 self.object.medhistorys_qs.remove(medhistory)
             for medhistorydetail in medhistorydetails_to_remove:
@@ -582,7 +588,7 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
             # Combine the labs_to_add and labs_to_update lists
             labs_to_add.extend(labs_to_update)
             # Create and populate the labs_qs attribute on the object
-            self.create_labs_qs(object=self.object, labs=labs_to_add)
+            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_add)
         self.saved_object = form.save()
         if self.medallergys:
             self.saved_object.add_medallergys(medallergys=medallergys_to_add, commit=False)
