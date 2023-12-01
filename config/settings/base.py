@@ -90,6 +90,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "gouthelper.users",
     "gouthelper.blog.apps.BlogConfig",
+    "gouthelper.contact.apps.ContactConfig",
     "gouthelper.contents.apps.ContentsConfig",
     "gouthelper.dateofbirths.apps.DateofbirthsConfig",
     "gouthelper.defaults.apps.DefaultsConfig",

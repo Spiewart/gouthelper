@@ -3,6 +3,7 @@ from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 from django.utils import timezone  # type: ignore
+from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
@@ -105,6 +106,7 @@ class FlareForm(
                 )
             }
         )
+        self.fields["diagnosed"].help_text = _("Did a clinician diagnose these symptoms as a gout flare?")
         self.fields["diagnosed"].initial = None
         self.fields.update(
             {

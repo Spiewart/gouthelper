@@ -3,32 +3,30 @@
 {% load static %}
 {% load project_tags %}
 
+{% block heading %}
+  <h1>Gouthelper Blog</h1>
+{% endblock heading %}
 {% block content %}
-  <main>
-    <header class="container">
-      <h1>Gouthelper Blog</h1>
-    </header>
-    <div class="container bodytainer">
-      {% for blog in blogpost_list %}
-        <div class="card">
-          <div class="card-body">
-            <h2 class="card-title">
-              <a href={{ blog.get_absolute_url }}>{{ blog.title }}</a>
-            </h2>
+  <main class="container bodytainer">
+    {% for blog in blogpost_list %}
+      <div class="card spacious-cards">
+        <div class="card-body">
+          <h2 class="card-title">
+            <a href={{ blog.get_absolute_url }}>{{ blog.title }}</a>
+          </h2>
+          <p class="card-text">
+            <small><a href="{% url 'blog:blog_author_list' author=blog.author %}">{{ blog.author }}</a>, {{ blog.published_date }}</small>
+          </p>
+          {% if blog.tags %}
             <p class="card-text">
-              <small><a href="{% url 'blog:blog_author_list' author=blog.author %}">{{ blog.author }}</a>, {{ blog.published_date }}</small>
+              Tags:
+              {% for tag in blog.tags.all %}
+                <a href="{% url 'blog:blog_tag_list' tag=tag %}" class="card-link">{{ tag }}</a>
+              {% endfor %}
             </p>
-            {% if blog.tags %}
-              <p class="card-text">
-                Tags:
-                {% for tag in blog.tags.all %}
-                  <a href="{% url 'blog:blog_tag_list' tag=tag %}" class="card-link">{{ tag }}</a>
-                {% endfor %}
-              </p>
-            {% endif %}
-          </div>
+          {% endif %}
         </div>
-      {% endfor %}
-    </div>
+      </div>
+    {% endfor %}
   </main>
 {% endblock content %}

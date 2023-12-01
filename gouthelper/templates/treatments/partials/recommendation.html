@@ -1,4 +1,4 @@
-<div class="col">
+<div class="col-auto">
   {% if object.recommendation %}
     {% if recommendation.0 == "Colchicine" %}
       {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 colchicine=True trttype=trttype %}

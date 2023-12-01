@@ -4,52 +4,41 @@
 {% load project_tags %}
 
 {% block title %}
-  {% comment %}
-{% if form.instance.pk %}
-Update Flare
-{% else %}
-  {% endcomment %}
-  New Flare
-  {% comment %}
-{% endif %}
-  {% endcomment %}
-{% endblock title %}
-{% block header %}
-  {% comment %}
-{% if form.instance.pk %}
-    </h1>Update Flare</h1>
+  {% if form.instance.pk %}
+    Update Flare
   {% else %}
-  {% endcomment %}
-  <h1>Gout Flare</h1>
-  {% comment %}
-{% endif %}
-  {% endcomment %}
-  <span>Tell us about the symptoms, and we can tell you how likely it is that it's from gout.</span>
-{% endblock header %}
-{% block content %}
-  {% if form.instance.created %}
-    <form class="form-horizontal"
-          method="post"
-          action="{% url 'flares:update' form.instance.pk %}">
-      {% csrf_token %}
-      {% crispy form %}
-      {% include '_submit_button.html' %}
-    </form>
-  {% else %}
-    <form class="form-horizontal"
-          method="post"
-          action="{% url 'flares:create' %}">
-      {% csrf_token %}
-      {% crispy form %}
-      {% include '_submit_button.html' %}
-    </form>
+    New Flare
   {% endif %}
+{% endblock title %}
+{% block heading %}
+  <h1>Gout Flare</h1>
+{% endblock heading %}
+{% block subheading %}
+  Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
+{% endblock subheading %}
+{% block content %}
+  <main class="container">
+    {% if form.instance.created %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'flares:update' form.instance.pk %}">
+        {% csrf_token %}
+        {% crispy form %}
+        {% include '_submit_button.html' %}
+      </form>
+    {% else %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'flares:create' %}">
+        {% csrf_token %}
+        {% crispy form %}
+        {% include '_submit_button.html' %}
+      </form>
+    {% endif %}
+  </main>
 {% endblock content %}
 {% block inline_javascript %}
-  <link rel="stylesheet"
-        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
-  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
-  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  {{ block.super }}
   <script>
     $(document).ready(function() {
       // For Flare datepicker

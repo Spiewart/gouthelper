@@ -12,18 +12,19 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
-from ..flares.choices import Likelihoods, LimitedJointChoices, Prevalences
-from ..flares.helpers import (
-    flares_abnormal_duration,
-    flares_common_joints,
-    flares_get_likelihood_str,
-    flares_uncommon_joints,
-)
 from ..genders.choices import Genders
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..utils.helpers.helpers import calculate_duration, now_date
 from ..utils.models import DecisionAidModel, GouthelperModel, MedHistoryAidModel
+from .choices import Likelihoods, LimitedJointChoices, Prevalences
+from .helpers import (
+    flares_abnormal_duration,
+    flares_calculate_prevalence_points,
+    flares_common_joints,
+    flares_get_likelihood_str,
+    flares_uncommon_joints,
+)
 from .services import FlareDecisionAid
 
 
@@ -113,7 +114,7 @@ monosodium urate crystals on polarized microscopy?"
     )
     date_ended = models.DateField(
         _("Date Flare Resolved"),
-        help_text=_("What day did this flare resolve?"),
+        help_text=_("What day did this flare resolve? Leave blank if it's ongoing."),
         blank=True,
         null=True,
         default=None,
@@ -288,6 +289,18 @@ monosodium urate crystals on polarized microscopy?"
         # Check for age and menopause in medhistorys
         # Return True if age >= 50 or menopause
         return self.age and self.age >= 60 or self.menopause
+
+    @cached_property
+    def prevalence_points(self) -> float:
+        """Method that returns the Diagnostic Rule points for prevalence for a Flare."""
+        return flares_calculate_prevalence_points(
+            gender=self.gender,
+            onset=self.onset,
+            redness=self.redness,
+            joints=self.joints,
+            medhistorys=self.medhistorys_qs if self.medhistorys_qs else list(self.medhistorys.all()),
+            urate=self.urate,
+        )
 
     def __str__(self):
         flare_str = "Monoarticular" if self.monoarticular else "Polyarticular"

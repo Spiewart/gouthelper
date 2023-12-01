@@ -14,6 +14,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
     path("blog/", include("gouthelper.blog.urls", namespace="blog")),
+    path("contact/", include("gouthelper.contact.urls", namespace="contact")),
     path("", include("gouthelper.contents.urls", namespace="contents")),
     path("flareaids/", include("gouthelper.flareaids.urls", namespace="flareaids")),
     path("flares/", include("gouthelper.flares.urls", namespace="flares")),

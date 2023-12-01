@@ -1,5 +1,7 @@
 # About Flare Calculator
 
+---
+
 - [Basics](#basics)
 - [Likelihood](#likelihood)
 - [Prevalence](#prevalence)
@@ -84,7 +86,7 @@ The factors that comprised the final simplified diagnostic rule model were weigh
 
 In 2015 their group then validated their diagnostic rule in a different population of Dutch patients who were being seen in a
 rheumatology referral center. These patients were all suspected as having prior gout flares. The positive predictive value
-of a score >= 8 0.87, meaning gout was highly likely but that there were still alternative but not a complete certainty.
+of a score >= 8 was 0.87, meaning gout was highly likely but that there were still alternative but not a complete certainty.
 The negative predictive value of a score <=4 was 0.95, meaning gout could be ruled out with a high degree of probability.
 
 ---

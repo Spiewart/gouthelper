@@ -1,6 +1,8 @@
 # About Gouthelper
 
-- [What is](#what-is)
+---
+
+- [What is it](#what-is-it)
 - [Development](#development)
 - [Why Gouthelper](#why-gouthelper)
 - [Disclaimer](#disclaimer)
@@ -8,7 +10,7 @@
 
 ---
 
-## <span id="what-is">What is Gouthelper</span>
+## <span id="what-is-it">What is Gouthelper</span>
 
 Gouthelper is a web application to inform patients and providers about gout and contains a suite of tools that answers
 common clinical questions in gout management like:

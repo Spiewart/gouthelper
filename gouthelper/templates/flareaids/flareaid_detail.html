@@ -3,28 +3,25 @@
 {% load static %}
 {% load project_tags %}
 
-{% block header %}
-  header
-{% endblock header %}
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1 class="display-4">FlareAid</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flareaids:about' %}"
+         role="button">About</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flareaids:update' pk=object.pk %}"
+         role="button">Update</a>
+    </div>
+  </div>
+{% endblock heading %}
 {% block content %}
   <main role="main">
-    <header class="container">
-      <div class="row">
-        <div class="col">
-          <h2>FlareAid</h2>
-        </div>
-        <div class="col">
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'flareaids:about' %}"
-             role="button">About</a>
-          <a type="button"
-             class="btn btn-primary btn-lg mini-button"
-             href="{% url 'flareaids:update' pk=object.pk %}"
-             role="button">Update</a>
-        </div>
-      </div>
-    </header>
     <div class="container bodytainer">
       <div id="recommendation">
         <hr size="3" color="dark" />
@@ -158,6 +155,7 @@
           </div>
         </div>
       </div>
+      <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}

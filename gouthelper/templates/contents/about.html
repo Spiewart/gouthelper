@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  {{ content.text_rendered | safe }}
+  <main class="container">
+    {{ content.text_rendered | safe }}
+  </main>
 {% endblock content %}

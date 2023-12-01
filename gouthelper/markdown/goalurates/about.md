@@ -1,5 +1,7 @@
 # GoalUrate
 
+---
+
 - [About](#about)
 - [Basics](#basics)
 - [Interpretation](#interpretation)

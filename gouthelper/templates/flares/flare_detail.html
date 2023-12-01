@@ -3,34 +3,31 @@
 {% load static %}
 {% load project_tags %}
 
-{% block header %}
-  header
-{% endblock header %}
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1 class="display-4">Flare</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flares:update' pk=object.pk %}"
+         role="button">Update</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flares:about' %}"
+         role="button">About</a>
+    </div>
+  </div>
+{% endblock heading %}
 {% block content %}
   <main role="main">
-    <header class="container">
-      <div class="row">
-        <div class="col">
-          <h2>Flare</h2>
-        </div>
-        <div class="col">
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'flares:update' pk=object.pk %}"
-             role="button">Update</a>
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'flares:about' %}"
-             role="button">About</a>
-        </div>
-      </div>
-    </header>
     <div class="container bodytainer">
       <div id="outcome">
         <hr size="3" color="dark" />
         <div class="row">
           <div class="col">
-            <div class="card card-body" id="likelihood">
+            <div class="card card-body spacious-cards" id="likelihood">
               <h4 class="card-title">
                 <a href="{% url 'flares:about' %}#likelihood">Likelihood</a> of Gout: <u>{{ flare.get_likelihood_display }}</u>
               </h4>
@@ -38,14 +35,24 @@
                 <li>{{ flare.likelihood_str }}</li>
               </ul>
             </div>
-          </div>
-          <div class="col">
-            <div class="card card-body" id="prevalence">
+            <div class="card card-body spacious-cards" id="prevalence">
               <h4 class="card-title">
                 <a href="{% url 'flares:about' %}#prevalence">Prevalence</a> of Gout: <u>{{ flare.prevalence.lower.capitalize }}</u>
               </h4>
               <ul>
-                <li>{{ flare.get_prevalence_display }}</li>
+                <li>
+                  {{ flare.get_prevalence_display }} of patients with similar symptoms
+                  have gout.
+                </li>
+                <li>
+                  <a href="{% url 'flares:about' %}#diagnosticrule">Diagnostic Rule</a> Score: {{ flare.prevalence_points }}
+                  {% if flare.polyarticular %}
+                    <li>
+                      NOTE: Prevalence is based on a single joint flare (monoarticular).
+                      Multi-joint flares (polyarticular) should be interpreted with caution if at all.
+                    </li>
+                  {% endif %}
+                </li>
               </ul>
             </div>
           </div>
@@ -61,8 +68,8 @@
           </div>
         </div>
         <div class="row">
-          <div class="col-auto">
-            <div class="card card-body" id="description">
+          <div class="col">
+            <div class="card card-body spacious-cards" id="description">
               <h4 class="card-title">Clinical Description</h4>
               <ul>
                 <li>
@@ -112,46 +119,8 @@
               </ul>
             </div>
           </div>
-          <div class="col-auto">
-            <div class="card card-body" id="medical-info">
-              <h4 class="card-title">Medical Info</h4>
-              <ul>
-                <li>
-                  {% if flare.diagnosed %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosed</a>
-                  {% else %}
-                    Not diagnosed
-                  {% endif %}
-                  by clinician
-                </li>
-                <li>
-                  {% if not flare.crystal_analysis %}
-                    Not proven
-                  {% else %}
-                    <a class="samepage-link" href="#crystalanalysis">Proven</a>
-                  {% endif %}
-                  by crystal analysis
-                </li>
-                <li>
-                  Uric acid level:
-                  {% if flare.urate %}
-                    {% if flare.urate.high %}
-                      <a class="samepage-link" href="#hyperuricemia">high</a>
-                    {% elif flare.urate.low %}
-                      low
-                    {% else %}
-                      normal
-                    {% endif %}
-                    ({{ flare.urate.value_str }})
-                  {% else %}
-                    not checked
-                  {% endif %}
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div class="col-auto">
-            <div class="card card-body" id="about-patient">
+          <div class="col">
+            <div class="card card-body spacious-cards" id="about-patient">
               <h4>Patient</h4>
               <h6>
                 Demographics:
@@ -188,6 +157,44 @@
               {% endif %}
             </div>
           </div>
+          <div class="col">
+            <div class="card card-body spacious-cards" id="medical-info">
+              <h4 class="card-title">Medical Info</h4>
+              <ul>
+                <li>
+                  {% if flare.diagnosed %}
+                    <a class="samepage-link" href="#diagnosed">Diagnosed</a>
+                  {% else %}
+                    Not diagnosed
+                  {% endif %}
+                  by clinician
+                </li>
+                <li>
+                  {% if not flare.crystal_analysis %}
+                    Not proven
+                  {% else %}
+                    <a class="samepage-link" href="#crystalanalysis">Proven</a>
+                  {% endif %}
+                  by crystal analysis
+                </li>
+                <li>
+                  Uric acid level:
+                  {% if flare.urate %}
+                    {% if flare.urate.high %}
+                      <a class="samepage-link" href="#hyperuricemia">high</a>
+                    {% elif flare.urate.low %}
+                      low
+                    {% else %}
+                      normal
+                    {% endif %}
+                    ({{ flare.urate.value_str }})
+                  {% else %}
+                    not checked
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
       <div id="explanations">
@@ -215,8 +222,8 @@
           </div>
         </div>
       </div>
+      <a href="#top">Back to top</a>
     </div>
-    <a href="#top">Back to top</a>
   </main>
 {% endblock content %}
 {% block inline_javascript %}

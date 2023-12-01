@@ -3,30 +3,41 @@
 {% load static %}
 {% load project_tags %}
 
-{% block content %}
-  <main>
-    <header class="container">
-      <h1>{{ object.title }}</h1>
+{% block heading %}
+  <h1>{{ object.title }}</h1>
+  <div class="row">
+    <div class="col">
       <p>
         <small>By {{ object.author }}</small>
       </p>
+    </div>
+    <div class="col">
       <p>
         <small>Published: {{ object.published_date }}
           {% if object.updated_date %}(Updated: {{ object.updated_date }}){% endif %}
         </small>
       </p>
-    </header>
+    </div>
+  </div>
+  <hr size="3" color="dark" />
+{% endblock heading %}
+{% block content %}
+  <main role="main">
     <div class="container bodytainer">{{ object.text_rendered|safe }}</div>
-    <footer class="container">
-      <p>
-        <small>Tags:
-          {% for tag in object.tags.all %}
-            <a href="{% url 'blog:blog_tag_list' tag.name %}">{{ tag.name }}</a>
-            {% if not forloop.last %},{% endif %}
-          {% endfor %}
-        </small>
-      </p>
-      <a href="#top">Back to top</a>
-    </footer>
   </main>
 {% endblock content %}
+{% block footer %}
+  <div class="container">
+    <hr size="3" color="dark" />
+    <p>
+      <small>Tags:
+        {% for tag in object.tags.all %}
+          <a href="{% url 'blog:blog_tag_list' tag.name %}">{{ tag.name }}</a>
+          {% if not forloop.last %},{% endif %}
+        {% endfor %}
+      </small>
+    </p>
+    <a href="#top">Back to top</a>
+  </div>
+  {{ block.super }}
+{% endblock footer %}

@@ -6,42 +6,43 @@
 {% block title %}
   New GoalUrate
 {% endblock title %}
-{% block header %}
+{% block heading %}
   <h1>GoalUrate</h1>
-  <span>Determine what a patient's goal uric acid level is.</span>
-{% endblock header %}
+{% endblock heading %}
+{% block subheading %}
+  Determine what a patient's goal uric acid level is.
+{% endblock subheading %}
 {% block content %}
-  {% if form.instance.created %}
-    <form class="form-horizontal"
-          method="post"
-          action="{% url 'goalurates:update' form.instance.pk %}">
-      {% csrf_token %}
-      {% crispy form %}
-      {% include "_submit_button.html" %}
-    </form>
-  {% else %}
-    {% if ultaid %}
+  <main class="container">
+    {% if form.instance.created %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'goalurates:ultaid-create' ultaid=ultaid %}">
+            action="{% url 'goalurates:update' form.instance.pk %}">
         {% csrf_token %}
         {% crispy form %}
         {% include "_submit_button.html" %}
       </form>
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'goalurates:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include "_submit_button.html" %}
-      </form>
+      {% if ultaid %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'goalurates:ultaid-create' ultaid=ultaid %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include "_submit_button.html" %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'goalurates:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include "_submit_button.html" %}
+        </form>
+      {% endif %}
     {% endif %}
-  {% endif %}
+  </main>
 {% endblock content %}
 {% block inline_javascript %}
-  <link rel="stylesheet"
-        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
-  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
-  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
+  {{ block.super }}
 {% endblock inline_javascript %}

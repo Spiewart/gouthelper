@@ -1,5 +1,7 @@
 # FlareAid
 
+---
+
 - [About](#about)
 - [Indications](#indications)
 - [Options](#options)

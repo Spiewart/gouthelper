@@ -119,17 +119,30 @@
           </div>
         {% endfor %}
       {% endif %}
+      {% block header %}
+        <header class="header container">
+          {% block heading %}
+          {% endblock heading %}
+          <p class="lead">
+            {% block subheading %}
+            {% endblock subheading %}
+          </p>
+        </header>
+      {% endblock header %}
       {% block content %}
         <p>Use this document as a way to quick start any new project.</p>
       {% endblock content %}
       {% block footer %}
-        <footer class="footer">
+        <footer class="footer container">
           <hr size="3" color="dark" />
           <blockquote class="blockquote footer-blockquote">
             <p class="text-muted small">
               Gouthelper is the private opinion of one amateur web developer who also happens to be a rheumatologist.
               It does not represent his professional opinion, that of his employer, or any referenced professional society.
               Gouthelper is not a substitute for actual medical advice from a real provider and should not be used as such.
+            </p>
+            <p class="text-muted small">
+              <a href="{% url 'contact:contact' %}">Contact</a> us with any questions or concerns.
             </p>
           </blockquote>
         </footer>
@@ -153,6 +166,7 @@
       <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
       <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
       <script>
+        $("h1").addClass("display-4");
         $(".samepage-link").click(function() {
           var href = $(this).attr('href');
           var explanation = href + "-explanation";

@@ -3,25 +3,25 @@
 {% load static %}
 {% load project_tags %}
 
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1>GoalUrate</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'goalurates:about' %}"
+         role="button">About</a>
+      <a type="button"
+         class="btn btn-primary btn-lg mini-button spacious-buttons"
+         href="{% url 'goalurates:update' pk=object.pk %}"
+         role="button">Update</a>
+    </div>
+  </div>
+{% endblock heading %}
 {% block content %}
   <main role="main">
-    <header class="container">
-      <div class="row">
-        <div class="col">
-          <h2>GoalUrate</h2>
-        </div>
-        <div class="col">
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'goalurates:about' %}"
-             role="button">About</a>
-          <a type="button"
-             class="btn btn-primary btn-lg mini-button"
-             href="{% url 'goalurates:update' pk=object.pk %}"
-             role="button">Update</a>
-        </div>
-      </div>
-    </header>
     <div class="container bodytainer">
       <hr size="3" color="dark" />
       <div class="row">

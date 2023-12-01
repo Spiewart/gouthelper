@@ -7,14 +7,12 @@ from gouthelper.users.models import User
 from gouthelper.users.tests.factories import UserFactory
 
 
-@pytest.fixture(autouse=True)
-def media_storage(settings, tmpdir):
-    settings.MEDIA_ROOT = tmpdir.strpath
-
-
-@pytest.fixture
-def user(db) -> User:
-    return UserFactory()
+@pytest.fixture(scope="class")
+def contents_setup(django_db_setup, django_db_blocker):
+    """Callable with @pytest.mark.usefixtures("contents_setup") for
+    tests that require access to the contents app data."""
+    with django_db_blocker.unblock():
+        create_or_update_contents(apps=apps, schema_editor=None)
 
 
 @pytest.fixture(scope="session")
@@ -23,9 +21,11 @@ def django_db_setup(django_db_setup, django_db_blocker):
         update_defaults(apps=apps, schema_editor=None)
 
 
-@pytest.fixture(scope="class")
-def contents_setup(django_db_setup, django_db_blocker):
-    """Callable with @pytest.mark.usefixtures("contents_setup") for
-    tests that require access to the contents app data."""
-    with django_db_blocker.unblock():
-        create_or_update_contents(apps=apps, schema_editor=None)
+@pytest.fixture(autouse=True)
+def media_storage(settings, tmpdir):
+    settings.MEDIA_ROOT = tmpdir.strpath
+
+
+@pytest.fixture
+def user(db) -> User:
+    return UserFactory()

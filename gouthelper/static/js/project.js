@@ -449,6 +449,26 @@ function diagnosed_checker() {
   }
 }
 
+// Contact js
+// Method that checks the value of the subject field and
+// shows/hides and adds/removes required from the other field
+function subject_checker() {
+  // Check if the subject is 'other'
+  if ($('#id_subject').val() == 'other') {
+    // If so, make the other field required and show it
+    $('#div_id_other').show();
+    $('#id_other').prop('required', true);
+    add_asterisk($('#div_id_other'));
+    // If not, make the other field not required and hide it
+  } else {
+    $('#div_id_other').hide();
+    $('#id_other').prop('required', false);
+    remove_asterisk($('#div_id_other'));
+    // Set the id_other val to null
+    $('#id_other').val('');
+  }
+}
+
 // Ppx JS
 function starting_ult_help_text() {
   // function that updates the help text of the starting_ult field
