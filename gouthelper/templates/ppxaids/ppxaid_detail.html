@@ -3,25 +3,25 @@
 {% load static %}
 {% load project_tags %}
 
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1>PPxAid</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'ppxaids:about' %}"
+         role="button">About</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'ppxaids:update' pk=object.pk %}"
+         role="button">Update</a>
+    </div>
+  </div>
+{% endblock heading %}
 {% block content %}
   <main role="main">
-    <header class="container">
-      <div class="row">
-        <div class="col">
-          <h2>PPxAid</h2>
-        </div>
-        <div class="col">
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'ppxaids:about' %}"
-             role="button">About</a>
-          <a type="button"
-             class="btn btn-primary btn-lg mini-button"
-             href="{% url 'ppxaids:update' pk=object.pk %}"
-             role="button">Update</a>
-        </div>
-      </div>
-    </header>
     <div class="container bodytainer">
       <div id="recommendation">
         <hr size="3" color="dark" />
@@ -44,8 +44,8 @@
             </h3>
             <div class="row">
               {% if object.other_nsaid_contras or object.ckd or object.cvdiseases or object.nsaid_allergys %}
-                <div class="col">
-                  <div class="card card-body" id="nsaid-contras">
+                <div class="col-auto">
+                  <div class="card card-body spacious-cards" id="nsaid-contras">
                     <h4 class="card-title">NSAIDs</h4>
                     <ul>
                       {% if object.other_nsaid_contras %}
@@ -72,8 +72,8 @@
                 </div>
               {% endif %}
               {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergys %}
-                <div class="col">
-                  <div class="card card-body" id="colchicine-contras">
+                <div class="col-auto">
+                  <div class="card card-body spacious-cards" id="colchicine-contras">
                     <h4 class="card-title">Colchicine</h4>
                     <ul>
                       {% if object.colchicine_ckd_contra %}
@@ -90,8 +90,8 @@
                 </div>
               {% endif %}
               {% if object.steroid_allergys %}
-                <div class="col">
-                  <div class="card card-body" id="steroid-contras">
+                <div class="col-auto">
+                  <div class="card card-body spacious-cards" id="steroid-contras">
                     <h4>Steroids</h4>
                     <ul>
                       {% if object.steroid_allergys %}
@@ -117,12 +117,12 @@
           </div>
           <div class="row">
             {% if object.organtransplant %}
-              <div class="col">
+              <div class="col-auto">
                 {% include "medhistorys/aid_warnings/organtransplant.html" with id="organtransplant" aidtype="FlareAid" %}
               </div>
             {% endif %}
             {% if object.recommendation.0 == "PREDNISONE" and object.diabetes or object.options and "PREDNISONE" in object.options and object.diabetes %}
-              <div class="col">{% include "medhistorys/aid_warnings/diabetes.html" with id="diabetes" aidtype="PpxAid" %}</div>
+              <div class="col-auto">{% include "medhistorys/aid_warnings/diabetes.html" with id="diabetes" aidtype="PpxAid" %}</div>
             {% endif %}
             {% if object.age > 65 and object.nsaids_recommended and not object.nsaids_contraindicated %}
               {% include "dateofbirths/aid_warnings/dateofbirth.html" with id="age" aidtype="PpxAid" %}
@@ -155,8 +155,8 @@
           </div>
         </div>
       </div>
+      <a href="#top">Back to top</a>
     </div>
-    <a href="#top">Back to top</a>
   </main>
 {% endblock content %}
 {% block inline_javascript %}

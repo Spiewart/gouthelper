@@ -1,5 +1,7 @@
 # UltAid
 
+---
+
 - [About](#about)
 - [Methodology](#methodology)
 - [Potential Problems](#potentialproblems)

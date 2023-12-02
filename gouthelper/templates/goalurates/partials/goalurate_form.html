@@ -3,9 +3,11 @@
 
 {% block header %}
   <h4>
-    GoalUrate
-    {% if form.instance.created %}Update{% endif %}
-    Form
+    {% if form.instance.created %}
+      Update GoalUrate
+    {% else %}
+      Create GoalUrate
+    {% endif %}
   </h4>
 {% endblock header %}
 {% block content %}

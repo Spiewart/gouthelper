@@ -3,25 +3,25 @@
 {% load static %}
 {% load project_tags %}
 
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1>ULT</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'ults:about' %}"
+         role="button">About</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'ults:update' pk=object.pk %}"
+         role="button">Update</a>
+    </div>
+  </div>
+{% endblock heading %}
 {% block content %}
   <main role="main">
-    <header class="container">
-      <div class="row">
-        <div class="col">
-          <h2>ULT</h2>
-        </div>
-        <div class="col">
-          <a type="button"
-             class="btn btn-primary btn-lg"
-             href="{% url 'ults:about' %}"
-             role="button">About</a>
-          <a type="button"
-             class="btn btn-primary btn-lg mini-button"
-             href="{% url 'ults:update' pk=object.pk %}"
-             role="button">Update</a>
-        </div>
-      </div>
-    </header>
     <div class="container bodytainer">
       <hr size="3" color="dark" />
       <div id="recommendation">
@@ -31,6 +31,15 @@
               <h3 div class="card-title">
                 <b><u>{{ object.get_indication_display }}</u></b>
               </h3>
+              <p class="card-text">
+                {% if object.indication == 0 %}
+                  ULT is <a href="{% url 'ults:about' %}#notindicated">not indicated</a> (the patient shouldn't be on ULT).
+                {% elif object.indication == 1 %}
+                  ULT is <a href="{% url 'ults:about' %}#conditional">conditionally indicated</a> (the patient should most likely be on ULT).
+                {% elif object.indication == 2 %}
+                  ULT is <a href="{% url 'ults:about' %}#strong">indicated</a> (the patient should be on ULT).
+                {% endif %}
+              </p>
             </div>
           </div>
           <div class="col">
