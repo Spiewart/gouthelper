@@ -19,6 +19,7 @@ urlpatterns = [
     path("flareaids/", include("gouthelper.flareaids.urls", namespace="flareaids")),
     path("flares/", include("gouthelper.flares.urls", namespace="flares")),
     path("goalurates/", include("gouthelper.goalurates.urls", namespace="goalurates")),
+    path("labs/", include("gouthelper.labs.urls", namespace="labs")),
     path("ppxaids/", include("gouthelper.ppxaids.urls", namespace="ppxaids")),
     path("ppxs/", include("gouthelper.ppxs.urls", namespace="ppxs")),
     path("ultaids/", include("gouthelper.ultaids.urls", namespace="ultaids")),

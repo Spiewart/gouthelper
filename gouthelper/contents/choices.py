@@ -8,6 +8,7 @@ class Contexts(TextChoices):
     FLARE = "FLARE", _("Flare")
     FLAREAID = "FLAREAID", _("FlareAid")
     GOALURATE = "GOALURATE", _("GoalUrate")
+    LAB = "LAB", _("Lab")
     PPX = "PPX", _("Ppx")
     PPXAID = "PPXAID", _("PpxAid")
     TREATMENT = "TREATMENT", _("Treatment")
