@@ -7,7 +7,7 @@ from django.test import TestCase  # type: ignore
 
 from ..choices import Contexts, Tags
 from ..models import Content
-from ..services import CreateOrUpdateContents, create_or_update_contents
+from ..services import CreateOrUpdateContents
 
 pytestmark = pytest.mark.django_db
 
@@ -22,15 +22,20 @@ class TestCreateOrUpdateContents(TestCase):
     def setUp(self):
         # Declare all the Markdown files
         self.markdown_files = Path("gouthelper/markdown").glob("**/*.md")
-        # Make sure there aren't any Content objects created at the start
-        self.assertEqual(Content.objects.count(), 0)
+
+    def test__about_created(self):
+        """Test that the general about page, which doesn't have a context or tag due to
+        it not having a parent directory, is created as a Content object."""
+        # Contents will all have been created by conftest.py
+        # Assert
+        self.assertTrue(
+            Content.objects.filter(slug="about", context=None, tag=None).exists(),
+        )
 
     def test__all_markdown_created_as_content(self):
         """Test that all the Markdown files in the gouthelper/markdown directory
         are created as Content objects with the correct slug, context, and tag."""
-        # Act
-        create_or_update_contents(apps, None)
-
+        # Contents will all have been created by conftest.py
         # Assert
         self.assertEqual(
             len(list(self.markdown_files)),
@@ -58,6 +63,7 @@ class TestCreateOrUpdateContents(TestCase):
     def test__markdown_updated(self):
         """Test that if a Markdown file is updated, the Content object is updated
         when create_or_update_contents is called again."""
+        pre_create_content_count = Content.objects.count()
         # Create a temporary directory to avoid creating/deleting real files
         markdown_directory = tempfile.TemporaryDirectory()
         markdown_path = Path(markdown_directory.name)
@@ -89,7 +95,7 @@ class TestCreateOrUpdateContents(TestCase):
         # Call update_or_create() to create the Content objects
         CreateOrUpdateContents(apps, markdown_path).update_or_create()
         # Assert that 3 contents were created
-        self.assertEqual(Content.objects.count(), 3)
+        self.assertEqual(Content.objects.count(), pre_create_content_count + 3)
         # Assert that the content objects have the correct slug, context, and tag
         self.assertTrue(
             Content.objects.filter(slug="level1md", context=None, tag=None).exists(),

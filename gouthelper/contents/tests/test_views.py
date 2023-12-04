@@ -1,16 +1,14 @@
 import pytest  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 
+from ..models import Content
 from ..views import About, Home
-from .factories import ContentFactory
 
 pytestmark = pytest.mark.django_db
 
 
 class TestHome(TestCase):
     def setUp(self):
-        # Create Home Content object
-        self.about = ContentFactory(slug="home", context=None, tag=None, text="#Gouthelper Home")
         self.url = "/"
 
         # Act
@@ -24,9 +22,7 @@ class TestHome(TestCase):
 
 class TestAbout(TestCase):
     def setUp(self):
-        # Create About Content object
-        self.about = ContentFactory(slug="about", context=None, tag=None, text="#Gouthelper About")
-        self.url = "/about/"
+        self.url = "/about"
 
         # Act
         self.request = RequestFactory().get(self.url)
@@ -38,4 +34,6 @@ class TestAbout(TestCase):
 
     def test__get_context_data(self):
         # Assert
-        self.assertEqual(self.response.context_data["content"], self.about)
+        self.assertEqual(
+            self.response.context_data["content"], Content.objects.get(slug="about", context=None, tag=None)
+        )

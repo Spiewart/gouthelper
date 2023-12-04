@@ -20,7 +20,6 @@ from .factories import GoalUrateFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestGoalUrateAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -152,7 +151,6 @@ class TestGoalUrateCreate(TestCase):
         self.assertTrue(response.context[f"{MedHistoryTypes.TOPHI}_form"].errors)
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestGoalUrateDetail(TestCase):
     def setUp(self):
         self.goalurate = GoalUrateFactory()

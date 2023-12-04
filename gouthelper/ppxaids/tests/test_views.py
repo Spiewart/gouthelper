@@ -30,7 +30,6 @@ from .factories import PpxAidFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestPpxAidAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -197,7 +196,6 @@ class TestPpxAidCreate(TestCase):
         self.assertEqual(MedAllergy.objects.count(), 3)
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestPpxAidDetail(TestCase):
     def setUp(self):
         self.factory = RequestFactory()

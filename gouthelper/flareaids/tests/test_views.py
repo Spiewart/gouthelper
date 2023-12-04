@@ -30,7 +30,6 @@ from .factories import FlareAidFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestFlareAidAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -197,7 +196,6 @@ class TestFlareAidCreate(TestCase):
         self.assertEqual(MedAllergy.objects.count(), 3)
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestFlareAidDetail(TestCase):
     def setUp(self):
         self.factory = RequestFactory()

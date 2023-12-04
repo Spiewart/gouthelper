@@ -8,7 +8,6 @@ from ..views import AboutHlab5801, AboutUrate, LabAbout
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestLabAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -35,7 +34,6 @@ class TestLabAbout(TestCase):
         )
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestAboutHlab5801(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -62,7 +60,6 @@ class TestAboutHlab5801(TestCase):
         )
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestAboutUrate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()

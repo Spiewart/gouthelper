@@ -24,7 +24,6 @@ from .factories import UltFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestUltAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -125,7 +124,6 @@ class TestUltCreate(TestCase):
             self.client.post(reverse("ults:create"), ult_data)
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestUltDetail(TestCase):
     def setUp(self):
         self.ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)

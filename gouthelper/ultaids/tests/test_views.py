@@ -25,7 +25,6 @@ from .factories import UltAidFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestUltAidAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -154,7 +153,6 @@ class TestUltAidCreate(TestCase):
         self.assertEqual(Treatments.PROBENECID, ultaid.recommendation[0])
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestUltAidDetail(TestCase):
     def setUp(self):
         self.factory = RequestFactory()

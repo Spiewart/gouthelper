@@ -45,7 +45,6 @@ from .factories import FlareFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestFlareAbout(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
@@ -449,7 +448,6 @@ menopause status to evaluate their flare.",
         )
 
 
-@pytest.mark.usefixtures("contents_setup")
 class TestFlareDetail(TestCase):
     def setUp(self):
         self.flare = FlareFactory()
