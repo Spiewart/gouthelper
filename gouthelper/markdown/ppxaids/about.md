@@ -3,34 +3,34 @@
 ---
 
 - [About](#about)
-- [Indications](#indications)
 - [Options](#options)
+- [Considerations](#considerations)
 - [References](#references)
 
 ---
 
 ## <span id="about">About</span>
 
-PpxAids are a decision aid tool that determine the optimal choice of prophylaxis against gout flares for a given patient who is starting urate-lowering therapy (ULT). For advice on whether or not a patient needs prophylaxis, use a Ppx.
-
-Prophylaxis is a medication taken daily to prevent gout flares. Any time a patient is started
-on urate-lowering therapy (ULT), they actually have a higher risk of having a gout flare in the
-short-term than if they had not started ULT. As a result, the American College of Rheumatology's 2020 Clinical Practice Guidelines for Gout[<sup>1</sup>](#ref-1) strongly recommends prophylaxis for all patients starting ULT (moderate strength recommendation).
-
----
-
-## <span id="indications">Indications</span>
-
-Basically anyone who starts ULT has a guideline-based indication for prophylaxis. However, with more
-modern slow and methodogical approaches to ULT, some groups studies suggest that prophylaxis may not
-be required.
+PpxAids are a decision aid tool that determine the optimal choice of [prophylaxis](/treatments/about/ppx/) against gout flares for a given patient who is starting urate-lowering therapy (ULT). For advice on whether or not a patient needs prophylaxis, use a [Ppx](/ppxs/create/).
 
 ---
 
 ## <span id="options">Options</span>
 
 Typically, prophylaxis is done with the same medications that are used for treatment of gout flares,
-just at lower doses. The most common options are: NSAIDs or colchicine, or less commonly prednisone.
+just at lower doses. The most common options are: NSAIDs or colchicine, and less commonly prednisone.
+
+---
+
+## <span id="considerations">Considerations</span>
+
+- NSAIDs are cheap, avilable over-the-counter, and generally well-tolerated. However, they really shouldn't be used for extended durations in patients who have cardiovascular diseases or any of a relatively long and hard-to-remember list of relative contraindications. These include anticoagulation, inflammatory bowel disease, chronic kidney disease, history of peptic ulcers or gastroinestinal bleeding, among many others.
+
+- Colchicine should be cheap, but in the US it's not and is prescription only. In other countries it is cheap and readily available. It is generally well-tolerated. However, it can cause diarrhea and other gastrointestinal symptoms. It also has a long list of drug interactions, some of which are serious. It is also contraindicated in patients with severe renal impairment.
+
+- Prednisone is sort of last resort, but is definitely reasonable. It's safe and cheap, but it's a steroid and has all the side effects that come with that. It can
+  raise blood sugar, cause weight gain, and increase the risk of infections. It can also cause mood changes and insomnia. It's also not a great choice for patients with diabetes, but winds up being used in this circumstance not uncommonly due to lack of
+  other options.
 
 ---
 
