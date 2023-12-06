@@ -4,6 +4,7 @@ from django.db import migrations  # type: ignore
 
 from ..services import create_or_update_contents
 
+
 class Migration(migrations.Migration):
     dependencies = [
         ("contents", "0001_initial"),
