@@ -9,6 +9,10 @@ env:
   NGINX_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/nginx
 
 on:
+  pull_request:
+    branches: ['master', 'main']
+    paths-ignore: ['docs/**']
+
   push:
     branches: ['master', 'main']
     paths-ignore: ['docs/**']
