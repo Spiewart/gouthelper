@@ -7,6 +7,11 @@ env:
   # Set global variables for the images
   WEB_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/web
   NGINX_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/nginx
+  POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+  POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+  POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+  POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
 
 on:
   pull_request:
@@ -52,7 +57,7 @@ jobs:
           docker pull ${{ env.NGINX_IMAGE }} || true
       - name: Build images
         run: |
-          docker-compose -f production.yml build --build-arg POSTGRES_DB=${{ secrets.POSTGRES_DB }} --build-arg POSTGRES_USER=${{ secrets.POSTGRES_USER }} --build-arg POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} --build-arg POSTGRES_PORT=${{ secrets.POSTGRES_PORT }} --build-arg POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+          docker-compose -f production.yml build
       - name: Push images
         run: |
           docker push ${{ env.WEB_IMAGE }}
