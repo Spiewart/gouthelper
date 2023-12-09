@@ -31,6 +31,9 @@ while True:
             host="${POSTGRES_HOST}",
             port="${POSTGRES_PORT}",
         )
+        print("PostgreSQL is available")
+        print("${DATABASE_URL}")
+        print("${POSTGRES_DB}")})
         break
     except psycopg.OperationalError as error:
         sys.stderr.write("Waiting for PostgreSQL to become available...\n")
