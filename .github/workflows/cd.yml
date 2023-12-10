@@ -57,8 +57,7 @@ jobs:
           docker-compose -f production.yml build
       - name: Tag images
         run: |
-          docker tag ${{ env.WEB_IMAGE }} ${{ env.WEB_IMAGE }}:latest
-          docker tag ${{ env.NGINX_IMAGE }} ${{ env.NGINX_IMAGE }}:latest
+          docker tag gouthelper_production_django ${{ env.WEB_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.WEB_IMAGE }}
