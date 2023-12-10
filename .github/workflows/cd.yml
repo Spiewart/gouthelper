@@ -50,7 +50,6 @@ jobs:
           docker pull ${{ env.WEB_IMAGE }} || true
           docker pull ${{ env.TRAEFIK_IMAGE }} || true
           docker pull ${{ env.POSTGRES_IMAGE }} || true
-          docker pull redis:6 || true
       - name: Build images
         run: |
           docker-compose -f production.yml build
@@ -64,4 +63,3 @@ jobs:
           docker push ${{ env.WEB_IMAGE }}
           docker push ${{ env.TRAEFIK_IMAGE }}
           docker push ${{ env.POSTGRES_IMAGE }}
-          docker push redis:6
