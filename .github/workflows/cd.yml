@@ -8,7 +8,6 @@ env:
   WEB_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/web
   TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
   POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/postgres
-  REDIS_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/redis
 
 on:
   pull_request:
@@ -39,7 +38,6 @@ jobs:
           echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
-          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> $GITHUB_ENV
           mkdir -p .envs/.production
           echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
           echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
@@ -52,7 +50,7 @@ jobs:
           docker pull ${{ env.WEB_IMAGE }} || true
           docker pull ${{ env.TRAEFIK_IMAGE }} || true
           docker pull ${{ env.POSTGRES_IMAGE }} || true
-          docker pull ${{ env.REDIS_IMAGE }} || true
+          docker pull redis:6 || true
       - name: Build images
         run: |
           docker-compose -f production.yml build
@@ -66,4 +64,4 @@ jobs:
           docker push ${{ env.WEB_IMAGE }}
           docker push ${{ env.TRAEFIK_IMAGE }}
           docker push ${{ env.POSTGRES_IMAGE }}
-          docker push ${{ env.REDIS_IMAGE }}
+          docker push redis:6
