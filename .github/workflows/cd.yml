@@ -6,12 +6,7 @@ env:
   COMPOSE_DOCKER_CLI_BUILD: 1
   # Set global variables for the images
   WEB_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/web
-  NGINX_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/nginx
-  POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-  POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-  POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
-  POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+  TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
 
 on:
   pull_request:
@@ -40,7 +35,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
-          echo "NGINX_IMAGE=$(echo ${{ env.NGINX_IMAGE }} )" >> $GITHUB_ENV
+          echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
           mkdir -p .envs/.production
           echo "" >> .envs/.production/.django
           echo "" >> .envs/.production/.postgres
@@ -51,14 +46,15 @@ jobs:
       - name: Pull images
         run: |
           docker pull ${{ env.WEB_IMAGE }} || true
-          docker pull ${{ env.NGINX_IMAGE }} || true
+          docker pull ${{ env.TRAEFIK_IMAGE }} || true
       - name: Build images
         run: |
           docker-compose -f production.yml build
       - name: Tag images
         run: |
           docker tag gouthelper_production_django ${{ env.WEB_IMAGE }}:latest
+          docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.WEB_IMAGE }}
-          docker push ${{ env.NGINX_IMAGE }}
+          docker push ${{ env.TRAEFIK_IMAGE }}
