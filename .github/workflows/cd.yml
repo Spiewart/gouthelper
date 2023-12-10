@@ -7,6 +7,8 @@ env:
   # Set global variables for the images
   WEB_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/web
   TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
+  POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/postgres
+  REDIS_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/redis
 
 on:
   pull_request:
@@ -36,9 +38,11 @@ jobs:
         run: |
           echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
+          echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
+          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> $GITHUB_ENV
           mkdir -p .envs/.production
-          echo "" >> .envs/.production/.django
-          echo "" >> .envs/.production/.postgres
+          echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
+          echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
       - name: Log in to GitHub Packages
         run: echo ${PERSONAL_ACCESS_TOKEN} | docker login ghcr.io -u ${{ secrets.NAMESPACE }} --password-stdin
         env:
@@ -47,6 +51,8 @@ jobs:
         run: |
           docker pull ${{ env.WEB_IMAGE }} || true
           docker pull ${{ env.TRAEFIK_IMAGE }} || true
+          docker pull ${{ env.POSTGRES_IMAGE }} || true
+          docker pull ${{ env.REDIS_IMAGE }} || true
       - name: Build images
         run: |
           docker-compose -f production.yml build
@@ -54,7 +60,11 @@ jobs:
         run: |
           docker tag gouthelper_production_django ${{ env.WEB_IMAGE }}:latest
           docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
+          docker tag gouthelper_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
+          docker tag redis:6 ${{ env.REDIS_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.WEB_IMAGE }}
           docker push ${{ env.TRAEFIK_IMAGE }}
+          docker push ${{ env.POSTGRES_IMAGE }}
+          docker push ${{ env.REDIS_IMAGE }}
