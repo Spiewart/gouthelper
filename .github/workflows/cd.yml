@@ -61,7 +61,6 @@ jobs:
           docker tag gouthelper_production_django ${{ env.WEB_IMAGE }}:latest
           docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
           docker tag gouthelper_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
-          docker tag redis:6 ${{ env.REDIS_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.WEB_IMAGE }}
