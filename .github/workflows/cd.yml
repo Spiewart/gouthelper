@@ -71,7 +71,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout main
-        uses: actions/checkout@v1
+        uses: actions/checkout@v4
       - name: Add environment variables to .env
         run: |
           echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
