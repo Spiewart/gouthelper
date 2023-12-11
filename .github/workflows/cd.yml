@@ -77,9 +77,6 @@ jobs:
           echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
-          mkdir -p gouthelper/.envs/.production
-          echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> gouthelper/.envs/.production/.django
-          echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> gouthelper/.envs/.production/.postgres
           echo NAMESPACE=${{ secrets.NAMESPACE }} >> .env
           echo PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }} >> .env
       - name: Add the private SSH key to the ssh-agent
@@ -97,6 +94,9 @@ jobs:
           scp  -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /gouthelper
+            mkdir -p .envs/.production
+            echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
+            echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
             docker pull ${{ env.WEB_IMAGE }}
