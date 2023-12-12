@@ -49,7 +49,7 @@ services:
 
   awscli:
     build:
-      context: .
+      context: ..
       dockerfile: ./compose/production/aws/Dockerfile
     env_file:
       - ./.envs/.production/.django
