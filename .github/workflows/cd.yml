@@ -94,6 +94,8 @@ jobs:
           scp -o StrictHostKeyChecking=no -r ./.env root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/app
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /app
+            pwd
+            ls
             mkdir -p .envs/.production
             echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
             echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
@@ -104,3 +106,5 @@ jobs:
             docker pull ${{ env.POSTGRES_IMAGE }}
             docker-compose -f production.yml up -d
           ENDSSH
+
+    # ./production.yml ./compose ./package.json ./requirements ./gulpfile.js
