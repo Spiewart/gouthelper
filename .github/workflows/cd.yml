@@ -104,7 +104,7 @@ jobs:
             docker pull ${{ env.WEB_IMAGE }}
             docker pull ${{ env.TRAEFIK_IMAGE }}
             docker pull ${{ env.POSTGRES_IMAGE }}
+            pwd
+            ls
             docker-compose -f production.yml up -d
           ENDSSH
-
-    # ./production.yml ./compose ./package.json ./requirements ./gulpfile.js
