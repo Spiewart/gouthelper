@@ -22,7 +22,7 @@ services:
 
   postgres:
     build:
-      context: .
+      context: ..
       dockerfile: ./compose/production/postgres/Dockerfile
     image: gouthelper_production_postgres
     volumes:
@@ -49,7 +49,7 @@ services:
 
   awscli:
     build:
-      context: .
+      context: ..
       dockerfile: ./compose/production/aws/Dockerfile
     env_file:
       - ./.envs/.production/.django
