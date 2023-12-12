@@ -67,12 +67,12 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels/ /wheels/* \
 
 COPY --chown=django:django ./compose/production/django/entrypoint /entrypoint
 RUN sed -i 's/\r$//g' /entrypoint
-RUN chmod +x /entrypoint
+RUN chmod a+x /entrypoint
 
 
 COPY --chown=django:django ./compose/production/django/start /start
 RUN sed -i 's/\r$//g' /start
-RUN chmod +x /start
+RUN chmod a+x /start
 
 
 # copy application code to WORKDIR
