@@ -99,8 +99,8 @@ jobs:
             echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
-            docker pull $WEB_IMAGE
-            docker pull $TRAEFIK_IMAGE
-            docker pull $POSTGRES_IMAGE
+            docker pull ${{ env.WEB_IMAGE }}
+            docker pull ${{ env.TRAEFIK_IMAGE }}
+            docker pull ${{ env.POSTGRES_IMAGE }}
             docker compose -f production.yml up -d
           ENDSSH
