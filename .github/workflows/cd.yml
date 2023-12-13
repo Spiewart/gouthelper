@@ -88,6 +88,7 @@ jobs:
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           ssh-add - <<< "${{ secrets.PRIVATE_KEY }}"
       - name: Build and deploy images on DigitalOcean
+        working-directory: ./app
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
@@ -102,7 +103,6 @@ jobs:
             docker pull $WEB_IMAGE
             docker pull $TRAEFIK_IMAGE
             docker pull $POSTGRES_IMAGE
-            docker images
-            docker compose -f app/production.yml up -d
+            docker compose -f production.yml up -d
           ENDSSH
   #mv production.yml app
