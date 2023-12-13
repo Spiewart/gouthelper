@@ -104,5 +104,5 @@ jobs:
             echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
             source .env
             mv production.yml app
-            docker compose -f production.yml up -d
+            docker compose -f app/production.yml up -d
           ENDSSH
