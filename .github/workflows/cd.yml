@@ -35,9 +35,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Set environment variables
         run: |
-          echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
-          echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
-          echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
+          echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> .env
+          echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> .env
+          echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> .env
           mkdir -p .envs/.production
           echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
           echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
