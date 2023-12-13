@@ -92,6 +92,8 @@ jobs:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           scp -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/app
+          ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} "mkdir -p /app/compose/production"
+          scp -o StrictHostKeyChecking=no -r ./compose/production/aws root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/app/compose/production
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /app
             mkdir -p .envs/.production
