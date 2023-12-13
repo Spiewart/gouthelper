@@ -102,9 +102,5 @@ jobs:
             docker pull ${{ env.WEB_IMAGE }}
             docker pull ${{ env.TRAEFIK_IMAGE }}
             docker pull ${{ env.POSTGRES_IMAGE }}
-            docker save ${{ env.WEB_IMAGE }} > gouthelper_production_django.tar
-            tar -xvf gouthelper_production_django.tar
-            rm gouthelper_production_django.tar
-            docker ps
             docker compose -f production.yml up -d
           ENDSSH
