@@ -102,5 +102,6 @@ jobs:
             docker pull ${{ env.WEB_IMAGE }}
             docker pull ${{ env.TRAEFIK_IMAGE }}
             docker pull ${{ env.POSTGRES_IMAGE }}
+            docker ps
             docker compose -f production.yml up -d
           ENDSSH
