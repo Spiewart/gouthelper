@@ -8,8 +8,8 @@ volumes:
 services:
   django:
     build:
-      context: ./app
-      dockerfile: compose/production/django/Dockerfile
+      context: .
+      dockerfile: ./compose/production/django/Dockerfile
     image: gouthelper_production_django
     depends_on:
       - postgres
@@ -21,8 +21,8 @@ services:
 
   postgres:
     build:
-      context: ./app
-      dockerfile: compose/production/postgres/Dockerfile
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
     image: gouthelper_production_postgres
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
@@ -32,8 +32,8 @@ services:
 
   traefik:
     build:
-      context: ./app
-      dockerfile: compose/production/traefik/Dockerfile
+      context: .
+      dockerfile: ./compose/production/traefik/Dockerfile
     image: gouthelper_production_traefik
     depends_on:
       - django
@@ -48,8 +48,8 @@ services:
 
   awscli:
     build:
-      context: ./app
-      dockerfile: compose/production/aws/Dockerfile
+      context: .
+      dockerfile: ./compose/production/aws/Dockerfile
     env_file:
       - ./.envs/.production/.django
     volumes:
