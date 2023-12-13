@@ -100,6 +100,8 @@ jobs:
             docker pull ${{ env.TRAEFIK_IMAGE }}
             docker pull ${{ env.POSTGRES_IMAGE }}
             cd /app
+            pwd
+            ls
             mkdir -p .envs/.production
             echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
             echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
