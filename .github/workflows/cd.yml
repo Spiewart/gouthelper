@@ -99,7 +99,7 @@ jobs:
             docker pull ${{ env.WEB_IMAGE }}
             docker pull ${{ env.TRAEFIK_IMAGE }}
             docker pull ${{ env.POSTGRES_IMAGE }}
-            cd /app/app
+            cd app
             pwd
             ls
             mkdir -p .envs/.production
