@@ -102,6 +102,7 @@ jobs:
             docker pull $WEB_IMAGE
             docker pull $TRAEFIK_IMAGE
             docker pull $POSTGRES_IMAGE
-            docker compose -f production.yml up -d
+            docker images
+            docker compose -f app/production.yml up -d
           ENDSSH
   #mv production.yml app
