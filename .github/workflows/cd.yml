@@ -95,17 +95,13 @@ jobs:
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /app
             source .env
-            docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
-            docker pull ${{ env.WEB_IMAGE }}
-            docker pull ${{ env.TRAEFIK_IMAGE }}
-            docker pull ${{ env.POSTGRES_IMAGE }}
-            cd app
-            pwd
-            ls
             mkdir -p .envs/.production
             echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
             echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
-            source ./.env
+            docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
+            docker pull $WEB_IMAGE
+            docker pull $TRAEFIK_IMAGE
+            docker pull $POSTGRES_IMAGE
             docker compose -f app/production.yml up -d
           ENDSSH
   #mv production.yml app
