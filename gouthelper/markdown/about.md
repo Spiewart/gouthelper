@@ -15,12 +15,12 @@
 Gouthelper is a web application to inform patients and providers about gout and contains a suite of tools that answers
 common clinical questions in gout management like:
 
-1. Flare: Am (Are) I (my patient's) symptoms due to gout?
+1. Flare: Are the symptoms (joint pain, etc) due to gout?
 2. FlareAid: If so, how should the gout [flare](/treatments/about/flare/) be treated?
-3. Ult: Do(es) I (my patient) need urate lowering therapy ([ULT](/treatments/about/ult/))?
+3. Ult: Does someone need urate lowering therapy ([ULT](/treatments/about/ult/))?
 4. ULtAid: If so, what is the best choice of ULT?
-5. GoalUrate: What uric acid level should I (my patient) aim for with ULT?
-6. Ppx: Do(es) I (my patient) need [prophylaxis](/treatments/about/ppx/) for gout flares?
+5. GoalUrate: What's the goal uric acid?
+6. Ppx: Is [prophylaxis](/treatments/about/ppx/) for gout flares needed?
 7. PpxAid: If so, what is the best choice of prophylaxis?
 
 ## <span id="development">How was Gouthelper developed?</span>
@@ -37,8 +37,7 @@ to getting it treated. Gouthelper is an attempt to help patients and providers g
 
 ## <span id="disclaimer">Why the disclaimer?</span>
 
-Gouthelper is a computer program, and a very early testing version at that. It is not a substitute for medical advice, so
-please do not use it as such.
+Gouthelper is a computer program, and a very early testing version at that. It is not a substitute for medical advice, so please do not use it as such.
 
 ## <span id="privacy">Privacy</span>
 
