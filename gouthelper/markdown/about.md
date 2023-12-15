@@ -26,7 +26,7 @@ common clinical questions in gout management like:
 ## <span id="development">How was Gouthelper developed?</span>
 
 Gouthelper is a hobby project developed by Dr. David Ewart, a rheumatologist in Minneapolis, Minnesota. The project started
-during COVID-19 in 2019 as a way to learn Python and web development and to try to improve gout and the lives of patients with gout along the way.
+during COVID-19 in 2019 as a way to learn Python and web development and to try to improve gout and the lives of patients with gout along the way. The project is open source and is available on [GitHub](https://github.com/Spiewart/gouthelper). The project is written predominantly in Python and uses the [Django](https://www.djangoproject.com/) web framework. Please check the readme on GitHub for more information on the project, including how to contribute.
 
 ## <span id="why-gouthelper">Why Gouthelper?</span>
 

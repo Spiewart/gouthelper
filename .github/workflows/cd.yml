@@ -1,3 +1,7 @@
+### This is a workflow template for deploying a Django application on DigitalOcean using Docker Compose
+### and GitHub Actions. IT DOES NOT WORK. PLEASE PROVIDE FEEDBACK ON HOW I CAN DEPLOY A NESTED DOCKER
+### COMPOSE FOLDER WITH DOCKER IMAGES.
+### It is based on the following tutorial: https://testdriven.io/blog/deploying-django-to-digitalocean-with-docker-compose/
 name: CD
 
 # Enable Buildkit and let compose use it to speed up image building
