@@ -6,13 +6,7 @@ env:
   COMPOSE_DOCKER_CLI_BUILD: 1
 
 on:
-  pull_request:
-    branches: ['master', 'main']
-    paths-ignore: ['docs/**']
-
-  push:
-    branches: ['master', 'main']
-    paths-ignore: ['docs/**']
+  workflow_call:
 
 jobs:
   linter:
