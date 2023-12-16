@@ -2,15 +2,33 @@
 
 {% block content %}
   <div class="container bodytainer">
+    <div class="jumbotron">
+      <h1 class="display-4">Welcome to Gouthelper</h1>
+      <p class="lead">This is a site to help answer common clinical questions about gout.</p>
+      <hr class="my-4" />
+      <p>
+        Gouthelper has clinical tools and information pages. Clinical tools take information about a
+        patient and/or symptoms to provide useful information. Tools are either
+        <strong><a class="samepage-link" href="#treatment-aids">Treatment Aids</a></strong>,
+        which recommend a treatment for a specific scenario, or
+        <strong><a class="samepage-link" href="#decision-aids">Decision Aids</a></strong>, which
+        provide information about gout and/or whether a certain type of treatment is appropriate.
+      </p>
+      <p class="lead">
+        <a class="btn btn-primary btn-lg"
+           href="{% url 'contents:about' %}"
+           role="button">About</a>
+      </p>
+    </div>
     <div class="row">
-      <div class="col">
-        <h1 class="text-center">Treatment Aids</h1>
+      <div class="col" id="treatment-aids">
+        <h2 class="text-center">Treatment Aids</h2>
         {% include "flareaids/card.html" %}
         {% include "ppxaids/card.html" %}
         {% include "ultaids/card.html" %}
       </div>
-      <div class="col">
-        <h1 class="text-center">Decision Aids</h1>
+      <div class="col" id="decision-aids">
+        <h2 class="text-center">Decision Aids</h2>
         {% include "flares/card.html" %}
         {% include "goalurates/card.html" %}
         {% include "ppxs/card.html" %}

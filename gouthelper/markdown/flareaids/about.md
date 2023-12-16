@@ -3,27 +3,57 @@
 ---
 
 - [About](#about)
-- [Options](#options)
-- [Considerations](#considerations)
+- [Factors](#factors)
+- [Interpretation](#interpretation)
 
 ---
 
 ## <span id="about">About</span>
 
-Every person who suffers from gout should have a plan, via a physician or otherwise, for treating a gout flare in the event he or she has one. FlareAids are a decision aid to help patients and providers make a customized plan for treating a gout flare. They interpret a patient's information and provide a recommendation for the best treatment option.
+Every person who suffers from gout should have a plan, via a physician or otherwise, for treating a gout flare in the event he or she has one. FlareAid is a Decision Aid to help patients and providers make a customized plan for treating a gout flare. It interprets a patient's information and provides a recommendation for the best treatment option.
+
+See the [Flare Treatments](/treatments/about/flare/) page for more information about the treatments.
 
 ---
 
-## <span id="options">Options</span>
+## <span id="factors">Factors</span>
 
-The treatments basically boil down to NSAIDs, which are available over the counter or by prescription, colchicine, or prednisone, the latter two of which are also available only by prescription in the US.
+FlareAid takes into account the following factors:
+
+- **Patient's age** - NSAIDs are generally safe in younger patients, but should be used with caution in older patients. Age is also used to calculate kidney function when dosing colchicine.
+
+- **Patient's gender** - Biological gender is used to calculate kidney function when dosing colchicine.
+
+- **Cardiovascular disease** - NSAIDs are generally contraindicated in patients with cardiovascular disease.
+  It's probably safe to use them for a limited, short-duration, but out of caution Gouthelper defaults to avoiding NSAIDs in patients with cardiovascular disease.
+
+- **Anticoagulation** - NSAIDs can increase the risk of bleeding. Thus, anticoagulation is generally a contraindication to NSAID use.
+
+- **Bleed** - NSAIDs can increase the risk of bleeding. Thus, a recent bleed or a history of a serious bleed is generally a contraindication to NSAID use.
+
+- **Gastric gypass** - Patients who have had gastric bypass surgery are prone to developing ulcers at the site of their bypass. Thus, gastric bypass is generally a contraindication to NSAID use.
+
+- **Inflammatory bowel disease** - There is some low-quality evidence that NSAIDs can worsen inflammatory bowel disease. Thus, inflammatory bowel disease is generally a contraindication to NSAID use.
+
+- **Chronic kidney disease** - NSAIDs are generally contraindicated in patients with chronic kidney disease.
+  Colchicine has to be dose-adjusted for patient's with early (under stage III) chronic kidney disease, but
+  is contraindicated in patients with stage IV or V chronic kidney disease.
+
+- **Colchicine interactions** - Colchicine has a long list of drug interactions, some of which are serious. Always double-check for interactions before prescribing colchicine.
+
+- **Diabetes** - Steroids, such as prednisone or methylprednisolone, can raise blood sugar. They should be used with caution in patients with diabetes.
+
+- **Organ tranpslant** - Organ transplants are complicated and patients who get them are often on a lot of carefully monitored medications. Adding new medications to the mix can be tricky. Always discuss with the patient's transplant team before prescribing new medications.
 
 ---
 
-## <span id="considerations">Considerations</span>
+## <span id="interpretation">Interpretation</span>
 
-- NSAIDs are cheap, avilable over-the-counter, and generally well-tolerated. However, they should be used cautiously in patients who have cardiovascular diseases or any of a relatively long and hard-to-remember list of relative contraindications, even if for a short duration. Contraindications include anticoagulation, inflammatory bowel disease, chronic kidney disease, history of peptic ulcers or gastroinestinal bleeding, among many others.
+Given that all the treatments for gout flares are basically equally effective,
+FlareAid will provide what is generally considered the best treatment option in order of:
 
-- Colchicine should be cheap, but in the US it's not and is prescription only. In other countries it is cheap and readily available. It is generally well-tolerated. However, it can cause diarrhea and other gastrointestinal symptoms, particularly when used at higher doses for gout flares. It also has a long list of drug interactions, some of which are serious. It is also contraindicated in patients with severe renal impairment.
+1. The least potential for harm to the patient
+2. The cost and ease of access to the medication
 
-- Prednisone is sort of last resort, but is used all the time for gout flares. It's safe and cheap, but it's a steroid and has all the side effects that come with that. It canraise blood sugar, cause weight gain, and increase the risk of infections. It can also cause mood changes and insomnia. It's also not a great choice for patients with diabetes, but winds up being used in this circumstance not uncommonly due to lack of other options.
+There are circumstances when knowledgeable providers will knowingly and intentionally choose a treatment option that is not the best option according to FlareAid. This is fine. Flare treatment is typically
+for a short duration and the potential for harm is low. However, it is important to be aware of the potential for harm and to discuss it with the patient.
