@@ -9,8 +9,7 @@ env:
   TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
   POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/postgres
 
-on:
-  workflow_call:
+on: workflow_dispatch
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
