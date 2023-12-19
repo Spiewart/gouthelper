@@ -103,7 +103,7 @@
           {% with trt_dict|get_key:"dose_adj" as dose_adj %}
             {% if dose_adj and trttype == "Ult" %}
               <li>Dose adjustment: {{ dose_adj }} mg every 4-6 weeks until uric acid at goal</li>
-              {% if object.dose_adj_xois and trt == "Allopurinol" or trt == "Febuxostat" %}
+              {% if object.dose_adj_xois and trt == "Allopurinol" or object.dose_adj_xois and trt == "Febuxostat" %}
                 <ul>
                   <li>
                     Reduced dosing for <a class="samepage-link" href="#ckd">CKD</a>
@@ -114,7 +114,7 @@
           {% endwith %}
           {% if trttype == "Ppx" %}
             <li>
-              Take until uric acid <a href="{% url "goalurates:about" %}">at goal</a> for 3-6 months
+              Take until uric acid <a href="{% url 'goalurates:about' %}">at goal</a> for 3-6 months
             </li>
           {% endif %}
         </ul>

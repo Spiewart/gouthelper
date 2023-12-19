@@ -11,7 +11,7 @@
 
 ## <span id="about">About</span>
 
-UltAid is a decision aid tool that determines the optimal choice of urate-lowering therapy for a patient. It is intended for use in patients with gout who are starting urate-lowering therapy (ULT), but also provides information about the recommended dose titration. Each UltAid will make a recommendation as well as provide the options for alternative therapies if there are any. If, given a patient's characteristics, there is no clear recommendation, a UltAid will default to recommending the patient see a rheumatologist.
+UltAid is a decision aid tool that determines the optimal choice of urate-lowering therapy for a patient. It is intended for use in patients with gout who are starting urate-lowering therapy ([ULT](/treatments/about/ult/)), but also provides information about the recommended dose titration. Each UltAid will make a recommendation as well as provide the options for alternative therapies if there are any. If, given a patient's characteristics, there is no clear recommendation, a UltAid will default to recommending the patient see a rheumatologist.
 
 UltAid does not provide information about whether or not urate-lowering therapy is appropriate for a patient. For that, create a [ULT](/ults/create/).
 

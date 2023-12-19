@@ -11,8 +11,8 @@
 
 ULT (urate-lowering therapy) is long-term treatment for gout. It is highly effective, in that
 individuals who are on ULT typically should have their gout completely eliminated. ULT is not,
-however, a cure. Nor is it a treatment for gout flares. ULT needs to be taken indefinitely, or
-else the gout will return.
+however, a cure. It needs to be taken indefinitely, or else the gout will return.
+ULT is also **NOT** a treatment for gout flares.
 
 ---
 

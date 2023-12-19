@@ -11,7 +11,7 @@
 
 ## <span id="about">About</span>
 
-Ult is a decision aid tool that determines if a patient has an indication for urate-lowering therapy and, if so, whether it is a strong or a conditional indication. It does not provide information about which urate-lowering therapy to use. For that, create a [UltAid](/ultaids/create/).
+Ult is a decision aid tool that determines if a patient has an indication for urate-lowering therapy ([ULT](/treatments/about/ult/)) and, if so, whether it is a strong or a conditional indication. It does not provide information about which urate-lowering therapy to use. For that, create a [UltAid](/ultaids/create/).
 
 ---
 
@@ -19,14 +19,14 @@ Ult is a decision aid tool that determines if a patient has an indication for ur
 
 The information needed to determine whether ULT is appropriate includes:
 
-1. How many flares the patient has had
-2. How frequently he or she gets flares
-3. Medical information about the patient, whether he or she has:
-   - Chronic kidney disease (CKD)
-   - Urate kidney stones
-   - Hyperuricemia (elevated blood uric acid)
-   - Gouty erosions
-   - Gouty tophi
+- **Number of Flares**: How many flares has the patient had?
+- **Frequency of Flares**: How frequently does he or she get gout flares? Specifically, how many per flares per year?
+- **Medical History**: Does the patient have any of the following:
+  - Chronic kidney disease (CKD)
+  - Urate kidney stones
+  - Hyperuricemia (elevated blood uric acid)
+  - Gouty erosions
+  - Gouty tophi
 
 The ULT will use this information to determine whether there is an indication for urate-lowering therapy or not. The American College of Rheumatology Guidelines for the Management of Gout[<sup>1</sup>](#ref-1) are used to determine the strength of the indication.
 

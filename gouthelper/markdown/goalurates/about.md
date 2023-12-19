@@ -11,7 +11,7 @@
 
 ## <span id="about">About</span>
 
-The GoalUrate is a decision aid tool that determines what the goal uric acid is for a patient with gout who is on or initiating urate-lowering therapy. It is essentially how low providers should aim for the patient's uric acid to be when adjusting the dose of urate-lowering therapy.
+The GoalUrate is a decision aid tool that determines what the goal uric acid is for a patient with gout who is on or initiating urate-lowering therapy ([ULT](/treatments/about/ult/)). It is essentially how low providers should aim for the patient's uric acid to be when adjusting the dose of ULT.
 
 ---
 
