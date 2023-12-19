@@ -352,3 +352,29 @@ class TestUltAidUpdate(TestCase):
         ultaid.refresh_from_db()
         self.assertEqual(ultaid.hlab5801, hlab5801)
         self.assertTrue(hlab5801.value)
+
+    def test__post_ckd_without_detail_saves(self):
+        """Test that a POST request can create or update a CKD instance without
+        an associated CkdDetail instance. This is unique to certain models, like
+        UltAid, that doesn't require CkdDetail for processing."""
+        ultaid = UltAidFactory()
+        self.assertFalse(ultaid.ckd)
+        self.assertFalse(ultaid.ckddetail)
+        ultaid_data = {
+            "dateofbirth-value": ultaid.dateofbirth.value,
+            "gender-value": ultaid.gender.value,
+            "ethnicity-value": ultaid.ethnicity.value,
+            "hlab5801-value": "",
+            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
+            f"{MedHistoryTypes.CKD}-value": True,
+            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            f"{MedHistoryTypes.XOIINTERACTION}-value": False,
+        }
+        response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
+        self.assertEqual(response.status_code, 302)
+        ultaid.refresh_from_db()
+        delattr(ultaid, "ckd")
+        delattr(ultaid, "ckddetail")
+        self.assertTrue(ultaid.ckd)
+        self.assertFalse(ultaid.ckddetail)

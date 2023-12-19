@@ -1051,20 +1051,17 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                             ).process()
                             # Need mark baselinecreatinine and ckddetail for saving because their
                             # related Ckd object will not have been saved yet
-                            if baselinecreatinine:
+                            if baselinecreatinine and baselinecreatinine.instance:
                                 # Check if the baselinecreatinine has a to_delete attr, and mark for deletion if so
-                                if baselinecreatinine.instance and hasattr(baselinecreatinine.instance, "to_delete"):
+                                if hasattr(baselinecreatinine.instance, "to_delete"):
                                     medhistorydetails_to_remove.append(baselinecreatinine)
-                                elif (
-                                    hasattr(baselinecreatinine, "changed_data")
-                                    and "value" in baselinecreatinine.changed_data
-                                ) or not hasattr(baselinecreatinine, "changed_data"):
+                                elif hasattr(baselinecreatinine.instance, "to_save"):
                                     medhistorydetails_to_add.append(baselinecreatinine)
 
                             if ckddetail:
-                                if hasattr(ckddetail, "to_delete"):
+                                if ckddetail.instance and hasattr(ckddetail.instance, "to_delete"):
                                     medhistorydetails_to_remove.append(ckddetail)
-                                else:
+                                elif ckddetail.instance and hasattr(ckddetail.instance, "to_save"):
                                     medhistorydetails_to_add.append(ckddetail)
                             if ckddetail_errors and errors_bool is not True:
                                 errors_bool = True
