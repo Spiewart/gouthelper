@@ -1057,7 +1057,6 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
                                     medhistorydetails_to_remove.append(baselinecreatinine)
                                 elif hasattr(baselinecreatinine.instance, "to_save"):
                                     medhistorydetails_to_add.append(baselinecreatinine)
-
                             if ckddetail:
                                 if ckddetail.instance and hasattr(ckddetail.instance, "to_delete"):
                                     medhistorydetails_to_remove.append(ckddetail)

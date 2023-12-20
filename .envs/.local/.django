@@ -2,3 +2,7 @@
 # ------------------------------------------------------------------------------
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
+
+
+# Set to True for development/pseudouser Git branch
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=True

@@ -1,4 +1,4 @@
-<div class="col-auto">
+<div class="col">
   {% if object.recommendation %}
     {% if recommendation.0 == "Colchicine" %}
       {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 colchicine=True trttype=trttype %}
@@ -6,7 +6,7 @@
       {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 trttype=trttype %}
     {% endif %}
   {% else %}
-    <p>No recommendation available.</p>
+    <p>No recommendation available. See a rheumatologist for further evaluation.</p>
     {% if trttype == "Ult" %}
       {% if object.xoiinteraction %}
         <p>
@@ -20,8 +20,6 @@
           this should be done with a rheumatologist and pharmacist.
         </p>
       {% endif %}
-    {% else %}
-      <p>See a rheumatologist for further evaluation.</p>
     {% endif %}
   {% endif %}
 </div>

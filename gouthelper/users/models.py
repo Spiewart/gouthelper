@@ -9,6 +9,34 @@ from simple_history.models import HistoricalRecords
 from .choices import Roles
 
 
+class GouthelperUserManager(BaseUserManager):
+    """Custom User model manager for Gouthelper. It only overrides the create_superuser method."""
+
+    def create_user(self, username, email, password=None):
+        """Create and save a User with the given email and password."""
+        user = self.model(
+            username=username,
+            email=email,
+        )
+        user.set_password(password)
+        user.save()
+        return user
+
+    def create_superuser(self, email, password, **extra_fields):
+        """Create and save a SuperUser with the given email and password. Set
+        role to ADMIN."""
+        user = self.model(
+            email=email,
+            is_staff=True,
+            is_superuser=True,
+            role=Roles.ADMIN,
+            **extra_fields,
+        )
+        user.set_password(password)
+        user.save()
+        return user
+
+
 class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
     """
     Default custom user model for Gouthelper.
@@ -29,13 +57,14 @@ class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
     name = CharField(_("Name of User"), blank=True, max_length=255)
     first_name = None  # type: ignore
     last_name = None  # type: ignore
-    role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PATIENT)
+    role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PROVIDER)
     creator = ForeignKey(
         "self",
         on_delete=SET_NULL,
         null=True,
         related_name=("user_creator"),
     )
+    objects = GouthelperUserManager()
     history = HistoricalRecords()
 
     def get_absolute_url(self) -> str:
@@ -60,7 +89,7 @@ class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
 
     def save(self, *args, **kwargs):
         # If a new user, set the user's role based off the
-        # # base_role property
+        # base_role property
         if not self.pk and hasattr(self, "base_role"):
             self.role = self.base_role
         return super().save(*args, **kwargs)
@@ -70,6 +99,10 @@ class PatientManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
         results = super().get_queryset(*args, **kwargs)
         return results.filter(role=User.Roles.PATIENT)
+
+    def create(self, **kwargs):
+        kwargs.update({"role": Roles.PATIENT})
+        return super().create(**kwargs)
 
 
 class ProviderManager(BaseUserManager):
@@ -82,6 +115,10 @@ class PseudopatientManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
         results = super().get_queryset(*args, **kwargs)
         return results.filter(role=User.Roles.PSEUDOPATIENT)
+
+    def create(self, **kwargs):
+        kwargs.update({"role": Roles.PSEUDOPATIENT})
+        return super().create(**kwargs)
 
 
 class AdminManager(BaseUserManager):

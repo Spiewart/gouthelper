@@ -1,10 +1,12 @@
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
+from django.dispatch import receiver  # type: ignore
 from django.urls import reverse  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..users.choices import Roles
 from ..utils.models import GouthelperModel
 
 
@@ -18,14 +20,32 @@ class Profile(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
         on_delete=models.CASCADE,
     )
 
+    def __str__(self):
+        return str(self.user.username + "'s Profile")
 
-class AdminProfile(Profile):
+    def get_absolute_url(self):
+        return reverse("users:detail", kwargs={"username": self.user_username})
+
+
+class ProviderBase(Profile):
+    class Meta:
+        abstract = True
+
+
+class AdminProfile(ProviderBase):
     """Admin User Profile. Meant for superusers, organizational staff who are not explicitly providers,
     or contributors to Gouthelper.
     """
 
-    organization = models.CharField(max_length=200, help_text="Organization", null=True, blank=True)
     history = HistoricalRecords()
+
+
+# post_save() signal to create AdminProfile at User creation
+@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
+def update_or_create_adminprofile(sender, instance, **kwargs):
+    # Check if the User is an Admin and is being created
+    if instance.role == Roles.ADMIN and instance._state.adding:
+        AdminProfile.objects.create(user=instance)
 
 
 class PatientProfile(Profile):
@@ -35,40 +55,28 @@ class PatientProfile(Profile):
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="patient_provider",
-        null=True,
-        blank=True,
-        default=None,
-    )
-    patient_id = models.IntegerField(
-        help_text="Does the patient have an ID for you to reference?\
-Do not put anything personal information in this field.",
+        related_name="patient_providers",
         null=True,
         blank=True,
         default=None,
     )
     history = HistoricalRecords()
 
-    def __str__(self):
-        return str(self.user.username + "'s profile")
 
-    def get_absolute_url(self):
-        return reverse("users:detail", kwargs={"username": self.user_username})
-
-
-class ProviderProfile(Profile):
+class ProviderProfile(ProviderBase):
     """Provider User Profile.
     Meant for providers who want to keep track of their patients Gouthelper data.
     """
 
-    organization = models.CharField(max_length=200, help_text="Organization", null=True, blank=True)
-    surrogate = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="surrogate_user",
-    )
     history = HistoricalRecords()
+
+
+# post_save() signal to create ProviderProfile at User creation
+@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
+def update_or_create_providerprofile(sender, instance, **kwargs):
+    # Check if the User is a Provider and is being created
+    if instance.role == Roles.PROVIDER and instance._state.adding:
+        ProviderProfile.objects.create(user=instance)
 
 
 class PseudopatientProfile(Profile):
@@ -78,27 +86,9 @@ class PseudopatientProfile(Profile):
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="pseudopatient_provider",
-        null=True,
-        blank=True,
-        default=None,
-    )
-    # alias field for provider's to use to identify different pseudopatients
-    alias = models.CharField(
-        max_length=200,
-        help_text="Does the patient have an alias for you to reference? \
-Do not put anything personal information in this field.",
+        related_name="pseudopatient_providers",
         null=True,
         blank=True,
         default=None,
     )
     history = HistoricalRecords()
-
-    def __str__(self):
-        if self.alias:
-            return str(self.alias + "'s profile")
-        else:
-            return str(self.user.username + "'s profile")
-
-    def get_absolute_url(self):
-        return reverse("users:detail", kwargs={"username": self.user_username})
