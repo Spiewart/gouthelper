@@ -46,6 +46,12 @@ def is_not_pseudopatient(user):
 
 
 @rules.predicate
+def is_pseudopatient(_, obj):
+    """Expects a User object."""
+    return obj.role == Roles.PSEUDOPATIENT
+
+
+@rules.predicate
 def provider_kwarg_is_provider(user, obj):
     """Expects a string or None as obj."""
     return obj == user.username if obj else True
@@ -63,10 +69,12 @@ def list_belongs_to_user(user, obj):
     return user.username == obj if obj else False
 
 
+is_providerless_pseudopatient = is_pseudopatient & has_no_provider
+
 add_user_with_provider = is_an_admin | is_a_provider
-change_user = has_no_provider | is_patient | is_provider
+change_user = is_providerless_pseudopatient | is_patient | is_provider
 delete_user = is_patient | is_provider
-view_user = has_no_provider | is_patient | is_provider
+view_user = is_providerless_pseudopatient | is_patient | is_provider
 view_provider_list = list_belongs_to_user
 
 rules.add_rule("can_add_user", is_not_pseudopatient)
@@ -76,7 +84,10 @@ rules.add_perm("users.can_add_user_with_provider", add_user_with_provider)
 rules.add_rule("can_add_user_with_specific_provider", provider_kwarg_is_provider)
 rules.add_perm("users.can_add_user_with_specific_provider", provider_kwarg_is_provider)
 rules.add_rule("can_delete_user", delete_user)
+rules.add_perm("users.can_delete_user", delete_user)
 rules.add_rule("can_edit_user", change_user)
+rules.add_perm("users.can_edit_user", change_user)
 rules.add_rule("can_view_user", view_user)
+rules.add_perm("users.can_view_user", view_user)
 rules.add_rule("can_view_provider_list", view_provider_list)
 rules.add_perm("users.can_view_provider_list", view_provider_list)

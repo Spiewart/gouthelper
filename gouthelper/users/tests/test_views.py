@@ -359,21 +359,84 @@ class TestUserRedirectView:
         assert view.get_redirect_url() == f"/users/{user.username}/"
 
 
-class TestUserDetailView:
-    def test_authenticated(self, user: User, rf: RequestFactory):
-        user = UserFactory()
-        request = rf.get(f"users/{user.username}/")
-        request.user = user
-        response = user_detail_view(request, username=user.username)
+class TestUserDetailView(TestCase):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient.profile.provider = self.provider
+        self.provider_pseudopatient.profile.save()
+        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient.profile.provider = self.admin
+        self.admin_pseudopatient.profile.save()
+        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+
+    def test_authenticated(self):
+        request = self.rf.get(f"users/{self.provider.username}/")
+        request.user = self.provider
+        response = user_detail_view(request, username=self.provider.username)
 
         assert response.status_code == 200
 
-    def test_not_authenticated(self, user: User, rf: RequestFactory):
-        request = rf.get("/fake-url/")
+    def test_not_authenticated(self):
+        request = self.rf.get("/fake-url/")
         request.user = AnonymousUser()
-        response = user_detail_view(request, username=user.username)
+        response = user_detail_view(request, username=self.provider.username)
         login_url = reverse(settings.LOGIN_URL)
 
         assert isinstance(response, HttpResponseRedirect)
         assert response.status_code == 302
         assert response.url == f"{login_url}?next=/fake-url/"
+
+    def test__rules_provider_own_detail(self):
+        """Test that a Provider can see his or her own detail."""
+        view = user_detail_view
+        kwargs = {"username": self.provider.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        assert view(request, **kwargs)
+
+    def test__rules_provider_own_patient(self):
+        """Test that a Provider can see his or her own Pseudopatient's detail."""
+        view = user_detail_view
+        kwargs = {"username": self.provider_pseudopatient.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        assert view(request, **kwargs)
+
+    def test__rules_provider_cannot_see_admin(self):
+        """Test that a Provider cannot see an Admin's detail."""
+        view = user_detail_view
+        kwargs = {"username": self.admin.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view(request, **kwargs)
+
+    def test__rules_provider_cannot_see_admin_pseudopatient(self):
+        """Test that a Provider cannot see an Admin's Pseudopatient's detail."""
+        view = user_detail_view
+        kwargs = {"username": self.admin_pseudopatient.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view(request, **kwargs)
+
+    def test__rules_provider_cannot_see_patient(self):
+        """Test that a Provider cannot see a Patient's detail."""
+        view = user_detail_view
+        kwargs = {"username": self.patient.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view(request, **kwargs)
+
+    def test__rules_provider_can_see_anonymous_pseudopatient(self):
+        """Test that a Provider can see an Anonymous Pseudopatient's detail."""
+        view = user_detail_view
+        kwargs = {"username": self.anon_pseudopatient.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider
+        assert view(request, **kwargs)
