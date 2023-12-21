@@ -3,10 +3,12 @@ from django.contrib.auth.models import AbstractUser
 from django.db.models import SET_NULL, CharField, CheckConstraint, ForeignKey, Q
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords
 
 from .choices import Roles
+from .rules import change_user, delete_user, view_user
 
 
 class GouthelperUserManager(BaseUserManager):
@@ -37,7 +39,7 @@ class GouthelperUserManager(BaseUserManager):
         return user
 
 
-class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
+class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
     """
     Default custom user model for Gouthelper.
     If adding fields that need to be filled at user signup,
@@ -51,6 +53,11 @@ class User(RulesModelMixin, AbstractUser, metaclass=RulesModelBase):
                 check=(Q(role__in=Roles.values)),
             ),
         ]
+        rules_permissions = {
+            "change": change_user,
+            "delete": delete_user,
+            "view": view_user,
+        }
 
     Roles = Roles
     # First and last name do not cover name patterns around the globe

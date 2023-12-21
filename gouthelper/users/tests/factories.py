@@ -8,6 +8,7 @@ from factory.django import DjangoModelFactory
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.tests.factories import GenderFactory
+from ...profiles.models import AdminProfile, PatientProfile, ProviderProfile, PseudopatientProfile
 from ...profiles.tests.factories import PatientProfileFactory
 from ..choices import Roles
 
@@ -32,6 +33,18 @@ class UserFactory(DjangoModelFactory):
             ).evaluate(None, None, extra={"locale": None})
         )
         self.set_password(password)
+
+    @post_generation
+    def create_profile(self, create: bool, extracted: Sequence[Any], **kwargs):
+        if create:
+            if self.role == Roles.PATIENT:
+                PatientProfile(user=self).save()
+            elif self.role == Roles.PROVIDER:
+                ProviderProfile(user=self).save()
+            elif self.role == Roles.ADMIN:
+                AdminProfile(user=self).save()
+            elif self.role == Roles.PSEUDOPATIENT:
+                PseudopatientProfile(user=self).save()
 
     @classmethod
     def _after_postgeneration(cls, instance, create, results=None):

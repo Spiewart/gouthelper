@@ -6,7 +6,7 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1>Pseudopatients</h1>
+      <h1>{{ view.kwargs|get_key:"username"|capfirst }}'s Pseudopatients</h1>
     </div>
     <div class="col align-items-center d-flex">
       <a type="button"
@@ -14,8 +14,10 @@
          href=""
          role="button">About</a>
       <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href=""
+         class="btn btn-primary btn-lg mini-button"
+         hx-post="{% url 'users:provider-create-pseudopatient' view.kwargs|get_key:'username' %}"
+         hx-trigger="click"
+         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
          role="button">Create</a>
     </div>
   </div>
@@ -24,29 +26,32 @@
   <main role="main">
     <div class="container bodytainer">
       {% for object in object_list %}
-        <div class="container">
-          <h2>
-            <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ object.username }}</a>
-          </h2>
+        <div class="card spacious-cards">
+          <div class="card-header"></div>
+          <div class="card-body">
+            <h3 class="card-title">
+              <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ view.kwargs.username }}-{{ object.created }}</a>
+            </h3>
+          </div>
         </div>
       {% endfor %}
-    </div>
-    {% if object_list %}
-      {% if page_obj %}
-        <div class="pagination">
-          <span class="step-links">
-            {% if page_obj.has_previous %}
-              <a href="?page=1" class="hyperlink"><< first</a>
-              <a href="?page={{ page_obj.previous_page_number }}" class="hyperlink">previous</a>
-            {% endif %}
-            <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-            {% if page_obj.has_next %}
-              <a href="?page={{ page_obj.next_page_number }}" class="hyperlink">next</a>
-              <a href="?page={{ page_obj.paginator.num_pages }}" class="hyperlink">last >></a>
-            {% endif %}
-          </span>
-        </div>
+      {% if object_list %}
+        {% if page_obj %}
+          <div class="pagination">
+            <span class="step-links">
+              {% if page_obj.has_previous %}
+                <a href="?page=1" class="hyperlink"><< first</a>
+                <a href="?page={{ page_obj.previous_page_number }}" class="hyperlink">previous</a>
+              {% endif %}
+              <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="hyperlink">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}" class="hyperlink">last >></a>
+              {% endif %}
+            </span>
+          </div>
+        {% endif %}
       {% endif %}
-    {% endif %}
+    </div>
   </main>
 {% endblock content %}

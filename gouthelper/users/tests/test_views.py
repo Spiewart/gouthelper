@@ -6,7 +6,7 @@ from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponseRedirect
-from django.test import RequestFactory
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -15,22 +15,28 @@ from ..choices import Roles
 from ..forms import UserAdminChangeForm
 from ..models import Pseudopatient, User
 from ..tests.factories import UserFactory
-from ..views import PseudopatientCreateView, UserRedirectView, UserUpdateView, user_detail_view
+from ..views import PseudopatientCreateView, PseudopatientListView, UserRedirectView, UserUpdateView, user_detail_view
 
 pytestmark = pytest.mark.django_db
 
 
-class TestPseudoPatientCreateView:
+class TestPseudoPatientCreateView(TestCase):
     """Tests for the PseudopatientCreateView, which is actually a View
     with a post method, not a CreateView.
     """
 
-    def test__post_no_user(self, rf: RequestFactory):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+
+    def test__post_no_user(self):
         """Test that the view's post() method creates a Pseudopatient
         with a unique username when no provider kwarg is passed in the url.
         """
         view = PseudopatientCreateView()
-        request = rf.get("/fake-url/")
+        request = self.rf.post("/fake-url/")
         request.user = AnonymousUser()
         view.post(request=request)
         assert Pseudopatient.objects.count() == 1
@@ -41,14 +47,14 @@ class TestPseudoPatientCreateView:
         assert profile.user == user
         assert profile.provider is None
 
-    def test__post_with_user_no_provider_kwarg(self, rf: RequestFactory):
+    def test__post_with_provider_no_provider_kwarg(self):
         """Test that the view's post() method creates a Pseudopatient with
-        a unique username when called by a logged in User but with no provider
+        a unique username when called by a logged in Provider but with no provider
         kwarg in the url.
         """
         view = PseudopatientCreateView()
-        request = rf.get("/fake-url/")
-        request.user = UserFactory()
+        request = self.rf.post("/fake-url/")
+        request.user = self.provider
         view.post(request=request)
         assert Pseudopatient.objects.count() == 1
         user = Pseudopatient.objects.last()
@@ -58,14 +64,14 @@ class TestPseudoPatientCreateView:
         assert profile.user == user
         assert profile.provider is None
 
-    def test__post_with_user_and_provider_kwarg(self, rf: RequestFactory):
+    def test__post_with_provider_and_provider_kwarg(self):
         """Test that the view's post() method creates a Pseudopatient with
         a unique username when called by a logged in User and with a provider
         kwarg in the url.
         """
         view = PseudopatientCreateView()
-        request = rf.get("/fake-url/")
-        request.user = UserFactory()
+        request = self.rf.post("/fake-url/")
+        request.user = self.provider
         view.post(request=request, username=request.user.username)
         assert Pseudopatient.objects.count() == 1
         user = Pseudopatient.objects.last()
@@ -75,17 +81,222 @@ class TestPseudoPatientCreateView:
         assert profile.user == user
         assert profile.provider == request.user
 
-    def test__post_user_provider_kwarg_discrepant(self, rf: RequestFactory):
+    def test__rules_provider_no_provider_kwarg(self):
+        """Test that the view's post() method creates a Pseudopatient
+        with a unique username when no provider kwarg is passed in the url
+        by a provider.
+        """
+        view = PseudopatientCreateView
+        request = self.rf.post(reverse("users:create-pseudopatient"))
+        request.user = self.provider
+        assert view.as_view()(request)
+        assert Pseudopatient.objects.count() == 1
+        user = Pseudopatient.objects.get()
+        assert user.role == Roles.PSEUDOPATIENT
+        assert PseudopatientProfile.objects.count() == 1
+        profile = PseudopatientProfile.objects.get()
+        assert profile.user == user
+        assert profile.provider is None
+
+    def test__rules_provider_with_provider_kwarg(self):
+        """Test that the view's post() method creates a Pseudopatient with
+        a unique username when called by a logged in Provider and with a provider
+        kwarg in the url.
+        """
+        view = PseudopatientCreateView
+        kwargs = {"username": self.provider.username}
+        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request.user = self.provider
+        assert view.as_view()(request, **kwargs)
+        assert Pseudopatient.objects.count() == 1
+        patient = Pseudopatient.objects.get()
+        assert patient.role == Roles.PSEUDOPATIENT
+        assert PseudopatientProfile.objects.count() == 1
+        profile = PseudopatientProfile.objects.get()
+        assert profile.user == patient
+        assert profile.provider == self.provider
+
+    def test__rules_provider_provider_kwarg_discrepant_denied(self):
         """Test that the view's post() method raises PermissionDenied
         when called by a logged in User and with a provider
         kwarg in the url that is not the same as the logged in User.
         """
-        view = PseudopatientCreateView()
-        request = rf.get("/fake-url/")
-        request.user = UserFactory()
-        with pytest.raises(PermissionDenied) as exc:
-            view.post(request=request, username=UserFactory().username)
-        assert exc.value.args[0] == "You can't create a pseudopatient for a User other than yourself."
+        view = PseudopatientCreateView
+        kwargs = {"username": self.patient.username}
+        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_admin_no_provider_kwarg(self):
+        """Test that the view's post() method creates a Pseudopatient
+        with a unique username when no provider kwarg is passed in the url
+        by an Admin.
+        """
+        view = PseudopatientCreateView
+        request = self.rf.post(reverse("users:create-pseudopatient"))
+        request.user = self.admin
+        assert view.as_view()(request)
+        assert Pseudopatient.objects.count() == 1
+        user = Pseudopatient.objects.get()
+        assert user.role == Roles.PSEUDOPATIENT
+        assert PseudopatientProfile.objects.count() == 1
+        profile = PseudopatientProfile.objects.get()
+        assert profile.user == user
+        assert profile.provider is None
+
+    def test__rules_admin_with_provider_kwarg(self):
+        """Test that the view's post() method creates a Pseudopatient with
+        a unique username when called by a logged in Admin and with a provider
+        kwarg in the url.
+        """
+        view = PseudopatientCreateView
+        kwargs = {"username": self.admin.username}
+        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request.user = self.admin
+        assert view.as_view()(request, **kwargs)
+        assert Pseudopatient.objects.count() == 1
+        patient = Pseudopatient.objects.get()
+        assert patient.role == Roles.PSEUDOPATIENT
+        assert PseudopatientProfile.objects.count() == 1
+        profile = PseudopatientProfile.objects.get()
+        assert profile.user == patient
+        assert profile.provider == self.admin
+
+    def test__rules_admin_provider_kwarg_discrepant_denied(self):
+        """Test that the view's post() method raises PermissionDenied
+        when called by a logged in Admin and with a provider
+        kwarg in the url that is not the same as the logged in User.
+        """
+        view = PseudopatientCreateView
+        kwargs = {"username": self.patient.username}
+        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request.user = self.admin
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_user_not_provider_or_admin_provider_kwarg(self):
+        """Test that the view's post() method raises PermissionDenied
+        when called by a logged in User who is not a Provider or Admin.
+        """
+        view = PseudopatientCreateView
+        kwargs = {"username": "blahaha"}
+        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request.user = self.patient
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_pseudopatient(self):
+        """Test that the view's post() method raises PermissionDenied
+        when called by a logged in Pseudopatient.
+        """
+        view = PseudopatientCreateView
+        request = self.rf.post(reverse("users:create-pseudopatient"))
+        request.user = UserFactory(role=Roles.PSEUDOPATIENT)
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request)
+
+
+class TestPseudopatientListView(TestCase):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient.profile.provider = self.provider
+        self.provider_pseudopatient.profile.save()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient.profile.provider = self.admin
+        self.admin_pseudopatient.profile.save()
+
+    def test__get_permission_object(self):
+        """Test that the view's get_permission_object() method returns
+        the username kwarg.
+        """
+        view = PseudopatientListView()
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        view.kwargs = {"username": self.provider.username}
+        assert view.get_permission_object() == self.provider.username
+
+    def test__get_queryset(self):
+        """Test that the view's get_queryset() method returns a queryset
+        of Pseudopatients whose provider is the requesting User.
+        """
+        view = PseudopatientListView()
+        kwargs = {"username": self.provider.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.provider
+        view.request = request
+        view.kwargs = kwargs
+        assert list(view.get_queryset()) == [self.provider_pseudopatient]
+
+    def test__rules_providers_own_list(self):
+        """Test that a Provider can see his or her own list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.provider.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.provider
+        assert view.as_view()(request, **kwargs)
+
+    def test__rules_provider_other_provider_list(self):
+        """Test that a Provider cannot see another Provider's list."""
+        provider2 = UserFactory()
+        provider2_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        provider2_pseudopatient.profile.provider = provider2
+        provider2_pseudopatient.profile.save()
+        view = PseudopatientListView
+        kwargs = {"username": provider2.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def tes__rules_provider_cannot_see_admin_list(self):
+        """Test that a Provider cannot see an Admin's list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.admin.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_admin_can_see_own_list(self):
+        """Test that an Admin can see his or her own list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.admin.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.admin
+        assert view.as_view()(request, **kwargs)
+
+    def test__rules_admin_cannot_see_providers_list(self):
+        """Test that an Admin cannot see a Provider's list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.provider.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.admin
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_patient_cannot_see_provider_list(self):
+        """Test that a Patient cannot see either list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.provider.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.patient
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_patient_cannot_see_admin_list(self):
+        """Test that a Patient cannot see either list."""
+        view = PseudopatientListView
+        kwargs = {"username": self.admin.username}
+        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request.user = self.patient
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
 
 
 class TestUserUpdateView:
@@ -150,8 +361,9 @@ class TestUserRedirectView:
 
 class TestUserDetailView:
     def test_authenticated(self, user: User, rf: RequestFactory):
-        request = rf.get("/fake-url/")
-        request.user = UserFactory()
+        user = UserFactory()
+        request = rf.get(f"users/{user.username}/")
+        request.user = user
         response = user_detail_view(request, username=user.username)
 
         assert response.status_code == 200
