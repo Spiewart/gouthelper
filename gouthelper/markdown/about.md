@@ -31,7 +31,7 @@ during COVID-19 in 2019 as a way to learn Python and web development and to try 
 ## <span id="why-gouthelper">Why Gouthelper?</span>
 
 Gout is pretty common and can be quite disabling. People miss activities, time with family, and work because of gout. The
-treatments for gout a VERY effective, but they are not used as often as they should be and are often used incorrectly. Further,
+treatments for gout are VERY effective, but they are not used as often as they should be and are often used incorrectly. Further,
 there are a lot of misconceptions about gout that are a detriment
 to getting it treated. Gouthelper is an attempt to help patients and providers get the most out of gout treatment.
 
