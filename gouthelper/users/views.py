@@ -6,11 +6,12 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import DetailView, ListView, RedirectView, UpdateView, View
+from django.views.generic import DeleteView, DetailView, ListView, RedirectView, UpdateView, View
 from django_htmx.http import HttpResponseClientRedirect
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
 from ..profiles.models import PseudopatientProfile
+from .choices import Roles
 from .models import Pseudopatient
 
 User = get_user_model()
@@ -75,6 +76,33 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
 
 
 pseudopatient_list_view = PseudopatientListView.as_view()
+
+
+class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMessageMixin, DeleteView):
+    model = User
+    success_message = _("User successfully deleted")
+
+    def get_success_message(self, cleaned_data):
+        if self.object.role == Roles.PSEUDOPATIENT:
+            return _("Pseudopatient successfully deleted")
+        else:
+            return _("User successfully deleted")
+
+    def get_success_url(self):
+        if self.request.user.is_authenticated and self.object != self.request.user:
+            return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})
+        else:
+            return reverse("contents:home")
+
+    def get_object(self):
+        username = self.kwargs.get("username", None)
+        if username:
+            return User.objects.filter(role=Roles.PSEUDOPATIENT).get(username=username)
+        else:
+            return self.request.user
+
+
+user_delete_view = UserDeleteView.as_view()
 
 
 class UserDetailView(LoginRequiredMixin, AutoPermissionRequiredMixin, DetailView):

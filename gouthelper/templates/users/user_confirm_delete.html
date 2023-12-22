@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+{% load static %}
+{% load project_tags %}
+
+{% block title %}
+  Delete {{ object }}
+{% endblock title %}
+{% block heading %}
+  <h1>Delete {{ object }}</h1>
+  <hr size="3" color="dark" />
+{% endblock heading %}
+{% block content %}
+  <main class="container">
+    {% if object == request.user %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'users:delete' %}">
+        {% csrf_token %}
+        <p>Are you sure you want to delete your account?</p>
+        <p>
+          This will permanently delete your account and any
+          data related to it (i.e. Pseudopatient, UltAid, Ult, PpxAid, Ppx, Flare(s), FlareAid, GoalUrate).
+        </p>
+        {{ form|crispy }}
+        <div class="control-group">
+          <div class="controls">
+            <button type="submit" class="btn btn-primary">Confirm</button>
+          </div>
+        </div>
+      </form>
+    {% else %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'users:delete-pseudopatient' object.username %}">
+        <p>Are you sure you want to delete "{{ object }}"?</p>
+        <p>
+          This will permanently the Pseudopatient and any
+          data related to it (i.e. UltAid, Ult, PpxAid, Ppx, Flare(s), FlareAid, GoalUrate).
+        </p>
+        {{ form|crispy }}
+        <div class="control-group">
+          <div class="controls">
+            <button type="submit" class="btn btn-primary">Confirm</button>
+          </div>
+        </div>
+      </form>
+    {% endif %}
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+{% endblock inline_javascript %}

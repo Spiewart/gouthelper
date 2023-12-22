@@ -1,11 +1,11 @@
 from django.contrib.auth.base_user import BaseUserManager  # type: ignore
 from django.contrib.auth.models import AbstractUser
-from django.db.models import SET_NULL, CharField, CheckConstraint, ForeignKey, Q
+from django.db.models import CharField, CheckConstraint, Q
 from django.urls import reverse
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
-from simple_history.models import HistoricalRecords
 
 from .choices import Roles
 from .rules import change_user, delete_user, view_user
@@ -65,14 +65,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     first_name = None  # type: ignore
     last_name = None  # type: ignore
     role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PROVIDER)
-    creator = ForeignKey(
-        "self",
-        on_delete=SET_NULL,
-        null=True,
-        related_name=("user_creator"),
-    )
     objects = GouthelperUserManager()
-    history = HistoricalRecords()
 
     def get_absolute_url(self) -> str:
         """Get URL for user's detail view.
@@ -83,7 +76,14 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         """
         return reverse("users:detail", kwargs={"username": self.username})
 
-    @property
+    def __str__(self) -> str:
+        """Unicode representation of User."""
+        if self.role == Roles.PSEUDOPATIENT:
+            # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
+            return f"{self.Roles(self.role).label}: {self.created.replace(microsecond=0, tzinfo=None)}"
+        return super().__str__()
+
+    @cached_property
     def profile(self):
         if self.role == self.Roles.PATIENT:
             return getattr(self, "patientprofile", None)
@@ -146,7 +146,7 @@ class Admin(User):
         proxy = True
 
     # Custom methods for ADMIN Role go here...
-    @property
+    @cached_property
     def profile(self):
         return getattr(self, "adminprofile", None)
 
@@ -164,7 +164,7 @@ class Patient(User):
 
     # Custom methods for Patient Role go here...
     @property
-    def profile(self):
+    def cached_property(self):
         return getattr(self, "patientprofile", None)
 
 
@@ -181,7 +181,7 @@ class Provider(User):
 
     # Custom methods for Provider Role go here...
     @property
-    def profile(self):
+    def cached_property(self):
         return getattr(self, "providerprofile", None)
 
 
@@ -197,6 +197,6 @@ class Pseudopatient(User):
         proxy = True
 
     # Custom methods for Pseudopatient Role go here...
-    @property
+    @cached_property
     def profile(self):
         return getattr(self, "pseudopatientprofile", None)

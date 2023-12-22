@@ -29,9 +29,19 @@
         <div class="card spacious-cards">
           <div class="card-header"></div>
           <div class="card-body">
-            <h3 class="card-title">
-              <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ view.kwargs.username }}-{{ object.created }}</a>
-            </h3>
+            <div class="row">
+              <div class="col">
+                <h3 class="card-title">
+                  <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ view.kwargs.username }}-{{ object.created }}</a>
+                </h3>
+              </div>
+              <div class="col">
+                <a type="button"
+                   class="btn btn-primary btn-lg mini-button"
+                   href="{% url 'users:delete-pseudopatient' object.username %}"
+                   role="button">Delete</a>
+              </div>
+            </div>
           </div>
         </div>
       {% endfor %}

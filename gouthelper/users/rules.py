@@ -13,7 +13,7 @@ def has_no_provider(_, obj):
 
 
 @rules.predicate
-def is_patient(obj, user):
+def is_user(obj, user):
     """Expects a User object."""
     return obj == user
 
@@ -72,9 +72,9 @@ def list_belongs_to_user(user, obj):
 is_providerless_pseudopatient = is_pseudopatient & has_no_provider
 
 add_user_with_provider = is_an_admin | is_a_provider
-change_user = is_providerless_pseudopatient | is_patient | is_provider
-delete_user = is_patient | is_provider
-view_user = is_providerless_pseudopatient | is_patient | is_provider
+change_user = is_user
+delete_user = is_user | is_provider
+view_user = is_providerless_pseudopatient | is_user | is_provider
 view_provider_list = list_belongs_to_user
 
 rules.add_rule("can_add_user", is_not_pseudopatient)
