@@ -7,6 +7,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..users.choices import Roles
+from ..users.models import Admin, Provider
 from ..utils.models import GouthelperModel
 
 
@@ -42,9 +43,17 @@ class AdminProfile(ProviderBase):
 
 # post_save() signal to create AdminProfile at User creation
 @receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
-def update_or_create_adminprofile(sender, instance, **kwargs):
+def update_or_create_adminprofile_via_user(sender, instance, created, **kwargs):
     # Check if the User is an Admin and is being created
-    if instance.role == Roles.ADMIN and instance._state.adding:
+    if instance.role == Roles.ADMIN and created:
+        AdminProfile.objects.create(user=instance)
+
+
+# post_save() signal to create AdminProfile at User creation
+@receiver(models.signals.post_save, sender=Admin)
+def update_or_create_adminprofile(sender, instance, created, **kwargs):
+    # Check if the User is an Admin and is being created
+    if instance.role == Roles.ADMIN and created:
         AdminProfile.objects.create(user=instance)
 
 
@@ -73,9 +82,17 @@ class ProviderProfile(ProviderBase):
 
 # post_save() signal to create ProviderProfile at User creation
 @receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
-def update_or_create_providerprofile(sender, instance, **kwargs):
+def update_or_create_providerprofile_via_user(sender, instance, created, **kwargs):
     # Check if the User is a Provider and is being created
-    if instance.role == Roles.PROVIDER and instance._state.adding:
+    if instance.role == Roles.PROVIDER and created:
+        ProviderProfile.objects.create(user=instance)
+
+
+# post_save() signal to create ProviderProfile at User creation
+@receiver(models.signals.post_save, sender=Provider)
+def update_or_create_providerprofile(sender, instance, created, **kwargs):
+    # Check if the User is a Provider and is being created
+    if instance.role == Roles.PROVIDER and created:
         ProviderProfile.objects.create(user=instance)
 
 
