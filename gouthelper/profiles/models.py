@@ -11,6 +11,26 @@ from ..users.models import Admin, Provider
 from ..utils.models import GouthelperModel
 
 
+def get_user_change(instance, request, **kwargs):
+    # https://django-simple-history.readthedocs.io/en/latest/user_tracking.html
+    """Method for django-simple-history to assign the user who made the change
+    to the HistoricalProfile history_user field. Written to deal with the case where
+    the User is deleting his or her own account and its associated profile and
+    setting the history_user to the User's id will result in an IntegrityError."""
+    # Check if the user is authenticated and the user is the User instance
+    # and if the url for the request is for the User's deletion
+    if request and request.user and request.user.is_authenticated:
+        if request.user == instance.user and request.path.endswith(reverse("users:delete")):
+            # Set the history_user to None
+            return None
+        else:
+            # Otherwise, return the request.user
+            return request.user
+    else:
+        # Otherwise, return None
+        return None
+
+
 class Profile(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
     # If you do this you need to either have a post_save signal or redirect to a profile_edit view on initial login
     class Meta:
@@ -38,7 +58,7 @@ class AdminProfile(ProviderBase):
     or contributors to Gouthelper.
     """
 
-    history = HistoricalRecords()
+    history = HistoricalRecords(get_user=get_user_change)
 
 
 # post_save() signal to create AdminProfile at User creation
@@ -69,7 +89,7 @@ class PatientProfile(Profile):
         blank=True,
         default=None,
     )
-    history = HistoricalRecords()
+    history = HistoricalRecords(get_user=get_user_change)
 
 
 class ProviderProfile(ProviderBase):
@@ -77,7 +97,7 @@ class ProviderProfile(ProviderBase):
     Meant for providers who want to keep track of their patients Gouthelper data.
     """
 
-    history = HistoricalRecords()
+    history = HistoricalRecords(get_user=get_user_change)
 
 
 # post_save() signal to create ProviderProfile at User creation

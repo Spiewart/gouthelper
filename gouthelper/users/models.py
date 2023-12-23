@@ -6,6 +6,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
+from simple_history.models import HistoricalRecords  # type: ignore
 
 from .choices import Roles
 from .rules import change_user, delete_user, view_user
@@ -39,6 +40,26 @@ class GouthelperUserManager(BaseUserManager):
         return user
 
 
+def get_user_change(instance, request, **kwargs):
+    # https://django-simple-history.readthedocs.io/en/latest/user_tracking.html
+    """Method for django-simple-history to assign the user who made the change
+    to the HistoricalUser history_user field. Written to deal with the case where
+    the User is deleting his or her own profile and setting the history_user
+    to the User's id will result in an IntegrityError."""
+    # Check if the user is authenticated and the user is the User instance
+    # and if the url for the request is for the User's deletion
+    if request and request.user and request.user.is_authenticated:
+        if request.user == instance and request.path.endswith(reverse("users:delete")):
+            # Set the history_user to None
+            return None
+        else:
+            # Otherwise, return the request.user
+            return request.user
+    else:
+        # Otherwise, return None
+        return None
+
+
 class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
     """
     Default custom user model for Gouthelper.
@@ -66,6 +87,9 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     last_name = None  # type: ignore
     role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PROVIDER)
     objects = GouthelperUserManager()
+    history = HistoricalRecords(
+        get_user=get_user_change,
+    )
 
     def get_absolute_url(self) -> str:
         """Get URL for user's detail view.
