@@ -620,6 +620,11 @@ class MedHistorysModelUpdateView(MedHistorysModelCreateView, UpdateView):
         """Method that iterates over the onetoones dict and adds the forms to the context."""
         for onetoone in onetoones:
             form_str = f"{onetoone}_form"
+            if onetoone == "dateofbirth" and form_str not in kwargs:
+                kwargs[form_str] = onetoones[onetoone]["form"](
+                    instance=getattr(object, onetoone),
+                    initial={"value": age_calc(object.dateofbirth.value) if object.dateofbirth else None},
+                )
             if form_str not in kwargs:
                 kwargs[form_str] = onetoones[onetoone]["form"](instance=getattr(object, onetoone))
 

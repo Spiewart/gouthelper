@@ -10,6 +10,7 @@ from django.utils import timezone  # type: ignore
 
 from ...contents.models import Content
 from ...dateofbirths.forms import DateOfBirthForm
+from ...dateofbirths.helpers import age_calc, yearsago
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.choices import Genders
@@ -200,7 +201,7 @@ class TestFlareCreate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": timezone.now().date(),
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "dialysis": False,
             "gender-value": Genders.FEMALE,
             "joints": [LimitedJointChoices.ELBOWL],
@@ -366,7 +367,7 @@ class TestFlareCreate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": timezone.now().date(),
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             f"{MedHistoryTypes.ANGINA}-value": True,
             f"{MedHistoryTypes.CAD}-value": True,
             f"{MedHistoryTypes.CHF}-value": True,
@@ -398,7 +399,7 @@ class TestFlareCreate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": timezone.now().date(),
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             f"{MedHistoryTypes.ANGINA}-value": True,
             "gender-value": "DRWHO",
             "joints": [LimitedJointChoices.ELBOWL],
@@ -513,7 +514,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": True,
             "date_ended": "",
             "date_started": self.flare.date_started,
-            "dateofbirth-value": timezone.now().date() - timedelta(days=365 * 64),
+            "dateofbirth-value": age_calc(timezone.now().date() - timedelta(days=365 * 64)),
             "gender-value": self.flare.gender.value,
             "joints": self.flare.joints,
             "onset": True,
@@ -652,7 +653,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": "",
             "date_ended": flare.date_ended,
             "date_started": flare.date_started,
-            "dateofbirth-value": flare.dateofbirth.value,
+            "dateofbirth-value": age_calc(flare.dateofbirth.value),
             "gender-value": flare.gender.value,
             "joints": flare.joints,
             "onset": flare.onset,
@@ -672,7 +673,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": "",
             "date_ended": flare.date_ended,
             "date_started": flare.date_started,
-            "dateofbirth-value": flare.dateofbirth.value,
+            "dateofbirth-value": age_calc(flare.dateofbirth.value),
             "gender-value": flare.gender.value,
             "joints": flare.joints,
             "onset": flare.onset,
@@ -745,7 +746,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": self.flare.date_started,
-            "dateofbirth-value": self.flare.dateofbirth.value,
+            "dateofbirth-value": age_calc(self.flare.dateofbirth.value),
             "gender-value": self.flare.gender.value,
             "joints": self.flare.joints,
             "onset": self.flare.onset,
@@ -775,7 +776,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": self.flare.date_started,
-            "dateofbirth-value": self.flare.dateofbirth.value,
+            "dateofbirth-value": age_calc(self.flare.dateofbirth.value),
             "gender-value": self.flare.gender.value,
             "joints": self.flare.joints,
             "onset": self.flare.onset,
@@ -812,7 +813,7 @@ class TestFlareUpdate(TestCase):
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": self.flare.date_started,
-            "dateofbirth-value": self.flare.dateofbirth.value,
+            "dateofbirth-value": age_calc(self.flare.dateofbirth.value),
             "gender-value": self.flare.gender.value,
             "joints": self.flare.joints,
             "onset": self.flare.onset,
@@ -843,11 +844,13 @@ class TestFlareUpdate(TestCase):
         chf = ChfFactory()
         self.flare.medhistorys.add(angina)
         self.flare.medhistorys.add(chf)
+        new_age = 42
+        new_date_of_birth = yearsago(new_age).date()
         flare_data = {
             "crystal_analysis": "",
             "date_ended": "",
             "date_started": self.flare.date_started,
-            "dateofbirth-value": "1981-01-01",
+            "dateofbirth-value": new_age,
             "gender-value": Genders.FEMALE,
             "joints": self.flare.joints,
             "onset": self.flare.onset,
@@ -864,7 +867,7 @@ class TestFlareUpdate(TestCase):
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), flare_data)
         self.assertEqual(response.status_code, 302)
         self.flare.refresh_from_db()
-        self.assertEqual(self.flare.dateofbirth.value, timezone.datetime(1981, 1, 1).date())
+        self.assertEqual(self.flare.dateofbirth.value, new_date_of_birth)
         self.assertEqual(self.flare.gender.value, Genders.FEMALE)
         self.assertIsNone(self.flare.urate)
         self.assertFalse(Urate.objects.all())
@@ -885,7 +888,7 @@ class TestFlareUpdate(TestCase):
         self.flare_data.update(
             {
                 "gender-value": Genders.FEMALE,
-                "dateofbirth-value": timezone.now().date() - timedelta(days=365 * 50),
+                "dateofbirth-value": age_calc(timezone.now().date() - timedelta(days=365 * 50)),
                 f"{MedHistoryTypes.MENOPAUSE}-value": "",
             }
         )

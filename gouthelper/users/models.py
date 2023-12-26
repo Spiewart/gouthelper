@@ -12,8 +12,8 @@ from .choices import Roles
 from .rules import change_user, delete_user, view_user
 
 
-class GouthelperUserManager(BaseUserManager):
-    """Custom User model manager for Gouthelper. It only overrides the create_superuser method."""
+class GoutHelperUserManager(BaseUserManager):
+    """Custom User model manager for GoutHelper. It only overrides the create_superuser method."""
 
     def create_user(self, username, email, password=None):
         """Create and save a User with the given email and password."""
@@ -62,7 +62,7 @@ def get_user_change(instance, request, **kwargs):
 
 class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
     """
-    Default custom user model for Gouthelper.
+    Default custom user model for GoutHelper.
     If adding fields that need to be filled at user signup,
     check forms.SignupForm and forms.SocialSignupForms accordingly.
     """
@@ -86,7 +86,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     first_name = None  # type: ignore
     last_name = None  # type: ignore
     role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PROVIDER)
-    objects = GouthelperUserManager()
+    objects = GoutHelperUserManager()
     history = HistoricalRecords(
         get_user=get_user_change,
     )

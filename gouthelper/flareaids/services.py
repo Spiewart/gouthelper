@@ -96,7 +96,7 @@ class FlareAidDecisionAid:
     @cached_property
     def defaultflaretrtsettings(self) -> "DefaultFlareTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
+        GoutHelper DefaultSettings."""
         return defaults_defaultflaretrtsettings(user=None)
 
     @cached_property

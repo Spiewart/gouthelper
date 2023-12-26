@@ -68,7 +68,7 @@ class TestDefaultsDefaultMedhistorysTrtType(TestCase):
 
 class TestDefaultsTrtTypeTrts(TestCase):
     def test__defaults_trttype_trts_no_user(self):
-        """Test no user. Should return Gouthelper defaults for ULT"""
+        """Test no user. Should return GoutHelper defaults for ULT"""
         default_ult_trts = defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
         self.assertTrue(isinstance(default_ult_trts, QuerySet))
         self.assertEqual(len(default_ult_trts), 3)

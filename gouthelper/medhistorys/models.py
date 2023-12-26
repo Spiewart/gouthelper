@@ -6,7 +6,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
 from .managers import (
@@ -40,8 +40,8 @@ from .managers import (
 )
 
 
-class MedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
-    """Gouthelper MedHistory model to store medical, family, social history data
+class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+    """GoutHelper MedHistory model to store medical, family, social history data
     for Patients. value field is a Boolean that is required and defaults to False.
     """
 

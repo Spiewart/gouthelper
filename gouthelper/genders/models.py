@@ -4,11 +4,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import Genders
 
 
-class Gender(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model representing biological gender.
     Gender is stored as an integer in value field. Male=0, Female=1."""
 

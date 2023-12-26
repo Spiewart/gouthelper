@@ -10,7 +10,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .services import PpxAidDecisionAid
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class PpxAid(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedAllergyAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -66,7 +66,7 @@ class PpxAid(
     @cached_property
     def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
+        GoutHelper DefaultSettings."""
         return defaults_defaultppxtrtsettings(user=None)
 
     @property

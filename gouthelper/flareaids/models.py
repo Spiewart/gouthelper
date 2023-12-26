@@ -11,7 +11,7 @@ from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..treatments.choices import Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class FlareAid(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedAllergyAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -63,8 +63,8 @@ class FlareAid(
     @cached_property
     def defaulttrtsettings(self) -> "DefaultFlareTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
-        # Fetch default FlareTrtSettings for Gouthelper with user=None
+        GoutHelper DefaultSettings."""
+        # Fetch default FlareTrtSettings for GoutHelper with user=None
         # TODO: When a patient is added to the model in the future, this will need to be updated.
         return defaults_defaultflaretrtsettings(user=None)
 

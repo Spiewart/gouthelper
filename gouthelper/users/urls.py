@@ -11,10 +11,6 @@ from gouthelper.users.views import (
 
 app_name = "users"
 urlpatterns = [
-    path("~redirect/", view=user_redirect_view, name="redirect"),
-    path("~update/", view=user_update_view, name="update"),
-    path("~delete/", view=user_delete_view, name="delete"),
-    path("<str:username>/", view=user_detail_view, name="detail"),
     path("pseudopatients/create/", view=pseudopatient_create_view, name="create-pseudopatient"),
     path("pseudopatients/delete/<str:username>/", view=user_delete_view, name="delete-pseudopatient"),
     path(
@@ -23,4 +19,8 @@ urlpatterns = [
         name="provider-create-pseudopatient",
     ),
     path("<str:username>/pseudopatients/", view=pseudopatient_list_view, name="pseudopatients"),
+    path("~redirect/", view=user_redirect_view, name="redirect"),
+    path("~update/", view=user_update_view, name="update"),
+    path("~delete/", view=user_delete_view, name="delete"),
+    path("<str:username>/", view=user_detail_view, name="detail"),
 ]

@@ -8,7 +8,7 @@ from .choices import SubjectChoices
 
 
 class ContactForm(forms.Form):
-    """Form for writing a contact e-mail to the Gouthelper admin(s)."""
+    """Form for writing a contact e-mail to the GoutHelper admin(s)."""
 
     SubjectChoices = SubjectChoices
 

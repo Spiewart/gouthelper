@@ -55,7 +55,7 @@ class PpxAidDecisionAid:
         self.medhistorys = self.ppxaid.medhistorys_qs
         self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
-        # Sideeffects are set to None because there are no User's in Gouthelper yet...
+        # Sideeffects are set to None because there are no User's in GoutHelper yet...
         self.sideeffects = None
 
     FlarePpxChoices = FlarePpxChoices
@@ -99,13 +99,13 @@ class PpxAidDecisionAid:
     @cached_property
     def defaultppxtrtsettings(self) -> "DefaultPpxTrtSettings":
         """Uses defaults_defaultsettings to fetch the DefaultPpxTrtSettings for the user or
-        Gouthelper DefaultPpxTrtSettings."""
+        GoutHelper DefaultPpxTrtSettings."""
         return defaults_defaultppxtrtsettings(user=None)
 
     @cached_property
     def default_trts(self) -> "QuerySet":
         """Uses defaults_defaulttrts_trttype to fetch the DefaultTrts for the user or
-        Gouthelper DefaultTrts.
+        GoutHelper DefaultTrts.
 
         Returns:
             QuerySet: of DefaultTrts filtered for trttype=PPX"""

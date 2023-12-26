@@ -87,7 +87,7 @@ class TestCkdProcessor(TestCase):
             instance=self.baselinecreatinine, data={"baselinecreatinine-value": self.baselinecreatinine.value}
         )
         self.dateofbirth_form = DateOfBirthForm(
-            instance=self.dateofbirth, data={"dateofbirth-value": self.dateofbirth.value}
+            instance=self.dateofbirth, data={"dateofbirth-value": age_calc(self.dateofbirth.value)}
         )
         self.gender_form = GenderForm(instance=self.gender, data={"gender-value": self.gender.value})
         self.service, errors = setup_service(
@@ -225,7 +225,8 @@ class TestCkdProcessor(TestCase):
         self.assertTrue(self.service.changed_data)
         # Test that changing the dateofbirth value returns True
         self.dateofbirth_form = DateOfBirthForm(
-            instance=self.dateofbirth, data={"dateofbirth-value": timezone.now().date() - timedelta(days=365 * 20)}
+            instance=self.dateofbirth,
+            data={"dateofbirth-value": age_calc(timezone.now().date() - timedelta(days=365 * 20))},
         )
         self.service, _ = setup_service(
             ckd=self.ckd,
@@ -779,7 +780,7 @@ class TestCkdProcessorCheckForErrors(TestCase):
         # Create a DateOfBirthForm and GenderForm
         self.dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 20))
         self.dateofbirth_form = DateOfBirthForm(
-            instance=self.dateofbirth, data={"dateofbirth-value": self.dateofbirth.value}
+            instance=self.dateofbirth, data={"dateofbirth-value": age_calc(self.dateofbirth.value)}
         )
         self.gender = GenderFactory()
         self.gender_form = GenderForm(instance=self.gender, data={"gender-value": self.gender.value})

@@ -8,7 +8,7 @@ from factory.django import DjangoModelFactory
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.tests.factories import GenderFactory
-from ...profiles.models import AdminProfile, PatientProfile, ProviderProfile, PseudopatientProfile
+from ...profiles.models import PatientProfile, PseudopatientProfile
 from ...profiles.tests.factories import PatientProfileFactory
 from ..choices import Roles
 
@@ -39,10 +39,6 @@ class UserFactory(DjangoModelFactory):
         if create:
             if self.role == Roles.PATIENT:
                 PatientProfile(user=self).save()
-            elif self.role == Roles.PROVIDER:
-                ProviderProfile(user=self).save()
-            elif self.role == Roles.ADMIN:
-                AdminProfile(user=self).save()
             elif self.role == Roles.PSEUDOPATIENT:
                 PseudopatientProfile(user=self).save()
 

@@ -12,7 +12,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LabTypes, LowerLimits, Units, UpperLimits
 from .helpers import (
     labs_eGFR_calculator,
@@ -52,7 +52,7 @@ class CreatinineBase:
         return labs_stage_calculator(self.eGFR)
 
 
-class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         abstract = True
         constraints = [
@@ -280,7 +280,7 @@ class Urate(Lab):
         return [MedHistoryTypes.GOUT]
 
 
-class Hlab5801(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         constraints = [
             models.CheckConstraint(

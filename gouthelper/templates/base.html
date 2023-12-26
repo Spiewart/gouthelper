@@ -20,7 +20,7 @@
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>
       {% block title %}
-        Gouthelper
+        GoutHelper
       {% endblock title %}
     </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -60,12 +60,9 @@
                   aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
           </button>
-          <a class="navbar-brand" href="{% url 'contents:home' %}">Gouthelper</a>
+          <a class="navbar-brand" href="{% url 'contents:home' %}">GoutHelper</a>
           <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
-              <li class="nav-item active">
-                <a class="nav-link" href="{% url 'contents:home' %}">Home <span class="visually-hidden">(current)</span></a>
-              </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'flares:create' %}">Flare</a>
               </li>
@@ -145,12 +142,12 @@
           <hr size="3" color="dark" />
           <blockquote class="blockquote footer-blockquote">
             <p class="text-muted small">
-              Gouthelper is the private opinion of one amateur web developer who also happens to be a rheumatologist.
+              GoutHelper is the private opinion of one amateur web developer who also happens to be a rheumatologist.
               It does not represent his professional opinion, that of his employer, or any referenced professional society.
-              Gouthelper is not a substitute for actual medical advice from a real provider and should not be used as such.
+              GoutHelper is not a substitute for actual medical advice from a real provider and should not be used as such.
             </p>
             <p class="text-muted small">
-              <a href="{% url 'contents:about' %}">About Gouthelper</a>
+              <a href="{% url 'contents:about' %}">About GoutHelper</a>
             </p>
             <p class="text-muted small">
               <a href="{% url 'contact:contact' %}">Contact</a> us with any questions or concerns.

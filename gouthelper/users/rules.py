@@ -42,7 +42,10 @@ def is_a_provider(user):
 @rules.predicate
 def is_not_pseudopatient(user):
     """Expects a User object."""
-    return user.role != Roles.PSEUDOPATIENT if user else True
+    if user.is_authenticated:
+        return user.role != Roles.PSEUDOPATIENT if user else True
+    else:
+        return True
 
 
 @rules.predicate

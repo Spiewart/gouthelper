@@ -4,7 +4,7 @@ from ..treatments.dicts import treatments_get_default_dosing
 
 def create_or_update_default_settings(apps, schema_editor):
     """Method that creates or updates DefaultSettings, DefaultFlareTrtSettings,
-    DefaultPpxTrtSettings, and DefaultUltTrtSettings Gouthelper default objects
+    DefaultPpxTrtSettings, and DefaultUltTrtSettings GoutHelper default objects
     in the database."""
     DefaultFlareTrtSettings = apps.get_model("defaults", "DefaultFlareTrtSettings")
     DefaultPpxTrtSettings = apps.get_model("defaults", "DefaultPpxTrtSettings")
@@ -22,7 +22,7 @@ def create_or_update_default_settings(apps, schema_editor):
 
 def create_or_update_default_trt_medhistory_contras(apps, schema_editor):
     """Method that creates or updates DefaultMedHistory objects in the database.
-    Uses historys_get_treatments_contras to get the Gouthelper dict of default
+    Uses historys_get_treatments_contras to get the GoutHelper dict of default
     values.
     """
     DefaultMedHistory = apps.get_model("defaults", "DefaultMedHistory")
@@ -41,7 +41,7 @@ def create_or_update_default_trt_medhistory_contras(apps, schema_editor):
 
 def create_or_update_default_treatments(apps, schema_editor):
     """Method that creates or updates DefaultTrt objects in the database.
-    Uses treatments_get_default_dosing to get the Gouthelper dict of default
+    Uses treatments_get_default_dosing to get the GoutHelper dict of default
     values.
     """
     DefaultTrt = apps.get_model("defaults", "DefaultTrt")
@@ -59,7 +59,7 @@ def create_or_update_default_treatments(apps, schema_editor):
 
 def delete_obsolete_default_trt_medhistory_contras(apps, schema_editor):
     """Method that deletes obsolete DefaultMedHistory objects in the database.
-    Uses historys_get_treatments_contras to get the Gouthelper list of default
+    Uses historys_get_treatments_contras to get the GoutHelper list of default
     values.
     """
     DefaultMedHistory = apps.get_model("defaults", "DefaultMedHistory")
@@ -74,7 +74,7 @@ def delete_obsolete_default_trt_medhistory_contras(apps, schema_editor):
 
 def delete_obsolete_default_treatments(apps, schema_editor):
     """Method that deletes obsolete DefaultTrt objects in the database.
-    Uses treatments_get_default_dosing to get the Gouthelper list of default
+    Uses treatments_get_default_dosing to get the GoutHelper list of default
     values.
     """
     DefaultTrt = apps.get_model("defaults", "DefaultTrt")

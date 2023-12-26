@@ -74,7 +74,7 @@ class PpxDecisionAid:
     @cached_property
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
-        returns the Gouthelper default GoalUrates.SIX enum object"""
+        returns the GoutHelper default GoalUrates.SIX enum object"""
         return defaults_get_goalurate(self.ppx)
 
     @property
@@ -95,7 +95,7 @@ class PpxDecisionAid:
             # If the patient is on ULT but isn't starting ULT
             if self.ppx.starting_ult is False:
                 # Check if their is a "conditional" indication for prophylaxis
-                # This is not guidelines-based, rather Gouthelper-based
+                # This is not guidelines-based, rather GoutHelper-based
                 # The rationale is that if they are on ULT and still hyperuricemic or flaring,
                 # they are at risk of gout flares and should be on prophylaxis while ULT is titrated
                 if (

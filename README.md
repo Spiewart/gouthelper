@@ -1,4 +1,4 @@
-# Gouthelper
+# GoutHelper
 
 Web app and API for all things gout.
 
@@ -22,5 +22,5 @@ Suite of tools and informational pages to help clinicians manage and patients un
 ## Work-In-Progress
 
 - Content: Most of the content for the site is written in Markdown. Anyone with a knowledge of gout or rheumatology who would like to contribute, please get in touch.
-  The guide for writing Markdown for Gouthelper is in EDITORS.md.
+  The guide for writing Markdown for GoutHelper is in EDITORS.md.
 - Continuous Integration and Deployment: To update the site, I currently have to manually log in to the server, Git pull the latest changes, and restart the Docker containers. I would like to automate this process using GitHub Actions but I cannot make the script work properly. If you have experience with GitHub Actions and Docker and want to contribute, please get in touch.

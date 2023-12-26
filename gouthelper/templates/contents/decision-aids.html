@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container bodytainer">
+    <div class="jumbotron">
+      <h1>Decision Aids</h1>
+      <p class="lead">Decision Aids are meant to answer common clinical questions about gout.</p>
+      <hr class="my-4" />
+      <p>
+        GoutHelper takes information about a patient and his or her symptoms and applies
+        empirical evidence, clinical guidelines, and rheumatology tribal knowledge to provide
+        recommendations or advice. Like all things in medicine, there is a component of "art", also
+        known as judgement or opinion, that is necessarily included in the Decision Aids. Some providers
+        may disagree with subtle or even large parts of the recommendations.
+      </p>
+      <div class="row">
+        <div class="col">
+          <a class="btn btn-outline-primary samepage-link spacious-buttons w-100"
+             href="#flare-card"
+             role="button"><strong>Flare</strong></a>
+        </div>
+        <div class="col">
+          <a class="btn btn-outline-primary samepage-link spacious-buttons w-100"
+             href="#goalurate-card"
+             role="button"><strong>GoalUrate</strong></a>
+        </div>
+        <div class="col">
+          <a class="btn btn-outline-primary samepage-link spacious-buttons w-100"
+             href="#ppx-card"
+             role="button"><strong>Ppx</strong></a>
+        </div>
+        <div class="col">
+          <a class="btn btn-outline-primary samepage-link spacious-buttons w-100"
+             href="#ult-card"
+             role="button"><strong>Ult</strong></a>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm" id="decision-aids">{% include "flares/card.html" %}</div>
+      <div class="col-sm" id="decision-aids">{% include "goalurates/card.html" %}</div>
+    </div>
+    <div class="row">
+      <div class="col-sm">{% include "ppxs/card.html" %}</div>
+      <div class="col-sm">{% include "ults/card.html" %}</div>
+    </div>
+    <a href="#top">Back to top</a>
+  </div>
+{% endblock content %}

@@ -41,3 +41,18 @@ def dateofbirths_get_nsaid_contra(
         return age_calc(dateofbirth.value) >= 65 and not defaulttrtsettings.nsaid_age
     else:
         return None
+
+
+def yearsago(years, from_date=None):
+    """Method that takes an age, or number of years, and
+    returns a date of birth string. If no from_date is provided,
+    the current date is used. Adjusts for leap years."""
+    # https://stackoverflow.com/questions/765797/convert-timedelta-to-years
+    if from_date is None:
+        from_date = datetime.now()
+    try:
+        return from_date.replace(year=from_date.year - years)
+    except ValueError:
+        # Must be 2/29!
+        assert from_date.month == 2 and from_date.day == 29  # can be removed
+        return from_date.replace(month=2, day=28, year=from_date.year - years)

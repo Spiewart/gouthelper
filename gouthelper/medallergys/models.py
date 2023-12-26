@@ -5,12 +5,12 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..treatments.choices import Treatments
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 
 
 class MedAllergy(
     RulesModelMixin,
-    GouthelperModel,
+    GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):

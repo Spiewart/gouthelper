@@ -1,7 +1,12 @@
-<div class="card text-center spacious-cards">
+<div id="goalurate-card" class="card text-center spacious-cards">
   <div class="card-body">
-    <h5 class="card-title">GoalUrate</h5>
-    <p class="card-text">What is the goal uric acid for a patient on urate-lowering therapy?</p>
+    <h2 class="card-title">GoalUrate</h2>
+    <p class="card-text">
+      What is the goal uric acid for a patient on urate-lowering therapy (<a href="{% url 'treatments:about-ult' %}">ULT</a>)?
+      The <strong>GoalUrate</strong> Decision Aid will help you figure out what uric acid to target as you titrate
+      a patient's ULT. Not sure what is meant by the goal uric acid? No problem, check out our <strong>About</strong> page for it for a
+      full explanation.
+    </p>
     <a href="{% url 'goalurates:create' %}"
        class="btn btn-primary spacious-buttons">Create</a>
     <a href="{% url 'goalurates:about' %}"

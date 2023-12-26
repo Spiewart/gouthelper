@@ -35,18 +35,5 @@
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      // For Flare datepicker
-      $('input[id*="dateofbirth"]').each(function() {
-        $(this).datepicker({
-          changeYear: true,
-          yearRange: "-100:-18",
-          minDate: "-100y",
-          maxDate: "-18y"
-        });
-      });
-    });
-  </script>
   {% include 'medhistorys/_ckd_js.html' %}
 {% endblock inline_javascript %}

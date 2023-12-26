@@ -5,11 +5,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel  # type: ignore
+from ..utils.models import GoutHelperModel  # type: ignore
 
 
 # Create your models here.
-class DateOfBirth(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class DateOfBirth(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model definition for DateOfBirth.
     Optional user OneToOneField for easy access to user's date of birth."""
 

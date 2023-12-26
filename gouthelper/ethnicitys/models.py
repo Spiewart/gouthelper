@@ -4,11 +4,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel  # type: ignore
+from ..utils.models import GoutHelperModel  # type: ignore
 from .choices import Ethnicitys
 
 
-class Ethnicity(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         constraints = [
             models.CheckConstraint(

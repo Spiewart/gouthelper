@@ -12,4 +12,4 @@ YES_OR_NO_OR_UNKNOWN = ((True, "Yes"), (False, "No"), (None, "Unknown"))
 class Setters(IntegerChoices):
     PATIENT = 0, _("Patient")
     PROVIDER = 1, _("Provider")
-    GOUTHELPER = 2, _("Gouthelper")
+    GOUTHELPER = 2, _("GoutHelper")

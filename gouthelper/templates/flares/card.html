@@ -1,7 +1,11 @@
-<div class="card text-center spacious-cards">
+<div id="flare-card" class="card text-center spacious-cards">
   <div class="card-body">
-    <h5 class="card-title">Flare</h5>
-    <p class="card-text">Are a patient's symptoms from gout? Start here.</p>
+    <h2 class="card-title">Flare</h2>
+    <p class="card-text">
+      Are a patient's symptoms from gout? Or are they from something else? The <strong>Flare</strong> DecisionAid
+      will help you sort it out, giving you a likelihood that the symptoms are from gout and a rough estimate of how many people with similar
+      symptoms and medical history would be definitively diagnosed as having gout.
+    </p>
     <a href="{% url 'flares:create' %}"
        class="btn btn-primary spacious-buttons">Create</a>
     <a href="{% url 'flares:about' %}"

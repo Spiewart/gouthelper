@@ -207,7 +207,7 @@ function labs_stage_calculator(egfr) {
 }
 
 function compare_stage_creat() {
-  var age = getAge($('#id_dateofbirth-value').val());
+  var age = $('#id_dateofbirth-value').val();
   var gender = $('#id_gender-value').val();
   var creatinine = $('#id_baselinecreatinine-value').val();
   var stage = $('#id_stage').val();
@@ -393,7 +393,7 @@ function getAge(dateString) {
 
 function menopause_checker() {
   if ($('#id_gender-value').find(':selected').val() == 1) {
-    var age = getAge($('#id_dateofbirth-value').val());
+    var age = $('#id_dateofbirth-value').val();
     if (age >= 40 && age < 60) {
       $('#menopause').show();
       $('#id_MENOPAUSE-value').prop('required', true);

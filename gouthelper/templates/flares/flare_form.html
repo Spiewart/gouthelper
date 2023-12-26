@@ -52,14 +52,6 @@
           changeYear: true
         });
       });
-      $('input[id*="dateofbirth"]').each(function() {
-        $(this).datepicker({
-          changeYear: true,
-          yearRange: "-100:-18",
-          minDate: "-100y",
-          maxDate: "-18y"
-        });
-      });
       $('#id_diagnosed').change(diagnosed_checker);
       diagnosed_checker($('#id_diagnosed'));
       $('#id_aspiration').change(diagnosed_checker);

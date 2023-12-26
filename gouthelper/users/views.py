@@ -105,7 +105,7 @@ class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMes
 user_delete_view = UserDeleteView.as_view()
 
 
-class UserDetailView(LoginRequiredMixin, AutoPermissionRequiredMixin, DetailView):
+class UserDetailView(AutoPermissionRequiredMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"

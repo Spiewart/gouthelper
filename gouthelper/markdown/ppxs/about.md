@@ -11,7 +11,7 @@
 
 ## <span id="about">About</span>
 
-Ppx is short for prophylaxis and, in the context of Gouthelper, is a tool to determine whether a patient
+Ppx is short for prophylaxis and, in the context of GoutHelper, is a tool to determine whether a patient
 should be on [prophylaxis](/treatments/about/ppx/) against gout flares. Prophylaxis is generally
 used in patients who are starting ULT. The rationale for this is that ULT can actually increase the risk
 of gout flares in the short-term, so prophylaxis is used to prevent this. It does not need to be continued indefinitely.
@@ -24,7 +24,7 @@ Anyone who is _starting_ ULT has a guideline-based indication for prophylaxis pe
 [2020 ACR guidelines](#ref-1).
 
 The guidelines are not as clear about patients who are already on ULT but who need to have their ULT
-titrated because they are having flares and/or are hyperuricemic. Gouthelper defaults to recommending prophylaxis in these instances, but this is not addressed in the guidelines or really in the scientific
+titrated because they are having flares and/or are hyperuricemic. GoutHelper defaults to recommending prophylaxis in these instances, but this is not addressed in the guidelines or really in the scientific
 literature. We believe that, from the patient's perspective, fewer flares is better than more flares. In
 this context, prophylaxis is very optional.
 

@@ -1,4 +1,4 @@
-# Gouthelper Editorial Tips
+# GoutHelper Editorial Tips
 
 ## <span id="introduction">Introduction</span>
 
@@ -22,7 +22,7 @@ To link to a section on the same page, like [this](#same-page-links), use the fo
 
 ### <span id="different-page-links">Different Page Links</span>
 
-To link to a different page on Gouthelper, like [this](/home/), use the following syntax:
+To link to a different page on GoutHelper, like [this](/home/), use the following syntax:
 `[link-text](/path/to/page/)`
 
 ### <span id="different-page-link-ids">Different Page Link IDs</span>

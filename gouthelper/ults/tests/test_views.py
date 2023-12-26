@@ -1,11 +1,9 @@
-from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.utils import timezone  # type: ignore
 
 from ...contents.models import Content
 from ...dateofbirths.models import DateOfBirth
@@ -62,7 +60,7 @@ class TestUltCreate(TestCase):
     def test__post_creates_ult_and_related_objects(self):
         ult_data = {
             "num_flares": FlareNums.ONE,
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": 50,
             "gender-value": Genders.FEMALE,
             f"{MedHistoryTypes.CKD}-value": True,
             "baselinecreatinine-value": Decimal("2.0"),
@@ -109,7 +107,7 @@ class TestUltCreate(TestCase):
     def test__post_uses_assigned_queryset(self):
         ult_data = {
             "num_flares": FlareNums.ONE,
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": 50,
             "gender-value": Genders.FEMALE,
             f"{MedHistoryTypes.CKD}-value": True,
             "baselinecreatinine-value": Decimal("2.0"),
@@ -188,7 +186,7 @@ class TestUltUpdate(TestCase):
         ult_data = {
             "num_flares": FlareNums.TWOPLUS,
             "freq_flares": FlareFreqs.ONEORLESS,
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": 50,
             "gender-value": Genders.FEMALE,
             f"{MedHistoryTypes.CKD}-value": True,
             "baselinecreatinine-value": Decimal("2.0"),

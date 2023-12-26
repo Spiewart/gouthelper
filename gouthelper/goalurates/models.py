@@ -7,7 +7,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS
-from ..utils.models import DecisionAidModel, GouthelperModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
 from .choices import GoalUrates
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class GoalUrate(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

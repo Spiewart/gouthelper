@@ -8,7 +8,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..users.choices import Roles
 from ..users.models import Admin, Provider
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 
 
 def get_user_change(instance, request, **kwargs):
@@ -31,7 +31,7 @@ def get_user_change(instance, request, **kwargs):
         return None
 
 
-class Profile(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Profile(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     # If you do this you need to either have a post_save signal or redirect to a profile_edit view on initial login
     class Meta:
         abstract = True
@@ -55,7 +55,7 @@ class ProviderBase(Profile):
 
 class AdminProfile(ProviderBase):
     """Admin User Profile. Meant for superusers, organizational staff who are not explicitly providers,
-    or contributors to Gouthelper.
+    or contributors to GoutHelper.
     """
 
     history = HistoricalRecords(get_user=get_user_change)
@@ -94,7 +94,7 @@ class PatientProfile(Profile):
 
 class ProviderProfile(ProviderBase):
     """Provider User Profile.
-    Meant for providers who want to keep track of their patients Gouthelper data.
+    Meant for providers who want to keep track of their patients GoutHelper data.
     """
 
     history = HistoricalRecords(get_user=get_user_change)
@@ -118,7 +118,7 @@ def update_or_create_providerprofile(sender, instance, created, **kwargs):
 
 class PseudopatientProfile(Profile):
     """Profile for a fake patient.
-    Used to aggregate DecisionAid's and other Gouthelper data."""
+    Used to aggregate DecisionAid's and other GoutHelper data."""
 
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -103,17 +103,17 @@ class UltAidDecisionAid:
     @cached_property
     def default_trts(self) -> "QuerySet":
         """Uses defaults_defaulttrts_trttype to fetch the ULT DefaultTrts for the user or
-        Gouthelper DefaultTrts.
+        GoutHelper DefaultTrts.
 
         Returns:
-            QuerySet: ULT DefaultTrts for the user or Gouthelper
+            QuerySet: ULT DefaultTrts for the user or GoutHelper
         """
         return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
 
     @cached_property
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultUltTrtSettings."""
+        GoutHelper DefaultUltTrtSettings."""
         return defaults_defaultulttrtsettings(user=None)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:

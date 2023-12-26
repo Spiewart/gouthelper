@@ -54,7 +54,7 @@ class TestPpxAidCreate(TestCase):
         self.factory = RequestFactory()
         self.view: PpxAidCreate = PpxAidCreate()
         self.ppxaid_data = {
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
@@ -117,7 +117,7 @@ class TestPpxAidCreate(TestCase):
                 f"{MedHistoryTypes.CKD}-value": True,
                 "dialysis": False,
                 "baselinecreatinine-value": Decimal("2.2"),
-                "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+                "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
                 "gender-value": Genders.MALE,
             }
         )
@@ -258,7 +258,7 @@ class TestPpxAidUpdate(TestCase):
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
         ppxaid.medallergys.add(medallergy)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
@@ -279,7 +279,7 @@ class TestPpxAidUpdate(TestCase):
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
         ppxaid.medallergys.add(medallergy)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
@@ -304,7 +304,7 @@ class TestPpxAidUpdate(TestCase):
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
         ppxaid.medallergys.add(medallergy)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
@@ -326,7 +326,7 @@ class TestPpxAidUpdate(TestCase):
         medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
         ppxaid.medhistorys.add(medhistory)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True,
@@ -347,7 +347,7 @@ class TestPpxAidUpdate(TestCase):
         medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
         ppxaid.medhistorys.add(medhistory)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             # Need to mark Colchicineinteraction as False to delete it, required by form.
@@ -369,7 +369,7 @@ class TestPpxAidUpdate(TestCase):
         medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
         ppxaid.medhistorys.add(medhistory)
         ppxaid_data = {
-            "dateofbirth-value": ppxaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
             "gender-value": "",
             f"{MedHistoryTypes.CKD}-value": False,
             # Need to mark Colchicineinteraction as False to delete it, required by form.

@@ -1,11 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...defaults.selectors import defaults_defaultflaretrtsettings, defaults_defaultppxtrtsettings
-from ..helpers import age_calc, dateofbirths_get_nsaid_contra
+from ..helpers import age_calc, dateofbirths_get_nsaid_contra, yearsago
 from .factories import DateOfBirthFactory
 
 pytestmark = pytest.mark.django_db
@@ -66,3 +66,21 @@ class TestDateOfBirthsGetNsaidContra(TestCase):
 
     def test__returns_None_no_dateofbirth_ppxtrtsettings(self):
         self.assertIsNone(dateofbirths_get_nsaid_contra(None, self.ppx_trt_settings))
+
+
+class TestYearsAgo(TestCase):
+    def test__yearsago(self):
+        now = timezone.now()
+        day = now.day
+        month = now.month
+        self.assertEqual(
+            str(yearsago(21, now).date()),
+            f"{now.year - 21}-{month}-{day}",
+        )
+
+    def test__leap_year(self):
+        now = "2020-02-29"
+        self.assertEqual(
+            str(yearsago(1, datetime.strptime(now, "%Y-%m-%d")).date()),
+            "2019-02-28",
+        )

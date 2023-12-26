@@ -204,7 +204,7 @@ class DecisionAidModel(models.Model):
     @cached_property
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Method that returns DefaultUltTrtSettings object from the objects user
-        attribute/property or the Gouthelper default if User doesn't exist."""
+        attribute/property or the GoutHelper default if User doesn't exist."""
         return defaults_defaultulttrtsettings(user=None)
 
     @cached_property
@@ -637,7 +637,7 @@ class MedHistoryAidModel(models.Model):
             self.save()
 
 
-class GouthelperModel(models.Model):
+class GoutHelperModel(models.Model):
     """
     Model Mixin to add UUID field for objects.
     """

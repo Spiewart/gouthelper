@@ -1,7 +1,12 @@
-<div class="card text-center spacious-cards">
+<div id="ult-card" class="card text-center spacious-cards">
   <div class="card-body">
-    <h5 class="card-title">ULT</h5>
-    <p class="card-text">Does your patient need urate-lowering therapy?</p>
+    <h2 class="card-title">ULT</h2>
+    <p class="card-text">
+      Does your patient need urate-lowering therapy (<a href="{% url 'treatments:about-ult' %}">ULT</a>)? ULT
+      is the definitive treatment for gout that completely eliminates gout and prevents long-term joint damage
+      it might otherwise cause. However, not everyone with gout needs ULT. The <strong>Ult</strong> Decision Aid can help you figure
+      out whether your patient needs it.
+    </p>
     <a href="{% url 'ults:create' %}"
        class="btn btn-primary spacious-buttons">Create</a>
     <a href="{% url 'ults:about' %}"

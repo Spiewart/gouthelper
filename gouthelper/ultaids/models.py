@@ -12,7 +12,7 @@ from ..medhistorys.lists import ULTAID_MEDHISTORYS
 from ..treatments.choices import Treatments
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 
 if TYPE_CHECKING:
     from ..defaults.models import DefaultUltTrtSettings
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class UltAid(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedAllergyAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -94,7 +94,7 @@ class UltAid(
     @cached_property
     def defaulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
+        GoutHelper DefaultSettings."""
         return defaults_defaultulttrtsettings(user=None)
 
     @cached_property

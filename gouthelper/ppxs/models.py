@@ -18,7 +18,7 @@ from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal,
 from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..ults.choices import Indications
-from ..utils.models import DecisionAidModel, GouthelperModel, LabAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, LabAidModel, MedHistoryAidModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
 from .services import PpxDecisionAid
 
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 class Ppx(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     LabAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -99,7 +99,7 @@ class Ppx(
     @cached_property
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
-        returns the Gouthelper default GoalUrates.SIX enum object"""
+        returns the GoutHelper default GoalUrates.SIX enum object"""
         return defaults_get_goalurate(self)
 
     def get_absolute_url(self):
