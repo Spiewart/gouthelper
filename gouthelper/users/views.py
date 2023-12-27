@@ -6,24 +6,51 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import DeleteView, DetailView, ListView, RedirectView, UpdateView, View
+from django.views.generic import DeleteView, DetailView, ListView, RedirectView, UpdateView
 from django_htmx.http import HttpResponseClientRedirect
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
+from ..dateofbirths.forms import DateOfBirthForm
+from ..dateofbirths.models import DateOfBirth
+from ..ethnicitys.forms import EthnicityForm
+from ..ethnicitys.models import Ethnicity
+from ..genders.forms import GenderForm
+from ..genders.models import Gender
+from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.forms import GoutForm
+from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
+from ..utils.views import MedHistorysModelCreateView
 from .choices import Roles
+from .forms import PseudopatientForm
 from .models import Pseudopatient
 
 User = get_user_model()
 
 
-class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, View):
+class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, MedHistorysModelCreateView):
     """View to create Pseudopatient Users. If called with a provider kwarg in the url,
     assigns provider field to the creating User.
 
     Returns:
         [redirect]: [Redirects to the newly created Pseudopatient's Detail page.]
     """
+
+    model = Pseudopatient
+    form_class = PseudopatientForm
+
+    onetoones = {
+        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
+        "gender": {"form": GenderForm, "model": Gender},
+        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
+    }
+    medhistorys = {
+        MedHistoryTypes.GOUT: {
+            "form": GoutForm,
+            "model": Gout,
+        },
+    }
+    medhistory_details = [MedHistoryTypes.GOUT]
 
     def get_permission_required(self):
         """Returns the list of permissions that the user must have in order to access the view."""
@@ -39,6 +66,34 @@ class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, View
         return self.kwargs.get("username", None)
 
     def post(self, request, *args, **kwargs):
+        (
+            errors,
+            form,
+            _,  # object_data
+            _,  # onetoone_forms
+            _,  # medallergys_forms
+            _,  # medhistorys_forms
+            _,  # medhistorydetails_forms
+            _,  # lab_formset
+            onetoones_to_save,
+            medallergys_to_add,
+            medhistorys_to_add,
+            medhistorydetails_to_add,
+            labs_to_add,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            return self.form_valid(
+                form=form,  # type: ignore
+                medallergys_to_add=medallergys_to_add,
+                onetoones_to_save=onetoones_to_save,
+                medhistorydetails_to_add=medhistorydetails_to_add,
+                medhistorys_to_add=medhistorys_to_add,
+                labs_to_add=labs_to_add,
+            )
+
+    def old_post(self, request, *args, **kwargs):
         provider = kwargs.get("username", None)
         # Create a Pseudopatient with a unique username
         pseudopatient = Pseudopatient.objects.create(username=uuid.uuid4().hex[:30])

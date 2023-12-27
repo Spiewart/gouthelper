@@ -1,8 +1,10 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 from django.apps import apps  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
+from django.http import HttpResponseRedirect  # type: ignore
 from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 
 from ..contents.choices import Contexts
 from ..medhistorys.choices import MedHistoryTypes
@@ -14,7 +16,13 @@ from .models import GoalUrate
 from .selectors import goalurate_userless_qs
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet  # type: ignore
+    from django.db.models import Model, QuerySet  # type: ignore
+    from django.http import HttpResponse  # type: ignore
+
+    from ..labs.models import BaselineCreatinine, Lab
+    from ..medallergys.models import MedAllergy
+    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
+    from ..medhistorys.models import MedHistory
 
 
 class GoalUrateAbout(TemplateView):
@@ -50,13 +58,37 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
 
     success_message = "Goal Urate created successfully!"
 
-    def form_valid(self, form: GoalUrateForm, **kwargs):
-        """Override to add ultaid to form instance if it exists.
-        Calls GoalUrate-specific update() method."""
+    def form_valid(
+        self,
+        form: GoalUrateForm,
+        onetoones_to_save: list["Model"],
+        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        medallergys_to_add: list["MedAllergy"],
+        medhistorys_to_add: list["MedHistory"],
+        labs_to_add: list["Lab"],
+        **kwargs,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to redirect appropriately and to add ultaid to form instance if it exists."""
         ultaid = self.kwargs.get("ultaid", None)
         if ultaid:
             form.instance.ultaid_id = ultaid
-        return super().form_valid(form, **kwargs)
+        # Object will be returned by the super().form_valid() call
+        self.object = super().form_valid(
+            form=form,
+            onetoones_to_save=onetoones_to_save,
+            medhistorydetails_to_add=medhistorydetails_to_add,
+            medallergys_to_add=medallergys_to_add,
+            medhistorys_to_add=medhistorys_to_add,
+            labs_to_add=labs_to_add,
+            **kwargs,
+        )
+        # Update object / form instance
+        self.object.update(qs=self.object)
+        # If request is an htmx request, return HttpResponseClientRefresh
+        # Will reload related model DetailPage
+        if self.request.htmx:
+            return HttpResponseClientRefresh()
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
@@ -139,6 +171,46 @@ class GoalUrateDetail(DetailView):
 class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
+    def form_valid(
+        self,
+        form,
+        onetoones_to_save: list["Model"] | None,
+        onetoones_to_delete: list["Model"] | None,
+        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medallergys_to_add: list["MedAllergy"] | None,
+        medallergys_to_remove: list["MedAllergy"] | None,
+        medhistorys_to_add: list["MedHistory"] | None,
+        medhistorys_to_remove: list["MedHistory"] | None,
+        labs_to_add: list["Lab"] | None,
+        labs_to_remove: list["Lab"] | None,
+        labs_to_update: list["Lab"] | None,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to redirect appropriately and update the form instance."""
+
+        self.object = super().form_valid(
+            form=form,
+            onetoones_to_save=onetoones_to_save,
+            onetoones_to_delete=onetoones_to_delete,
+            medhistorys_to_add=medhistorys_to_add,
+            medhistorys_to_remove=medhistorys_to_remove,
+            medhistorydetails_to_add=medhistorydetails_to_add,
+            medhistorydetails_to_remove=medhistorydetails_to_remove,
+            medallergys_to_add=medallergys_to_add,
+            medallergys_to_remove=medallergys_to_remove,
+            labs_to_add=labs_to_add,
+            labs_to_remove=labs_to_remove,
+            labs_to_update=labs_to_update,
+        )
+        # Update the DecisionAidModel by calling the update method with the QuerySet
+        # of the object, which will hopefully have been annotated by the view to
+        # include the related models
+        self.object.update(qs=self.object)
+        if self.request.htmx:
+            return HttpResponseClientRefresh()
+        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
+        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         if self.request.htmx:
@@ -165,32 +237,32 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            medallergys_to_add,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_add,
-            medhistorydetails_to_remove,
+            _,  # medallergys_to_add,
+            _,  # medallergys_to_remove,
+            _,  # onetoones_to_delete,
+            _,  # onetoones_to_save,
+            _,  # medhistorydetails_to_add,
+            _,  # medhistorydetails_to_remove,
             medhistorys_to_add,
             medhistorys_to_remove,
-            labs_to_add,
-            labs_to_remove,
-            labs_to_update,
+            _,  # labs_to_add,
+            _,  # labs_to_remove,
+            _,  # labs_to_update,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_add=medallergys_to_add,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_add=medhistorydetails_to_add,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
+                onetoones_to_delete=None,
+                onetoones_to_save=None,
                 medhistorys_to_add=medhistorys_to_add,
                 medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_add=labs_to_add,
-                labs_to_remove=labs_to_remove,
-                labs_to_update=labs_to_update,
+                medhistorydetails_to_add=None,
+                medhistorydetails_to_remove=None,
+                medallergys_to_add=None,
+                medallergys_to_remove=None,
+                labs_to_add=None,
+                labs_to_remove=None,
+                labs_to_update=None,
             )
