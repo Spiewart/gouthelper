@@ -28,6 +28,8 @@ class PseudopatientForm(forms.ModelForm):
             "username",
             "email",
             "password",
+            "date_joined",
+            "role",
         )
 
     def __init__(self, *args, **kwargs):

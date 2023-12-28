@@ -1,3 +1,4 @@
+from django.apps import apps  # type: ignore
 from django.contrib.auth.base_user import BaseUserManager  # type: ignore
 from django.contrib.auth.models import AbstractUser
 from django.db.models import CharField, CheckConstraint, Q
@@ -123,7 +124,9 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         # base_role property
         if not self.pk and hasattr(self, "base_role"):
             self.role = self.base_role
-        return super().save(*args, **kwargs)
+        self.__class__ = User
+        super().save(*args, **kwargs)
+        self.__class__ = apps.get_model(f"users.{self.role}")
 
 
 class PatientManager(BaseUserManager):
@@ -224,3 +227,10 @@ class Pseudopatient(User):
     @cached_property
     def profile(self):
         return getattr(self, "pseudopatientprofile", None)
+
+    def save(self, *args, **kwargs):
+        # If a new user, set the user's role based off the
+        # base_role property
+        if not self.pk and hasattr(self, "base_role"):
+            self.role = self.base_role
+        return super().save(*args, **kwargs)

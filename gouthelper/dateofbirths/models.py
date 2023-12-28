@@ -1,11 +1,14 @@
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.db import models  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..utils.models import GoutHelperModel  # type: ignore
+
+User = get_user_model()
 
 
 # Create your models here.
@@ -24,6 +27,7 @@ class DateOfBirth(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=
         ]
 
     value = models.DateField()
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):

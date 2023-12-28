@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db import models  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
@@ -6,6 +7,8 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..utils.models import GoutHelperModel  # type: ignore
 from .choices import Ethnicitys
+
+User = get_user_model()
 
 
 class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -25,6 +28,7 @@ class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Ru
         choices=Ethnicitys.choices,
         help_text="Ethnicity sometimes matters for gout treatment.",
     )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):

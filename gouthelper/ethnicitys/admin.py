@@ -8,6 +8,7 @@ from .models import Ethnicity  # type: ignore
 class EthnicityAdmin(SimpleHistoryAdmin):
     list_display = (
         "value",
+        "user",
         "created",
         "pk",
     )

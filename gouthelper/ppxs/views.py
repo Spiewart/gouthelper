@@ -66,10 +66,10 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
         self,
         form: PpxForm,
         onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_add: list["MedAllergy"] | None,
-        medhistorys_to_add: list["MedHistory"] | None,
-        labs_to_add: list["Lab"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
+        labs_to_save: list["Lab"] | None,
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
@@ -77,10 +77,10 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
         self.object = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_add=medhistorydetails_to_add,
-            medallergys_to_add=medallergys_to_add,
-            medhistorys_to_add=medhistorys_to_add,
-            labs_to_add=labs_to_add,
+            medhistorydetails_to_save=medhistorydetails_to_save,
+            medallergys_to_save=medallergys_to_save,
+            medhistorys_to_save=medhistorys_to_save,
+            labs_to_save=labs_to_save,
             **kwargs,
         )
         # Update object / form instance
@@ -98,21 +98,21 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
             _,  # medhistorydetails_forms
             _,  # lab_formset
             onetoones_to_save,
-            medallergys_to_add,
-            medhistorys_to_add,
-            medhistorydetails_to_add,
-            labs_to_add,
+            medallergys_to_save,
+            medhistorys_to_save,
+            medhistorydetails_to_save,
+            labs_to_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_add=medallergys_to_add,
+                medallergys_to_save=medallergys_to_save,
                 onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_add=medhistorydetails_to_add,
-                medhistorys_to_add=medhistorys_to_add,
-                labs_to_add=labs_to_add,
+                medhistorydetails_to_save=medhistorydetails_to_save,
+                medhistorys_to_save=medhistorys_to_save,
+                labs_to_save=labs_to_save,
             )
 
 
@@ -151,13 +151,13 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         form,
         onetoones_to_save: list["Model"] | None,
         onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
         medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_add: list["MedAllergy"] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
         medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_add: list["MedHistory"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
         medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_add: list["Lab"] | None,
+        labs_to_save: list["Lab"] | None,
         labs_to_remove: list["Lab"] | None,
         labs_to_update: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
@@ -167,13 +167,13 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_add=medhistorys_to_add,
+            medhistorys_to_save=medhistorys_to_save,
             medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_add=medhistorydetails_to_add,
+            medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_add=medallergys_to_add,
+            medallergys_to_save=medallergys_to_save,
             medallergys_to_remove=medallergys_to_remove,
-            labs_to_add=labs_to_add,
+            labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
             labs_to_update=labs_to_update,
         )
@@ -195,15 +195,15 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            medallergys_to_add,
+            medallergys_to_save,
             medallergys_to_remove,
             onetoones_to_delete,
             onetoones_to_save,
-            medhistorydetails_to_add,
+            medhistorydetails_to_save,
             medhistorydetails_to_remove,
-            medhistorys_to_add,
+            medhistorys_to_save,
             medhistorys_to_remove,
-            labs_to_add,
+            labs_to_save,
             labs_to_remove,
             labs_to_update,
         ) = super().post(request, *args, **kwargs)
@@ -211,15 +211,15 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             return errors
         return self.form_valid(
             form=form,  # type: ignore
-            medallergys_to_add=medallergys_to_add,
+            medallergys_to_save=medallergys_to_save,
             medallergys_to_remove=medallergys_to_remove,
             onetoones_to_delete=onetoones_to_delete,
             onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_add=medhistorydetails_to_add,
+            medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medhistorys_to_add=medhistorys_to_add,
+            medhistorys_to_save=medhistorys_to_save,
             medhistorys_to_remove=medhistorys_to_remove,
-            labs_to_add=labs_to_add,
+            labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
             labs_to_update=labs_to_update,
         )

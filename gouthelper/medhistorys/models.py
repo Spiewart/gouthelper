@@ -1,4 +1,5 @@
 from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
@@ -39,6 +40,8 @@ from .managers import (
     XoiinteractionManager,
 )
 
+User = get_user_model()
+
 
 class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """GoutHelper MedHistory model to store medical, family, social history data
@@ -75,6 +78,7 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
         null=True,
         blank=True,
     )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
     objects = models.Manager()
 

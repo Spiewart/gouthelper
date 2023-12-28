@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
@@ -6,6 +7,8 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..utils.models import GoutHelperModel
 from .choices import Genders
+
+User = get_user_model()
 
 
 class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -27,6 +30,7 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
         choices=Genders.choices,
         help_text="Biological Gender",
     )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):

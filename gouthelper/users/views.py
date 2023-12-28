@@ -1,4 +1,5 @@
 import uuid
+from typing import TYPE_CHECKING, Union
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -7,7 +8,6 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DeleteView, DetailView, ListView, RedirectView, UpdateView
-from django_htmx.http import HttpResponseClientRedirect
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
 from ..dateofbirths.forms import DateOfBirthForm
@@ -20,15 +20,24 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
-from ..utils.views import MedHistorysModelCreateView
+from ..utils.views import PatientModelCreateView
 from .choices import Roles
 from .forms import PseudopatientForm
 from .models import Pseudopatient
 
 User = get_user_model()
 
+if TYPE_CHECKING:
+    from django.db.models import Model  # type: ignore
+    from django.http import HttpResponse  # type: ignore
 
-class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, MedHistorysModelCreateView):
+    from ..labs.models import BaselineCreatinine, Lab
+    from ..medallergys.models import MedAllergy
+    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
+    from ..medhistorys.models import MedHistory
+
+
+class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, SuccessMessageMixin):
     """View to create Pseudopatient Users. If called with a provider kwarg in the url,
     assigns provider field to the creating User.
 
@@ -41,8 +50,8 @@ class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, MedH
 
     onetoones = {
         "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "gender": {"form": GenderForm, "model": Gender},
         "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
+        "gender": {"form": GenderForm, "model": Gender},
     }
     medhistorys = {
         MedHistoryTypes.GOUT: {
@@ -51,6 +60,39 @@ class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, MedH
         },
     }
     medhistory_details = [MedHistoryTypes.GOUT]
+
+    def form_valid(
+        self,
+        form,
+        onetoones_to_save: list["Model"],
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        medallergys_to_save: list["MedAllergy"],
+        medhistorys_to_save: list["MedHistory"],
+        labs_to_save: list["Lab"],
+        **kwargs,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to redirect appropriately."""
+        # Set the username attr on the form instance
+        form.instance.username = uuid.uuid4().hex[:30]
+        # Pop the username kwarg from the url
+        provider = kwargs.pop("username", None)
+        # Object will be returned by the super().form_valid() call
+        self.object = super().form_valid(
+            form,
+            onetoones_to_save=onetoones_to_save,
+            medhistorydetails_to_save=medhistorydetails_to_save,
+            medallergys_to_save=medallergys_to_save,
+            medhistorys_to_save=medhistorys_to_save,
+            labs_to_save=labs_to_save,
+            **kwargs,
+        )
+        # Create a PseudopatientProfile for the Pseudopatient
+        PseudopatientProfile.objects.create(
+            user=self.object,
+            provider=self.request.user if provider else None,
+        )
+        # TODO: Add fields to the PseudopatientProfile model and update here
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_permission_required(self):
         """Returns the list of permissions that the user must have in order to access the view."""
@@ -76,35 +118,23 @@ class PseudopatientCreateView(PermissionRequiredMixin, SuccessMessageMixin, MedH
             _,  # medhistorydetails_forms
             _,  # lab_formset
             onetoones_to_save,
-            medallergys_to_add,
-            medhistorys_to_add,
-            medhistorydetails_to_add,
-            labs_to_add,
+            medallergys_to_save,
+            medhistorys_to_save,
+            medhistorydetails_to_save,
+            labs_to_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_add=medallergys_to_add,
+                medallergys_to_save=medallergys_to_save,
                 onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_add=medhistorydetails_to_add,
-                medhistorys_to_add=medhistorys_to_add,
-                labs_to_add=labs_to_add,
+                medhistorydetails_to_save=medhistorydetails_to_save,
+                medhistorys_to_save=medhistorys_to_save,
+                labs_to_save=labs_to_save,
+                **kwargs,
             )
-
-    def old_post(self, request, *args, **kwargs):
-        provider = kwargs.get("username", None)
-        # Create a Pseudopatient with a unique username
-        pseudopatient = Pseudopatient.objects.create(username=uuid.uuid4().hex[:30])
-        # Create a PseudopatientProfile for the Pseudopatient
-        PseudopatientProfile.objects.create(
-            user=pseudopatient,
-            provider=request.user if provider else None,
-        )
-        if request.htmx:
-            return HttpResponseClientRedirect(reverse("users:detail", kwargs={"username": pseudopatient.username}))
-        return HttpResponseRedirect(reverse("users:detail", kwargs={"username": pseudopatient.username}))
 
 
 pseudopatient_create_view = PseudopatientCreateView.as_view()

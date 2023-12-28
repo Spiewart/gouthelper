@@ -62,10 +62,10 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
         self,
         form: GoalUrateForm,
         onetoones_to_save: list["Model"],
-        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
-        medallergys_to_add: list["MedAllergy"],
-        medhistorys_to_add: list["MedHistory"],
-        labs_to_add: list["Lab"],
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        medallergys_to_save: list["MedAllergy"],
+        medhistorys_to_save: list["MedHistory"],
+        labs_to_save: list["Lab"],
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and to add ultaid to form instance if it exists."""
@@ -76,10 +76,10 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
         self.object = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_add=medhistorydetails_to_add,
-            medallergys_to_add=medallergys_to_add,
-            medhistorys_to_add=medhistorys_to_add,
-            labs_to_add=labs_to_add,
+            medhistorydetails_to_save=medhistorydetails_to_save,
+            medallergys_to_save=medallergys_to_save,
+            medhistorys_to_save=medhistorys_to_save,
+            labs_to_save=labs_to_save,
             **kwargs,
         )
         # Update object / form instance
@@ -126,21 +126,21 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
             _,  # medhistorydetails_forms
             _,  # lab_formset
             onetoones_to_save,
-            medallergys_to_add,
-            medhistorys_to_add,
-            medhistorydetails_to_add,
-            labs_to_add,
+            medallergys_to_save,
+            medhistorys_to_save,
+            medhistorydetails_to_save,
+            labs_to_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_add=medallergys_to_add,
+                medallergys_to_save=medallergys_to_save,
                 onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_add=medhistorydetails_to_add,
-                medhistorys_to_add=medhistorys_to_add,
-                labs_to_add=labs_to_add,
+                medhistorydetails_to_save=medhistorydetails_to_save,
+                medhistorys_to_save=medhistorys_to_save,
+                labs_to_save=labs_to_save,
             )
 
 
@@ -176,13 +176,13 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
         form,
         onetoones_to_save: list["Model"] | None,
         onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_add: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
         medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_add: list["MedAllergy"] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
         medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_add: list["MedHistory"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
         medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_add: list["Lab"] | None,
+        labs_to_save: list["Lab"] | None,
         labs_to_remove: list["Lab"] | None,
         labs_to_update: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
@@ -192,13 +192,13 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_add=medhistorys_to_add,
+            medhistorys_to_save=medhistorys_to_save,
             medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_add=medhistorydetails_to_add,
+            medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_add=medallergys_to_add,
+            medallergys_to_save=medallergys_to_save,
             medallergys_to_remove=medallergys_to_remove,
-            labs_to_add=labs_to_add,
+            labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
             labs_to_update=labs_to_update,
         )
@@ -237,15 +237,15 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            _,  # medallergys_to_add,
+            _,  # medallergys_to_save,
             _,  # medallergys_to_remove,
             _,  # onetoones_to_delete,
             _,  # onetoones_to_save,
-            _,  # medhistorydetails_to_add,
+            _,  # medhistorydetails_to_save,
             _,  # medhistorydetails_to_remove,
-            medhistorys_to_add,
+            medhistorys_to_save,
             medhistorys_to_remove,
-            _,  # labs_to_add,
+            _,  # labs_to_save,
             _,  # labs_to_remove,
             _,  # labs_to_update,
         ) = super().post(request, *args, **kwargs)
@@ -256,13 +256,13 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
                 form=form,  # type: ignore
                 onetoones_to_delete=None,
                 onetoones_to_save=None,
-                medhistorys_to_add=medhistorys_to_add,
+                medhistorys_to_save=medhistorys_to_save,
                 medhistorys_to_remove=medhistorys_to_remove,
-                medhistorydetails_to_add=None,
+                medhistorydetails_to_save=None,
                 medhistorydetails_to_remove=None,
-                medallergys_to_add=None,
+                medallergys_to_save=None,
                 medallergys_to_remove=None,
-                labs_to_add=None,
+                labs_to_save=None,
                 labs_to_remove=None,
                 labs_to_update=None,
             )

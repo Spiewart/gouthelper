@@ -38,9 +38,7 @@
         They also don't require, and in fact don't allow, any Protected Health Information (PHI).
       </p>
       <a class="btn btn-warning btn-lg"
-         hx-post="{% url 'users:create-pseudopatient' %}"
-         hx-trigger="click"
-         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+         href="{% url 'users:create-pseudopatient' %}"
          role="button"><strong>Create GoutPatient</strong></a>
     </div>
   </main>
