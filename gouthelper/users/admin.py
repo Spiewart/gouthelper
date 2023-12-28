@@ -4,7 +4,8 @@ from django.contrib.auth import admin as auth_admin
 from django.contrib.auth import decorators, get_user_model
 from django.utils.translation import gettext_lazy as _
 
-from gouthelper.users.forms import UserAdminChangeForm, UserAdminCreationForm
+from .forms import UserAdminChangeForm, UserAdminCreationForm
+from .models import Provider, Pseudopatient
 
 User = get_user_model()
 
@@ -37,3 +38,13 @@ class UserAdmin(auth_admin.UserAdmin):
     )
     list_display = ["username", "name", "is_superuser"]
     search_fields = ["name"]
+
+
+@admin.register(Provider)
+class ProviderAdmin(UserAdmin):
+    pass
+
+
+@admin.register(Pseudopatient)
+class PseudopatientAdmin(UserAdmin):
+    pass

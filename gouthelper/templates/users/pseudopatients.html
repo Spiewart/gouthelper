@@ -15,9 +15,7 @@
          role="button">About</a>
       <a type="button"
          class="btn btn-primary btn-lg mini-button"
-         hx-post="{% url 'users:provider-create-pseudopatient' view.kwargs|get_key:'username' %}"
-         hx-trigger="click"
-         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+         href="{% url 'users:provider-create-pseudopatient' request.user.username %}"
          role="button">Create</a>
     </div>
   </div>

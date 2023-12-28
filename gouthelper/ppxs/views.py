@@ -8,6 +8,7 @@ from django.views.generic import DetailView, TemplateView, View  # type: ignore
 from ..contents.choices import Contexts
 from ..labs.forms import LabFormHelper, PpxUrateFormSet
 from ..labs.models import Urate
+from ..medhistorydetails.forms import GoutDetailPpxForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
     from ..labs.models import BaselineCreatinine, Lab
     from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
+    from ..medhistorydetails.forms import CkdDetailForm
     from ..medhistorys.models import MedHistory
 
 
@@ -53,7 +54,7 @@ class PpxBase(View):
     medhistorys = {
         MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
     }
-    medhistory_details = [MedHistoryTypes.GOUT]
+    medhistory_details = {MedHistoryTypes.GOUT: GoutDetailPpxForm}
     labs = (PpxUrateFormSet, LabFormHelper, Urate.objects.none(), "labs")
 
 
@@ -66,7 +67,7 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
         self,
         form: PpxForm,
         onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
         medallergys_to_save: list["MedAllergy"] | None,
         medhistorys_to_save: list["MedHistory"] | None,
         labs_to_save: list["Lab"] | None,
@@ -151,8 +152,8 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         form,
         onetoones_to_save: list["Model"] | None,
         onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
+        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
         medallergys_to_save: list["MedAllergy"] | None,
         medallergys_to_remove: list["MedAllergy"] | None,
         medhistorys_to_save: list["MedHistory"] | None,

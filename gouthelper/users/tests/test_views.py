@@ -19,6 +19,7 @@ from ...ethnicitys.models import Ethnicity
 from ...genders.choices import Genders
 from ...genders.forms import GenderForm
 from ...genders.models import Gender
+from ...medhistorydetails.forms import GoutDetailForm
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import GoutForm
 from ...medhistorys.models import Gout
@@ -61,7 +62,7 @@ class TestPseudoPatientCreateView(TestCase):
             "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
             "gender": {"form": GenderForm, "model": Gender},
         }
-        assert view.medhistory_details == [MedHistoryTypes.GOUT]
+        assert view.medhistory_details == {MedHistoryTypes.GOUT: GoutDetailForm}
 
     def test__get_context_data(self):
         """Tests that the required context data is passed to the template."""

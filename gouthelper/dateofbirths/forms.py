@@ -21,7 +21,7 @@ class DateOfBirthForm(OneToOneForm):
             widget=NumberInput(attrs={"min": 18, "max": 120, "step": 1}),
         )
         self.fields["value"].label = _("Age")
-        self.fields["value"].help_text = _("Enter age in years (range 18 to 120).")
+        self.fields["value"].help_text = _("Age in years (18 - 120).")
         self.helper = FormHelper()
         self.helper.form_tag = False
 

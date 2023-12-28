@@ -17,7 +17,7 @@ class TestMedHistorysModelCreateView(TestCase):
         """Test that the cached property is working."""
         view = self.view()
         self.assertFalse(view.ckddetail)
-        view.medhistory_details.append(MedHistoryTypes.CKD)
+        view.medhistory_details.update({MedHistoryTypes.CKD: "CkdDetailForm"})
         del view.ckddetail
         self.assertTrue(view.ckddetail)
 
@@ -25,7 +25,7 @@ class TestMedHistorysModelCreateView(TestCase):
         """Test that the cached property is working."""
         view = self.view()
         self.assertFalse(view.goutdetail)
-        view.medhistory_details.append(MedHistoryTypes.GOUT)
+        view.medhistory_details.update({MedHistoryTypes.GOUT: "GoutDetailForm"})
         del view.goutdetail
         self.assertTrue(view.goutdetail)
 

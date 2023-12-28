@@ -11,6 +11,7 @@ from ..dateofbirths.forms import DateOfBirthFormOptional
 from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderFormOptional
 from ..genders.models import Gender
+from ..medhistorydetails.forms import CkdDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
 from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 
     from ..labs.models import BaselineCreatinine, Lab
     from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
+    from ..medhistorydetails.forms import GoutDetailForm
     from ..medhistorys.models import MedHistory
 
 
@@ -80,7 +81,7 @@ class UltBaseView(View):
             "model": Uratestones,
         },
     }
-    medhistory_details = [MedHistoryTypes.CKD]
+    medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
 class UltCreate(UltBaseView, MedHistorysModelCreateView, SuccessMessageMixin):
@@ -90,7 +91,7 @@ class UltCreate(UltBaseView, MedHistorysModelCreateView, SuccessMessageMixin):
         self,
         form,
         onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"],
         medallergys_to_save: list["MedAllergy"],
         medhistorys_to_save: list["MedHistory"],
         labs_to_save: list["Lab"],
@@ -175,8 +176,8 @@ class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):
         form,
         onetoones_to_save: list["Model"] | None,
         onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
         medallergys_to_save: list["MedAllergy"] | None,
         medallergys_to_remove: list["MedAllergy"] | None,
         medhistorys_to_save: list["MedHistory"] | None,

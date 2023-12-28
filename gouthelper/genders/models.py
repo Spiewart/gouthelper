@@ -28,7 +28,7 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
     value = models.IntegerField(
         _("Gender"),
         choices=Genders.choices,
-        help_text="Biological Gender",
+        help_text="Biological Sex",
     )
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()

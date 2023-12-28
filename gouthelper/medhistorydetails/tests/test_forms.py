@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
-from django.urls import reverse  # type: ignore
-from django.utils.safestring import mark_safe  # type: ignore
+from django.urls import reverse, reverse_lazy  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
 from ..choices import DialysisChoices, DialysisDurations, Stages
@@ -104,26 +104,40 @@ class TestGoutDetailForm(TestCase):
         # Assert that the form fields have the correct attrs
         # Test flaring
         self.assertIsNone(self.form.fields["flaring"].initial)
-        self.assertEqual(
-            self.form.fields["flaring"].help_text, "Has the patient had a gout flare in the last 6 months?"
+        self.assertIn(
+            "Has the patient had a gout",
+            self.form.fields["flaring"].help_text,
         )
         self.assertFalse(self.form.fields["flaring"].required)
         # Test hyperuricemic
         self.assertIsNone(self.form.fields["hyperuricemic"].initial)
         self.assertEqual(
             self.form.fields["hyperuricemic"].help_text,
-            mark_safe(
-                "Has the patient had a uric acid greater \
-than 6.0 mg/dL in the past 6 months? If you want to enter values and dates for uric acids, \
-you can do so <a href='#labs_formset_table'>below</a> and we will make this determination for you."
+            format_lazy(
+                """Has the patient had a <a href="{}" target="_blank">uric acid</a> greater \
+than 6.0 mg/dL in the past 6 months?""",
+                reverse_lazy("labs:about-urate"),
             ),
         )
         # Test on_ppx
         self.assertIsNone(self.form.fields["on_ppx"].initial)
         self.assertEqual(self.form.fields["on_ppx"].label, "Already on PPx?")
-        self.assertEqual(self.form.fields["on_ppx"].help_text, "Is the patient already on PPx (prophylaxis) for gout?")
+        self.assertEqual(
+            self.form.fields["on_ppx"].help_text,
+            format_lazy(
+                """Is the patient already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+                reverse_lazy("treatments:about-ppx"),
+            ),
+        )
         self.assertTrue(self.form.fields["on_ppx"].required)
         # Test on_ult
         self.assertEqual(self.form.fields["on_ult"].label, "Already on ULT?")
+        self.assertEqual(
+            self.form.fields["on_ult"].help_text,
+            format_lazy(
+                """Is the patient on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
+                reverse_lazy("treatments:about-ult"),
+            ),
+        )
         self.assertIsNone(self.form.fields["on_ult"].initial)
         self.assertTrue(self.form.fields["on_ult"].required)

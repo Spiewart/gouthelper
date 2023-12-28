@@ -207,8 +207,8 @@ class Provider(User):
         proxy = True
 
     # Custom methods for Provider Role go here...
-    @property
-    def cached_property(self):
+    @cached_property
+    def profile(self):
         return getattr(self, "providerprofile", None)
 
 

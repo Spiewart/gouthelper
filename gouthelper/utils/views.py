@@ -11,7 +11,6 @@ from ..labs.models import BaselineCreatinine
 from ..labs.selectors import dated_urates
 from ..medallergys.forms import MedAllergyTreatmentForm
 from ..medallergys.models import MedAllergy
-from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
 from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse  # type: ignore
 
     from ..labs.models import Lab
+    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
     from ..medhistorys.models import MedHistory
     from ..models import MedHistoryAidModel  # type: ignore
     from ..treatments.choices import FlarePpxChoices, Treatments, UltChoices
@@ -53,18 +53,18 @@ class MedHistoryModelBaseView(View):
     onetoones: dict[str, "FormModelDict"] = {}
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
     medhistorys: dict[MedHistoryTypes, "FormModelDict"] = {}
-    medhistory_details: list[MedHistoryTypes] = []
+    medhistory_details: dict[MedHistoryTypes, "ModelForm"] = {}
     labs: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str] | None = None
 
     @cached_property
     def ckddetail(self) -> bool:
         """Method thataid_obj returns True if CKD is in the medhistorys dict."""
-        return MedHistoryTypes.CKD in self.medhistory_details
+        return MedHistoryTypes.CKD in self.medhistory_details.keys()
 
     @cached_property
     def goutdetail(self) -> bool:
         """Method that returns True if GOUT is in the medhistorys dict."""
-        return MedHistoryTypes.GOUT in self.medhistory_details
+        return MedHistoryTypes.GOUT in self.medhistory_details.keys()
 
     def render_errors(
         self,
@@ -161,7 +161,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
         self,
         form,
         onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm],
+        medhistorydetails_to_save: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"],
         medallergys_to_save: list["MedAllergy"],
         medhistorys_to_save: list["MedHistory"],
         labs_to_save: list["Lab"],
@@ -214,14 +214,14 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
                     kwargs[form_str] = mh_dict["form"](ckddetail=self.ckddetail)
                     if self.ckddetail:
                         if "ckddetail_form" not in kwargs:
-                            kwargs["ckddetail_form"] = CkdDetailForm()
+                            kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
                         if "baselinecreatinine_form" not in kwargs:
                             kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
                 elif medhistory == MedHistoryTypes.GOUT:
                     kwargs[form_str] = mh_dict["form"](goutdetail=self.goutdetail)
                     if self.goutdetail:
                         if "goutdetail_form" not in kwargs:
-                            kwargs["goutdetail_form"] = GoutDetailForm()
+                            kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
                 else:
                     kwargs[form_str] = self.medhistorys[medhistory]["form"]()
         if self.labs:
@@ -284,7 +284,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
                 if self.ckddetail:
                     medhistorydetails_forms.update(
                         {
-                            "ckddetail_form": CkdDetailForm(request.POST, instance=CkdDetail()),
+                            "ckddetail_form": self.medhistory_details[medhistory](request.POST, instance=CkdDetail()),
                             "baselinecreatinine_form": BaselineCreatinineForm(
                                 request.POST, instance=BaselineCreatinine()
                             ),
@@ -301,7 +301,9 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
                 if self.goutdetail:
                     medhistorydetails_forms.update(
                         {
-                            "goutdetail_form": GoutDetailForm(request.POST, instance=GoutDetail()),
+                            "goutdetail_form": self.medhistory_details[medhistory](
+                                request.POST, instance=GoutDetail()
+                            ),
                         }
                     )
             else:
@@ -542,7 +544,7 @@ class PatientModelCreateView(MedHistorysModelCreateView):
         self,
         form,
         onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm],
+        medhistorydetails_to_save: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"],
         medallergys_to_save: list["MedAllergy"],
         medhistorys_to_save: list["MedHistory"],
         labs_to_save: list["Lab"],
@@ -591,8 +593,8 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
         form,
         onetoones_to_save: list["Model"] | None,
         onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"] | None,
+        medhistorydetails_to_remove: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"] | None,
         medallergys_to_save: list["MedAllergy"] | None,
         medallergys_to_remove: list["MedAllergy"] | None,
         medhistorys_to_save: list["MedHistory"] | None,
@@ -717,13 +719,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                         )
                         if self.ckddetail:
                             if hasattr(ckd, "ckddetail") and ckd.ckddetail:
-                                kwargs["ckddetail_form"] = CkdDetailForm(instance=ckd.ckddetail)
+                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory](instance=ckd.ckddetail)
                                 if hasattr(ckd, "baselinecreatinine") and ckd.baselinecreatinine:
                                     kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
                                         instance=ckd.baselinecreatinine
                                     )
                             else:
-                                kwargs["ckddetail_form"] = CkdDetailForm()
+                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
                             if "baselinecreatinine_form" not in kwargs:
                                 kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
                     elif medhistory == MedHistoryTypes.GOUT:
@@ -735,9 +737,11 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                         )
                         if self.goutdetail:
                             if hasattr(gout, "goutdetail") and gout.goutdetail:
-                                kwargs["goutdetail_form"] = GoutDetailForm(instance=gout.goutdetail)
+                                kwargs["goutdetail_form"] = self.medhistory_details[medhistory](
+                                    instance=gout.goutdetail
+                                )
                             elif "goutdetail_form" not in kwargs:
-                                kwargs["goutdetail_form"] = GoutDetailForm()
+                                kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
                     else:
                         kwargs[form_str] = self.medhistorys[medhistory]["form"](
                             instance=qs_medhistory[0], initial={f"{medhistory}-value": True}
@@ -749,7 +753,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                                 ckddetail=self.ckddetail, initial={f"{medhistory}-value": False}
                             )
                             if "ckddetail_form" not in kwargs:
-                                kwargs["ckddetail_form"] = CkdDetailForm()
+                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
                             if "baselinecreatinine_form" not in kwargs:
                                 kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
                         else:
@@ -761,7 +765,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                             goutdetail=self.goutdetail, initial={f"{medhistory}-value": False}
                         )
                         if self.goutdetail and "goutdetail_form" not in kwargs:
-                            kwargs["goutdetail_form"] = GoutDetailForm()
+                            kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
                     # Check if the medhistory is Menopause
                     elif medhistory == MedHistoryTypes.MENOPAUSE:
                         if object.gender.value == Genders.FEMALE:
@@ -886,10 +890,16 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                         if self.ckddetail:
                             if hasattr(medhistory_obj, "ckddetail") and medhistory_obj.ckddetail:
                                 medhistorydetails_forms.update(
-                                    {"ckddetail_form": CkdDetailForm(request.POST, instance=medhistory_obj.ckddetail)}
+                                    {
+                                        "ckddetail_form": self.medhistory_details[medhistory](
+                                            request.POST, instance=medhistory_obj.ckddetail
+                                        )
+                                    }
                                 )
                             else:
-                                medhistorydetails_forms.update({"ckddetail_form": CkdDetailForm(request.POST)})
+                                medhistorydetails_forms.update(
+                                    {"ckddetail_form": self.medhistory_details[medhistory](request.POST)}
+                                )
                             if hasattr(medhistory_obj, "baselinecreatinine") and medhistory_obj.baselinecreatinine:
                                 medhistorydetails_forms.update(
                                     {
@@ -917,13 +927,15 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                             if hasattr(medhistory_obj, "goutdetail") and medhistory_obj.goutdetail:
                                 medhistorydetails_forms.update(
                                     {
-                                        "goutdetail_form": GoutDetailForm(
+                                        "goutdetail_form": self.medhistory_details[medhistory](
                                             request.POST, instance=medhistory_obj.goutdetail
                                         ),
                                     }
                                 )
                             else:
-                                medhistorydetails_forms.update({"goutdetail_form": GoutDetailForm(request.POST)})
+                                medhistorydetails_forms.update(
+                                    {"goutdetail_form": self.medhistory_details[medhistory](request.POST)}
+                                )
                     else:
                         medhistorys_forms.update(
                             {
@@ -947,7 +959,9 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                         if self.ckddetail:
                             medhistorydetails_forms.update(
                                 {
-                                    "ckddetail_form": CkdDetailForm(request.POST, instance=CkdDetail()),
+                                    "ckddetail_form": self.medhistory_details[medhistory](
+                                        request.POST, instance=CkdDetail()
+                                    ),
                                     "baselinecreatinine_form": BaselineCreatinineForm(
                                         request.POST, instance=BaselineCreatinine()
                                     ),
@@ -967,7 +981,9 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                         if self.goutdetail:
                             medhistorydetails_forms.update(
                                 {
-                                    "goutdetail_form": GoutDetailForm(request.POST, instance=GoutDetail()),
+                                    "goutdetail_form": self.medhistory_details[medhistory](
+                                        request.POST, instance=GoutDetail()
+                                    ),
                                 }
                             )
                     else:
@@ -1034,13 +1050,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
     ) -> tuple[
         list["MedHistory"],
         list["MedHistory"],
-        list[CkdDetailForm | BaselineCreatinine | GoutDetailForm],
-        list[CkdDetail | BaselineCreatinine | None],
+        list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"],
+        list[CkdDetail, BaselineCreatinine, None],
         bool,
     ]:
         medhistorys_to_save: list["MedHistory"] = []
         medhistorys_to_remove: list["MedHistory"] = []
-        medhistorydetails_to_save: list[CkdDetailForm | BaselineCreatinine | GoutDetailForm] = []
+        medhistorydetails_to_save: list["CkdDetailForm" | BaselineCreatinine | "GoutDetailForm"] = []
         medhistorydetails_to_remove: list[CkdDetail | BaselineCreatinine | None] = []
         for medhistory_form_str in medhistorys_forms:
             medhistorytype = medhistory_form_str.split("_")[0]

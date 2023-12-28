@@ -16,6 +16,7 @@ from ..ethnicitys.forms import EthnicityForm
 from ..ethnicitys.models import Ethnicity
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
+from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
     from ..labs.models import BaselineCreatinine, Lab
     from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
+    from ..medhistorydetails.forms import CkdDetailForm
     from ..medhistorys.models import MedHistory
 
 
@@ -59,13 +60,13 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
             "model": Gout,
         },
     }
-    medhistory_details = [MedHistoryTypes.GOUT]
+    medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
 
     def form_valid(
         self,
         form,
         onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm],
         medallergys_to_save: list["MedAllergy"],
         medhistorys_to_save: list["MedHistory"],
         labs_to_save: list["Lab"],
@@ -91,7 +92,6 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
             user=self.object,
             provider=self.request.user if provider else None,
         )
-        # TODO: Add fields to the PseudopatientProfile model and update here
         return HttpResponseRedirect(self.get_success_url())
 
     def get_permission_required(self):
