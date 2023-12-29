@@ -54,7 +54,7 @@ def is_obj_provider(user, obj):
 
     Expects an object with an optional user field."""
 
-    return obj.user.profile.provider == user if obj.user else False
+    return obj.user.pseudopatientprofile.provider == user if obj.user else False
 
 
 add_object = (
