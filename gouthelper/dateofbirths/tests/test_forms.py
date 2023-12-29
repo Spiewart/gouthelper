@@ -36,18 +36,6 @@ class TestDateOfBirthForm(TestCase):
         month = now.month
         self.assertEqual(str(form.cleaned_data["value"].date()), f"{now.year - 25}-{month}-{day}")
 
-    def test__clean_value_raises_ValidationError_too_young(self):
-        form = DateOfBirthForm(data={"dateofbirth-value": 17})
-        self.assertFalse(form.is_valid())
-        with self.assertRaisesMessage(Exception, "17 is not a valid age"):
-            form.clean_value()
-
-    def test__clean_value_raises_ValidationError_too_old(self):
-        form = DateOfBirthForm(data={"dateofbirth-value": 121})
-        self.assertFalse(form.is_valid())
-        with self.assertRaisesMessage(Exception, "121 is not a valid age"):
-            form.clean_value()
-
 
 class TestDateOfBirthFormOptional(TestCase):
     def test__check_for_value(self):

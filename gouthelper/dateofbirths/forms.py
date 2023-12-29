@@ -1,5 +1,4 @@
 from crispy_forms.helper import FormHelper  # type: ignore
-from django.core.exceptions import ValidationError
 from django.forms import IntegerField, NumberInput  # type: ignore
 from django.urls import reverse_lazy
 from django.utils.text import format_lazy
@@ -9,19 +8,6 @@ from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import OneToOneForm
 from .helpers import yearsago
 from .models import DateOfBirth
-
-
-def validate_age(value):
-    if value < 18:
-        raise ValidationError(
-            _("%(value)s is not a valid age"),
-            params={"value": value},
-        )
-    elif value > 120:
-        raise ValidationError(
-            _("%(value)s is not a valid age"),
-            params={"value": value},
-        )
 
 
 class DateOfBirthForm(OneToOneForm):
@@ -42,7 +28,6 @@ class DateOfBirthForm(OneToOneForm):
                 """How old is the patient (range: 18-120)? <a href="{}" target="_next">Why do we need to know?</a>""",
                 reverse_lazy("dateofbirths:about"),
             ),
-            validators=[validate_age],
             min_value=18,
             max_value=120,
             required=True,
