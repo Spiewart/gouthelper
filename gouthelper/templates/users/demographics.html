@@ -1,0 +1,31 @@
+<div id="demographics-card" class="card spacious-cards">
+  <div class="card-body">
+    <h2 class="card-title">Demographics</h2>
+    <ul>
+      <li>
+        Age:
+        {% if object.age %}
+          {{ object.age }}
+        {% else %}
+          unknown
+        {% endif %}
+      </li>
+      <li>
+        Ethnicity / Race:
+        {% if object.ethnicity %}
+          {{ object.ethnicity }}
+        {% else %}
+          unknown
+        {% endif %}
+      </li>
+      <li>
+        Biological Sex:
+        {% if object.gender %}
+          {{ object.gender }}
+        {% else %}
+          unknown
+        {% endif %}
+      </li>
+    </ul>
+  </div>
+</div>

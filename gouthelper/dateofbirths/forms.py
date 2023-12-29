@@ -1,5 +1,8 @@
 from crispy_forms.helper import FormHelper  # type: ignore
+from django.core.exceptions import ValidationError
 from django.forms import IntegerField, NumberInput  # type: ignore
+from django.urls import reverse_lazy
+from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ..utils.exceptions import EmptyRelatedModel
@@ -8,20 +11,42 @@ from .helpers import yearsago
 from .models import DateOfBirth
 
 
+def validate_age(value):
+    if value < 18:
+        raise ValidationError(
+            _("%(value)s is not a valid age"),
+            params={"value": value},
+        )
+    elif value > 120:
+        raise ValidationError(
+            _("%(value)s is not a valid age"),
+            params={"value": value},
+        )
+
+
 class DateOfBirthForm(OneToOneForm):
     class Meta:
         model = DateOfBirth
         fields = ("value",)
+        widgets = {
+            "value": NumberInput(attrs={"min": 18, "max": 120, "step": 1}),
+        }
 
     prefix = "dateofbirth"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["value"] = IntegerField(
-            widget=NumberInput(attrs={"min": 18, "max": 120, "step": 1}),
+            label=_("Age"),
+            help_text=format_lazy(
+                """How old is the patient (range: 18-120)? <a href="{}" target="_next">Why do we need to know?</a>""",
+                reverse_lazy("dateofbirths:about"),
+            ),
+            validators=[validate_age],
+            min_value=18,
+            max_value=120,
+            required=True,
         )
-        self.fields["value"].label = _("Age")
-        self.fields["value"].help_text = _("Age in years (18 - 120).")
         self.helper = FormHelper()
         self.helper.form_tag = False
 

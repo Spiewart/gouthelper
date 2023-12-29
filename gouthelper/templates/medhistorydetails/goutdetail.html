@@ -1,0 +1,43 @@
+<div id="goutdetail-card" class="card spacious-cards">
+  <div class="card-body">
+    <h2 class="card-title">Gout Details</h2>
+    <ul>
+      <li>
+        Flare status:
+        {% if object.flaring %}
+          recently flared
+        {% elif object.flaring is None %}
+          unknown if recently flared
+        {% else %}
+          no recent flares
+        {% endif %}
+      </li>
+      <li>
+        Uric acid status:
+        {% if object.hyperuricemic %}
+          hyperuricemic
+        {% elif object.hyperuricemic is None %}
+          unknown
+        {% else %}
+          under 6.0 mg/dL
+        {% endif %}
+      </li>
+      <li>
+        Prophylactic therapy:
+        {% if object.on_ppx %}
+          INSERT PPX
+        {% else %}
+          none
+        {% endif %}
+      </li>
+      <li>
+        Urate-lowering therapy:
+        {% if object.on_ult %}
+          INSERT ULT
+        {% else %}
+          none
+        {% endif %}
+      </li>
+    </ul>
+  </div>
+</div>

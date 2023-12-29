@@ -2,6 +2,7 @@ from django.urls import path
 
 from gouthelper.users.views import (
     pseudopatient_create_view,
+    pseudopatient_detail_view,
     pseudopatient_list_view,
     user_delete_view,
     user_detail_view,
@@ -18,6 +19,7 @@ urlpatterns = [
         view=pseudopatient_create_view,
         name="provider-create-pseudopatient",
     ),
+    path("pseudopatients/<str:username>/", view=pseudopatient_detail_view, name="pseudopatient-detail"),
     path("<str:username>/pseudopatients/", view=pseudopatient_list_view, name="pseudopatients"),
     path("~redirect/", view=user_redirect_view, name="redirect"),
     path("~update/", view=user_update_view, name="update"),

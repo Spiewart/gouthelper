@@ -9,6 +9,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..utils.models import DecisionAidModel
 from .choices import Roles
 from .rules import change_user, delete_user, view_user
 
@@ -212,7 +213,7 @@ class Provider(User):
         return getattr(self, "providerprofile", None)
 
 
-class Pseudopatient(User):
+class Pseudopatient(DecisionAidModel, User):
     # This sets the user type to PSEUDOPATIENT during record creation
     base_role = User.Roles.PSEUDOPATIENT
 

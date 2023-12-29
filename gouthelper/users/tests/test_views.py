@@ -283,6 +283,80 @@ class TestPseudoPatientCreateView(TestCase):
             view.as_view()(request)
 
 
+class TestPseudopatientDetailView(TestCase):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient.profile.provider = self.provider
+        self.provider_pseudopatient.profile.save()
+        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient.profile.provider = self.admin
+        self.admin_pseudopatient.profile.save()
+        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+
+    def test__rules_provider_can_see_own_pseudopatient(self):
+        """Test that a Provider can see his or her own Pseudopatient's detail."""
+        self.client.force_login(self.provider)
+        assert self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+        )
+
+    def test__rules_provider_cannot_see_admin_pseudopatient(self):
+        """Test that a Provider cannot see an Admin's Pseudopatient's detail."""
+        self.client.force_login(self.provider)
+        response = self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.admin_pseudopatient.username})
+        )
+        assert response.status_code == 403
+
+    def test__rules_provider_can_see_anonymous_pseudopatient(self):
+        """Test that a Provider can see an Anonymous Pseudopatient's detail."""
+        self.client.force_login(self.provider)
+        assert self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+        )
+
+    def test__rules_admin_can_see_own_pseudopatient(self):
+        """Test that an Admin can see his or her own Pseudopatient's detail."""
+        self.client.force_login(self.admin)
+        assert self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.admin_pseudopatient.username})
+        )
+
+    def test__rules_admin_cannot_see_provider_pseudopatient(self):
+        """Test that an Admin cannot see a Provider's Pseudopatient's detail."""
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+        )
+        assert response.status_code == 403
+
+    def test__rules_anonymous_cannot_see_provider_pseudopatient(self):
+        """Test that an Anonymous User cannot see a Provider's Pseudopatient's detail."""
+        response = self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+        )
+        assert response.status_code == 302
+        url = reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+        assert response.url == f"/accounts/login/?next={url}"
+
+    def test__rules_admin_can_see_anonymous_pseudopatient(self):
+        """Test that an Admin can see an Anonymous Pseudopatient's detail."""
+        self.client.force_login(self.admin)
+        assert self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+        )
+
+    def test__rules_anonymous_can_see_anonymous_pseudopatient(self):
+        """Test that an Anonymous User can see an Anonymous Pseudopatient's detail."""
+        assert self.client.get(
+            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+        )
+
+
 class TestPseudopatientListView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
@@ -755,6 +829,18 @@ class TestUserDetailView(TestCase):
 
         assert response.status_code == 200
 
+    def test__get(self):
+        """Test that the view redirects to pseudopatient-detail when the
+        User is a Pseudopatient.
+        """
+        view = user_detail_view
+        kwargs = {"username": self.provider_pseudopatient.username}
+        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
+        request.user = self.provider_pseudopatient
+        response = view(request, **kwargs)
+        assert response.status_code == 302
+        assert response.url == reverse("users:pseudopatient-detail", kwargs=kwargs)
+
     def test_not_authenticated(self):
         request = self.rf.get("/fake-url/")
         request.user = AnonymousUser()
@@ -773,27 +859,10 @@ class TestUserDetailView(TestCase):
         request.user = self.provider
         assert view(request, **kwargs)
 
-    def test__rules_provider_own_patient(self):
-        """Test that a Provider can see his or her own Pseudopatient's detail."""
-        view = user_detail_view
-        kwargs = {"username": self.provider_pseudopatient.username}
-        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
-        request.user = self.provider
-        assert view(request, **kwargs)
-
     def test__rules_provider_cannot_see_admin(self):
         """Test that a Provider cannot see an Admin's detail."""
         view = user_detail_view
         kwargs = {"username": self.admin.username}
-        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
-        request.user = self.provider
-        with pytest.raises(PermissionDenied):
-            view(request, **kwargs)
-
-    def test__rules_provider_cannot_see_admin_pseudopatient(self):
-        """Test that a Provider cannot see an Admin's Pseudopatient's detail."""
-        view = user_detail_view
-        kwargs = {"username": self.admin_pseudopatient.username}
         request = self.rf.get(reverse("users:detail", kwargs=kwargs))
         request.user = self.provider
         with pytest.raises(PermissionDenied):
@@ -807,11 +876,3 @@ class TestUserDetailView(TestCase):
         request.user = self.provider
         with pytest.raises(PermissionDenied):
             view(request, **kwargs)
-
-    def test__rules_provider_can_see_anonymous_pseudopatient(self):
-        """Test that a Provider can see an Anonymous Pseudopatient's detail."""
-        view = user_detail_view
-        kwargs = {"username": self.anon_pseudopatient.username}
-        request = self.rf.get(reverse("users:detail", kwargs=kwargs))
-        request.user = self.provider
-        assert view(request, **kwargs)

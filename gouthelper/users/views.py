@@ -25,6 +25,7 @@ from ..utils.views import PatientModelCreateView
 from .choices import Roles
 from .forms import PseudopatientForm
 from .models import Pseudopatient
+from .selectors import pseudopatient_qs
 
 User = get_user_model()
 
@@ -140,6 +141,19 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
 pseudopatient_create_view = PseudopatientCreateView.as_view()
 
 
+class PseudopatientDetailView(AutoPermissionRequiredMixin, DetailView):
+    model = Pseudopatient
+    slug_field = "username"
+    slug_url_kwarg = "username"
+    template_name = "users/pseudopatient_detail.html"
+
+    def get_queryset(self):
+        return pseudopatient_qs(self.kwargs.get("username", None))
+
+
+pseudopatient_detail_view = PseudopatientDetailView.as_view()
+
+
 class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     """ListView for displaying all of a Provider or Admin's Pseudopatients."""
 
@@ -190,10 +204,24 @@ class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMes
 user_delete_view = UserDeleteView.as_view()
 
 
-class UserDetailView(AutoPermissionRequiredMixin, DetailView):
+class UserDetailView(LoginRequiredMixin, AutoPermissionRequiredMixin, DetailView):
+    """Default DetailView for GoutHelper Users, which are Providers by default. If the requested
+    User is a Pseudopatient, redirect to the PseudopatientDetailView."""
+
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
+
+    def get(self, request, *args, **kwargs):
+        """Overwritten to check if the requested User is a Pseudopatient. If so, redirect to the
+        PseudopatientDetailView."""
+        self.object = self.get_object()
+        if self.object.role == Roles.PSEUDOPATIENT:
+            return HttpResponseRedirect(
+                reverse("users:pseudopatient-detail", kwargs={"username": self.get_object().username})
+            )
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
 
 
 user_detail_view = UserDetailView.as_view()
