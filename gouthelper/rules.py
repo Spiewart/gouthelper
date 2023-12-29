@@ -20,23 +20,23 @@ def anon_obj_creation(_, obj):
 
 
 @rules.predicate
-def request_user_is_username_kwarg_provider(user, obj):
+def request_user_kwarg_provider(user, obj):
     """Checks if the request.user.username is the same as the provider
     for the user object associated with a username kwarg via his or her
     profile.
 
     Expects a str or None as obj."""
-    return User.objects.get(username=obj).profile.provider == user
+    return obj == user.username
 
 
 @rules.predicate
 def is_an_admin(user):
-    return user.role == Roles.ADMIN
+    return hasattr(user, "role") and user.role == Roles.ADMIN
 
 
 @rules.predicate
 def is_a_provider(user):
-    return user.role == Roles.PROVIDER
+    return hasattr(user, "role") and user.role == Roles.PROVIDER
 
 
 @rules.predicate
@@ -58,16 +58,12 @@ def is_obj_provider(user, obj):
 
 
 add_object = (
-    anon_obj_creation
-    | (is_a_provider & request_user_is_username_kwarg_provider)
-    | (is_an_admin & request_user_is_username_kwarg_provider)
+    anon_obj_creation | (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
 )
 change_object = is_anon_obj | is_obj_provider
 delete_object = is_obj_provider
 view_object = is_anon_obj | is_obj_provider
-view_object_list = (is_a_provider & request_user_is_username_kwarg_provider) | (
-    is_an_admin & request_user_is_username_kwarg_provider
-)
+view_object_list = (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
 
 rules.add_rule("can_add_object", add_object)
 rules.add_rule("can_change_object", change_object)

@@ -13,3 +13,7 @@ class FlareAidFactory(DjangoModelFactory):
         model = FlareAid
 
     dateofbirth = factory.SubFactory(DateOfBirthFactory)
+
+
+class FlareAidUserFactory(FlareAidFactory):
+    dateofbirth = None
