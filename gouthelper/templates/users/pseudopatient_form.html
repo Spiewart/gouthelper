@@ -25,13 +25,23 @@
         {% include '_submit_button.html' %}
       </form>
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'users:create-pseudopatient' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if request.user.is_authenticated %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'users:provider-create-pseudopatient' user.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'users:create-pseudopatient' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}

@@ -142,7 +142,7 @@ pseudopatient_create_view = PseudopatientCreateView.as_view()
 
 
 class PseudopatientDetailView(AutoPermissionRequiredMixin, DetailView):
-    model = Pseudopatient
+    model = User
     slug_field = "username"
     slug_url_kwarg = "username"
     template_name = "users/pseudopatient_detail.html"
@@ -188,7 +188,7 @@ class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMes
             return _("User successfully deleted")
 
     def get_success_url(self):
-        if self.request.user.is_authenticated and self.object != self.request.user:
+        if self.object != self.request.user:
             return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})
         else:
             return reverse("contents:home")

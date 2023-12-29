@@ -34,6 +34,7 @@
       <form class="form-horizontal"
             method="post"
             action="{% url 'users:delete-pseudopatient' object.username %}">
+        {% csrf_token %}
         <p>Are you sure you want to delete "{{ object }}"?</p>
         <p>
           This will permanently the Pseudopatient and any

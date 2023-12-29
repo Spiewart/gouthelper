@@ -489,7 +489,7 @@ class TestUserDeleteView(TestCase):
         view = UserDeleteView()
         view.object = self.provider
         request = self.rf.get("/fake-url/")
-        request.user = AnonymousUser()
+        request.user = self.provider
         view.request = request
         assert view.get_success_url() == reverse("contents:home")
         request.user = self.provider
@@ -508,25 +508,21 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_provider_can_delete_own_pseudopatient(self):
         """Test that a Provider can delete his or her own Pseudopatient."""
-        view = UserDeleteView
-        kwargs = {"username": self.provider_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        self.client.force_login(self.provider)
+        initial_response = self.client.get(
+            reverse("users:delete-pseudopatient", kwargs={"username": self.provider_pseudopatient.username})
+        )
 
-        # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        assert initial_response.status_code == 200
 
-        request.user = self.provider
-        assert view.as_view()(request, **kwargs)
+        confirm_response = self.client.post(
+            reverse("users:delete-pseudopatient", kwargs={"username": self.provider_pseudopatient.username})
+        )
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        assert confirm_response.status_code == 302
+        assert confirm_response.url == f"/users/{self.provider.username}/pseudopatients/"
 
-        # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
-
-        request.user = self.provider
-        assert view.as_view()(request, **kwargs)
+        assert not Pseudopatient.objects.filter(username=self.provider_pseudopatient.username).exists()
 
     def test__rules_provider_cannot_delete_admins_pseudopatient(self):
         """Test that a Provider cannot delete an Admin's Pseudopatient."""
