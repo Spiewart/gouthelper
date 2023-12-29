@@ -225,6 +225,7 @@ class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMix
             labs_to_update=labs_to_update,
         )
         # Update object / form instance
+        print(type(self.object))
         self.object.update(qs=self.object)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")

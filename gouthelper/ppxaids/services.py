@@ -11,8 +11,8 @@ from ..defaults.selectors import (
 )
 from ..treatments.choices import FlarePpxChoices, TrtTypes
 from ..utils.helpers.aid_helpers import (
-    aids_assign_userless_baselinecreatinine,
-    aids_assign_userless_ckddetail,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
     aids_create_trts_dosing_dict,
     aids_dict_to_json,
     aids_process_medallergys,
@@ -53,8 +53,8 @@ class PpxAidDecisionAid:
             self.gender = None
         self.medallergys = self.ppxaid.medallergys_qs
         self.medhistorys = self.ppxaid.medhistorys_qs
-        self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
-        self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         # Sideeffects are set to None because there are no User's in GoutHelper yet...
         self.sideeffects = None
 

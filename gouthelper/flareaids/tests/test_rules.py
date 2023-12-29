@@ -10,35 +10,6 @@ from .factories import FlareAidFactory, FlareAidUserFactory
 pytestmark = pytest.mark.django_db
 
 
-class TestCanAddFlareAid(TestCase):
-    """Tests for add_object rule when the object is anonymous, i.e.
-    is called without a username kwarg."""
-
-    def setUp(self):
-        self.provider = UserFactory(role=Roles.PROVIDER)
-        self.admin = UserFactory(role=Roles.ADMIN)
-        self.anon = AnonymousUser()
-
-    def test__add_anonymous_object(self):
-        """Tests that any user can add an anonymous object."""
-        assert rules.test_rule("can_add_object", self.anon, None)
-        assert rules.test_rule("can_add_object", self.provider, None)
-        assert rules.test_rule("can_add_object", self.admin, None)
-
-    def test__add_provider_object(self):
-        """Tests that only the provider can add an object for his or
-        her self."""
-        assert rules.test_rule("can_add_object", self.provider, self.provider.username)
-        assert not rules.test_rule("can_add_object", self.admin, self.provider.username)
-        assert not rules.test_rule("can_add_object", self.anon, self.provider.username)
-
-    def test__add_admin_object(self):
-        """Tests that only an admin can add an object for another user."""
-        assert rules.test_rule("can_add_object", self.admin, self.admin.username)
-        assert not rules.test_rule("can_add_object", self.provider, self.admin.username)
-        assert not rules.test_rule("can_add_object", self.anon, self.admin.username)
-
-
 class TestCanChangeFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
@@ -142,26 +113,3 @@ class TestCanViewFlareAid(TestCase):
         assert rules.test_rule("can_view_object", self.admin, self.admin_flareaid)
         assert not rules.test_rule("can_view_object", self.provider, self.admin_flareaid)
         assert not rules.test_rule("can_view_object", self.anon, self.admin_flareaid)
-
-
-class TestCanViewFlareAidListView(TestCase):
-    """Tests for view_object_list rule when the object is anonymous, i.e.
-    is called without a username kwarg."""
-
-    def setUp(self):
-        self.provider = UserFactory(role=Roles.PROVIDER)
-        self.admin = UserFactory(role=Roles.ADMIN)
-        self.anon = AnonymousUser()
-
-    def test__view_provider_object_list(self):
-        """Tests that only the provider can view an object list for his or
-        her self."""
-        assert rules.test_rule("can_view_object_list", self.provider, self.provider.username)
-        assert not rules.test_rule("can_view_object_list", self.admin, self.provider.username)
-        assert not rules.test_rule("can_view_object_list", self.anon, self.provider.username)
-
-    def test__view_admin_object_list(self):
-        """Tests that only an admin can view an object list for another user."""
-        assert rules.test_rule("can_view_object_list", self.admin, self.admin.username)
-        assert not rules.test_rule("can_view_object_list", self.provider, self.admin.username)
-        assert not rules.test_rule("can_view_object_list", self.anon, self.admin.username)

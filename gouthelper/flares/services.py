@@ -7,7 +7,7 @@ from ..medhistorys.helpers import (
     medhistorys_get_gout,
     medhistorys_get_menopause,
 )
-from ..utils.helpers.aid_helpers import aids_assign_userless_baselinecreatinine, aids_assign_userless_ckddetail
+from ..utils.helpers.aid_helpers import aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .helpers import (
     flares_calculate_likelihood,
     flares_calculate_prevalence,
@@ -37,8 +37,8 @@ class FlareDecisionAid:
         self.gender = self.flare.gender
         self.medhistorys = self.flare.medhistorys_qs
         self.urate = self.flare.urate
-        self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
-        self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         # Separate here when adding User to class method
         self.ckd = medhistorys_get_ckd(medhistorys=self.medhistorys)
         self.cvdiseases = medhistorys_get_cvdiseases(medhistorys=self.medhistorys)

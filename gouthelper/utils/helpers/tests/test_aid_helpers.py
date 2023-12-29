@@ -42,8 +42,8 @@ from ....treatments.choices import (
 from ....ultaids.services import UltAidDecisionAid
 from ....ultaids.tests.factories import UltAidFactory
 from ..aid_helpers import (
-    aids_assign_userless_baselinecreatinine,
-    aids_assign_userless_ckddetail,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
     aids_assign_userless_goutdetail,
     aids_colchicine_ckd_contra,
     aids_create_trts_dosing_dict,
@@ -72,18 +72,18 @@ class TestAidsAssignUserlessBaselineCreatinine(TestCase):
 
     def test__no_ckd_returns_None(self):
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
 
     def test__ckd_but_not_baselinecreatinine_returns_None(self):
         CkdFactory()
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
 
     def test__ckd_with_baselinecreatinine_returns_ckddetail(self):
         ckd = CkdFactory()
         baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.0"))
         medhistorys = MedHistory.objects.filter().all()
-        self.assertEqual(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys), baselinecreatinine)
+        self.assertEqual(aids_assign_baselinecreatinine(medhistorys=medhistorys), baselinecreatinine)
 
 
 class TestAidsAssignUserlessCkdDetail(TestCase):
@@ -94,18 +94,18 @@ class TestAidsAssignUserlessCkdDetail(TestCase):
 
     def test__no_ckd_returns_None(self):
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_ckddetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_but_not_ckddetail_returns_None(self):
         CkdFactory()
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_ckddetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_with_ckddetail_returns_ckddetail(self):
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
         medhistorys = MedHistory.objects.filter().all()
-        self.assertEqual(aids_assign_userless_ckddetail(medhistorys=medhistorys), ckddetail)
+        self.assertEqual(aids_assign_ckddetail(medhistorys=medhistorys), ckddetail)
 
 
 class TestAidsAssignUserlessGoutDetail(TestCase):

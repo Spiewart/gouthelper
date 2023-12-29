@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from ...medhistorys.models import Ckd, MedHistory
 
 
-def aids_assign_userless_baselinecreatinine(
+def aids_assign_baselinecreatinine(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
 ) -> Union["BaselineCreatinine", None]:
     """Method that takes a list of userless medhistorys and tries to find one with a BaselineCreatinine.
@@ -49,7 +49,7 @@ def aids_assign_userless_baselinecreatinine(
     return None
 
 
-def aids_assign_userless_ckddetail(
+def aids_assign_ckddetail(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
 ) -> Union["CkdDetail", None]:
     """Method that takes a list of userless medhistorys and tries to find one with a CkdDetail.

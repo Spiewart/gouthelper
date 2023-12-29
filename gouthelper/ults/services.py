@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.helpers.aid_helpers import aids_assign_userless_ckddetail
+from ..utils.helpers.aid_helpers import aids_assign_ckddetail
 from .choices import FlareFreqs, FlareNums, Indications
 from .selectors import ult_userless_qs
 
@@ -26,7 +26,7 @@ class UltDecisionAid:
         else:
             self.ult = ult_userless_qs(pk=pk).get()
         self.medhistorys = self.ult.medhistorys_qs
-        self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         self._assign_medhistorys()
 
     ckd: Union["MedHistory", None]

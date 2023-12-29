@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
 from django.conf import settings  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -14,11 +15,15 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
+from .selectors import flareaid_user_qs, flareaid_userless_qs
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
     from ..defaults.models import DefaultFlareTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
+
+
+User = get_user_model()
 
 
 class FlareAid(
@@ -143,7 +148,7 @@ class FlareAid(
                         except KeyError:
                             return None
 
-    def update(self, decisionaid: FlareAidDecisionAid | None = None, qs: Union["FlareAid", None] = None) -> "FlareAid":
+    def update(self, qs: Union["FlareAid", User, None] = None) -> "FlareAid":
         """Updates FlareAid decisionaid JSON field field.
 
         Args:
@@ -153,6 +158,10 @@ class FlareAid(
 
         Returns:
             FlareAid: FlareAid object."""
-        if decisionaid is None:
-            decisionaid = FlareAidDecisionAid(pk=self.pk, qs=qs)
+        if qs is None:
+            if self.user:
+                qs = flareaid_user_qs(username=self.user.username)
+            else:
+                qs = flareaid_userless_qs(pk=self.pk)
+        decisionaid = FlareAidDecisionAid(qs=qs)
         return decisionaid._update()
