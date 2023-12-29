@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -9,6 +10,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
@@ -30,9 +32,36 @@ class FlareAid(
 ):
     """Model that can make a recommendation for gout flare treatment."""
 
+    class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
+        constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        gender__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        dateofbirth__isnull=False,
+                        # gender can be null because not all FlareAids will have CkdDetail
+                    )
+                ),
+            ),
+        ]
+
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     decisionaid = models.JSONField(
         default=dict,
@@ -44,10 +73,14 @@ class FlareAid(
         null=True,
         blank=True,
     )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"FlareAid: created {self.created.date()}"
+        if self.user:
+            return f"{self.user.username.capitalize()}'s FlareAid"
+        else:
+            return f"FlareAid: created {self.created.date()}"
 
     @cached_property
     def aid_dict(self) -> dict:
@@ -64,9 +97,7 @@ class FlareAid(
     def defaulttrtsettings(self) -> "DefaultFlareTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
         GoutHelper DefaultSettings."""
-        # Fetch default FlareTrtSettings for GoutHelper with user=None
-        # TODO: When a patient is added to the model in the future, this will need to be updated.
-        return defaults_defaultflaretrtsettings(user=None)
+        return defaults_defaultflaretrtsettings(user=self.user)
 
     def get_absolute_url(self):
         return reverse("flareaids:detail", kwargs={"pk": self.pk})
