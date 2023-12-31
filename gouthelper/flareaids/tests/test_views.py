@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
@@ -19,15 +20,22 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import Treatments
+from ...users.choices import Roles
+from ...users.models import Pseudopatient
+from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import FlareAid
-from ..views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidUpdate
+from ..views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidPatientCreate, FlareAidUpdate
 from .factories import FlareAidFactory
 
 pytestmark = pytest.mark.django_db
+
+
+User = get_user_model()
 
 
 class TestFlareAidAbout(TestCase):
@@ -194,6 +202,126 @@ class TestFlareAidCreate(TestCase):
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.PREDNISONE).exists())
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.NAPROXEN).exists())
         self.assertEqual(MedAllergy.objects.count(), 3)
+
+
+class TestFlareAidPatientCreate(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = FlareAidPatientCreate
+        self.user = PseudopatientPlusFactory()
+        for _ in range(10):
+            PseudopatientPlusFactory()
+
+    def test__ckddetail(self):
+        """Tests the ckddetail cached_property."""
+        self.assertTrue(self.view().ckddetail)
+
+    def test__get_form_kwargs(self):
+        # Create a fake request
+        request = self.factory.get("/fake-url/")
+        view = self.view(request=request)
+        form_kwargs = view.get_form_kwargs()
+        self.assertIn("medallergys", form_kwargs)
+
+    def test__goutdetail(self):
+        """Tests the goutdetail cached_property."""
+        self.assertFalse(self.view().goutdetail)
+
+    def test__get(self):
+        """Test the get() method for the view."""
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        view.get(request, **kwargs)
+        self.assertTrue(hasattr(view, "user"))
+        self.assertEqual(view.user, self.user)
+
+    def test__get_user_queryset(self):
+        """Test the get_user_queryset() method for the view."""
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["username"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertTrue(isinstance(qs, User))
+        self.assertTrue(hasattr(qs, "medhistorys_qs"))
+        self.assertTrue(hasattr(qs, "medallergys_qs"))
+        self.assertTrue(hasattr(qs, "dateofbirth"))
+        self.assertTrue(hasattr(qs, "gender"))
+
+    def test__get_context_data_onetoones(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            assert "dateofbirth_form" in response.context_data
+            assert response.context_data["dateofbirth_form"].instance == user.dateofbirth
+            assert response.context_data["dateofbirth_form"].instance._state.adding is False
+            assert "ethnicity_form" not in response.context_data
+            assert "gender_form" in response.context_data
+            assert response.context_data["gender_form"].instance == user.gender
+            assert response.context_data["gender_form"].instance._state.adding is False
+        empty_user = UserFactory(role=Roles.PSEUDOPATIENT)
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": empty_user.username}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+        assert "dateofbirth_form" in response.context_data
+        assert response.context_data["dateofbirth_form"].instance._state.adding is True
+        assert "ethnicity_form" not in response.context_data
+        assert "gender_form" in response.context_data
+        assert response.context_data["gender_form"].instance._state.adding is True
+
+    def test__get_context_data_medhistorys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for mh in user.medhistory_set.all():
+                if mh.medhistorytype in FLAREAID_MEDHISTORYS:
+                    assert f"{mh.medhistorytype}_form" in response.context_data
+                    assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
+                    assert response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding is False
+                    assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
+                        f"{mh.medhistorytype}-value": True
+                    }
+                else:
+                    assert f"{mh.medhistorytype}_form" not in response.context_data
+            for mhtype in FLAREAID_MEDHISTORYS:
+                assert f"{mhtype}_form" in response.context_data
+                if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
+                    assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
+            assert "ckddetail_form" in response.context_data
+            if user.ckd:
+                if getattr(user.ckd, "ckddetail", None):
+                    assert response.context_data["ckddetail_form"].instance == user.ckd.ckddetail
+                    assert response.context_data["ckddetail_form"].instance._state.adding is False
+                else:
+                    assert response.context_data["ckddetail_form"].instance._state.adding is True
+                if getattr(user.ckd, "baselinecreatinine", None):
+                    assert response.context_data["baselinecreatinine_form"].instance == user.ckd.baselinecreatinine
+                    assert response.context_data["baselinecreatinine_form"].instance._state.adding is False
+                else:
+                    assert response.context_data["baselinecreatinine_form"].instance._state.adding is True
+            else:
+                assert response.context_data["ckddetail_form"].instance._state.adding is True
+                assert response.context_data["baselinecreatinine_form"].instance._state.adding is True
+            assert "goutdetail_form" not in response.context_data
+
+    def test__get_context_data_labs(self):
+        pass
 
 
 class TestFlareAidDetail(TestCase):

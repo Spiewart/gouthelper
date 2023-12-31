@@ -142,7 +142,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_ckd(self.medhistorys_qs)  # type: ignore
         except AttributeError:
-            return medhistorys_get_ckd(self.medhistorys.all())
+            try:
+                return medhistorys_get_ckd(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_ckd(self.medhistory_set.all())
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
@@ -288,7 +291,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_gout(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_gout(self.medhistorys.all())
+            try:
+                return medhistorys_get_gout(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_gout(self.medhistory_set.all())
 
     @cached_property
     def goutdetail(self) -> Union["GoutDetail", None]:

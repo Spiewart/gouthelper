@@ -249,7 +249,6 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         medhistorys_to_remove: list["MedHistory"] | None,
         labs_to_save: list["Lab"] | None,
         labs_to_remove: list["Lab"] | None,
-        labs_to_update: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
 
@@ -265,7 +264,6 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             medallergys_to_remove=medallergys_to_remove,
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
-            labs_to_update=labs_to_update,
         )
         # Update object / form instance
         self.object.update(qs=self.object)
@@ -310,7 +308,6 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             medhistorys_to_remove,
             labs_to_save,
             labs_to_remove,
-            labs_to_update,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
@@ -342,5 +339,4 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             medhistorys_to_remove=medhistorys_to_remove,
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
-            labs_to_update=labs_to_update,
         )

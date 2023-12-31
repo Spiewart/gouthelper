@@ -105,7 +105,10 @@ class FlareAid(
         return defaults_defaultflaretrtsettings(user=self.user)
 
     def get_absolute_url(self):
-        return reverse("flareaids:detail", kwargs={"pk": self.pk})
+        if self.user:
+            return reverse("users:patient-flareaid", kwargs={"username": self.user.username})
+        else:
+            return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
     @property
     def options(self) -> dict:

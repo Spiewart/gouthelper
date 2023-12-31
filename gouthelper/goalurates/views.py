@@ -184,7 +184,6 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
         medhistorys_to_remove: list["MedHistory"] | None,
         labs_to_save: list["Lab"] | None,
         labs_to_remove: list["Lab"] | None,
-        labs_to_update: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
 
@@ -200,7 +199,6 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             medallergys_to_remove=medallergys_to_remove,
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
-            labs_to_update=labs_to_update,
         )
         # Update the DecisionAidModel by calling the update method with the QuerySet
         # of the object, which will hopefully have been annotated by the view to
@@ -247,7 +245,6 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             medhistorys_to_remove,
             _,  # labs_to_save,
             _,  # labs_to_remove,
-            _,  # labs_to_update,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
@@ -264,5 +261,4 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
                 medallergys_to_remove=None,
                 labs_to_save=None,
                 labs_to_remove=None,
-                labs_to_update=None,
             )

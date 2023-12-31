@@ -61,6 +61,11 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
                 name="%(app_label)s_%(class)s_medhistorytype_valid",
                 check=models.Q(medhistorytype__in=MedHistoryTypes.values),
             ),
+            # A User can only have one of each type of MedHistory
+            models.UniqueConstraint(
+                fields=["user", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_user",
+            ),
         ]
 
     MedHistoryTypes = MedHistoryTypes

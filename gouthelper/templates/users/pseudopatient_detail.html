@@ -11,6 +11,12 @@
       <div class="col-sm-12">
         <h2>{{ object }}</h2>
       </div>
+      <a class="btn btn-primary"
+         href="{% url 'flareaids:patient-create' object.username %}"
+         role="button">FlareAid</a>
+      <a class="btn btn-primary"
+         href="{% url 'users:patient-flareaid' object.username %}"
+         role="button">FlareAid Detail</a>
     </div>
     <div class="row">
       <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>

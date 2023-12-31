@@ -5,6 +5,8 @@ from django.db.models import DateField  # type: ignore
 from django.db.models.functions import Coalesce  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ..labs.choices import LabTypes
+
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
@@ -21,7 +23,10 @@ def dated_urates(queryset: "QuerySet") -> "QuerySet":
         date=Coalesce("flare__date_started", "date_drawn", output_field=DateField()),
     )
     # Filter out values greater than 2 years old
-    queryset = queryset.filter(date__gte=timezone.now() - timezone.timedelta(days=730))
+    queryset = queryset.filter(
+        labtype=LabTypes.URATE,
+        date__gte=timezone.now() - timezone.timedelta(days=730),
+    )
     # Order by date
     queryset = queryset.order_by("-date")
     return queryset

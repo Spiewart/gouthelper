@@ -48,6 +48,7 @@ class FlareAidDecisionAid:
         elif isinstance(qs, User):
             self.flareaid = qs.flareaid
             self.user = qs
+            # Try to assign defaultflaretrtsettings from User instance
             self.defaultflaretrtsettings = (
                 qs.defaultflaretrtsettings if hasattr(qs, "defaultflaretrtsettings") else None
             )
@@ -59,6 +60,9 @@ class FlareAidDecisionAid:
         else:
             self.dateofbirth = None
             self.age = None
+        # If there are no defaultflaretrtsettings, which could have been assigned from the User
+        # if the User is not None and has a defaultflaretrtsettings, then assign the default
+        # This is in attempt to save a query to the database
         if not getattr(self, "defaultflaretrtsettings", None):
             self.defaultflaretrtsettings = defaults_defaultflaretrtsettings(user=self.user)
         self.gender = qs.gender
