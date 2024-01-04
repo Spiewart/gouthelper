@@ -100,7 +100,10 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
             str: URL for user detail.
 
         """
-        return reverse("users:detail", kwargs={"username": self.username})
+        if self.role == Roles.PSEUDOPATIENT:
+            return reverse("users:pseudopatient-detail", kwargs={"username": self.username})
+        else:
+            return reverse("users:detail", kwargs={"username": self.username})
 
     def __str__(self) -> str:
         """Unicode representation of User."""
@@ -169,9 +172,13 @@ class Admin(User):
     # Ensures queries on the ADMIN model return only Providers
     objects = AdminManager()
 
-    # Setting proxy to "True" means a table will not be created for this record
-    class Meta:
+    class Meta(User.Meta):
         proxy = True
+        rules_permissions = {
+            "change": change_user,
+            "delete": delete_user,
+            "view": view_user,
+        }
 
     # Custom methods for ADMIN Role go here...
     @cached_property
@@ -180,15 +187,19 @@ class Admin(User):
 
 
 class Patient(User):
+    class Meta(User.Meta):
+        proxy = True
+        rules_permissions = {
+            "change": change_user,
+            "delete": delete_user,
+            "view": view_user,
+        }
+
     # This sets the user type to PATIENT during record creation
     base_role = User.Roles.PATIENT
 
     # Ensures queries on the Patient model return only Patients
     objects = PatientManager()
-
-    # Setting proxy to "True" means a table will not be created for this record
-    class Meta:
-        proxy = True
 
     # Custom methods for Patient Role go here...
     @property
@@ -203,9 +214,13 @@ class Provider(User):
     # Ensures queries on the Provider model return only Providers
     objects = ProviderManager()
 
-    # Setting proxy to "True" means a table will not be created for this record
-    class Meta:
+    class Meta(User.Meta):
         proxy = True
+        rules_permissions = {
+            "change": change_user,
+            "delete": delete_user,
+            "view": view_user,
+        }
 
     # Custom methods for Provider Role go here...
     @cached_property
@@ -220,9 +235,13 @@ class Pseudopatient(DecisionAidModel, User):
     # Ensures queries on the Pseudopatient model return only Pseudopatients
     objects = PseudopatientManager()
 
-    # Setting proxy to "True" means a table will not be created for this record
-    class Meta:
+    class Meta(User.Meta):
         proxy = True
+        rules_permissions = {
+            "change": change_user,
+            "delete": delete_user,
+            "view": view_user,
+        }
 
     # Custom methods for Pseudopatient Role go here...
     @cached_property

@@ -15,7 +15,6 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...profiles.models import PatientProfile, PseudopatientProfile
-from ...profiles.tests.factories import PatientProfileFactory
 from ...treatments.choices import Treatments
 from ..choices import Roles
 
@@ -45,9 +44,9 @@ class UserFactory(DjangoModelFactory):
     def create_profile(self, create: bool, extracted: Sequence[Any], **kwargs):
         if create:
             if self.role == Roles.PATIENT:
-                PatientProfile(user=self).save()
+                PatientProfile(user=self, provider=extracted if extracted else None).save()
             elif self.role == Roles.PSEUDOPATIENT:
-                PseudopatientProfile(user=self).save()
+                PseudopatientProfile(user=self, provider=extracted if extracted else None).save()
 
     @classmethod
     def _after_postgeneration(cls, instance, create, results=None):
@@ -69,7 +68,6 @@ class PatientFactory(UserFactory):
     role = Roles.PATIENT
     dateofbirth = RelatedFactory(DateOfBirthFactory, "user")
     gender = RelatedFactory(GenderFactory, "user")
-    patientprofile = RelatedFactory(PatientProfileFactory, "user")
     ethnicity = RelatedFactory(EthnicityFactory, "user")
 
 
@@ -89,6 +87,12 @@ class PseudopatientPlusFactory(PseudopatientFactory):
     def create_medhistorys(self, create: bool, extracted: Sequence[Any], **kwargs):
         if create:
             medhistorytypes = MedHistoryTypes.values
+            gout = MedHistoryFactory(
+                user=self,
+                medhistorytype=MedHistoryTypes.GOUT,
+            )
+            medhistorytypes.remove(MedHistoryTypes.GOUT)
+            GoutDetailFactory(medhistory=gout)
             for _ in range(0, extracted if extracted else random.randint(0, 10)):
                 # Create a random MedHistoryType, popping the value from the list
                 medhistory = MedHistoryFactory(
@@ -101,8 +105,6 @@ class PseudopatientPlusFactory(PseudopatientFactory):
                     # 50/50 chance of having a Baseline Creatinine
                     if random.randint(0, 1) == 1:
                         BaselineCreatinineFactory(medhistory=medhistory)
-                elif medhistory.medhistorytype == MedHistoryTypes.GOUT:
-                    GoutDetailFactory(medhistory=medhistory)
 
     @post_generation
     def create_medallergys(self, create: bool, extracted: Sequence[Any], **kwargs):

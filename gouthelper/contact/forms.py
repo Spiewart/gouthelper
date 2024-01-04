@@ -42,7 +42,6 @@ class ContactForm(forms.Form):
         from_email = cl_data.get("email")
         subject = cl_data.get("subject")
         if subject == SubjectChoices.OTHER:
-            print("other")
             subject = subject + ": " + cl_data.get("other")
         msg = f"{name} with email {from_email} said:"
         msg += f'\n"{subject}"\n\n'

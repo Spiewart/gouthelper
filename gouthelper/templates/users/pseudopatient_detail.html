@@ -17,6 +17,9 @@
       <a class="btn btn-primary"
          href="{% url 'users:patient-flareaid' object.username %}"
          role="button">FlareAid Detail</a>
+      <a class="btn btn-primary"
+         href="{% url 'users:pseudopatient-update' object.username %}"
+         role="button">Update Profile</a>
     </div>
     <div class="row">
       <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>

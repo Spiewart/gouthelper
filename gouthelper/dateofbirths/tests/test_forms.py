@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest  # type: ignore
+from dateutil import parser
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
@@ -34,7 +35,10 @@ class TestDateOfBirthForm(TestCase):
         now = timezone.now()
         day = now.day
         month = now.month
-        self.assertEqual(str(form.cleaned_data["value"].date()), f"{now.year - 25}-{month}-{day}")
+        self.assertEqual(
+            form.cleaned_data["value"].date(),
+            parser.parse(f"{now.year - 25}-{month}-{day}").date(),
+        )
 
 
 class TestDateOfBirthFormOptional(TestCase):

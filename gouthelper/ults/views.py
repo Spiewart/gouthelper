@@ -212,20 +212,19 @@ class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):
         (
             errors,
             form,
-            _,  # object_data
             _,  # onetoone_forms
+            _,  # medallergys_forms
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
-            _,  # medallergys_forms
             _,  # lab_formset
+            onetoones_to_save,
+            onetoones_to_delete,
             medallergys_to_save,
             medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
             medhistorys_to_save,
             medhistorys_to_remove,
+            medhistorydetails_to_save,
+            medhistorydetails_to_remove,
             labs_to_save,
             labs_to_remove,
         ) = super().post(request, *args, **kwargs)

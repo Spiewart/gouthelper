@@ -21,11 +21,11 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
-from ..utils.views import PatientModelCreateView
+from ..utils.views import PatientModelCreateView, PatientModelUpdateView
 from .choices import Roles
 from .forms import PseudopatientForm
 from .models import Pseudopatient
-from .selectors import pseudopatient_qs
+from .selectors import pseudopatient_profile_qs, pseudopatient_qs
 
 User = get_user_model()
 
@@ -139,6 +139,110 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
 
 
 pseudopatient_create_view = PseudopatientCreateView.as_view()
+
+
+class PseudopatientUpdateView(
+    LoginRequiredMixin, AutoPermissionRequiredMixin, PatientModelUpdateView, SuccessMessageMixin
+):
+    """View to update Pseudopatient Users.
+
+    Returns:
+        [redirect]: [Redirects to the updated Pseudopatient's Detail page.]
+    """
+
+    slug_field = "username"
+    slug_url_kwarg = "username"
+    form_class = PseudopatientForm
+
+    onetoones = {
+        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
+        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
+        "gender": {"form": GenderForm, "model": Gender},
+    }
+    medhistorys = {
+        MedHistoryTypes.GOUT: {
+            "form": GoutForm,
+            "model": Gout,
+        },
+    }
+    medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
+
+    def form_valid(
+        self,
+        form,
+        onetoones_to_save: list["Model"] | None,
+        onetoones_to_delete: list["Model"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm] | None,
+        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
+        medallergys_to_remove: list["MedAllergy"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
+        medhistorys_to_remove: list["MedHistory"] | None,
+        labs_to_save: list["Lab"] | None,
+        labs_to_remove: list["Lab"] | None,
+        **kwargs,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to redirect appropriately."""
+        # Object will be returned by the super().form_valid() call
+        self.object = super().form_valid(
+            form=form,
+            onetoones_to_save=onetoones_to_save,
+            onetoones_to_delete=onetoones_to_delete,
+            medhistorydetails_to_save=medhistorydetails_to_save,
+            medhistorydetails_to_remove=medhistorydetails_to_remove,
+            medallergys_to_save=medallergys_to_save,
+            medallergys_to_remove=medallergys_to_remove,
+            medhistorys_to_save=medhistorys_to_save,
+            medhistorys_to_remove=medhistorys_to_remove,
+            labs_to_save=labs_to_save,
+            labs_to_remove=labs_to_remove,
+            **kwargs,
+        )
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_queryset(self):
+        return pseudopatient_profile_qs(self.kwargs.get("username", None))
+
+    def post(self, request, *args, **kwargs):
+        (
+            errors,
+            form,
+            _,  # onetoone_forms
+            _,  # medallergys_forms
+            _,  # medhistorys_forms
+            _,  # medhistorydetails_forms
+            _,  # lab_formset
+            onetoones_to_save,
+            onetoones_to_delete,
+            medallergys_to_save,
+            medallergys_to_remove,
+            medhistorys_to_save,
+            medhistorys_to_remove,
+            medhistorydetails_to_save,
+            medhistorydetails_to_remove,
+            labs_to_save,
+            labs_to_remove,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            return self.form_valid(
+                form=form,  # type: ignore
+                medallergys_to_save=medallergys_to_save,
+                medallergys_to_remove=medallergys_to_remove,
+                onetoones_to_save=onetoones_to_save,
+                onetoones_to_delete=onetoones_to_delete,
+                medhistorydetails_to_save=medhistorydetails_to_save,
+                medhistorydetails_to_remove=medhistorydetails_to_remove,
+                medhistorys_to_save=medhistorys_to_save,
+                medhistorys_to_remove=medhistorys_to_remove,
+                labs_to_save=labs_to_save,
+                labs_to_remove=labs_to_remove,
+                **kwargs,
+            )
+
+
+pseudopatient_update_view = PseudopatientUpdateView.as_view()
 
 
 class PseudopatientDetailView(AutoPermissionRequiredMixin, DetailView):

@@ -4,7 +4,11 @@
 {% load project_tags %}
 
 {% block title %}
-  New FlareAid
+  {% if form.instance.created %}
+    Edit FlareAid
+  {% else %}
+    New FlareAid
+  {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>Gout FlareAid</h1>
@@ -15,13 +19,23 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'flareaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:patient-update' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
       {% if view.kwargs.username %}
         <form class="form-horizontal"

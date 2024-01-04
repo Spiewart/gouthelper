@@ -51,8 +51,8 @@ def setup_service(
         ckd=ckd,
         ckddetail_form=ckddetail_form,
         baselinecreatinine_form=baselinecreatinine_form,
-        dateofbirth_form=dateofbirth_form,
-        gender_form=gender_form,
+        dateofbirth=dateofbirth_form,
+        gender=gender_form,
     )
     return service, errors
 

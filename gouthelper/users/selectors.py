@@ -4,6 +4,7 @@ from django.apps import apps  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import Prefetch  # type: ignore
 
+from ..medhistorys.choices import MedHistoryTypes
 from .models import Pseudopatient
 
 User = get_user_model()
@@ -38,6 +39,15 @@ def pseudopatient_medallergy_prefetch() -> Prefetch:
 
 def pseudopatient_medhistory_qs() -> "QuerySet":
     return (apps.get_model("medhistorys.MedHistory").objects.select_related("ckddetail", "goutdetail")).all()
+
+
+def pseudopatient_profile_medhistory_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(medhistorytype=MedHistoryTypes.GOUT)
+        .select_related("goutdetail")
+        .all()
+    )
 
 
 def pseudopatient_medhistory_prefetch() -> Prefetch:
@@ -76,5 +86,20 @@ def pseudopatient_qs_plus(username: str) -> "QuerySet":
             pseudopatient_medallergy_prefetch(),
             pseudopatient_medhistory_prefetch(),
             # pseudopatient_lab_prefetch(),
+        )
+    )
+
+
+def pseudopatient_profile_qs(username: str) -> "QuerySet":
+    return (
+        Pseudopatient.objects.filter(username=username)
+        .select_related(
+            "pseudopatientprofile",
+            "dateofbirth",
+            "gender",
+            "ethnicity",
+        )
+        .prefetch_related(
+            pseudopatient_medhistory_prefetch(),
         )
     )

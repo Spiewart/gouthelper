@@ -27,15 +27,16 @@ from ...profiles.models import PseudopatientProfile
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
 from ..models import Pseudopatient, User
-from ..tests.factories import UserFactory
 from ..views import (
     PseudopatientCreateView,
     PseudopatientListView,
+    PseudopatientUpdateView,
     UserDeleteView,
     UserRedirectView,
     UserUpdateView,
     user_detail_view,
 )
+from .factories import PseudopatientFactory, PseudopatientPlusFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -459,19 +460,61 @@ class TestPseudopatientListView(TestCase):
             view.as_view()(request, **kwargs)
 
 
+class TestPseudopatientUpdateView(TestCase):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        # Create a pseudopatient
+        self.psp = PseudopatientPlusFactory(create_profile=self.provider)
+
+    def test__view_attrs(self):
+        """Test that the view's attrs are correct."""
+        view = PseudopatientUpdateView()
+        assert view.form_class == PseudopatientForm
+        assert view.medhistorys == {MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout}}
+        assert view.onetoones == {
+            "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
+            "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
+            "gender": {"form": GenderForm, "model": Gender},
+        }
+        assert view.medhistory_details == {MedHistoryTypes.GOUT: GoutDetailForm}
+
+    def test__get_context_data(self):
+        """Tests that the required context data is passed to the template."""
+        # Log in the provider
+        self.client.force_login(self.provider)
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        assert response.status_code == 200
+        assert f"{MedHistoryTypes.GOUT}_form" in response.context
+        assert response.context[f"{MedHistoryTypes.GOUT}_form"].instance == self.psp.gout
+        assert "dateofbirth_form" in response.context
+        assert response.context["dateofbirth_form"].instance == self.psp.dateofbirth
+        assert "ethnicity_form" in response.context
+        assert response.context["ethnicity_form"].instance == self.psp.ethnicity
+        assert "gender_form" in response.context
+        assert response.context["gender_form"].instance == self.psp.gender
+        assert "goutdetail_form" in response.context
+
+    def test__rules_provider_can_update_own_pseudopatient(self):
+        """Test that a Provider can update his or her own pseudopatient
+        via the PseudopatientUpdateView.
+        """
+        self.client.force_login(self.provider)
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        assert response.status_code == 200
+
+
 class TestUserDeleteView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, create_profile=self.provider)
+        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, create_profile=self.admin)
+        self.anon_pseudopatient = PseudopatientFactory()
 
     def dummy_get_response(self, request: HttpRequest):
         return None

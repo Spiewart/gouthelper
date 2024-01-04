@@ -15,18 +15,19 @@ from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
+from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
 from ...medhistorydetails.models import CkdDetail
+from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...treatments.choices import Treatments
-from ...users.choices import Roles
+from ...treatments.choices import FlarePpxChoices, Treatments
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
+from ...users.tests.factories import PseudopatientFactory, PseudopatientPlusFactory
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import FlareAid
 from ..views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidPatientCreate, FlareAidUpdate
@@ -211,6 +212,7 @@ class TestFlareAidPatientCreate(TestCase):
         self.user = PseudopatientPlusFactory()
         for _ in range(10):
             PseudopatientPlusFactory()
+        self.psp = PseudopatientFactory()
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -262,23 +264,10 @@ class TestFlareAidPatientCreate(TestCase):
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
-            assert "dateofbirth_form" in response.context_data
-            assert response.context_data["dateofbirth_form"].instance == user.dateofbirth
-            assert response.context_data["dateofbirth_form"].instance._state.adding is False
-            assert "ethnicity_form" not in response.context_data
-            assert "gender_form" in response.context_data
-            assert response.context_data["gender_form"].instance == user.gender
-            assert response.context_data["gender_form"].instance._state.adding is False
-        empty_user = UserFactory(role=Roles.PSEUDOPATIENT)
-        request = self.factory.get("/fake-url/")
-        kwargs = {"username": empty_user.username}
-        response = self.view.as_view()(request, **kwargs)
-        assert response.status_code == 200
-        assert "dateofbirth_form" in response.context_data
-        assert response.context_data["dateofbirth_form"].instance._state.adding is True
-        assert "ethnicity_form" not in response.context_data
-        assert "gender_form" in response.context_data
-        assert response.context_data["gender_form"].instance._state.adding is True
+            assert "age" in response.context_data
+            assert response.context_data["age"] == age_calc(user.dateofbirth.value)
+            assert "gender" in response.context_data
+            assert response.context_data["gender"] == user.gender.value
 
     def test__get_context_data_medhistorys(self):
         """Test that the context data includes the user's
@@ -320,8 +309,200 @@ class TestFlareAidPatientCreate(TestCase):
                 assert response.context_data["baselinecreatinine_form"].instance._state.adding is True
             assert "goutdetail_form" not in response.context_data
 
-    def test__get_context_data_labs(self):
-        pass
+    def test__get_context_data_medallergys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for ma in user.medallergy_set.filter(Q(treatment__in=FlarePpxChoices.values)).all():
+                assert f"medallergy_{ma.treatment}_form" in response.context_data
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].instance == ma
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding is False
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
+                    f"medallergy_{ma.treatment}": True
+                }
+            for treatment in FlarePpxChoices.values:
+                assert f"medallergy_{treatment}_form" in response.context_data
+                if treatment not in user.medallergy_set.values_list("treatment", flat=True):
+                    assert response.context_data[f"medallergy_{treatment}_form"].instance._state.adding is True
+                    assert response.context_data[f"medallergy_{treatment}_form"].initial == {
+                        f"medallergy_{treatment}": None
+                    }
+
+    def test__post(self):
+        """Test the post() method for the view."""
+        request = self.factory.post("/fake-url/")
+        kwargs = {"username": self.user.username}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+
+    def test__post_sets_object_user(self):
+        """Test that the post() method for the view sets the
+        user on the object."""
+        # Create some fake data for a User's FlareAid
+        data = {
+            "dateofbirth-value": age_calc(self.user.dateofbirth.value),
+            "gender-value": self.user.gender.value,
+            f"{MedHistoryTypes.CKD}-value": True if self.user.ckd else False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True if self.user.colchicineinteraction else False,
+            f"{MedHistoryTypes.DIABETES}-value": True if self.user.diabetes else False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": True if self.user.organtransplant else False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.user.username}), data=data
+        )
+        assert response.status_code == 302
+        assert FlareAid.objects.filter(user=self.user).exists()
+
+    def test__post_creates_medhistorys(self):
+        self.assertFalse(MedHistory.objects.filter(user=self.psp).exists())
+        data = {
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CAD}-value": True,
+            f"{MedHistoryTypes.CHF}-value": True,
+            f"{MedHistoryTypes.CKD}-value": False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertTrue(MedHistory.objects.filter(user=self.psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
+    def test__post_deletes_medhistorys(self):
+        MedHistoryFactory(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES)
+        MedHistoryFactory(user=self.psp, medhistorytype=MedHistoryTypes.CKD)
+        self.assertTrue(MedHistory.objects.filter(user=self.psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        data = {
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES).exists())
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
+
+    def test__post_create_medallergys(self):
+        """Test that the view creates MedAllergy objects."""
+        self.assertFalse(MedAllergy.objects.filter(user=self.psp).exists())
+        data = {
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            # Create data for a colchicine allergy
+            f"medallergy_{Treatments.COLCHICINE}": True,
+        }
+        # Call the view with the data
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertTrue(MedAllergy.objects.filter(user=self.psp).exists())
+        self.assertTrue(MedAllergy.objects.filter(user=self.psp, treatment=Treatments.COLCHICINE).exists())
+
+    def test__post_delete_medallergys(self):
+        """Test that the view deletes MedAllergy objects."""
+        MedAllergyFactory(user=self.psp, treatment=Treatments.COLCHICINE)
+        MedAllergyFactory(user=self.psp, treatment=Treatments.PREDNISONE)
+        self.assertTrue(MedAllergy.objects.filter(user=self.psp).exists())
+        self.assertTrue(MedAllergy.objects.filter(user=self.psp, treatment=Treatments.COLCHICINE).exists())
+        self.assertTrue(MedAllergy.objects.filter(user=self.psp, treatment=Treatments.PREDNISONE).exists())
+        data = {
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            # Create data for a colchicine allergy
+            f"medallergy_{Treatments.COLCHICINE}": "",
+            f"medallergy_{Treatments.PREDNISONE}": "",
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertFalse(MedAllergy.objects.filter(user=self.psp).exists())
+        self.assertFalse(MedAllergy.objects.filter(user=self.psp, treatment=Treatments.COLCHICINE).exists())
+        self.assertFalse(MedAllergy.objects.filter(user=self.psp, treatment=Treatments.PREDNISONE).exists())
+
+    def test__post_creates_medhistorydetails(self):
+        """Test that the view creates the User's MedHistoryDetails objects."""
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        data = {
+            # Steal some data from self.psp to create gender and dateofbirth
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": True,
+            # Create data for CKD
+            "dialysis": False,
+            "baselinecreatinine-value": Decimal("2.2"),
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertTrue(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
+        self.assertTrue(BaselineCreatinine.objects.filter(medhistory=self.psp.ckd).exists())
+
+    def test__post_deletes_medhistorydetail(self):
+        ckd = MedHistoryFactory(user=self.psp, medhistorytype=MedHistoryTypes.CKD)
+        CkdDetailFactory(
+            medhistory=self.psp.ckd,
+            dialysis=False,
+            stage=labs_stage_calculator(
+                labs_eGFR_calculator(
+                    creatinine=BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.2")),
+                    age=age_calc(self.psp.dateofbirth.value),
+                    gender=self.psp.gender.value,
+                )
+            ),
+        )
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(
+            CkdDetail.objects.filter(medhistory=self.psp.ckd).exists()
+            and BaselineCreatinine.objects.filter(medhistory=self.psp.ckd).exists()
+        )
+        data = {
+            # Steal some data from self.psp to create gender and dateofbirth
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": True,
+            # Create data for CKD
+            "dialysis": "",
+            "baselinecreatinine-value": "",
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertFalse(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
+        self.assertFalse(BaselineCreatinine.objects.filter(medhistory=self.psp.ckd).exists())
 
 
 class TestFlareAidDetail(TestCase):

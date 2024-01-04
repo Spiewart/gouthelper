@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest  # type: ignore
+from dateutil import parser
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
@@ -74,13 +75,13 @@ class TestYearsAgo(TestCase):
         day = now.day
         month = now.month
         self.assertEqual(
-            str(yearsago(21, now).date()),
-            f"{now.year - 21}-{month}-{day}",
+            yearsago(21, now).date(),
+            parser.parse(f"{now.year - 21}-{month}-{day}").date(),
         )
 
     def test__leap_year(self):
         now = "2020-02-29"
         self.assertEqual(
-            str(yearsago(1, datetime.strptime(now, "%Y-%m-%d")).date()),
-            "2019-02-28",
+            yearsago(1, datetime.strptime(now, "%Y-%m-%d")).date(),
+            parser.parse("2019-02-28").date(),
         )

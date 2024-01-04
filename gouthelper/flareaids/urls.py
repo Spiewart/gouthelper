@@ -1,6 +1,13 @@
 from django.urls import path  # type: ignore
 
-from .views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidPatientCreate, FlareAidUpdate
+from .views import (
+    FlareAidAbout,
+    FlareAidCreate,
+    FlareAidDetail,
+    FlareAidPatientCreate,
+    FlareAidPatientUpdate,
+    FlareAidUpdate,
+)
 
 app_name = "flareaids"
 
@@ -10,4 +17,5 @@ urlpatterns = [
     path("create/<str:username>/", FlareAidPatientCreate.as_view(), name="patient-create"),
     path("<uuid:pk>/", FlareAidDetail.as_view(), name="detail"),
     path("update/<uuid:pk>/", FlareAidUpdate.as_view(), name="update"),
+    path("update/<str:username>/", FlareAidPatientUpdate.as_view(), name="patient-update"),
 ]

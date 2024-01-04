@@ -184,7 +184,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_colchicineinteraction(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_colchicineinteraction(self.medhistorys.all())
+            try:
+                return medhistorys_get_colchicineinteraction(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_colchicineinteraction(self.medhistory_set.all())
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
@@ -217,7 +220,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_diabetes(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_diabetes(self.medhistorys.all())
+            try:
+                return medhistorys_get_diabetes(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_diabetes(self.medhistory_set.all())
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -400,7 +406,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_organtransplant(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_organtransplant(self.medhistorys.all())
+            try:
+                return medhistorys_get_organtransplant(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_organtransplant(self.medhistory_set.all())
 
     @cached_property
     def other_nsaid_contras(self) -> list["MedHistory"]:

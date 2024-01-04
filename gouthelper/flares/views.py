@@ -292,30 +292,29 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         (
             errors,
             form,
-            object_data,
             onetoone_forms,
+            medallergys_forms,
             medhistorys_forms,
             medhistorydetails_forms,
-            medallergys_forms,
             lab_formset,
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
             onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
+            onetoones_to_delete,
+            _,  # medallergys_to_save
+            _,  # medallergys_to_remove
             medhistorys_to_save,
             medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            medhistorydetails_to_save,
+            medhistorydetails_to_remove,
+            _,  # labs_to_save
+            _,  # labs_to_remove
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         medhistorys_forms, errors_bool = self.post_process_menopause(
-            medhistorys_forms=medhistorys_forms, post_object=object_data
+            medhistorys_forms=medhistorys_forms, post_object=form.instance
         )
         form, onetoone_forms, errors_bool = self.post_process_urate_check(
-            form=form, post_object=object_data, onetoone_forms=onetoone_forms, errors_bool=errors_bool
+            form=form, post_object=form.instance, onetoone_forms=onetoone_forms, errors_bool=errors_bool
         )
         if errors_bool:
             return super().render_errors(
@@ -329,14 +328,14 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             )
         return self.form_valid(
             form=form,  # type: ignore
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
+            medallergys_to_save=None,
+            medallergys_to_remove=None,
             onetoones_to_delete=onetoones_to_delete,
             onetoones_to_save=onetoones_to_save,
             medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
             medhistorys_to_save=medhistorys_to_save,
             medhistorys_to_remove=medhistorys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            labs_to_save=None,
+            labs_to_remove=None,
         )

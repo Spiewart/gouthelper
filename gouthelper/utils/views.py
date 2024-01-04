@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Any, Union
 
-from django.http import HttpResponseRedirect  # type: ignore
+from django.contrib import messages  # type: ignore
+from django.http import Http404, HttpResponseRedirect  # type: ignore
+from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView, UpdateView, View  # type: ignore
 
@@ -26,7 +28,6 @@ if TYPE_CHECKING:
     from ..labs.models import Lab
     from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
     from ..medhistorys.models import MedHistory
-    from ..models import MedHistoryAidModel  # type: ignore
     from ..treatments.choices import FlarePpxChoices, Treatments, UltChoices
     from ..users.models import User
     from .forms import OneToOneForm
@@ -415,8 +416,8 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
                         ckd=medhistory,
                         ckddetail_form=medhistorydetails_forms["ckddetail_form"],
                         baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],
-                        dateofbirth_form=onetoone_forms["dateofbirth_form"],
-                        gender_form=onetoone_forms["gender_form"],
+                        dateofbirth=onetoone_forms["dateofbirth_form"],
+                        gender=onetoone_forms["gender_form"],
                     ).process()
                     if ckddetail_errors and errors_bool is not True:
                         errors_bool = True
@@ -586,9 +587,14 @@ class PatientModelCreateView(MedHistorysModelCreateView):
         return self.object
 
 
-class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
+class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
     """CreateView to create Aid objects with a user field and to populate
     pre-existing User related models into the forms and post data."""
+
+    # List of required onetoone objects that won't be in the form
+    # but will be loaded into the view context to interpret other info
+    # i.e. age/gender to calculate eGFR for CKD
+    req_onetoones: list[str] = []
 
     class Meta:
         abstract = True
@@ -636,8 +642,6 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                     medhistory.save()
             if medhistorydetails_to_save:
                 for medhistorydetail in medhistorydetails_to_save:
-                    if medhistorydetail.user is None:
-                        medhistorydetail.user = self.user
                     medhistorydetail.save()
             if medhistorys_to_remove:
                 for medhistory in medhistorys_to_remove:
@@ -665,28 +669,34 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
         narrow, specific QuerySet on each child model."""
         return pseudopatient_qs_plus(username=username)
 
-    def get(self, request, *args, **kwargs):
-        self.user = self.get_user_queryset(kwargs["username"]).get()
-        return super().get(request, *args, **kwargs)
+    def check_user_onetoones(self, user: "User") -> None:
+        """Method that checks the view's user for the required onetoone models
+        and raises and redirects to the user's profile updateview if they are
+        missing."""
+        for onetoone in self.req_onetoones:
+            try:
+                getattr(user, onetoone)
+            except AttributeError as exc:
+                raise Http404("Baseline information is needed to use GoutHelper Decision and Treatment Aids.") from exc
 
     def context_onetoones(
         self,
         onetoones: dict[str, "FormModelDict"],
+        req_onetoones: list[str],
         kwargs: dict,
         user: "User",
     ) -> None:
         """Method to populate the onetoones dict with the user's related models."""
         for onetoone, onetoone_dict in onetoones.items():
+            user_i = getattr(user, onetoone, None)
             form_str = f"{onetoone}_form"
-            if form_str not in kwargs:
-                user_i = getattr(user, onetoone, None)
+            kwargs[form_str] = onetoone_dict["form"](instance=user_i)
+        for onetoone in req_onetoones:
+            if onetoone not in kwargs:
                 if onetoone == "dateofbirth":
-                    kwargs[form_str] = onetoone_dict["form"](
-                        instance=user_i,
-                        initial={"value": age_calc(user_i.value) if user_i else None},
-                    )
+                    kwargs["age"] = age_calc(getattr(user, onetoone).value)
                 else:
-                    kwargs[form_str] = onetoone_dict["form"](instance=user_i)
+                    kwargs[onetoone] = getattr(user, onetoone).value
 
     def context_medallergys(self, medallergys: list["MedAllergy"], kwargs: dict, user: "User") -> None:
         for treatment in medallergys:
@@ -774,8 +784,10 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
             kwargs["lab_formset_helper"] = labs_tuple[1]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        if self.onetoones:
-            self.context_onetoones(onetoones=self.onetoones, kwargs=kwargs, user=self.user)
+        if self.onetoones or self.req_onetoones:
+            self.context_onetoones(
+                onetoones=self.onetoones, req_onetoones=self.req_onetoones, kwargs=kwargs, user=self.user
+            )
         if self.medallergys:
             self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, user=self.user)
         if self.medhistorys:
@@ -793,22 +805,26 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                 user=self.user,
                 kwargs=kwargs,
             )
+        if "patient" not in kwargs:
+            kwargs["patient"] = self.user
         return super().get_context_data(**kwargs)
 
-    def get_object(self, queryset=None) -> "MedAllergyAidHistoryModel":
-        return self.model
+    def get_form_kwargs(self) -> dict[str, Any]:
+        """Method to add the user to the form kwargs."""
+        kwargs = super().get_form_kwargs()
+        if hasattr(self, "user"):
+            kwargs["patient"] = True
+        return kwargs
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
-
-        self.object = self.get_object()  # type: ignore
         self.user = self.get_user_queryset(kwargs["username"]).get()
+        self.object = self.get_object()  # type: ignore
         form_class = self.get_form_class()
-        instance = self.object() if isinstance(self.object, type) else self.object
         if self.medallergys:
-            form = form_class(request.POST, medallergys=self.medallergys, instance=instance)
+            form = form_class(request.POST, medallergys=self.medallergys, instance=self.object)
         else:
-            form = form_class(request.POST, instance=instance)
+            form = form_class(request.POST, instance=self.object)
         # Populate dicts for related models with POST data
         onetoone_forms = self.post_populate_onetoone_forms(onetoones=self.onetoones, request=request, user=self.user)
         medallergys_forms = self.post_populate_medallergys_forms(
@@ -837,6 +853,7 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
             # Set related models for saving and set as attrs of the UpdateView model instance
             onetoones_to_save, onetoones_to_delete = self.post_process_one_to_one_forms(
                 onetoone_forms=onetoone_forms,
+                req_onetoones=self.req_onetoones,
                 user=self.user,
             )
             medallergys_to_save, medallergys_to_remove = self.post_process_medallergys_forms(
@@ -1107,6 +1124,7 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                 else:
                     # If not, add the lab to the labs_to_remove list
                     labs_to_remove.append(lab)
+                    user.labs_qs.remove(lab)
             # Iterate over the forms in the formset
             for form in lab_formset:
                 # Check if the form has a value in the "value" field
@@ -1141,6 +1159,7 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                     user_i = None
                 if user_i and not medallergys_forms[medallergy_form_str].cleaned_data[f"medallergy_{treatment}"]:
                     medallergys_to_remove.append(user_i)
+                    user.medallergys_qs.remove(user_i)
                 else:
                     if medallergys_forms[medallergy_form_str].cleaned_data[f"medallergy_{treatment}"]:
                         # If there is already an instance, it will not have changed so it doesn't need to be changed
@@ -1193,6 +1212,7 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                 if not medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]:
                     # Mark it for deletion if so
                     medhistorys_to_remove.append(medhistorys_forms[medhistory_form_str].instance)
+                    user.medhistorys_qs.remove(user_i)
                 else:
                     # If it's not marked for deletion, it should be added to the form instance's medhistory_qs
                     if user_i not in user.medhistorys_qs:
@@ -1207,8 +1227,8 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                             ckd=user_i,
                             ckddetail_form=medhistorydetails_forms["ckddetail_form"],  # type: ignore
                             baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],  # type: ignore
-                            dateofbirth_form=onetoone_forms["dateofbirth_form"],  # type: ignore
-                            gender_form=onetoone_forms["gender_form"],  # type: ignore
+                            dateofbirth=self.user.dateofbirth,  # type: ignore
+                            gender=self.user.gender,  # type: ignore
                         ).process()
                         # Check if the returned baselinecreatinine_form's instance has the to_save attr
                         if hasattr(medhistorydetails_forms["baselinecreatinine_form"].instance, "to_save"):
@@ -1251,8 +1271,8 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
                             ckd=medhistory,
                             ckddetail_form=medhistorydetails_forms["ckddetail_form"],  # type: ignore
                             baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],  # type: ignore
-                            dateofbirth_form=onetoone_forms["dateofbirth_form"],  # type: ignore
-                            gender_form=onetoone_forms["gender_form"],  # type: ignore
+                            dateofbirth=self.user.dateofbirth,
+                            gender=self.user.gender,
                         ).process()
                         # Need mark baselinecreatinine and ckddetail for saving because their
                         # related Ckd object will not have been saved yet
@@ -1280,6 +1300,7 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
     def post_process_one_to_one_forms(
         self,
         onetoone_forms: dict[str, "ModelForm"],
+        req_onetoones: list[str],
         user: "User",
     ) -> tuple[list["Model"], list["Model"]]:
         """Method to process the forms for the OneToOne objects for
@@ -1290,26 +1311,116 @@ class PatientAidCreateView(MedHistoryModelBaseView, CreateView):
         # Set related models for saving and set as attrs of the UpdateView model instance
         for onetoone_form_str, onetoone_form in onetoone_forms.items():
             object_attr = onetoone_form_str.split("_")[0]
-            try:
-                onetoone_form.check_for_value()
-                onetoone = onetoone_form.save(commit=False)
-                onetoones_to_save.append(onetoone)
-                setattr(user, object_attr, onetoone)
-            # If EmptyRelatedModel exception is raised by the related model's form save() method,
-            # Check if the related model exists and delete it if it does
-            except EmptyRelatedModel:
-                if getattr(user, object_attr):
-                    to_delete = getattr(user, object_attr)
-                    # Iterate over the forms required_fields property and set the related model's
-                    # fields to their initial values to prevent IntegrityError from Django-Simple-History
-                    # historical model on delete().
-                    if hasattr(onetoone_form, "required_fields"):
-                        for field in onetoone_form.required_fields:
-                            setattr(to_delete, field, onetoone_form.initial[field])
-                    # Set the object attr to None so it is reflected in the QuerySet fed to update in form_valid()
-                    setattr(user, object_attr, None)
-                    onetoones_to_delete.append(to_delete)
+            if object_attr not in req_onetoones:
+                try:
+                    onetoone_form.check_for_value()
+                    onetoone = onetoone_form.save(commit=False)
+                    onetoones_to_save.append(onetoone)
+                    setattr(user, object_attr, onetoone)
+                # If EmptyRelatedModel exception is raised by the related model's form save() method,
+                # Check if the related model exists and delete it if it does
+                except EmptyRelatedModel:
+                    if getattr(user, object_attr):
+                        to_delete = getattr(user, object_attr)
+                        # Iterate over the forms required_fields property and set the related model's
+                        # fields to their initial values to prevent IntegrityError from Django-Simple-History
+                        # historical model on delete().
+                        if hasattr(onetoone_form, "required_fields"):
+                            for field in onetoone_form.required_fields:
+                                setattr(to_delete, field, onetoone_form.initial[field])
+                        # Set the object attr to None so it is reflected in the QuerySet fed to update in form_valid()
+                        setattr(user, object_attr, None)
+                        onetoones_to_delete.append(to_delete)
         return onetoones_to_save, onetoones_to_delete
+
+
+class PatientAidCreateView(PatientAidBaseView):
+    """CreateView to create Aid objects with a user field and to populate
+    pre-existing User related models into the forms and post data."""
+
+    class Meta:
+        abstract = True
+
+    def get(self, request, *args, **kwargs):
+        self.user = self.get_user_queryset(kwargs["username"]).get()
+        try:
+            self.check_user_onetoones(user=self.user)
+        except AttributeError as exc:
+            messages.error(request, exc)
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().get(request, *args, **kwargs)
+
+    def get_object(self, queryset=None) -> "MedAllergyAidHistoryModel":
+        return self.model
+
+
+class PatientAidUpdateView(PatientAidBaseView):
+    """MUST SET get() METHOD ON CHILD VIEWS."""
+
+    class Meta:
+        abstract = True
+
+    def context_medhistorys(
+        self,
+        medhistorys: dict[MedHistoryTypes, "FormModelDict"],
+        medhistory_details: dict[MedHistoryTypes, "ModelForm"],
+        kwargs: dict,
+        user: "User",
+        ckddetail: bool,
+        goutdetail: bool,
+    ) -> None:
+        """Method that iterates over the medhistorys dict and adds the forms to the context."""
+        for medhistory, mh_dict in medhistorys.items():
+            form_str = f"{medhistory}_form"
+            if form_str not in kwargs:
+                try:
+                    user_i = [mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistory][0]
+                except IndexError:
+                    user_i = None
+                if medhistory == MedHistoryTypes.CKD:
+                    kwargs[form_str] = mh_dict["form"](
+                        ckddetail=ckddetail,
+                        instance=user_i,
+                        initial={f"{medhistory}-value": True if user_i else False},
+                    )
+                    if ckddetail:
+                        if "ckddetail_form" not in kwargs:
+                            user_ckddetail_i = getattr(user_i, "ckddetail", None) if user_i else None
+                            kwargs["ckddetail_form"] = medhistory_details[medhistory](instance=user_ckddetail_i)
+                        if "baselinecreatinine_form" not in kwargs:
+                            user_baselinecreatinine_i = getattr(user_i, "baselinecreatinine", None) if user_i else None
+                            kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
+                                instance=user_baselinecreatinine_i
+                            )
+                elif medhistory == MedHistoryTypes.GOUT:
+                    kwargs[form_str] = mh_dict["form"](
+                        goutdetail=goutdetail,
+                        instance=user_i,
+                        initial={f"{medhistory}-value": True if user_i else False},
+                    )
+                    if goutdetail:
+                        if "goutdetail_form" not in kwargs:
+                            user_goutdetail_i = getattr(user_i, "goutdetail", None) if user_i else None
+                            kwargs["goutdetail_form"] = medhistory_details[medhistory](instance=user_goutdetail_i)
+                elif (
+                    medhistory == MedHistoryTypes.MENOPAUSE
+                    and getattr(user, "gender", None)
+                    and user.gender.value == Genders.FEMALE
+                    and getattr(user, "dateofbirth", None)
+                ):
+                    # Menopause is a special case where the form is prepopulated based on the user's age
+                    # and biological sex.
+                    age = age_calc(user.dateofbirth.value)
+                    initial = False if (age >= 40 and age < 60) else True if age >= 60 else None
+                    kwargs[form_str] = self.medhistorys[medhistory]["form"](
+                        instance=user_i,
+                        initial={f"{medhistory}-value": initial},
+                    )
+                else:
+                    kwargs[form_str] = self.medhistorys[medhistory]["form"](
+                        instance=user_i,
+                        initial={f"{medhistory}-value": True if user_i else False},
+                    )
 
 
 class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
@@ -1389,28 +1500,28 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
         return self.object
 
     def context_onetoones(
-        self, onetoones: dict[str, "FormModelDict"], kwargs: dict, object: "MedAllergyAidHistoryModel"
+        self, onetoones: dict[str, "FormModelDict"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
     ) -> None:
         """Method that iterates over the onetoones dict and adds the forms to the context."""
         for onetoone in onetoones:
             form_str = f"{onetoone}_form"
             if onetoone == "dateofbirth" and form_str not in kwargs:
                 kwargs[form_str] = onetoones[onetoone]["form"](
-                    instance=getattr(object, onetoone),
-                    initial={"value": age_calc(object.dateofbirth.value) if object.dateofbirth else None},
+                    instance=getattr(con_obj, onetoone),
+                    initial={"value": age_calc(con_obj.dateofbirth.value) if con_obj.dateofbirth else None},
                 )
             if form_str not in kwargs:
-                kwargs[form_str] = onetoones[onetoone]["form"](instance=getattr(object, onetoone))
+                kwargs[form_str] = onetoones[onetoone]["form"](instance=getattr(con_obj, onetoone))
 
     def context_medallergys(
-        self, medallergys: list["MedAllergy"], kwargs: dict, object: "MedAllergyAidHistoryModel"
+        self, medallergys: list["MedAllergy"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
     ) -> None:
         """Method that iterates over the medallergys list and adds the forms to the context."""
         for treatment in medallergys:
             form_str = f"medallergy_{treatment}_form"
             if form_str not in kwargs:
                 qs_medallergy = [
-                    qs_medallergy for qs_medallergy in object.medallergys_qs if qs_medallergy.treatment == treatment
+                    qs_medallergy for qs_medallergy in con_obj.medallergys_qs if qs_medallergy.treatment == treatment
                 ]
                 if qs_medallergy:
                     kwargs[form_str] = MedAllergyTreatmentForm(
@@ -1420,7 +1531,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                     kwargs[form_str] = MedAllergyTreatmentForm(treatment=treatment)
 
     def context_medhistorys(
-        self, medhistorys: dict[MedHistoryTypes, "FormModelDict"], kwargs: dict, object: "MedAllergyAidHistoryModel"
+        self, medhistorys: dict[MedHistoryTypes, "FormModelDict"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         for medhistory in medhistorys:
@@ -1428,7 +1539,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             if form_str not in kwargs:
                 qs_medhistory = [
                     qs_medhistory
-                    for qs_medhistory in object.medhistorys_qs
+                    for qs_medhistory in con_obj.medhistorys_qs
                     if qs_medhistory.medhistorytype == medhistory
                 ]
                 if qs_medhistory:
@@ -1490,9 +1601,9 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                             kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
                     # Check if the medhistory is Menopause
                     elif medhistory == MedHistoryTypes.MENOPAUSE:
-                        if object.gender.value == Genders.FEMALE:
+                        if con_obj.gender.value == Genders.FEMALE:
                             # Check if the Flare to be updated's gender is Female
-                            age = age_calc(object.dateofbirth.value)
+                            age = age_calc(con_obj.dateofbirth.value)
                             if age >= 40 and age < 60:
                                 initial = False
                             elif age > 60:
@@ -1510,26 +1621,26 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
     def context_labs(
         self,
         labs_tuple: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str],
-        model_obj: "MedAllergyAidHistoryModel",
+        con_obj: "MedAllergyAidHistoryModel",
         kwargs: dict,
     ) -> None:
         """Method that iterates over the labs list and adds the forms to the context."""
         if "lab_formset" not in kwargs:
             # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
             kwargs["lab_formset"] = labs_tuple[0](
-                queryset=dated_urates(model_obj.labs).all().reverse(), prefix=labs_tuple[3]
+                queryset=dated_urates(con_obj.labs).all().reverse(), prefix=labs_tuple[3]
             )
             kwargs["lab_formset_helper"] = labs_tuple[1]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         if self.onetoones:
-            self.context_onetoones(onetoones=self.onetoones, kwargs=kwargs, object=self.object)
+            self.context_onetoones(onetoones=self.onetoones, kwargs=kwargs, con_obj=self.object)
         if self.medallergys:
-            self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, object=self.object)
+            self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, con_obj=self.object)
         if self.medhistorys:
-            self.context_medhistorys(medhistorys=self.medhistorys, kwargs=kwargs, object=self.object)
+            self.context_medhistorys(medhistorys=self.medhistorys, kwargs=kwargs, con_obj=self.object)
         if self.labs:
-            self.context_labs(labs_tuple=self.labs, model_obj=self.object, kwargs=kwargs)
+            self.context_labs(labs_tuple=self.labs, con_obj=self.object, kwargs=kwargs)
         return super().get_context_data(**kwargs)
 
     def post_populate_labformset(
@@ -1801,8 +1912,8 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                             ckd=medhistory,
                             ckddetail_form=medhistorydetails_forms["ckddetail_form"],  # type: ignore
                             baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],  # type: ignore
-                            dateofbirth_form=onetoone_forms["dateofbirth_form"],  # type: ignore
-                            gender_form=onetoone_forms["gender_form"],  # type: ignore
+                            dateofbirth=onetoone_forms["dateofbirth_form"],  # type: ignore
+                            gender=onetoone_forms["gender_form"],  # type: ignore
                         ).process()
                         # Check if the returned baselinecreatinine_form's instance has the to_save attr
                         if hasattr(medhistorydetails_forms["baselinecreatinine_form"].instance, "to_save"):
@@ -1844,8 +1955,8 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                                 baselinecreatinine_form=medhistorydetails_forms[
                                     "baselinecreatinine_form"
                                 ],  # type: ignore
-                                dateofbirth_form=onetoone_forms["dateofbirth_form"],  # type: ignore
-                                gender_form=onetoone_forms["gender_form"],  # type: ignore
+                                dateofbirth=onetoone_forms["dateofbirth_form"],  # type: ignore
+                                gender=onetoone_forms["gender_form"],  # type: ignore
                             ).process()
                             # Need mark baselinecreatinine and ckddetail for saving because their
                             # related Ckd object will not have been saved yet
@@ -1883,9 +1994,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             object_attr = onetoone_form_str.split("_")[0]
             try:
                 onetoone_form.check_for_value()
-                onetoone = onetoone_form.save(commit=False)
-                onetoones_to_save.append(onetoone)
-                setattr(model_obj, object_attr, onetoone)
+                if onetoone_form.has_changed():
+                    onetoone = onetoone_form.save(commit=False)
+                    onetoones_to_save.append(onetoone)
+                    setattr(model_obj, object_attr, onetoone)
             # If EmptyRelatedModel exception is raised by the related model's form save() method,
             # Check if the related model exists and delete it if it does
             except EmptyRelatedModel:
@@ -1974,13 +2086,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             and (not lab_formset or lab_formset.is_valid())
         ):
             errors_bool = False
-            object_data: "MedHistoryAidModel" = form.save(commit=False)
+            form.save(commit=False)
             # Set related models for saving and set as attrs of the UpdateView model instance
             onetoones_to_save, onetoones_to_delete = self.post_process_one_to_one_forms(
-                onetoone_forms=onetoone_forms, model_obj=object_data
+                onetoone_forms=onetoone_forms, model_obj=form.instance
             )
             medallergys_to_save, medallergys_to_remove = self.post_process_medallergys_forms(
-                medallergys_forms=medallergys_forms, post_object=object_data
+                medallergys_forms=medallergys_forms, post_object=form.instance
             )
             (
                 medhistorys_to_save,
@@ -1991,7 +2103,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             ) = self.post_process_medhistorys_details_forms(
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                post_object=object_data,
+                post_object=form.instance,
                 onetoone_forms=onetoone_forms,
                 errors_bool=errors_bool,
             )
@@ -2017,20 +2129,19 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             return (
                 errors,
                 form,
-                object_data,
                 onetoone_forms,
+                medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                medallergys_forms,
                 lab_formset,
+                onetoones_to_save,
+                onetoones_to_delete,
                 medallergys_to_save,
                 medallergys_to_remove,
-                onetoones_to_delete,
-                onetoones_to_save,
-                medhistorydetails_to_save,
-                medhistorydetails_to_remove,
                 medhistorys_to_save,
                 medhistorys_to_remove,
+                medhistorydetails_to_save,
+                medhistorydetails_to_remove,
                 labs_to_save,
                 labs_to_remove,
             )
@@ -2049,11 +2160,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             return (
                 errors,
                 form,
-                None,
                 onetoone_forms,
+                medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                medallergys_forms,
                 lab_formset if self.labs else None,
                 None,
                 None,
@@ -2066,3 +2176,75 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                 None,
                 None,
             )
+
+
+class PatientModelUpdateView(MedHistorysModelUpdateView):
+    """Overwritten to change the view logic to update a Pseudopatient and its
+    related models."""
+
+    class Meta:
+        abstract = True
+
+    def form_valid(
+        self,
+        form,
+        onetoones_to_save: list["Model"] | None,
+        onetoones_to_delete: list["Model"] | None,
+        medhistorydetails_to_save: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"] | None,
+        medhistorydetails_to_remove: list[CkdDetail, BaselineCreatinine, None] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
+        medallergys_to_remove: list["MedAllergy"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
+        medhistorys_to_remove: list["MedHistory"] | None,
+        labs_to_save: list["Lab"] | None,
+        labs_to_remove: list["Lab"] | None,
+        **kwargs: Any,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Method to be called if all forms are valid."""
+        # DO NOT SAVE THE FORM--USER MODELS ARE NOT MEANT TO BE EDITED IN GOUTHELPER
+        if self.onetoones:
+            if onetoones_to_save:
+                for onetoone in onetoones_to_save:
+                    onetoone.user = self.object
+                    onetoone.save()
+            if onetoones_to_delete:
+                for onetoone in onetoones_to_delete:
+                    onetoone.delete()
+        if self.medallergys:
+            if medallergys_to_save:
+                for medallergy in medallergys_to_save:
+                    medallergy.user = self.object
+                    medallergy.save()
+            if medallergys_to_remove:
+                for medallergy in medallergys_to_remove:
+                    medallergy.delete()
+            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+        if self.medhistorys:
+            if medhistorys_to_save:
+                for medhistory in medhistorys_to_save:
+                    medhistory.user = self.object
+                    medhistory.save()
+            if medhistorys_to_remove:
+                for medhistory in medhistorys_to_remove:
+                    medhistory.delete()
+            if medhistorydetails_to_save:
+                for medhistorydetail in medhistorydetails_to_save:
+                    medhistorydetail.user = self.object
+                    medhistorydetail.save()
+            if medhistorydetails_to_remove:
+                for medhistorydetail in medhistorydetails_to_remove:
+                    medhistorydetail.delete()
+            # Create and populate the medhistory_qs attribute on the object
+            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+        if self.labs:
+            if labs_to_save:
+                for lab in labs_to_save:
+                    lab.user = self.object
+                    lab.save()
+            if labs_to_remove:
+                for lab in labs_to_remove:
+                    lab.delete()
+            # Create and populate the labs_qs attribute on the object
+            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
+        # Return object for the child view to use
+        return self.object

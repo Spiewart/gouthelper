@@ -21,7 +21,9 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) 
                 HTML(
                     """
                         <hr size="3" color="dark">
-                        <legend>About the Patient</legend>
+                        <legend>About {% if patient %}{{ patient }} \
+({{ patient.gender }}, age {{ age }}) \
+{% else %}the Patient{% endif %}</legend>
                     """
                 ),
                 css_id="about-the-patient",

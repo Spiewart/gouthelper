@@ -39,4 +39,4 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.Genders(self.value).label}"
+        return f"{self.Genders(self.value).label.lower()}"

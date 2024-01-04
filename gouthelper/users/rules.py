@@ -28,9 +28,12 @@ def is_an_admin(user):
 def is_provider(user, obj):
     """Expects User objects for both arguments."""
     try:
-        return getattr(obj.profile, "provider") == user
+        return getattr(obj.pseudopatientprofile, "provider", None) == user
     except AttributeError:
-        return False
+        try:
+            return getattr(obj.patientprofile, "provider", None) == user
+        except AttributeError:
+            return False
 
 
 @rules.predicate
@@ -75,7 +78,7 @@ def list_belongs_to_user(user, obj):
 is_providerless_pseudopatient = is_pseudopatient & has_no_provider
 
 add_user_with_provider = is_an_admin | is_a_provider
-change_user = is_user
+change_user = is_user | is_provider
 delete_user = is_user | is_provider
 view_user = is_providerless_pseudopatient | is_user | is_provider
 view_provider_list = list_belongs_to_user

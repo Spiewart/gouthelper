@@ -4,13 +4,15 @@ from typing import TYPE_CHECKING, Union
 from django.core.exceptions import ValidationError  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
+from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.helpers import age_calc
+from ..genders.forms import GenderForm
 from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
-    from ..dateofbirths.forms import DateOfBirthForm
-    from ..genders.forms import GenderForm
+    from ..dateofbirths.models import DateOfBirth
+    from ..genders.models import Gender
     from ..labs.forms import BaselineCreatinineForm
     from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.forms import CkdDetailForm
@@ -39,14 +41,14 @@ class CkdDetailFormProcessor:
         ckd: "Ckd",
         ckddetail_form: "CkdDetailForm",
         baselinecreatinine_form: "BaselineCreatinineForm",
-        dateofbirth_form: "DateOfBirthForm",
-        gender_form: "GenderForm",
+        dateofbirth: Union[DateOfBirthForm, "DateOfBirth"],
+        gender: Union[GenderForm, "Gender"],
     ):
         self.baselinecreatinine_form = baselinecreatinine_form
         self.ckd: "Ckd" = ckd
         self.ckddetail_form = ckddetail_form
-        self.dateofbirth_form = dateofbirth_form
-        self.gender_form = gender_form
+        self.dateofbirth_form = dateofbirth if isinstance(dateofbirth, DateOfBirthForm) else None
+        self.gender_form = gender if isinstance(gender, GenderForm) else None
         # Don't get these form values. They are not required by the form and so
         # should be in cleaned data as empty values. If they are not, there's
         # a problem and an error should be raised.
@@ -55,8 +57,12 @@ class CkdDetailFormProcessor:
         self.dialysis_type = ckddetail_form.cleaned_data["dialysis_type"]
         self.dialysis_duration = ckddetail_form.cleaned_data["dialysis_duration"]
         self.stage = ckddetail_form.cleaned_data["stage"]
-        self.dateofbirth = dateofbirth_form.cleaned_data["value"]
-        self.gender = gender_form.cleaned_data["value"]
+        if self.dateofbirth_form and self.gender_form:
+            self.dateofbirth = self.dateofbirth_form.cleaned_data["value"]
+            self.gender = self.gender_form.cleaned_data["value"]
+        else:
+            self.dateofbirth = dateofbirth.value
+            self.gender = gender.value
 
     @cached_property
     def age(self) -> int | None:
@@ -105,10 +111,11 @@ class CkdDetailFormProcessor:
             or "stage" in self.ckddetail_form.changed_data
             or "value" in self.baselinecreatinine_form.changed_data
             if self.baselinecreatinine_form
-            else False
-            or "value" in self.dateofbirth_form.changed_data
-            or "value" in self.gender_form.changed_data
-            or not getattr(self.ckddetail_form.instance, "medhistory", None)
+            else False or "value" in self.dateofbirth_form.changed_data
+            if self.dateofbirth_form
+            else False or "value" in self.gender_form.changed_data
+            if self.gender_form
+            else False or not getattr(self.ckddetail_form.instance, "medhistory", None)
         )
 
     def _check_process_returns(

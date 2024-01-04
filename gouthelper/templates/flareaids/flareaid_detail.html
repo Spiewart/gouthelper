@@ -14,10 +14,17 @@
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flareaids:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'flareaids:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flareaids:patient-update' username=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flareaids:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

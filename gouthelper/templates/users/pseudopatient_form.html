@@ -18,8 +18,10 @@
 {% endblock subheading %}
 {% block content %}
   <main class="container">
-    {% if form.instance.created %}
-      <form class="form-horizontal" method="post" action="">
+    {% if form.instance.created and request.user.is_authenticated %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'users:pseudopatient-update' object.username %}">
         {% csrf_token %}
         {% crispy form %}
         {% include '_submit_button.html' %}

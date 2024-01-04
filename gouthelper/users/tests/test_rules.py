@@ -159,9 +159,9 @@ class TestCanEditUser(TestCase):
         """Test that a Provider can edit their own User."""
         assert rules.test_rule("can_edit_user", self.provider, self.provider)
 
-    def test__provider_cannot_edit_pseudopatient(self):
+    def test__provider_cannot_edit_own_pseudopatient(self):
         """Test that a Provider can edit their own Pseudopatient."""
-        assert not rules.test_rule("can_edit_user", self.provider, self.provider_pseudopatient)
+        assert rules.test_rule("can_edit_user", self.provider, self.provider_pseudopatient)
 
     def test__provider_cannot_edit_admin(self):
         """Test that a Provider cannot edit an Admin."""
@@ -179,9 +179,9 @@ class TestCanEditUser(TestCase):
         """Test that an Admin can edit their own User."""
         assert rules.test_rule("can_edit_user", self.admin, self.admin)
 
-    def test__admin_cannot_edit_pseudopatient(self):
+    def test__admin_can_edit_own_pseudopatient(self):
         """Test that an Admin can edit their own Pseudopatient."""
-        assert not rules.test_rule("can_edit_user", self.admin, self.admin_pseudopatient)
+        assert rules.test_rule("can_edit_user", self.admin, self.admin_pseudopatient)
 
     def test__admin_cannot_edit_provider(self):
         """Test that an Admin cannot edit a Provider."""
