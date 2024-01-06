@@ -467,7 +467,7 @@ class TestPseudopatientUpdateView(TestCase):
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
         # Create a pseudopatient
-        self.psp = PseudopatientPlusFactory(create_profile=self.provider)
+        self.psp = PseudopatientPlusFactory(profile=self.provider)
 
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
@@ -512,8 +512,8 @@ class TestUserDeleteView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, create_profile=self.provider)
-        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, create_profile=self.admin)
+        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, profile=self.provider)
+        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, profile=self.admin)
         self.anon_pseudopatient = PseudopatientFactory()
 
     def dummy_get_response(self, request: HttpRequest):

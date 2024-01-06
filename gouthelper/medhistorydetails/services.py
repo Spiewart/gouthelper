@@ -163,9 +163,15 @@ class CkdDetailFormProcessor:
         """
         # Check for errors and add them to the forms if necessary
         errors = False
-        # Check if dialysis is not True
         # NOTE: dialysis is NOT None, an empty value from the form comes as an empty string
-        if self.dialysis != "" and self.dialysis is False:
+        # If a CkdDetail is being processed, dialysis is required
+        # This has to be checked by the view because the forms are different
+        if self.dialysis == "" and not self.ckddetail_form.optional:
+            dialysis_error = ValidationError(message="Dialysis is a required field.")
+            self.ckddetail_form.add_error("dialysis", dialysis_error)
+            errors = True
+        # Check if dialysis is False
+        elif self.dialysis is False:
             # If there's a baselinecreatinine
             if self.baselinecreatinine is not None:
                 # If so, check if gender and age, required for interpreting baseline creatinine, are present
@@ -203,14 +209,7 @@ Please double check and try again."
                     )
                     self.ckddetail_form.add_error("stage", stage_error)
                     errors = True
-        # See NOTE above re: why dialysis is an empty string
-        elif self.dialysis == "" and self.baselinecreatinine:
-            dialysis_error = ValidationError(
-                message="If dialysis is not checked, there should be no baseline creatinine."
-            )
-            self.baselinecreatinine_form.add_error("value", dialysis_error)
-            self.ckddetail_form.add_error("dialysis", dialysis_error)
-            errors = True
+        # If dialysis is True, dialysis_type and dialysis_duration are handled by the form
         return errors
 
     def delete_baselinecreatinine(

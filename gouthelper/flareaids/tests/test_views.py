@@ -18,20 +18,31 @@ from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
-from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
+from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorydetails.tests.factories import CkdDetailFactory
-from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...treatments.choices import FlarePpxChoices, Treatments
+from ...treatments.choices import ColchicineDoses, FlarePpxChoices, NsaidChoices, Treatments
 from ...users.models import Pseudopatient
 from ...users.tests.factories import PseudopatientFactory, PseudopatientPlusFactory
-from ...utils.helpers.test_helpers import tests_print_response_form_errors
+from ...utils.helpers.test_helpers import (
+    form_data_colchicine_contra,
+    form_data_nsaid_contra,
+    tests_print_response_form_errors,
+)
 from ..models import FlareAid
-from ..views import FlareAidAbout, FlareAidCreate, FlareAidDetail, FlareAidPatientCreate, FlareAidUpdate
-from .factories import FlareAidFactory
+from ..views import (
+    FlareAidAbout,
+    FlareAidCreate,
+    FlareAidDetail,
+    FlareAidPatientCreate,
+    FlareAidPatientUpdate,
+    FlareAidUpdate,
+)
+from .factories import FlareAidFactory, FlareAidUserFactory, create_flareaid_data
 
 pytestmark = pytest.mark.django_db
 
@@ -214,6 +225,16 @@ class TestFlareAidPatientCreate(TestCase):
             PseudopatientPlusFactory()
         self.psp = PseudopatientFactory()
 
+    def test__check_user_onetoones(self):
+        """Tests that the view checks for the User's related models."""
+        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        with self.assertRaises(AttributeError) as exc:
+            self.view().check_user_onetoones(empty_user)
+        self.assertEqual(
+            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+        assert self.view().check_user_onetoones(self.user) is None
+
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
         self.assertTrue(self.view().ckddetail)
@@ -230,15 +251,42 @@ class TestFlareAidPatientCreate(TestCase):
         self.assertFalse(self.view().goutdetail)
 
     def test__get(self):
-        """Test the get() method for the view."""
+        """Test the get() method for the view. Should redirect to detailview when
+        the user already has a FlareAid. Should redirect to Pseudopatient Update
+        view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         kwargs = {"username": self.user.username}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
-        view.get(request, **kwargs)
+        response = view.get(request, **kwargs)
+        self.assertEqual(response.status_code, 200)
         self.assertTrue(hasattr(view, "user"))
         self.assertEqual(view.user, self.user)
+        # Create a new FlareAid and test that the view redirects to the detailview
+        flareaid = FlareAidUserFactory(user=self.user)
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse("flareaids:patient-create", kwargs={"username": self.user.username}), follow=True
+        )
+        self.assertEqual(view.user, self.user)
+        self.assertRedirects(response, flareaid.get_absolute_url())
+        # Check that the response message is correct
+        message = list(response.context.get("messages"))[0]
+        self.assertEqual(message.tags, "error")
+        self.assertEqual(message.message, f"FlareAid already exists for {self.user.username}")
+        # Create empty user and test that the view redirects to the user update view
+        empty_user = PseudopatientFactory(dateofbirth=None)
+        self.client.force_login(empty_user)
+        response = self.client.get(
+            reverse("flareaids:patient-create", kwargs={"username": empty_user.username}), follow=True
+        )
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        message = list(response.context.get("messages"))[0]
+        self.assertEqual(message.tags, "error")
+        self.assertEqual(
+            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
 
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
@@ -343,17 +391,11 @@ class TestFlareAidPatientCreate(TestCase):
         """Test that the post() method for the view sets the
         user on the object."""
         # Create some fake data for a User's FlareAid
-        data = {
-            "dateofbirth-value": age_calc(self.user.dateofbirth.value),
-            "gender-value": self.user.gender.value,
-            f"{MedHistoryTypes.CKD}-value": True if self.user.ckd else False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True if self.user.colchicineinteraction else False,
-            f"{MedHistoryTypes.DIABETES}-value": True if self.user.diabetes else False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": True if self.user.organtransplant else False,
-        }
+        data = create_flareaid_data(self.user)
         response = self.client.post(
             reverse("flareaids:patient-create", kwargs={"username": self.user.username}), data=data
         )
+        tests_print_response_form_errors(response)
         assert response.status_code == 302
         assert FlareAid.objects.filter(user=self.user).exists()
 
@@ -489,10 +531,7 @@ class TestFlareAidPatientCreate(TestCase):
             # Steal some data from self.psp to create gender and dateofbirth
             "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
             "gender-value": self.psp.gender.value,
-            f"{MedHistoryTypes.CKD}-value": True,
-            # Create data for CKD
-            "dialysis": "",
-            "baselinecreatinine-value": "",
+            f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
             f"{MedHistoryTypes.DIABETES}-value": False,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
@@ -503,6 +542,448 @@ class TestFlareAidPatientCreate(TestCase):
         assert response.status_code == 302
         self.assertFalse(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
         self.assertFalse(BaselineCreatinine.objects.filter(medhistory=self.psp.ckd).exists())
+
+    def test__post_creates_flareaids_with_correct_recommendations(self):
+        """Test that the view creates the User's FlareAid object with the correct
+        recommendations."""
+        for user in Pseudopatient.objects.all():
+            data = create_flareaid_data(user)
+            if user.profile.provider:
+                self.client.force_login(user.profile.provider)
+            response = self.client.post(
+                reverse("flareaids:patient-create", kwargs={"username": user.username}), data=data
+            )
+            tests_print_response_form_errors(response)
+            assert response.status_code == 302
+            # Get the FlareAid
+            flareaid = FlareAid.objects.get(user=user)
+            # Test the FlareAid logic on the recommendations and options for the FlareAid
+            # Check NSAID contraindications first
+            if form_data_nsaid_contra(data=data):
+                for nsaid in NsaidChoices.values:
+                    assert nsaid not in flareaid.recommendation and nsaid not in flareaid.options
+            # Check colchicine contraindications
+            colch_contra = form_data_colchicine_contra(data=data, user=user)
+            if colch_contra is not None:
+                if colch_contra == Contraindications.ABSOLUTE or colch_contra == Contraindications.RELATIVE:
+                    assert Treatments.COLCHICINE not in flareaid.recommendation if flareaid.recommendation else True
+                    assert Treatments.COLCHICINE not in flareaid.options if flareaid.options else True
+                elif colch_contra == Contraindications.DOSEADJ:
+                    assert Treatments.COLCHICINE in flareaid.options if flareaid.options else True
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose"] == ColchicineDoses.POINTTHREE
+                        if flareaid.options
+                        else True
+                    )
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose2"] == ColchicineDoses.POINTSIX
+                        if flareaid.options
+                        else True
+                    )
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose3"] == ColchicineDoses.POINTTHREE
+                        if flareaid.options
+                        else True
+                    )
+            else:
+                assert Treatments.COLCHICINE in flareaid.options
+                assert flareaid.options[Treatments.COLCHICINE]["dose"] == ColchicineDoses.POINTSIX
+                assert flareaid.options[Treatments.COLCHICINE]["dose2"] == ColchicineDoses.ONEPOINTTWO
+                assert flareaid.options[Treatments.COLCHICINE]["dose3"] == ColchicineDoses.POINTSIX
+
+    def test__post_returns_errors(self):
+        """Test that post returns errors for some common scenarios where the
+        data is invalid. Typically, these are scenarios that should be prevented by
+        the form or javascript."""
+        # Test that the view returns errors when the baselinecreatinine and
+        # stage are not congruent
+        data = create_flareaid_data(user=self.psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": False,
+                "baselinecreatinine-value": Decimal("9.9"),
+                "stage": Stages.ONE,
+            }
+        )
+        self.client.force_login(self.psp)
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        assert "form" in response.context_data
+        assert "ckddetail_form" in response.context_data
+        assert "stage" in response.context_data["ckddetail_form"].errors
+        assert "baselinecreatinine_form" in response.context_data
+        assert "value" in response.context_data["baselinecreatinine_form"].errors
+        # Test that the view returns errors when CKD is True and dialysis is left blank
+        data = create_flareaid_data(user=self.psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": "",
+            }
+        )
+        self.client.force_login(self.psp)
+        response = self.client.post(
+            reverse("flareaids:patient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        assert "ckddetail_form" in response.context_data
+        assert "dialysis" in response.context_data["ckddetail_form"].errors
+
+
+class TestFlareAidPatientUpdate(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = FlareAidPatientUpdate
+        self.user = PseudopatientPlusFactory()
+        for _ in range(10):
+            PseudopatientPlusFactory()
+        self.psp = PseudopatientFactory()
+        for psp in Pseudopatient.objects.all():
+            FlareAidUserFactory(user=psp)
+
+    def test__check_user_onetoones(self):
+        """Tests that the view checks for the User's related models."""
+        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        with self.assertRaises(AttributeError) as exc:
+            self.view().check_user_onetoones(empty_user)
+        self.assertEqual(
+            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+        assert self.view().check_user_onetoones(self.user) is None
+
+    def test__ckddetail(self):
+        """Tests the ckddetail cached_property."""
+        self.assertTrue(self.view().ckddetail)
+
+    def test__get_form_kwargs(self):
+        # Create a fake request
+        request = self.factory.get("/fake-url/")
+        view = self.view(request=request)
+        form_kwargs = view.get_form_kwargs()
+        self.assertIn("medallergys", form_kwargs)
+
+    def test__goutdetail(self):
+        """Tests the goutdetail cached_property."""
+        self.assertFalse(self.view().goutdetail)
+
+    def test__get(self):
+        """Test the get() method for the view. Should redirect to Pseudopatient Update
+        view when the user doesn't have the required 1to1 related models."""
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        response = view.get(request, **kwargs)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(hasattr(view, "user"))
+        self.assertEqual(view.user, self.user)
+        # Create empty user and test that the view redirects to the user update view
+        empty_user = PseudopatientFactory(dateofbirth=None)
+        FlareAidUserFactory(user=empty_user)
+        self.client.force_login(empty_user)
+        response = self.client.get(
+            reverse("flareaids:patient-update", kwargs={"username": empty_user.username}), follow=True
+        )
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        message = list(response.context.get("messages"))[0]
+        self.assertEqual(message.tags, "error")
+        self.assertEqual(
+            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+
+    def test__get_user_queryset(self):
+        """Test the get_user_queryset() method for the view."""
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["username"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertTrue(isinstance(qs, User))
+        self.assertTrue(hasattr(qs, "medhistorys_qs"))
+        self.assertTrue(hasattr(qs, "medallergys_qs"))
+        self.assertTrue(hasattr(qs, "dateofbirth"))
+        self.assertTrue(hasattr(qs, "gender"))
+
+    def test__get_context_data_onetoones(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            assert "age" in response.context_data
+            assert response.context_data["age"] == age_calc(user.dateofbirth.value)
+            assert "gender" in response.context_data
+            assert response.context_data["gender"] == user.gender.value
+
+    def test__get_context_data_medhistorys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for mh in user.medhistory_set.all():
+                if mh.medhistorytype in FLAREAID_MEDHISTORYS:
+                    assert f"{mh.medhistorytype}_form" in response.context_data
+                    assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
+                    assert response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding is False
+                    assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
+                        f"{mh.medhistorytype}-value": True
+                    }
+                else:
+                    assert f"{mh.medhistorytype}_form" not in response.context_data
+            for mhtype in FLAREAID_MEDHISTORYS:
+                assert f"{mhtype}_form" in response.context_data
+                if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
+                    assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
+            assert "ckddetail_form" in response.context_data
+            if user.ckd:
+                if getattr(user.ckd, "ckddetail", None):
+                    assert response.context_data["ckddetail_form"].instance == user.ckd.ckddetail
+                    assert response.context_data["ckddetail_form"].instance._state.adding is False
+                else:
+                    assert response.context_data["ckddetail_form"].instance._state.adding is True
+                if getattr(user.ckd, "baselinecreatinine", None):
+                    assert response.context_data["baselinecreatinine_form"].instance == user.ckd.baselinecreatinine
+                    assert response.context_data["baselinecreatinine_form"].instance._state.adding is False
+                else:
+                    assert response.context_data["baselinecreatinine_form"].instance._state.adding is True
+            else:
+                assert response.context_data["ckddetail_form"].instance._state.adding is True
+                assert response.context_data["baselinecreatinine_form"].instance._state.adding is True
+            assert "goutdetail_form" not in response.context_data
+
+    def test__get_context_data_medallergys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for ma in user.medallergy_set.filter(Q(treatment__in=FlarePpxChoices.values)).all():
+                assert f"medallergy_{ma.treatment}_form" in response.context_data
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].instance == ma
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding is False
+                assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
+                    f"medallergy_{ma.treatment}": True
+                }
+            for treatment in FlarePpxChoices.values:
+                assert f"medallergy_{treatment}_form" in response.context_data
+                if treatment not in user.medallergy_set.values_list("treatment", flat=True):
+                    assert response.context_data[f"medallergy_{treatment}_form"].instance._state.adding is True
+                    assert response.context_data[f"medallergy_{treatment}_form"].initial == {
+                        f"medallergy_{treatment}": None
+                    }
+
+    def test__post(self):
+        """Test the post() method for the view."""
+        request = self.factory.post("/fake-url/")
+        kwargs = {"username": self.user.username}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+
+    def test__post_updates_medhistorys(self):
+        psp = Pseudopatient.objects.last()
+        for mh in FLAREAID_MEDHISTORYS:
+            setattr(self, f"{mh}_bool", psp.medhistory_set.filter(medhistorytype=mh).exists())
+        data = create_flareaid_data(psp)
+        data.update(
+            {
+                **{
+                    f"{mh}-value": not getattr(self, f"{mh}_bool")
+                    for mh in FLAREAID_MEDHISTORYS
+                    # Need to exclude CKD because of related CkdDetail fields throwing errors
+                    if mh != MedHistoryTypes.CKD
+                },
+            }
+        )
+        response = self.client.post(
+            reverse("flareaids:patient-update", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        for mh in [mh for mh in FLAREAID_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
+            self.assertEqual(psp.medhistory_set.filter(medhistorytype=mh).exists(), not getattr(self, f"{mh}_bool"))
+
+    def test__post_updates_medallergys(self):
+        psp = Pseudopatient.objects.last()
+        for ma in FlarePpxChoices.values:
+            setattr(self, f"{ma}_bool", psp.medallergy_set.filter(treatment=ma).exists())
+        data = create_flareaid_data(psp)
+        data.update(
+            {
+                **{f"medallergy_{ma}": not getattr(self, f"{ma}_bool") for ma in FlarePpxChoices.values},
+            }
+        )
+        response = self.client.post(
+            reverse("flareaids:patient-update", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        for ma in FlarePpxChoices.values:
+            self.assertEqual(psp.medallergy_set.filter(treatment=ma).exists(), not getattr(self, f"{ma}_bool"))
+
+    def test__post_creates_medhistorydetails(self):
+        """Test that the view creates the User's MedHistoryDetails objects."""
+        # Create user without ckd
+        psp = PseudopatientFactory()
+        FlareAidUserFactory(user=psp)
+        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        data = {
+            # Steal some data from self.psp to create gender and dateofbirth
+            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
+            "gender-value": self.psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": True,
+            # Create data for CKD
+            "dialysis": False,
+            "baselinecreatinine-value": Decimal("2.2"),
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(
+            reverse("flareaids:patient-update", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 302
+        self.assertTrue(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
+        self.assertTrue(BaselineCreatinine.objects.filter(medhistory=self.psp.ckd).exists())
+
+    def test__post_deletes_medhistorydetail(self):
+        psp = PseudopatientFactory()
+        FlareAidUserFactory(user=psp)
+        ckd = MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.CKD)
+        CkdDetailFactory(
+            medhistory=psp.ckd,
+            dialysis=False,
+            stage=labs_stage_calculator(
+                labs_eGFR_calculator(
+                    creatinine=BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.2")),
+                    age=age_calc(psp.dateofbirth.value),
+                    gender=psp.gender.value,
+                )
+            ),
+        )
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(
+            CkdDetail.objects.filter(medhistory=psp.ckd).exists()
+            and BaselineCreatinine.objects.filter(medhistory=psp.ckd).exists()
+        )
+        data = {
+            # Steal some data from self.psp to create gender and dateofbirth
+            "dateofbirth-value": age_calc(psp.dateofbirth.value),
+            "gender-value": psp.gender.value,
+            f"{MedHistoryTypes.CKD}-value": False,
+            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
+            f"{MedHistoryTypes.DIABETES}-value": False,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+        }
+        response = self.client.post(reverse("flareaids:patient-update", kwargs={"username": psp.username}), data=data)
+        assert response.status_code == 302
+        self.assertFalse(CkdDetail.objects.filter(medhistory=psp.ckd).exists())
+        self.assertFalse(BaselineCreatinine.objects.filter(medhistory=psp.ckd).exists())
+
+    def test__post_creates_flareaids_with_correct_recommendations(self):
+        """Test that the view creates the User's FlareAid object with the correct
+        recommendations."""
+        for user in Pseudopatient.objects.all():
+            if not hasattr(user, "flareaid"):
+                FlareAidUserFactory(user=user)
+            data = create_flareaid_data(user)
+            if user.profile.provider:
+                self.client.force_login(user.profile.provider)
+            response = self.client.post(
+                reverse("flareaids:patient-update", kwargs={"username": user.username}), data=data
+            )
+            tests_print_response_form_errors(response)
+            assert response.status_code == 302
+            # Get the FlareAid
+            flareaid = FlareAid.objects.get(user=user)
+            # Test the FlareAid logic on the recommendations and options for the FlareAid
+            # Check NSAID contraindications first
+            if form_data_nsaid_contra(data=data):
+                for nsaid in NsaidChoices.values:
+                    assert nsaid not in flareaid.recommendation and nsaid not in flareaid.options
+            # Check colchicine contraindications
+            colch_contra = form_data_colchicine_contra(data=data, user=user)
+            if colch_contra is not None:
+                if colch_contra == Contraindications.ABSOLUTE or colch_contra == Contraindications.RELATIVE:
+                    assert Treatments.COLCHICINE not in flareaid.recommendation if flareaid.recommendation else True
+                    assert Treatments.COLCHICINE not in flareaid.options if flareaid.options else True
+                elif colch_contra == Contraindications.DOSEADJ:
+                    assert Treatments.COLCHICINE in flareaid.options if flareaid.options else True
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose"] == ColchicineDoses.POINTTHREE
+                        if flareaid.options
+                        else True
+                    )
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose2"] == ColchicineDoses.POINTSIX
+                        if flareaid.options
+                        else True
+                    )
+                    assert (
+                        flareaid.options[Treatments.COLCHICINE]["dose3"] == ColchicineDoses.POINTTHREE
+                        if flareaid.options
+                        else True
+                    )
+            else:
+                assert Treatments.COLCHICINE in flareaid.options
+                assert flareaid.options[Treatments.COLCHICINE]["dose"] == ColchicineDoses.POINTSIX
+                assert flareaid.options[Treatments.COLCHICINE]["dose2"] == ColchicineDoses.ONEPOINTTWO
+                assert flareaid.options[Treatments.COLCHICINE]["dose3"] == ColchicineDoses.POINTSIX
+
+    def test__post_returns_errors(self):
+        """Test that post returns errors for some common scenarios where the
+        data is invalid. Typically, these are scenarios that should be prevented by
+        the form or javascript."""
+        # Test that the view returns errors when the baselinecreatinine and
+        # stage are not congruent
+        data = create_flareaid_data(user=self.psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": False,
+                "baselinecreatinine-value": Decimal("9.9"),
+                "stage": Stages.ONE,
+            }
+        )
+        self.client.force_login(self.psp)
+        response = self.client.post(
+            reverse("flareaids:patient-update", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        assert "form" in response.context_data
+        assert "ckddetail_form" in response.context_data
+        assert "stage" in response.context_data["ckddetail_form"].errors
+        assert "baselinecreatinine_form" in response.context_data
+        assert "value" in response.context_data["baselinecreatinine_form"].errors
+        # Test that the view returns errors when CKD is True and dialysis is left blank
+        data = create_flareaid_data(user=self.psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": "",
+            }
+        )
+        self.client.force_login(self.psp)
+        response = self.client.post(
+            reverse("flareaids:patient-update", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        assert "ckddetail_form" in response.context_data
+        assert "dialysis" in response.context_data["ckddetail_form"].errors
 
 
 class TestFlareAidDetail(TestCase):

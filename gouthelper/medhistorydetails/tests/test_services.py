@@ -19,7 +19,7 @@ from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.tests.factories import CkdFactory
-from ..forms import CkdDetailForm
+from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
 from ..services import CkdDetailFormProcessor
 from .factories import CkdDetailFactory
@@ -75,6 +75,15 @@ class TestCkdProcessor(TestCase):
         )
         # Create some forms that can be modified in the tests
         self.ckddetail_form = CkdDetailForm(
+            instance=self.ckddetail,
+            data={
+                "stage": self.ckddetail.stage,
+                "dialysis": self.ckddetail.dialysis,
+                "dialysis_type": self.ckddetail.dialysis_type,
+                "dialysis_duration": self.ckddetail.dialysis_duration,
+            },
+        )
+        self.ckddetail_optional_form = CkdDetailOptionalForm(
             instance=self.ckddetail,
             data={
                 "stage": self.ckddetail.stage,
@@ -475,7 +484,7 @@ Please double check and try again.",
         # First delete the to_delete attr on the BaselineCreatinine instance
         delattr(baselinecreatinine_form.instance, "to_delete")
         self.assertFalse(hasattr(baselinecreatinine_form.instance, "to_delete"))
-        self.ckddetail_form = CkdDetailForm(
+        self.ckddetail_optional_form = CkdDetailOptionalForm(
             instance=self.ckddetail,
             data={
                 "stage": "",
@@ -487,12 +496,13 @@ Please double check and try again.",
         # Don't modify the baselinecreatinine_form, it already has an empty value
         self.service, errors = setup_service(
             ckd=self.ckd,
-            ckddetail_form=self.ckddetail_form,
+            ckddetail_form=self.ckddetail_optional_form,
             baselinecreatinine_form=baselinecreatinine_form,
             dateofbirth_form=self.dateofbirth_form,
             gender_form=self.gender_form,
         )
         ckddetail_form, baselinecreatinine_form, errors = self.service.process()
+        self.assertFalse(errors)
         self.assertTrue(hasattr(ckddetail_form.instance, "to_delete"))
         self.assertFalse(hasattr(ckddetail_form.instance, "to_save"))
         self.assertTrue(hasattr(baselinecreatinine_form.instance, "to_delete"))
@@ -776,6 +786,7 @@ class TestCkdProcessorCheckForErrors(TestCase):
         self.ckd = CkdFactory()
         # Create empty CkdDetailForm and BaselineCreatinineForm
         self.ckddetail_form = CkdDetailForm(instance=CkdDetail(), data={})
+        self.ckddetail_optional_form = CkdDetailOptionalForm(instance=CkdDetail(), data={})
         self.baselinecreatinine_form = BaselineCreatinineForm(instance=BaselineCreatinine(), data={})
         # Create a DateOfBirthForm and GenderForm
         self.dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 20))
@@ -785,10 +796,10 @@ class TestCkdProcessorCheckForErrors(TestCase):
         self.gender = GenderFactory()
         self.gender_form = GenderForm(instance=self.gender, data={"gender-value": self.gender.value})
 
-    def test__empty_forms_return_no_errors(self):
+    def test__empty_forms_return_no_errors_if_optional(self):
         service, errors = setup_service(
             ckd=self.ckd,
-            ckddetail_form=self.ckddetail_form,
+            ckddetail_form=self.ckddetail_optional_form,
             baselinecreatinine_form=self.baselinecreatinine_form,
             dateofbirth_form=self.dateofbirth_form,
             gender_form=self.gender_form,
@@ -796,7 +807,7 @@ class TestCkdProcessorCheckForErrors(TestCase):
         self.assertFalse(errors)
         self.assertFalse(service.check_for_errors())
 
-    def test__dialysis_empty_baselinecreatinine_errors(self):
+    def test__dialysis_empty_errors(self):
         self.baselinecreatinine_form = BaselineCreatinineForm(
             instance=BaselineCreatinine(), data={"baselinecreatinine-value": Decimal("3.0")}
         )
@@ -809,17 +820,11 @@ class TestCkdProcessorCheckForErrors(TestCase):
         )
         self.assertFalse(errors)
         self.assertTrue(service.check_for_errors())
-        self.assertTrue(self.baselinecreatinine_form.errors)
         self.assertTrue(self.ckddetail_form.errors)
-        self.assertIn("value", self.baselinecreatinine_form.errors)
         self.assertIn("dialysis", self.ckddetail_form.errors)
         self.assertEqual(
-            self.baselinecreatinine_form.errors["value"],
-            ["If dialysis is not checked, there should be no baseline creatinine."],
-        )
-        self.assertEqual(
             self.ckddetail_form.errors["dialysis"],
-            ["If dialysis is not checked, there should be no baseline creatinine."],
+            ["Dialysis is a required field."],
         )
 
     def test__dialysis_False_age_missing(self):

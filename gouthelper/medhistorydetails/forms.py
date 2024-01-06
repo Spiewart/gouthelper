@@ -25,6 +25,7 @@ class CkdDetailForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.optional = False
         self.fields["dialysis"].required = False
         self.fields["stage"].required = False
         self.helper = FormHelper()
@@ -88,6 +89,7 @@ class CkdDetailForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        print(cleaned_data)
         dialysis = cleaned_data["dialysis"]
         stage = cleaned_data["stage"]
         if dialysis is True:
@@ -112,6 +114,12 @@ class CkdDetailForm(forms.ModelForm):
                 cleaned_data["dialysis_type"] = None
             if cleaned_data["dialysis_duration"] is not None:
                 cleaned_data["dialysis_duration"] = None
+
+
+class CkdDetailOptionalForm(CkdDetailForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.optional = True
 
 
 class GoutDetailForm(forms.ModelForm):

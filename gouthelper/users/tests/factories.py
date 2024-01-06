@@ -41,7 +41,7 @@ class UserFactory(DjangoModelFactory):
         self.set_password(password)
 
     @post_generation
-    def create_profile(self, create: bool, extracted: Sequence[Any], **kwargs):
+    def profile(self, create: bool, extracted: Sequence[Any], **kwargs):
         if create:
             if self.role == Roles.PATIENT:
                 PatientProfile(user=self, provider=extracted if extracted else None).save()

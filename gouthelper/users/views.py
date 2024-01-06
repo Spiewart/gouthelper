@@ -200,6 +200,9 @@ class PseudopatientUpdateView(
         )
         return HttpResponseRedirect(self.get_success_url())
 
+    def get_permission_object(self):
+        return User.objects.filter(role=Roles.PSEUDOPATIENT).get(username=self.kwargs.get("username", None))
+
     def get_queryset(self):
         return pseudopatient_profile_qs(self.kwargs.get("username", None))
 

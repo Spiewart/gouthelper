@@ -36,6 +36,7 @@ from ...medhistorys.forms import (
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Menopause, Pvd, Stroke
 from ...medhistorys.tests.factories import AnginaFactory, ChfFactory, GoutFactory, MenopauseFactory
+from ...users.tests.factories import PseudopatientPlusFactory
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
@@ -503,6 +504,23 @@ class TestFlareDetail(TestCase):
         # This needs to be manually refetched from the db
         self.assertIsNone(Flare.objects.get().likelihood)
         self.assertIsNone(Flare.objects.get().prevalence)
+
+
+class TestFlarePatientCreate(TestCase):
+    def copied_from_flareaid_accident_test__get_context_data_medhistorys_menopause(self):
+        """Test the context data for the menopause form."""
+        female = PseudopatientPlusFactory(
+            dateofbirth__value=timezone.now() - timedelta(days=365 * 50), gender__value=Genders.FEMALE
+        )
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": female.username}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+        assert f"{MedHistoryTypes.MENOPAUSE}_form" in response.context_data
+        assert response.context_data[f"{MedHistoryTypes.MENOPAUSE}_form"].instance._state.adding is True
+        assert response.context_data[f"{MedHistoryTypes.MENOPAUSE}_form"].initial == {
+            f"{MedHistoryTypes.MENOPAUSE}-value": False
+        }
 
 
 class TestFlareUpdate(TestCase):

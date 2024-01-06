@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any, Union
 
 from django.contrib import messages  # type: ignore
-from django.http import Http404, HttpResponseRedirect  # type: ignore
+from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView, UpdateView, View  # type: ignore
@@ -674,10 +674,8 @@ class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
         and raises and redirects to the user's profile updateview if they are
         missing."""
         for onetoone in self.req_onetoones:
-            try:
-                getattr(user, onetoone)
-            except AttributeError as exc:
-                raise Http404("Baseline information is needed to use GoutHelper Decision and Treatment Aids.") from exc
+            if not hasattr(user, onetoone):
+                raise AttributeError("Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
 
     def context_onetoones(
         self,
@@ -822,9 +820,18 @@ class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
         self.object = self.get_object()  # type: ignore
         form_class = self.get_form_class()
         if self.medallergys:
-            form = form_class(request.POST, medallergys=self.medallergys, instance=self.object)
+            form = form_class(
+                request.POST,
+                medallergys=self.medallergys,
+                instance=self.object,
+                patient=hasattr(self, "user"),
+            )
         else:
-            form = form_class(request.POST, instance=self.object)
+            form = form_class(
+                request.POST,
+                instance=self.object,
+                patient=hasattr(self, "user"),
+            )
         # Populate dicts for related models with POST data
         onetoone_forms = self.post_populate_onetoone_forms(onetoones=self.onetoones, request=request, user=self.user)
         medallergys_forms = self.post_populate_medallergys_forms(
@@ -1342,12 +1349,21 @@ class PatientAidCreateView(PatientAidBaseView):
         abstract = True
 
     def get(self, request, *args, **kwargs):
+        print("calling get")
         self.user = self.get_user_queryset(kwargs["username"]).get()
         try:
+            print(self.check_user_onetoones(user=self.user))
             self.check_user_onetoones(user=self.user)
+            print("after check")
         except AttributeError as exc:
             messages.error(request, exc)
             return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        try:
+            user_aid = self.model.objects.filter(user=self.user).get()
+            messages.error(request, f"{self.model.__name__} already exists for {self.user.username}")
+            return HttpResponseRedirect(user_aid.get_absolute_url())
+        except self.model.DoesNotExist:
+            pass
         return super().get(request, *args, **kwargs)
 
     def get_object(self, queryset=None) -> "MedAllergyAidHistoryModel":
@@ -2184,6 +2200,25 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
 
     class Meta:
         abstract = True
+
+    def context_onetoones(
+        self, onetoones: dict[str, "FormModelDict"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
+    ) -> None:
+        """Overwritten because User's don't have a field for each of their onetoones, it is
+        a reverse relationship, so hasattr() needs to be called before getattr()."""
+        for onetoone in onetoones:
+            form_str = f"{onetoone}_form"
+            if onetoone == "dateofbirth" and form_str not in kwargs:
+                kwargs[form_str] = onetoones[onetoone]["form"](
+                    instance=getattr(con_obj, onetoone) if hasattr(con_obj, onetoone) else None,
+                    initial={
+                        "value": age_calc(con_obj.dateofbirth.value) if hasattr(con_obj, "dateofbirth") else None
+                    },
+                )
+            if form_str not in kwargs:
+                kwargs[form_str] = onetoones[onetoone]["form"](
+                    instance=getattr(con_obj, onetoone, None) if hasattr(con_obj, onetoone) else None
+                )
 
     def form_valid(
         self,
