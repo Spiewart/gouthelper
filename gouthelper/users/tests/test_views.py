@@ -463,11 +463,51 @@ class TestPseudopatientListView(TestCase):
 class TestPseudopatientUpdateView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
+        self.view = PseudopatientUpdateView
+        self.anon = AnonymousUser()
         self.provider = UserFactory()
-        self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
         # Create a pseudopatient
         self.psp = PseudopatientPlusFactory(profile=self.provider)
+        self.admin_psp = PseudopatientPlusFactory(profile=self.admin)
+
+    def test__dispatch(self):
+        """Test that dispatch sets the object attr."""
+        view = PseudopatientUpdateView()
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        view.kwargs = {"username": self.psp.username}
+        view.dispatch(request, **view.kwargs)
+        assert view.object == self.psp
+
+    def test__get_permission_object(self):
+        """Test that the view's get_permission_object() method returns
+        the view's object (intended User)."""
+        view = PseudopatientUpdateView()
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        view.kwargs = {"username": self.psp.username}
+        view.dispatch(request, **view.kwargs)
+        assert view.get_permission_object() == self.psp
+
+    def test__get_queryset(self):
+        """Test that the view's get_queryset() method returns the intended
+        Pseudopatient and the intended related models."""
+        view = PseudopatientUpdateView()
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        view.kwargs = {"username": self.psp.username}
+        with self.assertNumQueries(2):
+            qs = view.get_queryset().get()
+            assert qs == self.psp
+            assert qs.dateofbirth == self.psp.dateofbirth
+            assert qs.gender == self.psp.gender
+            assert qs.ethnicity == self.psp.ethnicity
+            assert qs.pseudopatientprofile == self.psp.pseudopatientprofile
+            assert hasattr(qs, "medhistorys_qs")
 
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
@@ -497,13 +537,64 @@ class TestPseudopatientUpdateView(TestCase):
         assert response.context["gender_form"].instance == self.psp.gender
         assert "goutdetail_form" in response.context
 
-    def test__rules_provider_can_update_own_pseudopatient(self):
-        """Test that a Provider can update his or her own pseudopatient
-        via the PseudopatientUpdateView.
-        """
+    def test__rules(self):
+        """Test rules for the PseudopatientUpdateView."""
+        # Anonymous User cannot update a Pseudopatient with a provider or a patient
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        assert response.status_code == 302
+        response = self.client.post(
+            reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username})
+        )
+        assert response.status_code == 302
+        # Provider can log in and update his or her own Pseudopatient
         self.client.force_login(self.provider)
         response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
         assert response.status_code == 200
+        # Provider cannot update another Provider's Pseudopatient
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username}))
+        assert response.status_code == 403
+        # Admin can log in and update his or her own Pseudopatient
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username}))
+        assert response.status_code == 200
+        # Admin cannot update another Provider's Pseudopatient
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        assert response.status_code == 403
+
+    def test__post(self):
+        """Test that the post() method updates onetoones and medhistorys/medhistorydetails."""
+        psp = PseudopatientPlusFactory()
+        psp.goutdetail.flaring = False
+        psp.goutdetail.hyperuricemic = False
+        psp.goutdetail.on_ppx = True
+        psp.goutdetail.on_ult = True
+        psp.goutdetail.save()
+        data = {
+            "dateofbirth-value": 50,
+            "gender-value": Genders.FEMALE,
+            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
+            f"{MedHistoryTypes.GOUT}-value": True,
+            "flaring": True,
+            "hyperuricemic": True,
+            "on_ppx": False,
+            "on_ult": False,
+        }
+        response = self.client.post(
+            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
+        )
+        assert response.status_code == 302
+        # Need to delete both gout and goutdetail cached_properties because they are used
+        # to fetch one another and will not be updated otherwise
+        delattr(psp, "goutdetail")
+        delattr(psp, "gout")
+        psp.refresh_from_db()
+        assert psp.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
+        assert psp.gender.value == data["gender-value"]
+        assert psp.ethnicity.value == data["ethnicity-value"]
+        assert psp.goutdetail.flaring == data["flaring"]
+        assert psp.goutdetail.hyperuricemic == data["hyperuricemic"]
+        assert psp.goutdetail.on_ppx == data["on_ppx"]
+        assert psp.goutdetail.on_ult == data["on_ult"]
 
 
 class TestUserDeleteView(TestCase):

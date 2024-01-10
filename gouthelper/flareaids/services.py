@@ -40,11 +40,18 @@ class FlareAidDecisionAid:
         self,
         qs: Union["FlareAid", User, QuerySet],
     ):
+        FlareAid = apps.get_model("flareaids", "FlareAid")
         if isinstance(qs, QuerySet):
             qs = qs.get()
-        if isinstance(qs, apps.get_model("flareaids", "FlareAid")):
+        if isinstance(qs, FlareAid):
             self.flareaid = qs
-            self.user = None
+            self.user = qs.user
+            # Try to assign defaultflaretrtsettings from User instance
+            self.defaultflaretrtsettings = (
+                self.user.defaultflaretrtsettings
+                if self.user and hasattr(self.user, "defaultflaretrtsettings")
+                else None
+            )
         elif isinstance(qs, User):
             self.flareaid = qs.flareaid
             self.user = qs
@@ -57,6 +64,11 @@ class FlareAidDecisionAid:
         if qs.dateofbirth is not None:
             self.dateofbirth = qs.dateofbirth
             self.age = age_calc(qs.dateofbirth.value)
+            # Check if the QS is a FlareAid with a User, if so,
+            # then set its dateofbirth attr to None to avoid saving a
+            # FlareAid with a User and dateofbirth, which will raise and IntegrityError
+            if isinstance(qs, FlareAid) and qs.user:
+                setattr(self.flareaid, "dateofbirth", None)
         else:
             self.dateofbirth = None
             self.age = None
@@ -66,6 +78,11 @@ class FlareAidDecisionAid:
         if not getattr(self, "defaultflaretrtsettings", None):
             self.defaultflaretrtsettings = defaults_defaultflaretrtsettings(user=self.user)
         self.gender = qs.gender
+        # Check if the QS is a FlareAid with a User, if so,
+        # then sets its gender attr to None to avoid saving a
+        # FlareAid with a User and a gender, which will raise and IntegrityError
+        if isinstance(qs, FlareAid) and qs.user:
+            setattr(self.flareaid, "gender", None)
         self.medallergys = qs.medallergys_qs
         self.medhistorys = qs.medhistorys_qs
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)

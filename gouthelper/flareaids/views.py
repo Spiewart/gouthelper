@@ -4,9 +4,10 @@ from django.apps import apps  # type: ignore
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.http import Http404, HttpResponseRedirect  # type: ignore
+from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.views.generic import DetailView, TemplateView  # type: ignore
+from rules.contrib.views import AutoPermissionRequiredMixin  # type: ignore
 
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
@@ -87,7 +88,7 @@ class FlareAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.FLAREAID, tag=None)
 
 
-class FlareAidBase(View):
+class FlareAidBase:
     class Meta:
         abstract = True
 
@@ -175,8 +176,9 @@ class FlareAidCreate(FlareAidBase, MedHistorysModelCreateView, SuccessMessageMix
             )
 
 
-class FlareAidPatientCreate(FlareAidBase, PatientAidCreateView, SuccessMessageMixin):
-    """View for creating a FlareAid for a patient."""
+class FlareAidPatientBase(FlareAidBase):
+    class Meta:
+        abstract = True
 
     onetoones = {}
     req_onetoones = ["dateofbirth", "gender"]
@@ -215,9 +217,6 @@ class FlareAidPatientCreate(FlareAidBase, PatientAidCreateView, SuccessMessageMi
         aid_obj.update(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
-
-    def get_object(self, *args, **kwargs) -> FlareAid:
-        return None
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
@@ -262,41 +261,52 @@ class FlareAidPatientCreate(FlareAidBase, PatientAidCreateView, SuccessMessageMi
             )
 
 
-class FlareAidPatientUpdate(FlareAidPatientCreate, PatientAidUpdateView):
+class FlareAidPatientCreate(FlareAidPatientBase, PatientAidCreateView, SuccessMessageMixin):
+    """View for creating a FlareAid for a patient."""
+
+    permission_required = "flareaids.can_add_patient_flareaid"
+
+
+class FlareAidPatientUpdate(FlareAidPatientBase, PatientAidUpdateView, SuccessMessageMixin):
     success_message = "FlareAid successfully updated."
 
-    def get(self, request, *args, **kwargs):
-        self.user = self.get_user_queryset(kwargs["username"]).get()
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        self.object = self.get_object()
-        return self.render_to_response(self.get_context_data())
 
-    def get_object(self, *args, **kwargs) -> FlareAid:
-        return self.user.flareaid
+class FlareAidDetailBase(DetailView):
+    class Meta:
+        abstract = True
 
-
-class FlareAidDetail(DetailView):
     model = FlareAid
     object: FlareAid
-
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        # Check if the object has a User and if there is no username in the kwargs,
-        # redirect to the username url
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         for content in self.contents:
             context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
+
+    @property
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
+
+
+class FlareAidDetail(FlareAidDetailBase):
+    """Overwritten for different url routing, object fetching, and
+    building the content data."""
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        # Check if the object has a User and if there is no username in the kwargs,
+        # redirect to the username url
+        if self.object.user:
+            return HttpResponseRedirect(self.object.get_absolute_url())
+        else:
+            return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        if not hasattr(self, "object"):
+            self.object = self.get_object()
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
         return flareaid_userless_qs(self.kwargs["pk"])
@@ -305,25 +315,44 @@ class FlareAidDetail(DetailView):
         flareaid: FlareAid = super().get_object(*args, **kwargs)  # type: ignore
         # Check if FlareAid is up to date and update if not update
         if not self.request.GET.get("updated", None):
-            flareaid.update()
+            flareaid.update(qs=flareaid)
         return flareaid
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
 
-
-class FlareAidPatientDetail(FlareAidDetail):
+class FlareAidPatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
     """Overwritten for different url routing, object fetching, and
     building the content data."""
 
-    def get(self, request, *args, **kwargs):
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["patient"] = self.user
+        return context
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check for a User on the object and redirect to the
+        correct FlareAidPatientDetail url instead. Also checks if the user has
+        the correct OneToOne models and redirects to the view to add them if not."""
         try:
             self.object = self.get_object()
-        except FlareAid.DoesNotExist:
+        except FlareAid.DoesNotExist as exc:
+            messages.error(request, exc.args[0])
             return HttpResponseRedirect(reverse("flareaids:patient-create", kwargs={"username": kwargs["username"]}))
+        except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
+            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        if not hasattr(self, "object"):
+            self.object = self.get_object()
+        # Check if FlareAid is up to date and update if not update
+        if not request.GET.get("updated", None):
+            self.object.update(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
+
+    def get_permission_object(self):
+        return self.object
 
     def assign_flareaid_attrs_from_user(self, flareaid: FlareAid, user: "User") -> FlareAid:
         flareaid.dateofbirth = user.dateofbirth
@@ -336,15 +365,12 @@ class FlareAidPatientDetail(FlareAidDetail):
         return flareaid_user_qs(self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> FlareAid:
+        self.user: User = self.get_queryset().get()
         try:
-            user: User = self.get_queryset().get()
-        except User.DoesNotExist as exc:
-            raise Http404("No User matching the query") from exc
-        flareaid: FlareAid = user.flareaid
-        flareaid = self.assign_flareaid_attrs_from_user(flareaid=flareaid, user=user)
-        # Check if FlareAid is up to date and update if not update
-        if not self.request.GET.get("updated", None):
-            flareaid.update()
+            flareaid: FlareAid = self.user.flareaid
+        except FlareAid.DoesNotExist as exc:
+            raise FlareAid.DoesNotExist(f"{self.user} does not have a FlareAid. Create one.") from exc
+        flareaid = self.assign_flareaid_attrs_from_user(flareaid=flareaid, user=self.user)
         return flareaid
 
 

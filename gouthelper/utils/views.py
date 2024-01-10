@@ -5,6 +5,7 @@ from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView, UpdateView, View  # type: ignore
+from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
@@ -16,6 +17,7 @@ from ..medallergys.models import MedAllergy
 from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
+from ..users.choices import Roles
 from ..users.selectors import pseudopatient_qs_plus
 from ..utils.exceptions import EmptyRelatedModel
 
@@ -587,7 +589,7 @@ class PatientModelCreateView(MedHistorysModelCreateView):
         return self.object
 
 
-class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
+class PatientAidBaseView(MedHistoryModelBaseView):
     """CreateView to create Aid objects with a user field and to populate
     pre-existing User related models into the forms and post data."""
 
@@ -673,9 +675,16 @@ class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
         """Method that checks the view's user for the required onetoone models
         and raises and redirects to the user's profile updateview if they are
         missing."""
-        for onetoone in self.req_onetoones:
-            if not hasattr(user, onetoone):
-                raise AttributeError("Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
+        # Need to check the user's role to avoid redirecting a Provider or Admin to
+        # a view that is meant for a Pseudopatient or Patient
+        if user.role != Roles.PSEUDOPATIENT and user.role != Roles.PATIENT:
+            pass
+        else:
+            for onetoone in self.req_onetoones:
+                if not hasattr(user, onetoone):
+                    raise AttributeError(
+                        "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+                    )
 
     def context_onetoones(
         self,
@@ -816,20 +825,22 @@ class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
-        self.user = self.get_user_queryset(kwargs["username"]).get()
-        self.object = self.get_object()  # type: ignore
+        if not hasattr(self, "user"):
+            self.user = self.get_user_queryset(kwargs["username"]).get()
+        if not hasattr(self, "object"):
+            self.object = self.get_object()  # type: ignore
         form_class = self.get_form_class()
         if self.medallergys:
             form = form_class(
                 request.POST,
                 medallergys=self.medallergys,
-                instance=self.object,
+                instance=self.object() if isinstance(self.object, type) else self.object,
                 patient=hasattr(self, "user"),
             )
         else:
             form = form_class(
                 request.POST,
-                instance=self.object,
+                instance=self.object() if isinstance(self.object, type) else self.object,
                 patient=hasattr(self, "user"),
             )
         # Populate dicts for related models with POST data
@@ -1341,36 +1352,41 @@ class PatientAidBaseView(MedHistoryModelBaseView, CreateView):
         return onetoones_to_save, onetoones_to_delete
 
 
-class PatientAidCreateView(PatientAidBaseView):
+class PatientAidCreateView(PermissionRequiredMixin, PatientAidBaseView, CreateView):
     """CreateView to create Aid objects with a user field and to populate
     pre-existing User related models into the forms and post data."""
 
     class Meta:
         abstract = True
 
-    def get(self, request, *args, **kwargs):
-        print("calling get")
-        self.user = self.get_user_queryset(kwargs["username"]).get()
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check for a User on the object and redirect to the
+        correct FlareAidPatientUpdate url instead."""
+        # Will also set self.user
+        model = self.get_object()
+        if model.objects.filter(user=self.user).exists():
+            messages.error(request, f"{self.user} already has a {model.__name__}. Please update it instead.")
+            view_str = f"users:patient-{model.__name__.lower()}"
+            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
         try:
-            print(self.check_user_onetoones(user=self.user))
             self.check_user_onetoones(user=self.user)
-            print("after check")
         except AttributeError as exc:
             messages.error(request, exc)
             return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        try:
-            user_aid = self.model.objects.filter(user=self.user).get()
-            messages.error(request, f"{self.model.__name__} already exists for {self.user.username}")
-            return HttpResponseRedirect(user_aid.get_absolute_url())
-        except self.model.DoesNotExist:
-            pass
-        return super().get(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
 
-    def get_object(self, queryset=None) -> "MedAllergyAidHistoryModel":
+    def get_object(self, *args, **kwargs) -> "MedAllergyAidHistoryModel":
+        self.user = self.get_user_queryset(self.kwargs["username"]).get()
         return self.model
 
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a FlareAid for."""
+        return self.user
 
-class PatientAidUpdateView(PatientAidBaseView):
+
+class PatientAidUpdateView(AutoPermissionRequiredMixin, PatientAidBaseView, UpdateView):
     """MUST SET get() METHOD ON CHILD VIEWS."""
 
     class Meta:
@@ -1437,6 +1453,37 @@ class PatientAidUpdateView(PatientAidBaseView):
                         instance=user_i,
                         initial={f"{medhistory}-value": True if user_i else False},
                     )
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check if the User has a FlareAid and redirect to the
+        CreateView if not."""
+        try:
+            self.object = self.get_object()
+        except self.model.DoesNotExist as exc:
+            messages.error(request, exc.args[0])
+            model_str = self.model.__name__.lower()
+            view_str = f"{model_str}s:patient-create"
+            return HttpResponseRedirect(reverse(view_str, kwargs={"username": kwargs["username"]}))
+        # self.user set by get_object()
+        try:
+            self.check_user_onetoones(user=self.user)
+        except AttributeError as exc:
+            messages.error(request, exc)
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, *args, **kwargs) -> "MedAllergyAidHistoryModel":
+        # QuerySet fetches the user from the username kwarg
+        # Returns the User's FlareAid object
+        self.user = self.get_user_queryset(self.kwargs["username"]).get()
+        try:
+            return getattr(self.user, self.model.__name__.lower())
+        except self.model.DoesNotExist as exc:
+            raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
+
+    def get_permission_object(self):
+        """Object attr should be set by dispatch."""
+        return self.object
 
 
 class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
@@ -2240,7 +2287,8 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
         if self.onetoones:
             if onetoones_to_save:
                 for onetoone in onetoones_to_save:
-                    onetoone.user = self.object
+                    if onetoone.user is None:
+                        onetoone.user = self.object
                     onetoone.save()
             if onetoones_to_delete:
                 for onetoone in onetoones_to_delete:
@@ -2248,7 +2296,8 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
         if self.medallergys:
             if medallergys_to_save:
                 for medallergy in medallergys_to_save:
-                    medallergy.user = self.object
+                    if medallergy.user is None:
+                        medallergy.user = self.object
                     medallergy.save()
             if medallergys_to_remove:
                 for medallergy in medallergys_to_remove:
@@ -2257,14 +2306,14 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
         if self.medhistorys:
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
-                    medhistory.user = self.object
+                    if medhistory.user is None:
+                        medhistory.user = self.object
                     medhistory.save()
             if medhistorys_to_remove:
                 for medhistory in medhistorys_to_remove:
                     medhistory.delete()
             if medhistorydetails_to_save:
                 for medhistorydetail in medhistorydetails_to_save:
-                    medhistorydetail.user = self.object
                     medhistorydetail.save()
             if medhistorydetails_to_remove:
                 for medhistorydetail in medhistorydetails_to_remove:
@@ -2274,7 +2323,8 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
         if self.labs:
             if labs_to_save:
                 for lab in labs_to_save:
-                    lab.user = self.object
+                    if lab.user is None:
+                        lab.user = self.object
                     lab.save()
             if labs_to_remove:
                 for lab in labs_to_remove:

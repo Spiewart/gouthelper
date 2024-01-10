@@ -141,9 +141,7 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
 pseudopatient_create_view = PseudopatientCreateView.as_view()
 
 
-class PseudopatientUpdateView(
-    LoginRequiredMixin, AutoPermissionRequiredMixin, PatientModelUpdateView, SuccessMessageMixin
-):
+class PseudopatientUpdateView(PermissionRequiredMixin, PatientModelUpdateView, SuccessMessageMixin):
     """View to update Pseudopatient Users.
 
     Returns:
@@ -153,6 +151,7 @@ class PseudopatientUpdateView(
     slug_field = "username"
     slug_url_kwarg = "username"
     form_class = PseudopatientForm
+    permission_required = "users.can_edit_pseudopatient"
 
     onetoones = {
         "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
@@ -166,6 +165,12 @@ class PseudopatientUpdateView(
         },
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check if the requested User is a Pseudopatient. If not, redirect to the
+        UserDetailView."""
+        self.object = self.get_object()
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(
         self,
@@ -201,10 +206,10 @@ class PseudopatientUpdateView(
         return HttpResponseRedirect(self.get_success_url())
 
     def get_permission_object(self):
-        return User.objects.filter(role=Roles.PSEUDOPATIENT).get(username=self.kwargs.get("username", None))
+        return self.object
 
     def get_queryset(self):
-        return pseudopatient_profile_qs(self.kwargs.get("username", None))
+        return pseudopatient_profile_qs(self.kwargs.get("username"))
 
     def post(self, request, *args, **kwargs):
         (

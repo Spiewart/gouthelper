@@ -24,7 +24,7 @@ def form_data_colchicine_contra(data: dict, user: "User") -> Contraindications |
             and (
                 data.get("dialysis", None) is True
                 or data.get("stage", None)
-                and data.get("stage", None) >= 3
+                and data.get("stage", None) > 3
                 or data.get("baselinecreatinine-value", None)
                 and labs_stage_calculator(
                     labs_eGFR_calculator(
@@ -33,7 +33,7 @@ def form_data_colchicine_contra(data: dict, user: "User") -> Contraindications |
                         gender=user.gender.value if user.gender else data["gender-value"],
                     )
                 )
-                >= 3
+                > 3
             )
         )
         or data[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"]

@@ -116,6 +116,14 @@ class TestFlareAidMethods(TestCase):
         self.assertIsNone(decisionaid.sideeffects)
         self.assertEqual(decisionaid.defaultflaretrtsettings, custom_settings)
 
+    def test__init_with_flareaid_with_user(self):
+        """Test that the __init__ method removes attrs from the FlareAid after setting them
+        on the service class in order to avoid saving a FlareAid with a user as well as
+        onetoones that violate the model CheckConstraint (i.e. dateofbirth, gender)."""
+        decisionaid = FlareAidDecisionAid(qs=self.user_qs)
+        self.assertIsNone(decisionaid.flareaid.dateofbirth)
+        self.assertIsNone(decisionaid.flareaid.gender)
+
     def test__init_with_non_QuerySet_object(self):
         user_colchicine_allergy = MedAllergyFactory(user=self.user, treatment=Treatments.COLCHICINE)
         # get() the user_qs to make it a User object

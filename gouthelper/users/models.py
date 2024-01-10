@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.apps import apps  # type: ignore
 from django.contrib.auth.base_user import BaseUserManager  # type: ignore
 from django.contrib.auth.models import AbstractUser
 from django.db.models import CharField, CheckConstraint, Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel  # type: ignore
@@ -109,7 +112,12 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         """Unicode representation of User."""
         if self.role == Roles.PSEUDOPATIENT:
             # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
-            return f"{self.Roles(self.role).label}: {self.created.replace(microsecond=0, tzinfo=None)}"
+            if self.created >= timezone.now() - timedelta(days=7):
+                return f"GoutPatient: {self.created.strftime('%a, %I:%M%p')}"
+            elif self.created.year == timezone.now().year:
+                return f"GoutPatient: {self.created.strftime('%b %d, %I:%M%p')}"
+            else:
+                return f"GoutPatient: {self.created.strftime('%b %d, %Y, %I:%M%p')}"
         return super().__str__()
 
     @cached_property

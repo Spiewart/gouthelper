@@ -25,15 +25,14 @@ class TestCanAddObject(TestCase):
         assert rules.test_rule("can_add_object", self.admin, None)
 
     def test__add_provider_object(self):
-        """Tests that only the provider can add an object for his or
-        her self."""
-        assert rules.test_rule("can_add_object", self.provider, self.provider.username)
+        """Test that no one can create objects for Providers."""
+        assert not rules.test_rule("can_add_object", self.provider, self.provider)
         assert not rules.test_rule("can_add_object", self.admin, self.provider.username)
         assert not rules.test_rule("can_add_object", self.anon, self.provider.username)
 
     def test__add_admin_object(self):
-        """Tests that only an admin can add an object for another user."""
-        assert rules.test_rule("can_add_object", self.admin, self.admin.username)
+        """Tests that no one can create objects for Admins."""
+        assert not rules.test_rule("can_add_object", self.admin, self.admin)
         assert not rules.test_rule("can_add_object", self.provider, self.admin.username)
         assert not rules.test_rule("can_add_object", self.anon, self.admin.username)
 
@@ -50,12 +49,12 @@ class TestCanViewObjectList(TestCase):
     def test__view_provider_object_list(self):
         """Tests that only the provider can view an object list for his or
         her self."""
-        assert rules.test_rule("can_view_object_list", self.provider, self.provider.username)
+        assert rules.test_rule("can_view_object_list", self.provider, self.provider)
         assert not rules.test_rule("can_view_object_list", self.admin, self.provider.username)
         assert not rules.test_rule("can_view_object_list", self.anon, self.provider.username)
 
     def test__view_admin_object_list(self):
         """Tests that only an admin can view an object list for another user."""
-        assert rules.test_rule("can_view_object_list", self.admin, self.admin.username)
+        assert rules.test_rule("can_view_object_list", self.admin, self.admin)
         assert not rules.test_rule("can_view_object_list", self.provider, self.admin.username)
         assert not rules.test_rule("can_view_object_list", self.anon, self.admin.username)
