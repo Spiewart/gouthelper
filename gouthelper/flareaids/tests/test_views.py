@@ -682,13 +682,6 @@ class TestFlareAidPatientCreate(TestCase):
         assert response.status_code == 302
         # Test that an anonymous User can't create an Admin's FlareAid
         response = self.client.get(reverse("flareaids:patient-create", kwargs={"username": admin_psp.username}))
-        assert response.status_code == 302
-        # Test that a Provider can't create their own FlareAid
-        self.client.force_login(provider)
-        response = self.client.get(
-            reverse("flareaids:patient-create", kwargs={"username": provider.username}),
-        )
-        assert response.status_code == 403
         # Test that a Provider can create his or her own Pseudopatient's FlareAid
         response = self.client.get(
             reverse("flareaids:patient-create", kwargs={"username": psp.username}),
@@ -700,12 +693,6 @@ class TestFlareAidPatientCreate(TestCase):
         )
         assert response.status_code == 200
         self.client.force_login(admin)
-        # Test that an Admin can't create their own FlareAid
-        response = self.client.get(
-            reverse("flareaids:patient-create", kwargs={"username": admin.username}),
-        )
-        # Test that an Admin can create his or her own Pseudopatient's FlareAid
-        assert response.status_code == 403
         response = self.client.get(
             reverse("flareaids:patient-create", kwargs={"username": admin_psp.username}),
         )

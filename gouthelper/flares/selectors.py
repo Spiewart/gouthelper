@@ -4,6 +4,7 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.lists import FLARE_MEDHISTORYS
+from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -16,21 +17,38 @@ def flare_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
     queryset = queryset.select_related("urate")
-    queryset = queryset.prefetch_related(medhistory_userless_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_prefetch())
     return queryset
 
 
-def medhistory_userless_qs() -> "QuerySet":
+def flare_user_qs(username: str) -> "QuerySet":
+    queryset = Pseudopatient.objects.filter(username=username)
+    queryset = queryset.select_related("dateofbirth")
+    queryset = queryset.select_related("gender")
+    queryset = queryset.select_related("flare")
+    queryset = queryset.prefetch_related(medhistory_set_prefetch())
+    return queryset
+
+
+def medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistorys",
+        queryset=medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(Q(medhistorytype__in=FLARE_MEDHISTORYS))
         .select_related("ckddetail", "baselinecreatinine")
-    ).all()
+    )
 
 
-def medhistory_userless_prefetch() -> Prefetch:
+def medhistory_set_prefetch() -> Prefetch:
     return Prefetch(
-        "medhistorys",
-        queryset=medhistory_userless_qs(),
+        "medhistory_set",
+        queryset=medhistorys_qs(),
         to_attr="medhistorys_qs",
     )

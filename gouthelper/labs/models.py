@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
 from django.apps import apps  # type: ignore
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -93,7 +94,6 @@ class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rule
         max_digits=6,
         decimal_places=2,
     )
-    history = HistoricalRecords(inherit=True)
 
     @cached_property
     def abnormality(self) -> Literal[Abnormalitys.HIGH] | None:
@@ -156,6 +156,13 @@ class Lab(LabBase):
         ]
 
     date_drawn = models.DateTimeField(help_text="What day was this lab drawn?", default=timezone.now, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    history = HistoricalRecords()
     objects = models.Manager()
 
     def delete(
@@ -248,6 +255,7 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
     class Meta(BaselineLab.Meta):
         constraints = BaselineLab.Meta.constraints
 
+    history = HistoricalRecords()
     objects = CreatinineManager()
 
     @cached_property
@@ -295,4 +303,4 @@ class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rul
         verbose_name=_("HLA-B*5801"),
         help_text=_("HLA-B*5801 genotype present?"),
     )
-    history = HistoricalRecords(inherit=True)
+    history = HistoricalRecords()

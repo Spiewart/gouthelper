@@ -32,3 +32,9 @@ class FlareFactory(DjangoModelFactory):
 
     class Meta:
         model = Flare
+
+
+class FlareUserFactory(FlareFactory):
+    dateofbirth = None
+    gender = None
+    urate = factory.SubFactory(UrateFactory, user=factory.SelfAttribute("..user"))

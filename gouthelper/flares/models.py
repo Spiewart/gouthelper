@@ -1,7 +1,9 @@
 from datetime import timedelta
 from decimal import Decimal
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -25,7 +27,11 @@ from .helpers import (
     flares_get_likelihood_str,
     flares_uncommon_joints,
 )
+from .selectors import flare_user_qs, flare_userless_qs
 from .services import FlareDecisionAid
+
+if TYPE_CHECKING:
+    User = get_user_model()
 
 
 class Flare(
@@ -42,6 +48,21 @@ class Flare(
 
     class Meta:
         constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        gender__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        dateofbirth__isnull=False,
+                        gender__isnull=False,
+                    )
+                ),
+            ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_diagnosed_valid",
                 check=(
@@ -119,18 +140,24 @@ monosodium urate crystals on polarized microscopy?"
         null=True,
         default=None,
     )
+    # Age is required, but can be null if user is not null
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     date_started = models.DateField(
         _("Date Flare Started"),
         help_text=_("What day did this flare start?"),
         default=now_date,
     )
+    # Gender is required, but can be null if user is not null
     gender = models.OneToOneField(
         "genders.Gender",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     joints = MultiSelectField(
         choices=LimitedJointChoices.choices,
@@ -181,7 +208,7 @@ monosodium urate crystals on polarized microscopy?"
         help_text=_("Did a clinician diagnose these symptoms as a gout flare?"),
         default=False,
     )
-
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
     objects = models.Manager()
 
@@ -322,14 +349,17 @@ monosodium urate crystals on polarized microscopy?"
         # https://stackoverflow.com/questions/10880813/typeerror-sequence-item-0-expected-string-int-found
         return ", ".join([str(joint.label).lower() for joint in enum_list])
 
-    def update(self, decisionaid: FlareDecisionAid | None = None, qs: Union["Flare", None] = None) -> "Flare":
+    def update(self, qs: Union["Flare", "User", None] = None) -> "Flare":
         """Updates Flare prevalence and likelihood fields.
 
         args:
-            decisionaid: FlareDecisionAid object to use for updating prevalence and likelihood
             qs: Flare object with attached qs to use for updating prevalence and likelihood
 
         returns: [Flare]: [Flare object]"""
-        if decisionaid is None:
-            decisionaid = FlareDecisionAid(pk=self.pk, qs=qs)
+        if qs is None:
+            if self.user:
+                qs = flare_user_qs(username=self.user.username)
+            else:
+                qs = flare_userless_qs(pk=self.pk)
+        decisionaid = FlareDecisionAid(qs=qs)
         return decisionaid._update()

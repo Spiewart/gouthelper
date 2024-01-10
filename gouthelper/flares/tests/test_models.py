@@ -15,7 +15,7 @@ from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import AllopurinolhypersensitivityFactory, CkdFactory, MenopauseFactory
 from ..choices import Likelihoods, LimitedJointChoices
 from ..models import Flare
-from ..services import FlareDecisionAid
+from ..selectors import flare_userless_qs
 from .factories import FlareFactory
 
 pytestmark = pytest.mark.django_db
@@ -260,8 +260,7 @@ than treat the gout!",
     def test__update_with_kwarg(self):
         self.assertIsNone(self.flare.prevalence)
         self.assertIsNone(self.flare.likelihood)
-        decisionaid = FlareDecisionAid(pk=self.flare.pk)
-        self.assertEqual(self.flare, self.flare.update(decisionaid=decisionaid))
+        self.assertEqual(self.flare, self.flare.update(qs=flare_userless_qs(pk=self.flare.pk)))
         self.flare.refresh_from_db()
         self.assertIsNotNone(self.flare.prevalence)
         self.assertIsNotNone(self.flare.likelihood)

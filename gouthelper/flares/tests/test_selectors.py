@@ -13,6 +13,7 @@ from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import (
     AnginaFactory,
     CadFactory,
@@ -25,8 +26,10 @@ from ...medhistorys.tests.factories import (
     PvdFactory,
     StrokeFactory,
 )
-from ..selectors import flare_userless_qs
-from .factories import FlareFactory
+from ...users.models import Pseudopatient
+from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
+from ..selectors import flare_user_qs, flare_userless_qs
+from .factories import FlareFactory, FlareUserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -114,3 +117,25 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertEqual(len(queries.captured_queries), 2)
         self.assertEqual(queryset.medhistorys_qs, [])
         self.assertIsNone(queryset.urate)
+
+
+class TestFlareUserQuerySet(TestCase):
+    def setUp(self):
+        self.user = UserFactory()
+        for _ in range(5):
+            psp = PseudopatientPlusFactory(profile=self.user)
+            FlareUserFactory(user=psp)
+
+    def test__queryset_returns_correctly(self):
+        """Test that the flare_user_qs() returns the correct QuerySet"""
+        for psp in Pseudopatient.objects.all():
+            with CaptureQueriesContext(connection) as queries:
+                qs = flare_user_qs(psp.username).get()
+            self.assertEqual(len(queries.captured_queries), 2)
+            self.assertEqual(qs.flare, psp.flare)
+            self.assertEqual(qs.dateofbirth, psp.dateofbirth)
+            self.assertEqual(qs.gender, psp.gender)
+            self.assertEqual(qs.flare.urate, psp.lab_set.get())
+            for mh in psp.medhistory_set.all():
+                if mh in FLARE_MEDHISTORYS:
+                    self.assertIn(mh, qs.medhistorys_qs)

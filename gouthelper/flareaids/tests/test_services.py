@@ -120,7 +120,12 @@ class TestFlareAidMethods(TestCase):
         """Test that the __init__ method removes attrs from the FlareAid after setting them
         on the service class in order to avoid saving a FlareAid with a user as well as
         onetoones that violate the model CheckConstraint (i.e. dateofbirth, gender)."""
-        decisionaid = FlareAidDecisionAid(qs=self.user_qs)
+        flareaid = flareaid_user_qs(username=self.user.username).get()
+        flareaid.dateofbirth = self.user.dateofbirth
+        flareaid.gender = self.user.gender
+        decisionaid = FlareAidDecisionAid(qs=flareaid)
+        self.assertEqual(decisionaid.dateofbirth, self.user.dateofbirth)
+        self.assertEqual(decisionaid.gender, self.user.gender)
         self.assertIsNone(decisionaid.flareaid.dateofbirth)
         self.assertIsNone(decisionaid.flareaid.gender)
 

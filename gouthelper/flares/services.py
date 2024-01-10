@@ -1,5 +1,9 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps
+from django.contrib.auth import get_user_model
+from django.db.models.query import QuerySet
+
 from ..dateofbirths.helpers import age_calc
 from ..medhistorys.helpers import (
     medhistorys_get_ckd,
@@ -14,32 +18,55 @@ from .helpers import (
     flares_calculate_prevalence_points,
     flares_get_less_likelys,
 )
-from .selectors import flare_userless_qs
+
+User = get_user_model()
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from ..flares.models import Flare
 
 
 class FlareDecisionAid:
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["Flare", None] = None,
+        qs: Union["Flare", User, QuerySet],
     ):
-        if qs:
+        Flare = apps.get_model("flares", "Flare")
+        # Set up the method by calling get() on the QuerySet and
+        # checking if the Flare is a Flare or User instance
+        if isinstance(qs, QuerySet):
+            qs = qs.get()
+        if isinstance(qs, Flare):
             self.flare = qs
+            self.user = qs.user
+            # TODO: custom flare settings fetch will go here
+        elif isinstance(qs, User):
+            self.flare = qs.flare
+            self.user = qs
+            # TODO: custom flare settings fetch will go here
         else:
-            self.flare = flare_userless_qs(pk=pk).get()
-        self.dateofbirth = self.flare.dateofbirth
-        self.age = age_calc(self.dateofbirth.value)
-        self.gender = self.flare.gender
-        self.medhistorys = self.flare.medhistorys_qs
-        self.urate = self.flare.urate
+            raise ValueError("FlareDecisionAid requires a Flare or User instance.")
+        # Assign other attrs from the QuerySet
+        # Assign dateofbirth and age
+        self.dateofbirth = qs.dateofbirth
+        self.age = age_calc(qs.dateofbirth.value)
+        # Check if the QS is a Flare with a User, if so,
+        # then set its dateofbirth attr to None to avoid saving a
+        # Flare with a User and dateofbirth, which will raise and IntegrityError
+        if isinstance(qs, Flare) and qs.user:
+            setattr(self.flare, "dateofbirth", None)
+        # TODO: custom flare settings fetch will go here in the event it's not done above
+        self.gender = qs.gender
+        # Check if the QS is a Flare with a User, if so,
+        # then sets its gender attr to None to avoid saving a
+        # Flare with a User and a gender, which will raise and IntegrityError
+        if isinstance(qs, Flare) and qs.user:
+            setattr(self.flare, "gender", None)
+        self.medhistorys = qs.medhistorys_qs
+        # Need to check what sort of qs object is passed in, as the urate
+        # attr will not be present on a User, but will be on a Flare
+        self.urate = qs.urate if isinstance(qs, Flare) else qs.flare.urate
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
-        # Separate here when adding User to class method
         self.ckd = medhistorys_get_ckd(medhistorys=self.medhistorys)
         self.cvdiseases = medhistorys_get_cvdiseases(medhistorys=self.medhistorys)
         self.gout = medhistorys_get_gout(medhistorys=self.medhistorys)

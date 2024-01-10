@@ -41,12 +41,15 @@ class FlareAidDecisionAid:
         qs: Union["FlareAid", User, QuerySet],
     ):
         FlareAid = apps.get_model("flareaids", "FlareAid")
+        # Set up the method by calling get() on the QuerySet and
+        # checking if the FlareAid is a FlareAid or User instance
         if isinstance(qs, QuerySet):
             qs = qs.get()
         if isinstance(qs, FlareAid):
             self.flareaid = qs
             self.user = qs.user
-            # Try to assign defaultflaretrtsettings from User instance
+            # If the queryset is a FlareAid instance with a user,
+            # try to assign defaultflaretrtsettings from it
             self.defaultflaretrtsettings = (
                 self.user.defaultflaretrtsettings
                 if self.user and hasattr(self.user, "defaultflaretrtsettings")
@@ -55,7 +58,7 @@ class FlareAidDecisionAid:
         elif isinstance(qs, User):
             self.flareaid = qs.flareaid
             self.user = qs
-            # Try to assign defaultflaretrtsettings from User instance
+            # If the queryset is a User instance, try to assign defaultflaretrtsettings from it
             self.defaultflaretrtsettings = (
                 qs.defaultflaretrtsettings if hasattr(qs, "defaultflaretrtsettings") else None
             )
