@@ -106,7 +106,7 @@ class FlareAid(
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("users:patient-flareaid", kwargs={"username": self.user.username})
+            return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 

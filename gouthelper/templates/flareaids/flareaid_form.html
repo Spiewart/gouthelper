@@ -22,7 +22,7 @@
       {% if view.kwargs.username %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flareaids:patient-update' view.kwargs.username %}">
+              action="{% url 'flareaids:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_submit_button.html' %}
@@ -40,7 +40,7 @@
       {% if view.kwargs.username %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flareaids:patient-create' view.kwargs.username %}">
+              action="{% url 'flareaids:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_submit_button.html' %}

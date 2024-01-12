@@ -2,6 +2,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.contrib.auth import get_user_model  # type: ignore
+from django.contrib.auth.models import AnonymousUser  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
 from django.forms import model_to_dict  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
@@ -36,13 +38,16 @@ from ...medhistorys.forms import (
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Menopause, Pvd, Stroke
 from ...medhistorys.tests.factories import AnginaFactory, ChfFactory, GoutFactory, MenopauseFactory
-from ...users.tests.factories import PseudopatientPlusFactory
+from ...users.models import Pseudopatient
+from ...users.tests.factories import PseudopatientFactory, PseudopatientPlusFactory
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
-from ..views import FlareAbout, FlareBase, FlareCreate, FlareDetail, FlareUpdate
+from ..views import FlareAbout, FlareBase, FlareCreate, FlareDetail, FlarePseudopatientCreate, FlareUpdate
 from .factories import FlareFactory
+
+User = get_user_model()
 
 pytestmark = pytest.mark.django_db
 
@@ -507,20 +512,164 @@ class TestFlareDetail(TestCase):
 
 
 class TestFlarePatientCreate(TestCase):
-    def copied_from_flareaid_accident_test__get_context_data_medhistorys_menopause(self):
-        """Test the context data for the menopause form."""
-        female = PseudopatientPlusFactory(
-            dateofbirth__value=timezone.now() - timedelta(days=365 * 50), gender__value=Genders.FEMALE
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = FlarePseudopatientCreate
+        self.anon_user = AnonymousUser()
+        self.user = PseudopatientPlusFactory()
+        for _ in range(10):
+            PseudopatientPlusFactory()
+        self.psp = PseudopatientFactory()
+
+    def test__check_user_onetoones(self):
+        """Tests that the view checks for the User's related models."""
+        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        with self.assertRaises(AttributeError) as exc:
+            self.view().check_user_onetoones(empty_user)
+        self.assertEqual(
+            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
         )
+        assert self.view().check_user_onetoones(self.user) is None
+
+    def test__ckddetail(self):
+        """Tests the ckddetail cached_property."""
+        self.assertFalse(self.view().ckddetail)
+
+    def test__goutdetail(self):
+        """Tests the goutdetail cached_property."""
+        self.assertFalse(self.view().goutdetail)
+
+    def test__get_form_kwargs(self):
+        # Create a fake request
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": female.username}
+        request.user = self.anon_user
+        view = self.view(request=request)
+        form_kwargs = view.get_form_kwargs()
+        self.assertNotIn("patient", form_kwargs)
+        # Add add user attr to view, which should result in "patient" being added to form_kwargs
+        view.user = self.anon_user
+        form_kwargs = view.get_form_kwargs()
+        self.assertIn("patient", form_kwargs)
+        self.assertEqual(form_kwargs["patient"], True)
+
+    def test__dispatch(self):
+        """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
+        view when the user doesn't have the required 1to1 related models."""
+        # Create empty user and test that the view redirects to the user update view
+        empty_user = PseudopatientFactory(dateofbirth=None)
+        self.client.force_login(empty_user)
+        response = self.client.get(
+            reverse("flares:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
+        )
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        message = list(response.context.get("messages"))[0]
+        self.assertEqual(message.tags, "error")
+        self.assertEqual(
+            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+
+    def test__get_user_queryset(self):
+        """Test the get_user_queryset() method for the view."""
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["username"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertTrue(isinstance(qs, User))
+        self.assertTrue(hasattr(qs, "medhistorys_qs"))
+        self.assertTrue(hasattr(qs, "dateofbirth"))
+        self.assertTrue(hasattr(qs, "gender"))
+
+    def test__get_context_data_onetoones(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            if user.profile.provider:
+                request.user = user.profile.provider
+            else:
+                request.user = self.anon_user
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            assert "age" in response.context_data
+            assert response.context_data["age"] == age_calc(user.dateofbirth.value)
+            assert "gender" in response.context_data
+            assert response.context_data["gender"] == user.gender.value
+
+    def test__get_context_data_medhistorys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            request = self.factory.get("/fake-url/")
+            if user.profile.provider:
+                request.user = user.profile.provider
+            else:
+                request.user = self.anon_user
+            kwargs = {"username": user.username}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for mh in user.medhistory_set.all():
+                if mh.medhistorytype in FLARE_MEDHISTORYS:
+                    if (
+                        not mh.medhistorytype == MedHistoryTypes.MENOPAUSE
+                        and not mh.medhistorytype == MedHistoryTypes.GOUT
+                    ):
+                        assert f"{mh.medhistorytype}_form" in response.context_data
+                        assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
+                        assert response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding is False
+                        assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
+                            f"{mh.medhistorytype}-value": True
+                        }
+                else:
+                    assert f"{mh.medhistorytype}_form" not in response.context_data
+            for mhtype in FLARE_MEDHISTORYS:
+                if mhtype == MedHistoryTypes.MENOPAUSE or mhtype == MedHistoryTypes.GOUT:
+                    assert f"{mhtype}_form" not in response.context_data
+                else:
+                    assert f"{mhtype}_form" in response.context_data
+                    if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
+                        assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
+                        if mhtype == MedHistoryTypes.MENOPAUSE:
+                            if user.gender.value == Genders.FEMALE:
+                                age = age_calc(user.dateofbirth.value)
+                                if age >= 60:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": True}
+                                elif age >= 40 and age < 60:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {
+                                        f"{mhtype}-value": False
+                                    }
+                                else:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
+            assert "ckddetail_form" not in response.context_data
+            assert "goutdetail_form" not in response.context_data
+
+    def test__get_permission_object(self):
+        """Test the get_permission_object() method for the view."""
+        request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
+        kwargs = {"username": self.user.username}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        view.user = self.user
+        permission_object = view.get_permission_object()
+        self.assertEqual(permission_object, self.user)
+
+    def test__post(self):
+        """Test the post() method for the view."""
+        request = self.factory.post("/fake-url/")
+        if self.user.profile.provider:  # type: ignore
+            request.user = self.user.profile.provider  # type: ignore
+        else:
+            request.user = self.anon_user
+        kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
+        print(response)
         assert response.status_code == 200
-        assert f"{MedHistoryTypes.MENOPAUSE}_form" in response.context_data
-        assert response.context_data[f"{MedHistoryTypes.MENOPAUSE}_form"].instance._state.adding is True
-        assert response.context_data[f"{MedHistoryTypes.MENOPAUSE}_form"].initial == {
-            f"{MedHistoryTypes.MENOPAUSE}-value": False
-        }
 
 
 class TestFlareUpdate(TestCase):

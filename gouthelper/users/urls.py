@@ -1,6 +1,5 @@
 from django.urls import path
 
-from ..flareaids.views import FlareAidPatientDetail
 from .views import (
     pseudopatient_create_view,
     pseudopatient_detail_view,
@@ -28,5 +27,4 @@ urlpatterns = [
     path("~update/", view=user_update_view, name="update"),
     path("~delete/", view=user_delete_view, name="delete"),
     path("<str:username>/", view=user_detail_view, name="detail"),
-    path("<str:username>/flareaid/", view=FlareAidPatientDetail.as_view(), name="patient-flareaid"),
 ]

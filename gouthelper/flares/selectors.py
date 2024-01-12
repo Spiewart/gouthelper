@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
@@ -21,13 +21,22 @@ def flare_userless_qs(pk: "UUID") -> "QuerySet":
     return queryset
 
 
-def flare_user_qs(username: str) -> "QuerySet":
+def flare_user_qs(username: str, flare_pk: Union["UUID", None]) -> "QuerySet":
     queryset = Pseudopatient.objects.filter(username=username)
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("flare")
     queryset = queryset.prefetch_related(medhistory_set_prefetch())
+    if flare_pk:
+        queryset = queryset.prefetch_related(flare_prefetch(pk=flare_pk))
     return queryset
+
+
+def flare_prefetch(pk: "UUID") -> Prefetch:
+    return Prefetch(
+        "flare_set",
+        queryset=apps.get_model("flares.Flare").objects.filter(pk=pk).select_related("urate"),
+        to_attr="flare_qs",
+    )
 
 
 def medhistorys_prefetch() -> Prefetch:
@@ -51,4 +60,14 @@ def medhistory_set_prefetch() -> Prefetch:
         "medhistory_set",
         queryset=medhistorys_qs(),
         to_attr="medhistorys_qs",
+    )
+
+
+def user_flares(username: str) -> "QuerySet":
+    """QuerySet to fetch all the flares for a User
+    and return both the User and the Flares."""
+    return (
+        Pseudopatient.objects.filter(username=username)
+        .select_related("pseudopatientprofile")
+        .prefetch_related("flare_set")
     )

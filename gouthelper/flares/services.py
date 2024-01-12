@@ -40,7 +40,7 @@ class FlareDecisionAid:
             self.user = qs.user
             # TODO: custom flare settings fetch will go here
         elif isinstance(qs, User):
-            self.flare = qs.flare
+            self.flare = qs.flare_qs[0]
             self.user = qs
             # TODO: custom flare settings fetch will go here
         else:
@@ -64,7 +64,7 @@ class FlareDecisionAid:
         self.medhistorys = qs.medhistorys_qs
         # Need to check what sort of qs object is passed in, as the urate
         # attr will not be present on a User, but will be on a Flare
-        self.urate = qs.urate if isinstance(qs, Flare) else qs.flare.urate
+        self.urate = qs.urate if isinstance(qs, Flare) else qs.flare_qs[0].urate
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         self.ckd = medhistorys_get_ckd(medhistorys=self.medhistorys)

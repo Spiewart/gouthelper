@@ -17,7 +17,7 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'flareaids:patient-update' username=object.user.username %}"
+           href="{% url 'flareaids:pseudopatient-update' username=object.user.username %}"
            role="button">Update</a>
       {% else %}
         <a type="button"

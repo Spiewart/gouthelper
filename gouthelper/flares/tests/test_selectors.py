@@ -130,12 +130,12 @@ class TestFlareUserQuerySet(TestCase):
         """Test that the flare_user_qs() returns the correct QuerySet"""
         for psp in Pseudopatient.objects.all():
             with CaptureQueriesContext(connection) as queries:
-                qs = flare_user_qs(psp.username).get()
-            self.assertEqual(len(queries.captured_queries), 2)
-            self.assertEqual(qs.flare, psp.flare)
+                qs = flare_user_qs(psp.username, psp.flare_set.last().pk).get()
+            self.assertEqual(len(queries.captured_queries), 4)
+            self.assertEqual(qs.flare_set.get(), psp.flare_set.last())
             self.assertEqual(qs.dateofbirth, psp.dateofbirth)
             self.assertEqual(qs.gender, psp.gender)
-            self.assertEqual(qs.flare.urate, psp.lab_set.get())
+            self.assertEqual(qs.flare_set.get().urate, psp.lab_set.get())
             for mh in psp.medhistory_set.all():
                 if mh in FLARE_MEDHISTORYS:
                     self.assertIn(mh, qs.medhistorys_qs)

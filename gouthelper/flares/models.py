@@ -17,6 +17,7 @@ from ..choices import BOOL_CHOICES
 from ..genders.choices import Genders
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers.helpers import calculate_duration, now_date
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
 from .choices import Likelihoods, LimitedJointChoices, Prevalences
@@ -47,6 +48,12 @@ class Flare(
     """
 
     class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
         constraints = [
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_valid",
@@ -208,7 +215,7 @@ monosodium urate crystals on polarized microscopy?"
         help_text=_("Did a clinician diagnose these symptoms as a gout flare?"),
         default=False,
     )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
     objects = models.Manager()
 
@@ -275,7 +282,10 @@ monosodium urate crystals on polarized microscopy?"
         return mtp_str
 
     def get_absolute_url(self):
-        return reverse("flares:detail", kwargs={"pk": self.pk})
+        if self.user:
+            return reverse("flares:pseudopatient-detail", kwargs={"username": self.user.username, "pk": self.pk})
+        else:
+            return reverse("flares:detail", kwargs={"pk": self.pk})
 
     @cached_property
     def hyperuricemia(self) -> bool:
@@ -321,7 +331,7 @@ monosodium urate crystals on polarized microscopy?"
     def prevalence_points(self) -> float:
         """Method that returns the Diagnostic Rule points for prevalence for a Flare."""
         return flares_calculate_prevalence_points(
-            gender=self.gender,
+            gender=self.gender if self.gender else self.user.gender,
             onset=self.onset,
             redness=self.redness,
             joints=self.joints,

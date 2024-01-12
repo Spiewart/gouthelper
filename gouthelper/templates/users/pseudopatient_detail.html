@@ -13,8 +13,11 @@
       </div>
     </div>
     <a class="btn btn-primary"
-       href="{% url 'users:patient-flareaid' object.username %}"
+       href="{% url 'flareaids:pseudopatient-detail' object.username %}"
        role="button">FlareAid</a>
+    <a class="btn btn-primary"
+       href="{% url 'flares:pseudopatient-list' object.username %}"
+       role="button">Flares</a>
     <a class="btn btn-primary"
        href="{% url 'users:pseudopatient-update' object.username %}"
        role="button">Update Profile</a>

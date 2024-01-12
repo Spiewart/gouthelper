@@ -395,17 +395,27 @@ function getAge(dateString) {
   return age;
 }
 
-function menopause_checker(patient = false) {
-  if ($('#id_gender-value').find(':selected').val() == 1) {
-    if (patient == true) {
-      var age = '{{ age }}';
-    } else {
-      var age = $('#id_dateofbirth-value').val();
-    }
+function menopause_checker(
+  patient = false,
+  change = false,
+  u_age = 0,
+  u_gender = 0,
+) {
+  if (patient) {
+    var age = u_age;
+    var gender = u_gender;
+  } else {
+    var age = $('#id_dateofbirth-value').val();
+    var gender = $('#id_gender-value').val();
+  }
+  if (gender == 1) {
     if (age >= 40 && age < 60) {
       $('#menopause').show();
       $('#id_MENOPAUSE-value').prop('required', true);
       add_asterisk($('#menopause'));
+      if (change) {
+        $('#id_MENOPAUSE-value').val('');
+      }
     } else {
       remove_asterisk($('#menopause'));
       $('#id_MENOPAUSE-value').prop('required', false);

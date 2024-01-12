@@ -21,8 +21,8 @@ from ...genders.forms import GenderForm
 from ...genders.models import Gender
 from ...medhistorydetails.forms import GoutDetailForm
 from ...medhistorys.choices import MedHistoryTypes
-from ...medhistorys.forms import GoutForm
-from ...medhistorys.models import Gout
+from ...medhistorys.forms import GoutForm, MenopauseForm
+from ...medhistorys.models import Gout, Menopause
 from ...profiles.models import PseudopatientProfile
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
@@ -57,7 +57,10 @@ class TestPseudoPatientCreateView(TestCase):
         view = PseudopatientCreateView()
         assert view.model == Pseudopatient
         assert view.form_class == PseudopatientForm
-        assert view.medhistorys == {MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout}}
+        assert view.medhistorys == {
+            MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
+            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm, "model": Menopause},
+        }
         assert view.onetoones == {
             "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
             "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
@@ -513,7 +516,10 @@ class TestPseudopatientUpdateView(TestCase):
         """Test that the view's attrs are correct."""
         view = PseudopatientUpdateView()
         assert view.form_class == PseudopatientForm
-        assert view.medhistorys == {MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout}}
+        assert view.medhistorys == {
+            MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
+            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm, "model": Menopause},
+        }
         assert view.onetoones == {
             "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
             "ethnicity": {"form": EthnicityForm, "model": Ethnicity},

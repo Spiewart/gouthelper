@@ -7,7 +7,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.views.generic import DetailView, TemplateView  # type: ignore
-from rules.contrib.views import AutoPermissionRequiredMixin  # type: ignore
+from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
@@ -183,6 +183,35 @@ class FlareAidPatientBase(FlareAidBase):
     onetoones = {}
     req_onetoones = ["dateofbirth", "gender"]
 
+    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+        """Used to set the user attribute on the view, with associated related models
+        select_related and prefetch_related."""
+        return flareaid_user_qs(username=username)
+
+
+class FlareAidPseudopatientCreate(
+    PermissionRequiredMixin, FlareAidPatientBase, PatientAidCreateView, SuccessMessageMixin
+):
+    """View for creating a FlareAid for a patient."""
+
+    permission_required = "flareaids.can_add_pseudopatient_flareaid"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check for a User on the object and redirect to the
+        correct FlareAidPseudopatientUpdate url instead."""
+        # Will also set self.user
+        model = self.get_object()
+        if model.objects.filter(user=self.user).exists():
+            messages.error(request, f"{self.user} already has a {model.__name__}. Please update it instead.")
+            view_str = "flareaids:pseudopatient-detail"
+            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
+        try:
+            self.check_user_onetoones(user=self.user)
+        except AttributeError as exc:
+            messages.error(request, exc)
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(
         self,
         form,
@@ -218,10 +247,11 @@ class FlareAidPatientBase(FlareAidBase):
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
-        """Used to set the user attribute on the view, with associated related models
-        select_related and prefetch_related."""
-        return flareaid_user_qs(username=username)
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a FlareAid for."""
+        return self.user
 
     def post(self, request, *args, **kwargs):
         (
@@ -261,14 +291,106 @@ class FlareAidPatientBase(FlareAidBase):
             )
 
 
-class FlareAidPatientCreate(FlareAidPatientBase, PatientAidCreateView, SuccessMessageMixin):
-    """View for creating a FlareAid for a patient."""
-
-    permission_required = "flareaids.can_add_patient_flareaid"
-
-
-class FlareAidPatientUpdate(FlareAidPatientBase, PatientAidUpdateView, SuccessMessageMixin):
+class FlareAidPseudopatientUpdate(
+    AutoPermissionRequiredMixin, FlareAidPatientBase, PatientAidUpdateView, SuccessMessageMixin
+):
     success_message = "FlareAid successfully updated."
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check if the User has a FlareAid and redirect to the
+        CreateView if not."""
+        try:
+            self.object = self.get_object()
+        except FlareAid.DoesNotExist as exc:
+            messages.error(request, exc.args[0])
+            return HttpResponseRedirect(
+                reverse("flareaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
+            )
+        # self.user set by get_object()
+        try:
+            self.check_user_onetoones(user=self.user)
+        except AttributeError as exc:
+            messages.error(request, exc)
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(
+        self,
+        form,
+        onetoones_to_save: list["Model"] | None,
+        onetoones_to_delete: list["Model"] | None,
+        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        medallergys_to_save: list["MedAllergy"] | None,
+        medallergys_to_remove: list["MedAllergy"] | None,
+        medhistorys_to_save: list["MedHistory"] | None,
+        medhistorys_to_remove: list["MedHistory"] | None,
+        labs_to_save: list["Lab"] | None,
+        labs_to_remove: list["Lab"] | None,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to redirect appropriately and update the form instance."""
+        aid_obj = super().form_valid(
+            form=form,
+            onetoones_to_save=onetoones_to_save,
+            onetoones_to_delete=onetoones_to_delete,
+            medhistorys_to_save=medhistorys_to_save,
+            medhistorys_to_remove=medhistorys_to_remove,
+            medhistorydetails_to_save=medhistorydetails_to_save,
+            medhistorydetails_to_remove=medhistorydetails_to_remove,
+            medallergys_to_save=medallergys_to_save,
+            medallergys_to_remove=medallergys_to_remove,
+            labs_to_save=labs_to_save,
+            labs_to_remove=labs_to_remove,
+        )
+        self.object = aid_obj
+        self.user.flareaid = aid_obj
+        # Update object / form instance
+        aid_obj.update(qs=self.user)
+        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
+        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a FlareAid for."""
+        return self.object
+
+    def post(self, request, *args, **kwargs):
+        (
+            errors,
+            form,
+            _,  # onetoone_forms
+            _,  # medhistorys_forms
+            _,  # medhistorydetails_forms
+            _,  # medallergys_forms
+            _,  # lab_formset
+            medallergys_to_save,
+            medallergys_to_remove,
+            onetoones_to_delete,
+            onetoones_to_save,
+            medhistorydetails_to_save,
+            medhistorydetails_to_remove,
+            medhistorys_to_save,
+            medhistorys_to_remove,
+            labs_to_save,
+            labs_to_remove,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            return self.form_valid(
+                form=form,  # type: ignore
+                medallergys_to_save=medallergys_to_save,
+                medallergys_to_remove=medallergys_to_remove,
+                onetoones_to_delete=onetoones_to_delete,
+                onetoones_to_save=onetoones_to_save,
+                medhistorydetails_to_save=medhistorydetails_to_save,
+                medhistorydetails_to_remove=medhistorydetails_to_remove,
+                medhistorys_to_save=medhistorys_to_save,
+                medhistorys_to_remove=medhistorys_to_remove,
+                labs_to_save=labs_to_save,
+                labs_to_remove=labs_to_remove,
+            )
 
 
 class FlareAidDetailBase(DetailView):
@@ -300,7 +422,10 @@ class FlareAidDetail(FlareAidDetailBase):
         if self.object.user:
             return HttpResponseRedirect(self.object.get_absolute_url())
         else:
-            return super().dispatch(request, *args, **kwargs)
+            # Check if FlareAid is up to date and update if not update
+            if not request.GET.get("updated", None):
+                self.object.update(qs=self.object)
+                return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         if not hasattr(self, "object"):
@@ -311,15 +436,8 @@ class FlareAidDetail(FlareAidDetailBase):
     def get_queryset(self) -> "QuerySet[Any]":
         return flareaid_userless_qs(self.kwargs["pk"])
 
-    def get_object(self, *args, **kwargs) -> FlareAid:
-        flareaid: FlareAid = super().get_object(*args, **kwargs)  # type: ignore
-        # Check if FlareAid is up to date and update if not update
-        if not self.request.GET.get("updated", None):
-            flareaid.update(qs=flareaid)
-        return flareaid
 
-
-class FlareAidPatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
+class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
     """Overwritten for different url routing, object fetching, and
     building the content data."""
 
@@ -330,13 +448,15 @@ class FlareAidPatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
 
     def dispatch(self, request, *args, **kwargs):
         """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPatientDetail url instead. Also checks if the user has
+        correct FlareAidPseudopatientCreate url instead. Also checks if the user has
         the correct OneToOne models and redirects to the view to add them if not."""
         try:
             self.object = self.get_object()
         except FlareAid.DoesNotExist as exc:
             messages.error(request, exc.args[0])
-            return HttpResponseRedirect(reverse("flareaids:patient-create", kwargs={"username": kwargs["username"]}))
+            return HttpResponseRedirect(
+                reverse("flareaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
+            )
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
             return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
@@ -413,11 +533,11 @@ class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMix
 
     def get(self, request, *args, **kwargs):
         """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPatientUpdate url instead."""
+        correct FlareAidPseudopatientUpdate url instead."""
         self.object = self.get_object()
         if self.object.user:
             return HttpResponseRedirect(
-                reverse("flareaids:patient-update", kwargs={"username": self.object.user.username})
+                reverse("flareaids:pseudopatient-update", kwargs={"username": self.object.user.username})
             )
         return self.render_to_response(self.get_context_data())
 

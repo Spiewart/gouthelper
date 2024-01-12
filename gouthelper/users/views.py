@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Union
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -11,15 +12,17 @@ from django.views.generic import DeleteView, DetailView, ListView, RedirectView,
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
 from ..dateofbirths.forms import DateOfBirthForm
+from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
 from ..ethnicitys.forms import EthnicityForm
 from ..ethnicitys.models import Ethnicity
+from ..genders.choices import Genders
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
 from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import GoutForm
-from ..medhistorys.models import Gout
+from ..medhistorys.forms import GoutForm, MenopauseForm
+from ..medhistorys.models import Gout, Menopause
 from ..profiles.models import PseudopatientProfile
 from ..utils.views import PatientModelCreateView, PatientModelUpdateView
 from .choices import Roles
@@ -30,13 +33,47 @@ from .selectors import pseudopatient_profile_qs, pseudopatient_qs
 User = get_user_model()
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from django.db.models import Model  # type: ignore
+    from django.forms import ModelForm  # type: ignore
     from django.http import HttpResponse  # type: ignore
 
     from ..labs.models import BaselineCreatinine, Lab
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.forms import CkdDetailForm
     from ..medhistorys.models import MedHistory
+
+
+def post_process_menopause(
+    medhistorys_forms: dict[str, "ModelForm"],
+    gender: Genders,
+    dateofbirth: "date",
+    errors_bool: bool = False,
+) -> tuple[dict[str, "ModelForm"], bool]:
+    print(gender)
+    print(dateofbirth)
+    if gender == Genders.FEMALE:
+        age = age_calc(dateofbirth)
+        if (
+            age >= 40
+            and age < 60
+            and (
+                medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
+                    f"{MedHistoryTypes.MENOPAUSE}-value"
+                )
+                is None
+            )
+        ):
+            menopause_error = ValidationError(
+                message="For females between ages 40 and 60, we need to know the patient's \
+menopause status to evaluate their flare."
+            )
+            medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
+                f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
+            )
+            errors_bool = True
+    return medhistorys_forms, errors_bool
 
 
 class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, SuccessMessageMixin):
@@ -59,6 +96,10 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
         MedHistoryTypes.GOUT: {
             "form": GoutForm,
             "model": Gout,
+        },
+        MedHistoryTypes.MENOPAUSE: {
+            "form": MenopauseForm,
+            "model": Menopause,
         },
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
@@ -113,11 +154,11 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
             errors,
             form,
             _,  # object_data
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
+            onetoone_forms,
+            medallergys_forms,
+            medhistorys_forms,
+            medhistorydetails_forms,
+            lab_formset,
             onetoones_to_save,
             medallergys_to_save,
             medhistorys_to_save,
@@ -126,6 +167,21 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
+        medhistorys_forms, errors_bool = post_process_menopause(
+            medhistorys_forms=medhistorys_forms,
+            gender=onetoone_forms["dateofbirth_form"].instance.value,
+            dateofbirth=onetoone_forms["dateofbirth_form"].instance.value,
+        )
+        if errors_bool:
+            return super().render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                medallergys_forms=medallergys_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
         else:
             return self.form_valid(
                 form=form,  # type: ignore
@@ -148,6 +204,7 @@ class PseudopatientUpdateView(PermissionRequiredMixin, PatientModelUpdateView, S
         [redirect]: [Redirects to the updated Pseudopatient's Detail page.]
     """
 
+    model = Pseudopatient
     slug_field = "username"
     slug_url_kwarg = "username"
     form_class = PseudopatientForm
@@ -163,12 +220,16 @@ class PseudopatientUpdateView(PermissionRequiredMixin, PatientModelUpdateView, S
             "form": GoutForm,
             "model": Gout,
         },
+        MedHistoryTypes.MENOPAUSE: {
+            "form": MenopauseForm,
+            "model": Menopause,
+        },
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
 
     def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the requested User is a Pseudopatient. If not, redirect to the
-        UserDetailView."""
+        """Overwritten to check if the object has a User and redirect to the
+        correct UpdateView if so."""
         self.object = self.get_object()
         return super().dispatch(request, *args, **kwargs)
 
@@ -215,11 +276,11 @@ class PseudopatientUpdateView(PermissionRequiredMixin, PatientModelUpdateView, S
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
+            onetoone_forms,
+            medallergys_forms,
+            medhistorys_forms,
+            medhistorydetails_forms,
+            lab_formset,
             onetoones_to_save,
             onetoones_to_delete,
             medallergys_to_save,
@@ -233,6 +294,21 @@ class PseudopatientUpdateView(PermissionRequiredMixin, PatientModelUpdateView, S
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
+        medhistorys_forms, errors_bool = post_process_menopause(
+            medhistorys_forms=medhistorys_forms,
+            gender=onetoone_forms["gender_form"].instance.value,
+            dateofbirth=onetoone_forms["dateofbirth_form"].instance.value,
+        )
+        if errors_bool:
+            return super().render_errors(
+                form=form,
+                onetoone_forms=onetoone_forms,
+                medhistorys_forms=medhistorys_forms,
+                medhistorydetails_forms=medhistorydetails_forms,
+                medallergys_forms=medallergys_forms,
+                lab_formset=lab_formset,
+                labs=self.labs if hasattr(self, "labs") else None,
+            )
         else:
             return self.form_valid(
                 form=form,  # type: ignore

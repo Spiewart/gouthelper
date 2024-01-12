@@ -1,13 +1,12 @@
 from typing import TYPE_CHECKING, Any, Union
 
-from django.contrib import messages  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
-from django.views.generic import CreateView, UpdateView, View  # type: ignore
-from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
+from django.views.generic import CreateView, UpdateView  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
+from ..flares.models import Flare
 from ..genders.choices import Genders
 from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
@@ -51,10 +50,7 @@ def validate_form_list(form_list: list["ModelForm"]) -> bool:
     return forms_valid
 
 
-class MedHistoryModelBaseView(View):
-    class Meta:
-        abstract = True
-
+class MedHistoryModelBaseMixin:
     onetoones: dict[str, "FormModelDict"] = {}
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
     medhistorys: dict[MedHistoryTypes, "FormModelDict"] = {}
@@ -65,12 +61,6 @@ class MedHistoryModelBaseView(View):
     def ckddetail(self) -> bool:
         """Method that returns True if CKD is in the medhistory_details dict."""
         return MedHistoryTypes.CKD in self.medhistory_details.keys()
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        if self.medallergys:
-            kwargs["medallergys"] = self.medallergys
-        return kwargs
 
     @cached_property
     def goutdetail(self) -> bool:
@@ -164,7 +154,7 @@ class MedHistoryModelBaseView(View):
                     aid_obj.medhistorys_qs.append(medhistory)
 
 
-class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
+class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
     class Meta:
         abstract = True
 
@@ -242,6 +232,12 @@ class MedHistorysModelCreateView(MedHistoryModelBaseView, CreateView):
                 )
                 kwargs["lab_formset_helper"] = self.labs[1]  # pylint: disable=unsubscriptable-object
         return super().get_context_data(**kwargs)
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        return kwargs
 
     def post_populate_labformset(
         self,
@@ -589,7 +585,7 @@ class PatientModelCreateView(MedHistorysModelCreateView):
         return self.object
 
 
-class PatientAidBaseView(MedHistoryModelBaseView):
+class PatientAidBaseView(MedHistoryModelBaseMixin):
     """CreateView to create Aid objects with a user field and to populate
     pre-existing User related models into the forms and post data."""
 
@@ -597,9 +593,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
     # but will be loaded into the view context to interpret other info
     # i.e. age/gender to calculate eGFR for CKD
     req_onetoones: list[str] = []
-
-    class Meta:
-        abstract = True
 
     def form_valid(
         self,
@@ -724,7 +717,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
         kwargs: dict,
         user: "User",
         ckddetail: bool,
-        goutdetail: bool,
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         for medhistory, mh_dict in medhistorys.items():
@@ -747,30 +739,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
                             kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
                                 instance=user_baselinecreatinine_i
                             )
-                elif medhistory == MedHistoryTypes.GOUT:
-                    kwargs[form_str] = mh_dict["form"](
-                        goutdetail=goutdetail,
-                        instance=user_i,
-                        initial={f"{medhistory}-value": True if user_i else None},
-                    )
-                    if goutdetail:
-                        if "goutdetail_form" not in kwargs:
-                            user_goutdetail_i = getattr(user_i, "goutdetail", None) if user_i else None
-                            kwargs["goutdetail_form"] = medhistory_details[medhistory](instance=user_goutdetail_i)
-                elif (
-                    medhistory == MedHistoryTypes.MENOPAUSE
-                    and getattr(user, "gender", None)
-                    and user.gender.value == Genders.FEMALE
-                    and getattr(user, "dateofbirth", None)
-                ):
-                    # Menopause is a special case where the form is prepopulated based on the user's age
-                    # and biological sex.
-                    age = age_calc(user.dateofbirth.value)
-                    initial = False if (age >= 40 and age < 60) else True if age >= 60 else None
-                    kwargs[form_str] = self.medhistorys[medhistory]["form"](
-                        instance=user_i,
-                        initial={f"{medhistory}-value": initial},
-                    )
                 else:
                     kwargs[form_str] = self.medhistorys[medhistory]["form"](
                         instance=user_i,
@@ -789,39 +757,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
             # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
             kwargs["lab_formset"] = labs_tuple[0](queryset=labs_tuple[2](user=user), prefix=labs_tuple[3])
             kwargs["lab_formset_helper"] = labs_tuple[1]
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        if self.onetoones or self.req_onetoones:
-            self.context_onetoones(
-                onetoones=self.onetoones, req_onetoones=self.req_onetoones, kwargs=kwargs, user=self.user
-            )
-        if self.medallergys:
-            self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, user=self.user)
-        if self.medhistorys:
-            self.context_medhistorys(
-                medhistorys=self.medhistorys,
-                medhistory_details=self.medhistory_details,
-                kwargs=kwargs,
-                user=self.user,
-                ckddetail=self.ckddetail,
-                goutdetail=self.goutdetail,
-            )
-        if self.labs:
-            self.context_labs(
-                labs_tuple=self.labs,
-                user=self.user,
-                kwargs=kwargs,
-            )
-        if "patient" not in kwargs:
-            kwargs["patient"] = self.user
-        return super().get_context_data(**kwargs)
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        """Method to add the user to the form kwargs."""
-        kwargs = super().get_form_kwargs()
-        if hasattr(self, "user"):
-            kwargs["patient"] = True
-        return kwargs
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
@@ -854,7 +789,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
             request=request,
             user=self.user,
             ckddetail=self.ckddetail,
-            goutdetail=self.goutdetail,
         )
         lab_formset = self.post_populate_labformset(request=request, labs=self.labs)
         # Call is_valid() on all forms, using validate_form_list() for dicts of related model forms
@@ -887,10 +821,8 @@ class PatientAidBaseView(MedHistoryModelBaseView):
             ) = self.post_process_medhistorys_details_forms(
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                onetoone_forms=onetoone_forms,
                 user=self.user,
                 ckddetail=self.ckddetail,
-                goutdetail=self.goutdetail,
                 errors_bool=errors_bool,
             )
             (
@@ -1009,7 +941,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
         request: "HttpRequest",
         user: "User",
         ckddetail: bool,
-        goutdetail: bool,
     ) -> tuple[dict[str, "ModelForm"], dict[str, "ModelForm"]]:
         """Method to populate the MedHistory and MedHistoryDetail forms for the post() method."""
         medhistorys_forms: dict[str, "ModelForm"] = {}
@@ -1042,26 +973,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
                                 "baselinecreatinine_form": BaselineCreatinineForm(
                                     request.POST, instance=user_baselinecreatinine_i
                                 )
-                            }
-                        )
-                elif medhistory == MedHistoryTypes.GOUT:
-                    medhistorys_forms.update(
-                        {
-                            f"{medhistory}_form": medhistorys[medhistory]["form"](
-                                request.POST,
-                                instance=user_i,
-                                initial={f"{medhistory}-value": True if user_i else None},
-                                goutdetail=goutdetail,
-                            )
-                        }
-                    )
-                    if goutdetail:
-                        user_goutdetail_i = getattr(user_i, "goutdetail", None) if user_i else None
-                        medhistorydetails_forms.update(
-                            {
-                                "goutdetail_form": medhistory_details[medhistory](
-                                    request.POST, instance=user_goutdetail_i
-                                ),
                             }
                         )
                 else:
@@ -1199,10 +1110,8 @@ class PatientAidBaseView(MedHistoryModelBaseView):
         self,
         medhistorys_forms: dict[str, "ModelForm"],
         medhistorydetails_forms: dict[str, "ModelForm"],
-        onetoone_forms: dict[str, "ModelForm"],
         user: "User",
         ckddetail: bool,
-        goutdetail: bool,
         errors_bool: bool,
     ) -> tuple[
         list["MedHistory"],
@@ -1213,7 +1122,7 @@ class PatientAidBaseView(MedHistoryModelBaseView):
     ]:
         medhistorys_to_save: list["MedHistory"] = []
         medhistorys_to_remove: list["MedHistory"] = []
-        medhistorydetails_to_save: list["CkdDetailForm" | BaselineCreatinine | "GoutDetailForm"] = []
+        medhistorydetails_to_save: list["CkdDetailForm" | BaselineCreatinine] = []
         medhistorydetails_to_remove: list[CkdDetail | BaselineCreatinine | None] = []
         # Create medhistory_qs attribute on the form instance if it doesn't exist
         if not hasattr(user, "medhistorys_qs"):
@@ -1262,20 +1171,6 @@ class PatientAidBaseView(MedHistoryModelBaseView):
                             medhistorydetails_to_remove.append(medhistorydetails_forms["ckddetail_form"])
                         if ckddetail_errors and errors_bool is not True:
                             errors_bool = True
-                    elif medhistorytype == MedHistoryTypes.GOUT and goutdetail:
-                        goutdetail_form = medhistorydetails_forms["goutdetail_form"]
-                        if (
-                            "flaring" in goutdetail_form.changed_data
-                            or "hyperuricemic" in goutdetail_form.changed_data
-                            or "on_ppx" in goutdetail_form.changed_data
-                            or "on_ult" in goutdetail_form.changed_data
-                            or not getattr(goutdetail_form.instance, "medhistory", None)
-                        ):
-                            medhistorydetails_to_save.append(goutdetail_form.save(commit=False))
-                            # Check if the form instance has a medhistory attr
-                            if getattr(goutdetail_form.instance, "medhistory", None):
-                                # If not, set it to the medhistory instance
-                                goutdetail_form.instance.medhistory = user_i
             # Otherwise add medhistorys that are checked in the form data
             else:
                 if medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]:
@@ -1338,7 +1233,8 @@ class PatientAidBaseView(MedHistoryModelBaseView):
                 # If EmptyRelatedModel exception is raised by the related model's form save() method,
                 # Check if the related model exists and delete it if it does
                 except EmptyRelatedModel:
-                    if getattr(user, object_attr):
+                    # Check if the related model has already been saved to the DB and mark for deletion if so
+                    if onetoone_form.instance and not onetoone_form.instance._state.adding:
                         to_delete = getattr(user, object_attr)
                         # Iterate over the forms required_fields property and set the related model's
                         # fields to their initial values to prevent IntegrityError from Django-Simple-History
@@ -1352,43 +1248,53 @@ class PatientAidBaseView(MedHistoryModelBaseView):
         return onetoones_to_save, onetoones_to_delete
 
 
-class PatientAidCreateView(PermissionRequiredMixin, PatientAidBaseView, CreateView):
+class PatientAidCreateView(PatientAidBaseView, CreateView):
     """CreateView to create Aid objects with a user field and to populate
     pre-existing User related models into the forms and post data."""
 
     class Meta:
         abstract = True
 
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPatientUpdate url instead."""
-        # Will also set self.user
-        model = self.get_object()
-        if model.objects.filter(user=self.user).exists():
-            messages.error(request, f"{self.user} already has a {model.__name__}. Please update it instead.")
-            view_str = f"users:patient-{model.__name__.lower()}"
-            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        if self.onetoones or self.req_onetoones:
+            self.context_onetoones(
+                onetoones=self.onetoones, req_onetoones=self.req_onetoones, kwargs=kwargs, user=self.user
+            )
+        if self.medallergys:
+            self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, user=self.user)
+        if self.medhistorys:
+            self.context_medhistorys(
+                medhistorys=self.medhistorys,
+                medhistory_details=self.medhistory_details,
+                kwargs=kwargs,
+                user=self.user,
+                ckddetail=self.ckddetail,
+            )
+        if self.labs:
+            self.context_labs(
+                labs_tuple=self.labs,
+                user=self.user,
+                kwargs=kwargs,
+            )
+        if "patient" not in kwargs:
+            kwargs["patient"] = self.user
+        return super().get_context_data(**kwargs)
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        """Method to add the user to the form kwargs."""
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        if hasattr(self, "user"):
+            kwargs["patient"] = True
+        return kwargs
 
     def get_object(self, *args, **kwargs) -> "MedAllergyAidHistoryModel":
         self.user = self.get_user_queryset(self.kwargs["username"]).get()
         return self.model
 
-    def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
-        return self.user
 
-
-class PatientAidUpdateView(AutoPermissionRequiredMixin, PatientAidBaseView, UpdateView):
-    """MUST SET get() METHOD ON CHILD VIEWS."""
-
+class PatientAidUpdateView(PatientAidBaseView, UpdateView):
     class Meta:
         abstract = True
 
@@ -1399,7 +1305,6 @@ class PatientAidUpdateView(AutoPermissionRequiredMixin, PatientAidBaseView, Upda
         kwargs: dict,
         user: "User",
         ckddetail: bool,
-        goutdetail: bool,
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         for medhistory, mh_dict in medhistorys.items():
@@ -1424,53 +1329,45 @@ class PatientAidUpdateView(AutoPermissionRequiredMixin, PatientAidBaseView, Upda
                             kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
                                 instance=user_baselinecreatinine_i
                             )
-                elif medhistory == MedHistoryTypes.GOUT:
-                    kwargs[form_str] = mh_dict["form"](
-                        goutdetail=goutdetail,
-                        instance=user_i,
-                        initial={f"{medhistory}-value": True if user_i else False},
-                    )
-                    if goutdetail:
-                        if "goutdetail_form" not in kwargs:
-                            user_goutdetail_i = getattr(user_i, "goutdetail", None) if user_i else None
-                            kwargs["goutdetail_form"] = medhistory_details[medhistory](instance=user_goutdetail_i)
-                elif (
-                    medhistory == MedHistoryTypes.MENOPAUSE
-                    and getattr(user, "gender", None)
-                    and user.gender.value == Genders.FEMALE
-                    and getattr(user, "dateofbirth", None)
-                ):
-                    # Menopause is a special case where the form is prepopulated based on the user's age
-                    # and biological sex.
-                    age = age_calc(user.dateofbirth.value)
-                    initial = False if (age >= 40 and age < 60) else True if age >= 60 else None
-                    kwargs[form_str] = self.medhistorys[medhistory]["form"](
-                        instance=user_i,
-                        initial={f"{medhistory}-value": initial},
-                    )
                 else:
                     kwargs[form_str] = self.medhistorys[medhistory]["form"](
                         instance=user_i,
                         initial={f"{medhistory}-value": True if user_i else False},
                     )
 
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the User has a FlareAid and redirect to the
-        CreateView if not."""
-        try:
-            self.object = self.get_object()
-        except self.model.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            model_str = self.model.__name__.lower()
-            view_str = f"{model_str}s:patient-create"
-            return HttpResponseRedirect(reverse(view_str, kwargs={"username": kwargs["username"]}))
-        # self.user set by get_object()
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        if self.onetoones or self.req_onetoones:
+            self.context_onetoones(
+                onetoones=self.onetoones, req_onetoones=self.req_onetoones, kwargs=kwargs, user=self.user
+            )
+        if self.medallergys:
+            self.context_medallergys(medallergys=self.medallergys, kwargs=kwargs, user=self.user)
+        if self.medhistorys:
+            self.context_medhistorys(
+                medhistorys=self.medhistorys,
+                medhistory_details=self.medhistory_details,
+                kwargs=kwargs,
+                user=self.user,
+                ckddetail=self.ckddetail,
+            )
+        if self.labs:
+            self.context_labs(
+                labs_tuple=self.labs,
+                user=self.user,
+                kwargs=kwargs,
+            )
+        if "patient" not in kwargs:
+            kwargs["patient"] = self.user
+        return super().get_context_data(**kwargs)
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        """Method to add the user to the form kwargs."""
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        if hasattr(self, "user"):
+            kwargs["patient"] = True
+        return kwargs
 
     def get_object(self, *args, **kwargs) -> "MedAllergyAidHistoryModel":
         # QuerySet fetches the user from the username kwarg
@@ -1481,14 +1378,26 @@ class PatientAidUpdateView(AutoPermissionRequiredMixin, PatientAidBaseView, Upda
         except self.model.DoesNotExist as exc:
             raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
 
-    def get_permission_object(self):
-        """Object attr should be set by dispatch."""
-        return self.object
 
-
-class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
+class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
     class Meta:
         abstract = True
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to check if the object has a User and redirect to the
+        correct UpdateView if so."""
+        self.object = self.get_object()
+        if getattr(self.object, "user", None):
+            kwargs = {"username": self.object.user.username}
+            if isinstance(self.object, Flare):
+                kwargs.update({"pk": self.object.pk})
+            return HttpResponseRedirect(
+                reverse(
+                    f"{self.model.__name__.lower()}s:pseudopatient-update",
+                    kwargs=kwargs,
+                )
+            )
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(
         self,
@@ -1664,7 +1573,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
                             kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
                     # Check if the medhistory is Menopause
                     elif medhistory == MedHistoryTypes.MENOPAUSE:
-                        if con_obj.gender.value == Genders.FEMALE:
+                        if con_obj.gender.value == Genders.FEMALE and hasattr(con_obj, "dateofbirth"):
                             # Check if the Flare to be updated's gender is Female
                             age = age_calc(con_obj.dateofbirth.value)
                             if age >= 40 and age < 60:
@@ -1695,6 +1604,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
             )
             kwargs["lab_formset_helper"] = labs_tuple[1]
 
+    def get(self, request: "HttpRequest", *args: Any, **kwargs: Any) -> "HttpResponse":
+        """Overwritten to not fetch the object a second time."""
+        return self.render_to_response(self.get_context_data(**kwargs))
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         if self.onetoones:
             self.context_onetoones(onetoones=self.onetoones, kwargs=kwargs, con_obj=self.object)
@@ -1705,6 +1618,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
         if self.labs:
             self.context_labs(labs_tuple=self.labs, con_obj=self.object, kwargs=kwargs)
         return super().get_context_data(**kwargs)
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        """Method to add the user to the form kwargs."""
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        return kwargs
 
     def post_populate_labformset(
         self,
@@ -2122,7 +2042,6 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseView, UpdateView):
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
 
-        self.object: "MedAllergyAidHistoryModel" = self.get_object()  # type: ignore
         form_class = self.get_form_class()
         if self.medallergys:
             form = form_class(request.POST, medallergys=self.medallergys, instance=self.object)
@@ -2333,3 +2252,12 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
             self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
         # Return object for the child view to use
         return self.object
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        """Method to add the user to the form kwargs."""
+        kwargs = super().get_form_kwargs()
+        if self.medallergys:
+            kwargs["medallergys"] = self.medallergys
+        if hasattr(self, "user"):
+            kwargs["patient"] = True
+        return kwargs

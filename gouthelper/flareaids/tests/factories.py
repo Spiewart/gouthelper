@@ -42,9 +42,11 @@ def create_flareaid_data(user: "User" = None) -> dict[str, str]:
         return fake.boolean() or ""
 
     data = {}
+    # Create OneToOneField data based on whether or not there is a user *arg
     if not user:
         data["dateofbirth-value"] = age_calc(fake("date_of_birth", minimum_age=18, maximum_age=100))
         data["gender-value"] = FuzzyChoice(Genders.choices, getter=lambda c: c[0])
+    # Create MedHistory data
     for medhistory in FLAREAID_MEDHISTORYS:
         if medhistory == MedHistoryTypes.CKD:
             ckd_value = fake.boolean()
@@ -105,6 +107,7 @@ def create_flareaid_data(user: "User" = None) -> dict[str, str]:
             data[f"{medhistory}-value"] = fake.boolean()
         else:
             data[f"{medhistory}-value"] = get_True_or_empty_str()
+    # Create MedAllergy data
     for treatment in FlarePpxChoices.values:
         data[f"medallergy_{treatment}"] = get_True_or_empty_str()
     return data

@@ -1,12 +1,25 @@
-<script>
-  // this is executed once when the page loads
-  $(document).ready(function() {
-    $('#id_dateofbirth-value').change(menopause_checker);
-    menopause_checker($('#id_dateofbirth-value'));
-    $('#id_gender-value').change(menopause_checker);
-    menopause_checker($('#id_gender-value'));
-  });
-</script>
+{% if not view.kwargs.username %}
+  <script>
+    // this is executed once when the page loads
+    $(document).ready(function() {
+      menopause_checker(patient = false);
+      $('#id_dateofbirth-value').change(function() {
+        menopause_checker(patient = false, change = true);
+      });
+      $('#id_gender-value').change(function() {
+        menopause_checker(patient = false, change = true);
+      });
+    });
+  </script>
+{% else %}
+  <script>
+    var age = '{{ age }}'
+    var gender = '{{ gender }}'
+    $(document).ready(function() {
+      menopause_checker(patient = true, u_age = age, u_gender = gender);
+    });
+  </script>
+{% endif %}
 <link rel="stylesheet"
       href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
 <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
