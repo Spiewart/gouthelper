@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.conf import settings
 from django.contrib import messages
@@ -8,6 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponseRedirect
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from ...dateofbirths.forms import DateOfBirthForm
@@ -23,6 +26,7 @@ from ...medhistorydetails.forms import GoutDetailForm
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import GoutForm, MenopauseForm
 from ...medhistorys.models import Gout, Menopause
+from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.models import PseudopatientProfile
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
@@ -473,6 +477,14 @@ class TestPseudopatientUpdateView(TestCase):
         # Create a pseudopatient
         self.psp = PseudopatientPlusFactory(profile=self.provider)
         self.admin_psp = PseudopatientPlusFactory(profile=self.admin)
+        self.female = PseudopatientPlusFactory()
+        self.female.dateofbirth.value = timezone.now() - timedelta(days=365 * 50)
+        self.female.dateofbirth.save()
+        self.female.gender.value = Genders.FEMALE
+        self.female.gender.save()
+        if not self.female.menopause:
+            MenopauseFactory(user=self.female)
+        delattr(self.female, "menopause")
 
     def test__dispatch(self):
         """Test that dispatch sets the object attr."""
@@ -502,15 +514,20 @@ class TestPseudopatientUpdateView(TestCase):
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {"username": self.psp.username}
+        view.kwargs = {"username": self.female.username}
         with self.assertNumQueries(2):
             qs = view.get_queryset().get()
-            assert qs == self.psp
-            assert qs.dateofbirth == self.psp.dateofbirth
-            assert qs.gender == self.psp.gender
-            assert qs.ethnicity == self.psp.ethnicity
-            assert qs.pseudopatientprofile == self.psp.pseudopatientprofile
+            assert qs == self.female
+            assert qs.dateofbirth == self.female.dateofbirth
+            assert qs.gender == self.female.gender
+            assert qs.ethnicity == self.female.ethnicity
+            assert qs.pseudopatientprofile == self.female.pseudopatientprofile
             assert hasattr(qs, "medhistorys_qs")
+        assert self.female.menopause in qs.medhistorys_qs
+        assert self.female.gout in qs.medhistorys_qs
+        assert [mh for mh in qs.medhistorys_qs if mh.medhistorytype == MedHistoryTypes.GOUT][
+            0
+        ].goutdetail == self.female.goutdetail
 
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
@@ -531,17 +548,19 @@ class TestPseudopatientUpdateView(TestCase):
         """Tests that the required context data is passed to the template."""
         # Log in the provider
         self.client.force_login(self.provider)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.female.username}))
         assert response.status_code == 200
         assert f"{MedHistoryTypes.GOUT}_form" in response.context
-        assert response.context[f"{MedHistoryTypes.GOUT}_form"].instance == self.psp.gout
+        assert response.context[f"{MedHistoryTypes.GOUT}_form"].instance == self.female.gout
         assert "dateofbirth_form" in response.context
-        assert response.context["dateofbirth_form"].instance == self.psp.dateofbirth
+        assert response.context["dateofbirth_form"].instance == self.female.dateofbirth
         assert "ethnicity_form" in response.context
-        assert response.context["ethnicity_form"].instance == self.psp.ethnicity
+        assert response.context["ethnicity_form"].instance == self.female.ethnicity
         assert "gender_form" in response.context
-        assert response.context["gender_form"].instance == self.psp.gender
+        assert response.context["gender_form"].instance == self.female.gender
         assert "goutdetail_form" in response.context
+        assert f"{MedHistoryTypes.MENOPAUSE}_form" in response.context
+        assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].instance == self.female.menopause
 
     def test__rules(self):
         """Test rules for the PseudopatientUpdateView."""
@@ -575,6 +594,10 @@ class TestPseudopatientUpdateView(TestCase):
         psp.goutdetail.on_ppx = True
         psp.goutdetail.on_ult = True
         psp.goutdetail.save()
+        try:
+            Menopause.objects.get(user=psp).delete()
+        except Menopause.DoesNotExist:
+            pass
         data = {
             "dateofbirth-value": 50,
             "gender-value": Genders.FEMALE,
@@ -585,10 +608,27 @@ class TestPseudopatientUpdateView(TestCase):
             "on_ppx": False,
             "on_ult": False,
         }
+        # Test that the view returns a ValidationError when the user is a woman aged 40-60
+        # and the menopause form is not filled out
+        response = self.client.post(
+            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
+        )
+        assert response.status_code == 200
+        assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"]
+        assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"][
+            0
+        ] == _(
+            "For females between ages 40 and 60, we need to know the patient's \
+menopause status to evaluate their flare."
+        )
+        # Update menopause value
+        data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
+        # Test that view runs post() without errors and redirects to the Pseudopatient DetailView
         response = self.client.post(
             reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
         assert response.status_code == 302
+        assert response.url == reverse("users:pseudopatient-detail", kwargs={"username": psp.username})
         # Need to delete both gout and goutdetail cached_properties because they are used
         # to fetch one another and will not be updated otherwise
         delattr(psp, "goutdetail")
@@ -601,6 +641,15 @@ class TestPseudopatientUpdateView(TestCase):
         assert psp.goutdetail.hyperuricemic == data["hyperuricemic"]
         assert psp.goutdetail.on_ppx == data["on_ppx"]
         assert psp.goutdetail.on_ult == data["on_ult"]
+        # Test that menopause was created
+        assert psp.menopause
+        # Test that menopause can be deleted
+        data.update({f"{MedHistoryTypes.MENOPAUSE}-value": False})
+        response = self.client.post(
+            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
+        )
+        assert response.status_code == 302
+        assert not Menopause.objects.filter(user=psp).exists()
 
 
 class TestUserDeleteView(TestCase):

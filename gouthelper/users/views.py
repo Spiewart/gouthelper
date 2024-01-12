@@ -51,8 +51,6 @@ def post_process_menopause(
     dateofbirth: "date",
     errors_bool: bool = False,
 ) -> tuple[dict[str, "ModelForm"], bool]:
-    print(gender)
-    print(dateofbirth)
     if gender == Genders.FEMALE:
         age = age_calc(dateofbirth)
         if (

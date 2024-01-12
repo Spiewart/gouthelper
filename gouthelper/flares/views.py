@@ -322,7 +322,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, LoginRequiredMixin, ListVi
     def get_permission_object(self):
         return self.user
 
-    def get_queryset(self) -> "QuerySet"[Any]:
+    def get_queryset(self) -> "QuerySet":
         return user_flares(username=self.kwargs["username"])
 
 

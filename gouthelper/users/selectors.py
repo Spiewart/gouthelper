@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
-from django.db.models import Prefetch  # type: ignore
+from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
 from .models import Pseudopatient
@@ -44,7 +44,7 @@ def pseudopatient_medhistory_qs() -> "QuerySet":
 def pseudopatient_profile_medhistory_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
-        .objects.filter(medhistorytype=MedHistoryTypes.GOUT)
+        .objects.filter(Q(medhistorytype=MedHistoryTypes.GOUT) | Q(medhistorytype=MedHistoryTypes.MENOPAUSE))
         .select_related("goutdetail")
         .all()
     )
@@ -54,6 +54,14 @@ def pseudopatient_medhistory_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=pseudopatient_medhistory_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def pseudopatient_profile_medhistory_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=pseudopatient_profile_medhistory_qs(),
         to_attr="medhistorys_qs",
     )
 
@@ -100,6 +108,6 @@ def pseudopatient_profile_qs(username: str) -> "QuerySet":
             "ethnicity",
         )
         .prefetch_related(
-            pseudopatient_medhistory_prefetch(),
+            pseudopatient_profile_medhistory_prefetch(),
         )
     )

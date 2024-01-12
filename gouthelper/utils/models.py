@@ -346,9 +346,13 @@ class DecisionAidModel(models.Model):
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         try:
+            print(medhistorys_get_menopause(self.medhistorys_qs))
             return medhistorys_get_menopause(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_menopause(self.medhistorys.all())
+            try:
+                return medhistorys_get_menopause(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_menopause(self.medhistory_set.all())
 
     @cached_property
     def nsaid_age_contra(self) -> bool | None:

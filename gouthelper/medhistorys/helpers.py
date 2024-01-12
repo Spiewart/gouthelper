@@ -173,10 +173,10 @@ def medhistorys_get_ibd(medhistorys: Union[list["MedHistory"], "QuerySet[MedHist
 def medhistorys_get_menopause(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE]),
+        False,
+    )
 
 
 def medhistorys_get_nsaid_contras(
@@ -192,10 +192,12 @@ def medhistorys_get_nsaid_contras(
 def medhistorys_get_organtransplant(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.ORGANTRANSPLANT:
-            return medhistory
-    return False
+    next(
+        iter(
+            [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.ORGANTRANSPLANT]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_other_nsaid_contras(
