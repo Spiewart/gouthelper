@@ -4,7 +4,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 from ...users.choices import Roles
-from ...users.tests.factories import UserFactory
+from ...users.tests.factories import PseudopatientFactory, UserFactory
 from .factories import FlareFactory, FlareUserFactory
 
 pytestmark = pytest.mark.django_db
@@ -43,6 +43,37 @@ class TestCanChangeFlare(TestCase):
         assert rules.test_rule("can_change_object", self.admin, self.admin_flare)
         assert not rules.test_rule("can_change_object", self.provider, self.admin_flare)
         assert not rules.test_rule("can_change_object", self.anon, self.admin_flare)
+
+
+class TestCanCreateFlare(TestCase):
+    """Test rules for creating a Flare for a Pseudopatient."""
+
+    def setUp(self):
+        self.provider = UserFactory(role=Roles.PROVIDER)
+        self.provider_pseudopatient = PseudopatientFactory(provider=self.provider)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        self.admin_pseudopatient = PseudopatientFactory(provider=self.admin)
+        self.anon_psp = PseudopatientFactory()
+        self.anon = AnonymousUser()
+
+    def test__create_anonymous_object(self):
+        """Test that any user can create an anonymous object."""
+        assert rules.test_rule("can_add_pseudopatient_flare", self.anon, self.anon_psp)
+        assert rules.test_rule("can_add_pseudopatient_flare", self.provider, self.anon_psp)
+        assert rules.test_rule("can_add_pseudopatient_flare", self.admin, self.anon_psp)
+
+    def test__create_provider_object(self):
+        """Test that only the provider can create an object for his or
+        her pseudopatients."""
+        assert rules.test_rule("can_add_pseudopatient_flare", self.provider, self.provider_pseudopatient)
+        assert not rules.test_rule("can_add_pseudopatient_flare", self.admin, self.provider_pseudopatient)
+        assert not rules.test_rule("can_add_pseudopatient_flare", self.anon, self.provider_pseudopatient)
+
+    def test__create_admin_object(self):
+        """Test that only an admin can create an object for another user."""
+        assert rules.test_rule("can_add_pseudopatient_flare", self.admin, self.admin_pseudopatient)
+        assert not rules.test_rule("can_add_pseudopatient_flare", self.provider, self.admin_pseudopatient)
+        assert not rules.test_rule("can_add_pseudopatient_flare", self.anon, self.admin_pseudopatient)
 
 
 class TestCanDeleteFlare(TestCase):
@@ -113,3 +144,34 @@ class TestCanViewFlare(TestCase):
         assert rules.test_rule("can_view_object", self.admin, self.admin_flare)
         assert not rules.test_rule("can_view_object", self.provider, self.admin_flare)
         assert not rules.test_rule("can_view_object", self.anon, self.admin_flare)
+
+
+class TestCanViewFlareList(TestCase):
+    """Test rules for viewing a Pseudopatient's list of Flares."""
+
+    def setUp(self):
+        self.provider = UserFactory(role=Roles.PROVIDER)
+        self.provider_pseudopatient = PseudopatientFactory(provider=self.provider)
+        self.admin = UserFactory(role=Roles.ADMIN)
+        self.admin_pseudopatient = PseudopatientFactory(provider=self.admin)
+        self.anon_psp = PseudopatientFactory()
+        self.anon = AnonymousUser()
+
+    def test__view_anonymous_list(self):
+        """Test that any user can view an anonymous list."""
+        assert rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.anon_psp)
+        assert rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.anon_psp)
+        assert rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.anon_psp)
+
+    def test__view_provider_list(self):
+        """Test that only the provider can view a list for his or her
+        pseudopatients."""
+        assert rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.provider_pseudopatient)
+        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.provider_pseudopatient)
+        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.provider_pseudopatient)
+
+    def test__view_admin_list(self):
+        """Test that only an admin can view a list for another user."""
+        assert rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.admin_pseudopatient)
+        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.admin_pseudopatient)
+        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.admin_pseudopatient)

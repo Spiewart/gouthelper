@@ -1375,9 +1375,9 @@ class TestFlarePseudopatientList(TestCase):
         # Test that the Provider can't access the view for the Admin's Pseudopatient
         response = self.client.get(admin_psp_url)
         assert response.status_code == 403
-        # Test that the logged in Provider can see an anonymous Pseudopatient
+        # Test that the logged in Provider can see an anonymous Pseudopatient's list
         response = self.client.get(anon_psp_url)
-        assert response.status_code == 403
+        assert response.status_code == 200
         # Test that the Admin can access the view for his or her own Pseudopatient
         self.client.force_login(admin)
         response = self.client.get(admin_psp_url)
@@ -1385,9 +1385,9 @@ class TestFlarePseudopatientList(TestCase):
         # Test that the Admin can't access the view for the Provider's Pseudopatient
         response = self.client.get(prov_psp_url)
         assert response.status_code == 403
-        # Test that the logged in Admin can see an anonymous Pseudopatient
+        # Test that the logged in Admin can see an anonymous Pseudopatient's list
         response = self.client.get(anon_psp_url)
-        assert response.status_code == 403
+        assert response.status_code == 200
 
 
 class TestFlarePseudopatientUpdate(TestCase):

@@ -408,8 +408,8 @@ function menopause_checker(
     var age = $('#id_dateofbirth-value').val();
     var gender = $('#id_gender-value').val();
   }
-  if (gender == 1) {
-    if (age >= 40 && age < 60) {
+  if (gender && gender == 1) {
+    if (age && age >= 40 && age && age < 60) {
       $('#menopause').show();
       $('#id_MENOPAUSE-value').prop('required', true);
       add_asterisk($('#menopause'));

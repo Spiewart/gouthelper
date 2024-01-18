@@ -10,19 +10,23 @@ User = get_user_model()
 
 
 @rules.predicate
-def anon_obj_creation(_, obj):
-    """Checks if the object intended to be created has a provider. This is
-    accomplished by setting the get_permission_object function on the view
-    to check for if the user defined by the username kwarg has a provider and
-    return the provider as the permission object if so.
+def anon_user(_, obj):
+    """Checks if the object is an anonymous user, in that they do not have
+    a provider. This is for views that set the get_permission_object function
+    to return the user defined by the username kwarg. If the permission object
+    is None, then the object does not have an intended User and is therefore
+    anonymous.
 
     Expects a str or None as obj."""
+    # Check if the permission object is a User
     if isinstance(obj, User):
+        # If so, check if the User has a profile and if the profile has a provider
         return (
             True
             if getattr(obj, "profile") and hasattr(obj.profile, "provider") and obj.profile.provider is None
             else False
         )
+    # If not, check if the permission object is None
     else:
         return True if obj is None else False
 
@@ -80,14 +84,14 @@ def is_obj_provider(user, obj):
     return obj.user.pseudopatientprofile.provider == user if obj.user else False
 
 
-add_object = (
-    anon_obj_creation | (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
-)
+add_object = anon_user | (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
 change_object = is_anon_obj | is_obj_provider
 delete_object = is_obj_provider
 view_object = is_anon_obj | is_obj_provider
-view_object_list = (is_a_provider & request_user_kwarg_provider_or_user) | (
-    is_an_admin & request_user_kwarg_provider_or_user
+view_object_list = (
+    anon_user
+    | (is_a_provider & request_user_kwarg_provider_or_user)
+    | (is_an_admin & request_user_kwarg_provider_or_user)
 )
 
 rules.add_rule("can_add_object", add_object)

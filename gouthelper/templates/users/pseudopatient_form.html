@@ -50,7 +50,7 @@
 {% block inline_javascript %}
   {{ block.super }}
   <script>
-    document.ready = function() {
+    $(document).ready(function() {
       // call starting_ult_help_text() to set the help text for the starting_ult field
       starting_ult_help_text();
       $('#id_on_ult').change(starting_ult_help_text);
@@ -61,6 +61,6 @@
       $('#id_gender-value').change(function() {
         menopause_checker(patient = false, change = true);
       });
-    };
+    });
   </script>
 {% endblock inline_javascript %}
