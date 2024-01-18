@@ -232,7 +232,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
 
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
-        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        empty_user = PseudopatientFactory(dateofbirth=False, gender=False)
         with self.assertRaises(AttributeError) as exc:
             self.view().check_user_onetoones(empty_user)
         self.assertEqual(
@@ -283,7 +283,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         self.assertEqual(message.tags, "error")
         self.assertEqual(message.message, f"{self.user} already has a FlareAid. Please update it instead.")
         # Create empty user and test that the view redirects to the user update view
-        empty_user = PseudopatientFactory(dateofbirth=None)
+        empty_user = PseudopatientFactory(dateofbirth=False)
         self.client.force_login(empty_user)
         response = self.client.get(
             reverse("flareaids:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
@@ -433,6 +433,10 @@ class TestFlareAidPseudopatientCreate(TestCase):
         tests_print_response_form_errors(response)
         assert response.status_code == 302
         assert FlareAid.objects.filter(user=self.user).exists()
+        flareaid = FlareAid.objects.last()
+        assert flareaid.user
+        assert hasattr(flareaid.user, "pseudopatientprofile")
+        assert flareaid.user.pseudopatientprofile.provider is None
 
     def test__post_creates_medhistorys(self):
         self.assertFalse(MedHistory.objects.filter(user=self.psp).exists())
@@ -670,9 +674,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
         access to the view."""
         psp = PseudopatientFactory()
         provider = UserFactory()
-        provider_psp = PseudopatientFactory(profile=provider)
+        provider_psp = PseudopatientFactory(provider=provider)
         admin = AdminFactory()
-        admin_psp = PseudopatientFactory(profile=admin)
+        admin_psp = PseudopatientFactory(provider=admin)
         # Test that any User can create an anonymous Pseudopatient's FlareAid
         response = self.client.get(reverse("flareaids:pseudopatient-create", kwargs={"username": psp.username}))
         assert response.status_code == 200
@@ -769,10 +773,10 @@ class TestFlareAidPseudopatientDetail(TestCase):
         psp = PseudopatientFactory()
         FlareAidUserFactory(user=psp)
         provider = UserFactory()
-        provider_psp = PseudopatientFactory(profile=provider)
+        provider_psp = PseudopatientFactory(provider=provider)
         FlareAidUserFactory(user=provider_psp)
         admin = AdminFactory()
-        admin_psp = PseudopatientFactory(profile=admin)
+        admin_psp = PseudopatientFactory(provider=admin)
         FlareAidUserFactory(user=admin_psp)
         # Test that any User can view an anonymous Pseudopatient's FlareAid
         response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}))
@@ -928,12 +932,11 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             PseudopatientPlusFactory()
         self.psp = PseudopatientFactory()
         for psp in Pseudopatient.objects.all():
-            print(psp)
             FlareAidUserFactory(user=psp)
 
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
-        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        empty_user = PseudopatientFactory(dateofbirth=False, gender=False)
         with self.assertRaises(AttributeError) as exc:
             self.view().check_user_onetoones(empty_user)
         self.assertEqual(
@@ -972,7 +975,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         self.assertTrue(hasattr(view, "object"))
         self.assertEqual(view.object, FlareAid.objects.get(user=self.user))
         # Create empty user and test that the view redirects to the user update view
-        empty_user = PseudopatientFactory(dateofbirth=None)
+        empty_user = PseudopatientFactory(dateofbirth=False)
         FlareAidUserFactory(user=empty_user)
         self.client.force_login(empty_user)
         response = self.client.get(
@@ -1322,6 +1325,52 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         assert response.status_code == 200
         assert "ckddetail_form" in response.context_data
         assert "dialysis" in response.context_data["ckddetail_form"].errors
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient + Flare
+        provider = UserFactory()
+        prov_psp = PseudopatientFactory(provider=provider)
+        FlareAidUserFactory(user=prov_psp)
+        prov_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": prov_psp.username})
+        next_url = reverse("flareaids:pseudopatient-update", kwargs={"username": prov_psp.username})
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={next_url}"
+        admin = AdminFactory()
+        admin_psp = PseudopatientFactory(provider=admin)
+        FlareAidUserFactory(user=admin_psp)
+        admin_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": admin_psp.username})
+        redirect_url = reverse("flareaids:pseudopatient-update", kwargs={"username": admin_psp.username})
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        # Create an anonymous Pseudopatient + Flare
+        anon_psp = PseudopatientFactory()
+        FlareAidUserFactory(user=anon_psp)
+        anon_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": anon_psp.username})
+        # Test that an anonymous user who is not logged in can't see any Pseudopatient
+        # with a provider but can see the anonymous Pseudopatient
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can access the view for his or her own Pseudopatient
+        self.client.force_login(provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can access the view for his or her own Pseudopatient
+        self.client.force_login(admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
 
 
 class TestFlareAidDetail(TestCase):

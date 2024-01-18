@@ -167,7 +167,7 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
             return errors
         medhistorys_forms, errors_bool = post_process_menopause(
             medhistorys_forms=medhistorys_forms,
-            gender=onetoone_forms["dateofbirth_form"].instance.value,
+            gender=onetoone_forms["gender_form"].instance.value,
             dateofbirth=onetoone_forms["dateofbirth_form"].instance.value,
         )
         if errors_bool:

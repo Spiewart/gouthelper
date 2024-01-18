@@ -612,9 +612,12 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         # Save the OneToOne related models
         if self.onetoones:
             for onetoone in onetoones_to_save:
+                onetoone_str = f"{onetoone.__class__.__name__.lower()}"
                 if onetoone.user is None:
                     onetoone.user = self.user
                 onetoone.save()
+                if getattr(form.instance, onetoone_str, None) is None:
+                    setattr(form.instance, onetoone_str, onetoone)
             for onetoone in onetoones_to_delete:
                 onetoone.delete()
         if self.medallergys:
@@ -656,8 +659,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                     lab.delete()
         if form.instance.user is None:
             form.instance.user = self.user
-        aid_obj = form.save()
-        return aid_obj
+        return form
 
     def get_user_queryset(self, username: str) -> "QuerySet":
         """Method to get the User queryset. Needs to be defined with a more
@@ -687,10 +689,12 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         user: "User",
     ) -> None:
         """Method to populate the onetoones dict with the user's related models."""
+        # Primary QuerySet object is the intended Pseudopatient for the view, so
+        # 1to1's are populated from that object
         for onetoone, onetoone_dict in onetoones.items():
-            user_i = getattr(user, onetoone, None)
             form_str = f"{onetoone}_form"
-            kwargs[form_str] = onetoone_dict["form"](instance=user_i)
+            if form_str not in kwargs:
+                kwargs[form_str] = onetoone_dict["form"](instance=getattr(user, onetoone, None))
         for onetoone in req_onetoones:
             if onetoone not in kwargs:
                 if onetoone == "dateofbirth":
@@ -722,10 +726,9 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         for medhistory, mh_dict in medhistorys.items():
             form_str = f"{medhistory}_form"
             if form_str not in kwargs:
-                try:
-                    user_i = [mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistory][0]
-                except IndexError:
-                    user_i = None
+                user_i = next(
+                    iter([mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistory]), None
+                )
                 if medhistory == MedHistoryTypes.CKD:
                     kwargs[form_str] = mh_dict["form"](
                         ckddetail=ckddetail, instance=user_i, initial={f"{medhistory}-value": True if user_i else None}
@@ -803,7 +806,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             errors_bool = False
             form.save(commit=False)
             # Set related models for saving and set as attrs of the UpdateView model instance
-            onetoones_to_save, onetoones_to_delete = self.post_process_one_to_one_forms(
+            onetoones_to_save, onetoones_to_delete = self.post_process_onetoone_forms(
                 onetoone_forms=onetoone_forms,
                 req_onetoones=self.req_onetoones,
                 user=self.user,
@@ -854,8 +857,8 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 lab_formset,
                 medallergys_to_save,
                 medallergys_to_remove,
-                onetoones_to_delete,
                 onetoones_to_save,
+                onetoones_to_delete,
                 medhistorydetails_to_save,
                 medhistorydetails_to_remove,
                 medhistorys_to_save,
@@ -918,10 +921,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         medallergys_forms: dict[str, "ModelForm"] = {}
         if medallergys:
             for treatment in medallergys:
-                try:
-                    user_i = [ma for ma in getattr(user, "medallergys_qs") if ma.treatment == treatment][0]
-                except IndexError:
-                    user_i = None
+                user_i = next(iter([ma for ma in getattr(user, "medallergys_qs") if ma.treatment == treatment]), None)
                 medallergys_forms.update(
                     {
                         f"medallergy_{treatment}_form": MedAllergyTreatmentForm(
@@ -947,10 +947,9 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         medhistorydetails_forms: dict[str, "ModelForm"] = {}
         if medhistorys:
             for medhistory in medhistorys:
-                try:
-                    user_i = [mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistory][0]
-                except IndexError:
-                    user_i = None
+                user_i = next(
+                    iter([mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistory]), None
+                )
                 if medhistory == MedHistoryTypes.CKD:
                     medhistorys_forms.update(
                         {
@@ -1004,8 +1003,6 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                         f"{onetoone}_form": onetoones[onetoone]["form"](
                             request.POST,
                             instance=user_i,
-                            # TODO: see if this is required
-                            # initial={f"{onetoone}-value": user_i.value} if user_i else None,
                         )
                     }
                 )
@@ -1129,10 +1126,9 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             user.medhistorys_qs = []
         for medhistory_form_str in medhistorys_forms:
             medhistorytype = medhistory_form_str.split("_")[0]
-            try:
-                user_i = [mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistorytype][0]
-            except IndexError:
-                user_i = None
+            user_i = next(
+                iter([mh for mh in getattr(user, "medhistorys_qs") if mh.medhistorytype == medhistorytype]), None
+            )
             # If there is a MedHistory instance already, check if it's been deleted, i.e. is not in the
             # form cleaned data, and also check if it has a MedHistoryDetail that may or may not have changed
             if user_i:
@@ -1210,7 +1206,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             errors_bool,
         )
 
-    def post_process_one_to_one_forms(
+    def post_process_onetoone_forms(
         self,
         onetoone_forms: dict[str, "ModelForm"],
         req_onetoones: list[str],
@@ -1227,8 +1223,12 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             if object_attr not in req_onetoones:
                 try:
                     onetoone_form.check_for_value()
-                    onetoone = onetoone_form.save(commit=False)
-                    onetoones_to_save.append(onetoone)
+                    # Check if the onetoone changed
+                    if onetoone_form.has_changed():
+                        onetoone = onetoone_form.save(commit=False)
+                        onetoones_to_save.append(onetoone)
+                    else:
+                        onetoone = onetoone_form.instance
                     setattr(user, object_attr, onetoone)
                 # If EmptyRelatedModel exception is raised by the related model's form save() method,
                 # Check if the related model exists and delete it if it does
@@ -1964,7 +1964,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             errors_bool,
         )
 
-    def post_process_one_to_one_forms(
+    def post_process_onetoone_forms(
         self, onetoone_forms: dict[str, "ModelForm"], model_obj: "MedAllergyAidHistoryModel"
     ) -> tuple[list["Model"], list["Model"]]:
         """Method to process the forms for the OneToOne objects for
@@ -2070,7 +2070,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             errors_bool = False
             form.save(commit=False)
             # Set related models for saving and set as attrs of the UpdateView model instance
-            onetoones_to_save, onetoones_to_delete = self.post_process_one_to_one_forms(
+            onetoones_to_save, onetoones_to_delete = self.post_process_onetoone_forms(
                 onetoone_forms=onetoone_forms, model_obj=form.instance
             )
             medallergys_to_save, medallergys_to_remove = self.post_process_medallergys_forms(

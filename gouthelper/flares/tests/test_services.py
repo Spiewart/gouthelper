@@ -40,7 +40,7 @@ class TestFlareMethods(TestCase):
     def setUp(self):
         self.provider = UserFactory()
         for _ in range(10):
-            PseudopatientPlusFactory(profile=self.provider)
+            PseudopatientPlusFactory(provider=self.provider)
         self.anon_psp = PseudopatientPlusFactory()
         self.userless_dateofbirth = DateOfBirthFactory()
         self.userless_angina = AnginaFactory()
@@ -121,7 +121,6 @@ class TestFlareMethods(TestCase):
         object when it has a user to avoid saving a Flare to the database with either of
         these fields an a user, which will raise an IntegrityError."""
         user = Pseudopatient.objects.first()
-        print(user)
         flare = FlareUserFactory(user=user)
         self.assertIsNone(flare.dateofbirth)
         self.assertIsNone(flare.gender)

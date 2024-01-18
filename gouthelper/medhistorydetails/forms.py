@@ -89,7 +89,6 @@ class CkdDetailForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        print(cleaned_data)
         dialysis = cleaned_data["dialysis"]
         stage = cleaned_data["stage"]
         if dialysis is True:

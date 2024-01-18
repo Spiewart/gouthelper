@@ -228,17 +228,18 @@ class FlareForm(
             ),
         )
         forms_helper_insert_about_the_patient(layout=self.helper.layout)
+        # Again check if there is a patient and if not, insert DateOfBirthForm, GenderForm, and MenopauseForm
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
-        # Insert MenopauseForm
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
+            forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
         # Insert CVDiseasesForm
         forms_helper_insert_cvdiseases(layout=self.helper.layout)
         # Insert CkdForm
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.CKD, layout=self.helper.layout)
-        # Insert GoutForm
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
+        # Again check if there is a patient and if not, insert the GoutForm
+        if not self.patient:
+            forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
 
     def clean(self):
         cleaned_data = super().clean()

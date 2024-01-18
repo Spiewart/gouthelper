@@ -227,7 +227,7 @@ class FlareAidPseudopatientCreate(
         labs_to_remove: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
-        aid_obj = super().form_valid(
+        form = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
@@ -240,12 +240,12 @@ class FlareAidPseudopatientCreate(
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
         )
-        self.object = aid_obj
-        self.user.flareaid = aid_obj
+        flareaid = form.save()
+        self.user.flareaid = flareaid
         # Update object / form instance
-        aid_obj.update(qs=self.user)
+        flareaid.update(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+        return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -329,7 +329,7 @@ class FlareAidPseudopatientUpdate(
         labs_to_remove: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
-        aid_obj = super().form_valid(
+        form = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
@@ -342,12 +342,12 @@ class FlareAidPseudopatientUpdate(
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
         )
-        self.object = aid_obj
-        self.user.flareaid = aid_obj
+        flareaid = form.save()
+        self.user.flareaid = flareaid
         # Update object / form instance
-        aid_obj.update(qs=self.user)
+        flareaid.update(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+        return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,

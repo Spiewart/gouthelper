@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING, Any, Union
 
 from django.apps import apps  # type: ignore
 from django.contrib import messages  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.mixins import LoginRequiredMixin  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.http import Http404, HttpResponseRedirect  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.utils.translation import gettext_lazy as _  # type: ignore
 from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
@@ -35,6 +35,7 @@ from ..medhistorys.forms import (
 )
 from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from ..users.models import Pseudopatient
+from ..utils.exceptions import EmptyRelatedModel
 from ..utils.views import (
     MedHistorysModelCreateView,
     MedHistorysModelUpdateView,
@@ -46,18 +47,17 @@ from .models import Flare
 from .selectors import flare_user_qs, flare_userless_qs, user_flares
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models import Model, QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
-    from django.http import HttpResponse  # type: ignore
+    from django.http import HttpRequest, HttpResponse  # type: ignore
 
     from ..labs.models import BaselineCreatinine, Lab
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
     from ..medhistorys.models import MedHistory
-    from ..utils.types import MedAllergyAidHistoryModel
+    from ..utils.types import FormModelDict, MedAllergyAidHistoryModel
 
-    User = get_user_model()
+User = get_user_model()
 
 
 class FlareAbout(TemplateView):
@@ -131,15 +131,12 @@ menopause status to evaluate their flare."
     def post_process_urate_check(
         self,
         form: "ModelForm",
-        post_object: "MedAllergyAidHistoryModel",
         onetoone_forms: dict[str, "ModelForm"],
         errors_bool: bool = False,
     ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
-        if form.cleaned_data.get("urate_check", None) and (
-            not getattr(post_object, "urate", None)
-            or not getattr(post_object.urate, "value", None)
-            or not onetoone_forms["urate_form"].cleaned_data.get("value", None)
-        ):
+        urate_val = onetoone_forms["urate_form"].cleaned_data.get("value", None)
+        urate_check = form.cleaned_data.get("urate_check", None)
+        if urate_check and not urate_val:
             urate_error = ValidationError(message="If urate was checked, we should know it!")
             form.add_error("urate_check", urate_error)
             onetoone_forms["urate_form"].add_error("value", urate_error)
@@ -199,7 +196,7 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
             medhistorys_forms=medhistorys_forms, post_object=object_data
         )
         form, onetoone_forms, errors_bool = self.post_process_urate_check(
-            form=form, post_object=object_data, onetoone_forms=onetoone_forms, errors_bool=errors_bool
+            form=form, onetoone_forms=onetoone_forms, errors_bool=errors_bool
         )
         if errors_bool:
             return super().render_errors(
@@ -286,31 +283,17 @@ class FlarePatientBase(FlareBase):
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, LoginRequiredMixin, ListView):
+    context_object_name = "flares"
     model = Flare
     permission_required = "flares.can_view_pseudopatient_flare_list"
+    template_name = "flares/flare_list.html"
 
     def dispatch(self, request, *args, **kwargs):
         self.user = self.get_queryset().get()
-        self.object_list = self.user.flare_set.all()
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        allow_empty = self.get_allow_empty()
-        if not allow_empty:
-            # When pagination is enabled and object_list is a queryset,
-            # it's better to do a cheap query than to load the unpaginated
-            # queryset in memory.
-            if self.get_paginate_by(self.object_list) is not None and hasattr(self.object_list, "exists"):
-                is_empty = not self.object_list.exists()
-            else:
-                is_empty = not self.object_list
-            if is_empty:
-                raise Http404(
-                    _("Empty list and “%(class_name)s.allow_empty” is False.")
-                    % {
-                        "class_name": self.__class__.__name__,
-                    }
-                )
+        self.object_list = self.user.flares_qs
         context = self.get_context_data()
         return self.render_to_response(context)
 
@@ -322,7 +305,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, LoginRequiredMixin, ListVi
     def get_permission_object(self):
         return self.user
 
-    def get_queryset(self) -> "QuerySet":
+    def get_queryset(self):
         return user_flares(username=self.kwargs["username"])
 
 
@@ -333,6 +316,30 @@ class FlarePseudopatientCreate(
 
     permission_required = "flares.can_add_pseudopatient_flare"
     success_message = "FlareAid successfully created."
+
+    def context_onetoones(
+        self,
+        onetoones: dict[str, "FormModelDict"],
+        req_onetoones: list[str],
+        kwargs: dict,
+        user: "User",
+    ) -> None:
+        """Method to populate the kwargs dict with forms for the user's related models. For
+        required one to one objects, the value is set as a kwarg for the context."""
+        # Iterate over the OneToOne related models and add the form to the context
+        for onetoone, onetoone_dict in onetoones.items():
+            form_str = f"{onetoone}_form"
+            if form_str not in kwargs:
+                # Add the form to the context with a new instance of the related model
+                kwargs[form_str] = onetoone_dict["form"](instance=onetoone_dict["model"]())
+        # Add the required one to one objects to the context
+        for onetoone in req_onetoones:
+            if onetoone not in kwargs:
+                # If the one to one is a dateofbirth, calculate the age and add it to the context
+                if onetoone == "dateofbirth":
+                    kwargs["age"] = age_calc(getattr(user, onetoone).value)
+                else:
+                    kwargs[onetoone] = getattr(user, onetoone).value
 
     def dispatch(self, request, *args, **kwargs):
         """Overwritten to avoid redirecting if the user already has a Flare."""
@@ -360,7 +367,7 @@ class FlarePseudopatientCreate(
         labs_to_remove: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
-        aid_obj = super().form_valid(
+        form = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
@@ -373,16 +380,15 @@ class FlarePseudopatientCreate(
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
         )
-        self.object = aid_obj
-        self.user.flare_qs = aid_obj
+        flare = form.save()
+        self.user.flare_qs = flare
         # Update object / form instance
-        aid_obj.update(qs=self.user)
+        flare.update(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+        return HttpResponseRedirect(flare.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        """Returns the User / Pseudopatietn object the view is trying to create
         a FlareAid for."""
         return self.user
 
@@ -408,9 +414,7 @@ class FlarePseudopatientCreate(
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        form, onetoone_forms, errors_bool = self.post_process_urate_check(
-            form=form, post_object=form.instance, onetoone_forms=onetoone_forms
-        )
+        form, onetoone_forms, errors_bool = self.post_process_urate_check(form=form, onetoone_forms=onetoone_forms)
         if errors_bool:
             return super().render_errors(
                 form=form,
@@ -425,8 +429,8 @@ class FlarePseudopatientCreate(
             form=form,  # type: ignore
             medallergys_to_save=None,
             medallergys_to_remove=None,
-            onetoones_to_delete=onetoones_to_delete,
             onetoones_to_save=onetoones_to_save,
+            onetoones_to_delete=onetoones_to_delete,
             medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
             medhistorys_to_save=medhistorys_to_save,
@@ -434,6 +438,95 @@ class FlarePseudopatientCreate(
             labs_to_save=None,
             labs_to_remove=None,
         )
+
+    def post_populate_onetoone_forms(
+        self,
+        onetoones: dict[str, "FormModelDict"],
+        request: "HttpRequest",
+        user: "User",
+    ) -> dict[str, "ModelForm"]:
+        """Method that populates a dict of OneToOne related model forms with POST data
+        in the post() method."""
+        onetoone_forms: dict[str, "ModelForm"] = {}
+        if onetoones:
+            for onetoone in onetoones:
+                if onetoone == "urate":
+                    onetoone_forms.update(
+                        {
+                            f"{onetoone}_form": onetoones[onetoone]["form"](
+                                request.POST,
+                                # Urate will be queried on the Flare (not the User) so we need to check
+                                # if the object is a Flare to avoid raising an AttributeError when
+                                # this method is called on a the CreateView when the object is None
+                                instance=Urate(),
+                            )
+                        }
+                    )
+                else:
+                    user_i = getattr(user, onetoone, None)
+                    onetoone_forms.update(
+                        {
+                            f"{onetoone}_form": onetoones[onetoone]["form"](
+                                request.POST,
+                                instance=user_i,
+                                # TODO: see if this is required
+                                # initial={f"{onetoone}-value": user_i.value} if user_i else None,
+                            )
+                        }
+                    )
+        return onetoone_forms
+
+    def post_process_onetoone_forms(
+        self,
+        onetoone_forms: dict[str, "ModelForm"],
+        req_onetoones: list[str],
+        user: "User",
+    ) -> tuple[list["Model"], list["Model"]]:
+        """Method to process the forms for the OneToOne objects for
+        the post() method."""
+        onetoones_to_save: list["Model"] = []
+        onetoones_to_delete: list["Model"] = []
+        # Set related models for saving and set as attrs of the UpdateView model instance
+        for onetoone_form_str, onetoone_form in onetoone_forms.items():
+            object_attr = onetoone_form_str.split("_")[0]
+            if object_attr not in req_onetoones:
+                if object_attr == "urate":
+                    try:
+                        onetoone_form.check_for_value()
+                        onetoone = onetoone_form.save(commit=False)
+                        onetoones_to_save.append(onetoone)
+                        # Still need to set the urate attr on the User so that
+                        # it can be correctly processed by the post_process_urate_check() method
+                        setattr(user, object_attr, onetoone)
+                    # If EmptyRelatedModel exception is raised by the related model's form save() method,
+                    # Check if the related model exists and delete it if it does
+                    except EmptyRelatedModel:
+                        # For CreateView, if the UrateForm is empty, can just pass because
+                        # there will be no pre-existing object to delete
+                        pass
+                else:
+                    try:
+                        onetoone_form.check_for_value()
+                        onetoone = onetoone_form.save(commit=False)
+                        onetoones_to_save.append(onetoone)
+                        setattr(user, object_attr, onetoone)
+                    # If EmptyRelatedModel exception is raised by the related model's form save() method,
+                    # Check if the related model exists and delete it if it does
+                    except EmptyRelatedModel:
+                        # Check if the related model has already been saved to the DB and mark for deletion if so
+                        if onetoone_form.instance and not onetoone_form.instance._state.adding:
+                            to_delete = getattr(user, object_attr)
+                            # Iterate over the forms required_fields property and set the related model's
+                            # fields to their initial values to prevent IntegrityError from Django-Simple-History
+                            # historical model on delete().
+                            if hasattr(onetoone_form, "required_fields"):
+                                for field in onetoone_form.required_fields:
+                                    setattr(to_delete, field, onetoone_form.initial[field])
+                            # Set the object attr to None so it is reflected
+                            # in the QuerySet fed to update in form_valid()
+                            setattr(user, object_attr, None)
+                            onetoones_to_delete.append(to_delete)
+        return onetoones_to_save, onetoones_to_delete
 
 
 class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
@@ -451,11 +544,6 @@ class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
         the correct OneToOne models and redirects to the view to add them if not."""
         try:
             self.object = self.get_object()
-        except Flare.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("flares:pseudopatient-create", kwargs={"username": kwargs["username"]})
-            )
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
             return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
@@ -484,11 +572,14 @@ class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
         )
 
     def get_object(self, *args, **kwargs) -> Flare:
-        self.user: User = self.get_queryset().get()
-        if self.user.flare_qs:
+        try:
+            self.user: User = self.get_queryset().get()
+        except User.DoesNotExist as exc:
+            raise Http404(f"User with username {self.kwargs['username']} does not exist.") from exc
+        try:
             flare: Flare = self.user.flare_qs[0]
-        else:
-            raise Flare.DoesNotExist(f"{self.user} does not have a Flare. Create one.")
+        except IndexError as exc:
+            raise Http404(f"Flare for {self.user} does not exist.") from exc
         flare = self.assign_flare_attrs_from_user(flare=flare, user=self.user)
         return flare
 
@@ -497,6 +588,51 @@ class FlarePseudopatientUpdate(
     AutoPermissionRequiredMixin, FlarePatientBase, PatientAidUpdateView, UpdateView, SuccessMessageMixin
 ):
     success_message = "FlareAid successfully updated."
+
+    def context_onetoones(
+        self,
+        onetoones: dict[str, "FormModelDict"],
+        req_onetoones: list[str],
+        kwargs: dict,
+        user: "User",
+    ) -> None:
+        """Method to populate the kwargs dict with forms for the user's related models. For
+        required one to one objects, the value is set as a kwarg for the context."""
+        # Iterate over the OneToOne related models and add the form to the context
+        for onetoone, onetoone_dict in onetoones.items():
+            form_str = f"{onetoone}_form"
+            if form_str not in kwargs:
+                # Check if the onetoone is "urate"
+                if onetoone == "urate":
+                    # If so, the urate_form instance needs to be set from the Flare's urate
+                    # because that's how the QuerySet fetches it
+                    user_i = getattr(self.object, onetoone, None)
+                # Otherwise process the oneotone as normal
+                else:
+                    # Check if the user has the related model and add the form to the context
+                    # with the instance set to the related model if it exists, otherwise
+                    # set the instance to a new instance of the related model
+                    user_i = getattr(user, onetoone, None)
+                kwargs[form_str] = onetoone_dict["form"](instance=user_i if user_i else onetoone_dict["model"]())
+        # Add the required one to one objects to the context
+        for onetoone in req_onetoones:
+            if onetoone not in kwargs:
+                # If the one to one is a dateofbirth, calculate the age and add it to the context
+                if onetoone == "dateofbirth":
+                    kwargs["age"] = age_calc(getattr(user, onetoone).value)
+                else:
+                    kwargs[onetoone] = getattr(user, onetoone).value
+
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to avoid redirecting if the user already has a Flare."""
+        # Set the object attr and the get_object() method will also set the user attr
+        self.object = self.get_object()
+        try:
+            self.check_user_onetoones(user=self.user)
+        except AttributeError as exc:
+            messages.error(request, exc)
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(
         self,
@@ -513,7 +649,7 @@ class FlarePseudopatientUpdate(
         labs_to_remove: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
-        aid_obj = super().form_valid(
+        form = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
             onetoones_to_delete=onetoones_to_delete,
@@ -526,12 +662,15 @@ class FlarePseudopatientUpdate(
             labs_to_save=labs_to_save,
             labs_to_remove=labs_to_remove,
         )
-        self.object = aid_obj
-        self.user.flare_qs = aid_obj
+        if form.changed_data or onetoones_to_save:
+            flare = form.save()
+        else:
+            flare = form.instance
+        self.user.flare_qs = flare
         # Update object / form instance
-        aid_obj.update(qs=self.user)
+        flare.update(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+        return HttpResponseRedirect(flare.get_absolute_url() + "?updated=True")
 
     def get_initial(self) -> dict[str, Any]:
         """Overwrite get_initial() to populate form non-field field inputs"""
@@ -557,9 +696,7 @@ class FlarePseudopatientUpdate(
         return flare
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
+        """Returns the view's object, which will have already been set by dispatch()."""
         return self.object
 
     def post(self, request, *args, **kwargs):
@@ -584,9 +721,7 @@ class FlarePseudopatientUpdate(
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        form, onetoone_forms, errors_bool = self.post_process_urate_check(
-            form=form, post_object=form.instance, onetoone_forms=onetoone_forms
-        )
+        form, onetoone_forms, errors_bool = self.post_process_urate_check(form=form, onetoone_forms=onetoone_forms)
         if errors_bool:
             return super().render_errors(
                 form=form,
@@ -601,8 +736,8 @@ class FlarePseudopatientUpdate(
             form=form,  # type: ignore
             medallergys_to_save=None,
             medallergys_to_remove=None,
-            onetoones_to_delete=onetoones_to_delete,
             onetoones_to_save=onetoones_to_save,
+            onetoones_to_delete=onetoones_to_delete,
             medhistorydetails_to_save=medhistorydetails_to_save,
             medhistorydetails_to_remove=medhistorydetails_to_remove,
             medhistorys_to_save=medhistorys_to_save,
@@ -610,6 +745,110 @@ class FlarePseudopatientUpdate(
             labs_to_save=None,
             labs_to_remove=None,
         )
+
+    def post_populate_onetoone_forms(
+        self,
+        onetoones: dict[str, "FormModelDict"],
+        request: "HttpRequest",
+        user: "User",
+    ) -> dict[str, "ModelForm"]:
+        """Method that populates a dict of OneToOne related model forms with POST data
+        in the post() method."""
+        onetoone_forms: dict[str, "ModelForm"] = {}
+        if onetoones:
+            for onetoone in onetoones:
+                if onetoone == "urate":
+                    onetoone_forms.update(
+                        {
+                            f"{onetoone}_form": onetoones[onetoone]["form"](
+                                request.POST,
+                                instance=self.object.urate,
+                            )
+                        }
+                    )
+                else:
+                    user_i = getattr(user, onetoone, None)
+                    onetoone_forms.update(
+                        {
+                            f"{onetoone}_form": onetoones[onetoone]["form"](
+                                request.POST,
+                                instance=user_i,
+                            )
+                        }
+                    )
+        return onetoone_forms
+
+    def post_process_onetoone_forms(
+        self,
+        onetoone_forms: dict[str, "ModelForm"],
+        req_onetoones: list[str],
+        user: "User",
+    ) -> tuple[list["Model"], list["Model"]]:
+        """Method to process the forms for the OneToOne objects for the post() method."""
+        onetoones_to_save: list["Model"] = []
+        onetoones_to_delete: list["Model"] = []
+        # Set related models for saving and set as attrs of the UpdateView model instance
+        for onetoone_form_str, onetoone_form in onetoone_forms.items():
+            object_attr = onetoone_form_str.split("_")[0]
+            if object_attr not in req_onetoones:
+                if object_attr == "urate":
+                    try:
+                        onetoone_form.check_for_value()
+                        # Check if the value has changed or is a new object being created
+                        # and mark the urate for saving if so
+                        if onetoone_form.has_changed() or onetoone_form.instance._state.adding:
+                            # Declare onetoone var to assign to the user later
+                            onetoone = onetoone_form.save(commit=False)
+                            onetoones_to_save.append(onetoone)
+                        else:
+                            # Still need to assign the onetoone var to assign to the user later
+                            onetoone = onetoone_form.instance
+                        # Still need to set the urate attr on the User so that
+                        # it can be correctly processed by the post_process_urate_check() method
+                        setattr(user, object_attr, onetoone)
+                    # If EmptyRelatedModel exception is raised by the related model's form save() method,
+                    # Check if the related model exists and delete it if it does
+                    except EmptyRelatedModel:
+                        # Check if the related model has already been saved to the DB and mark for deletion if so
+                        if onetoone_form.instance and not onetoone_form.instance._state.adding:
+                            to_delete = getattr(self.object, object_attr)
+                            # Iterate over the forms required_fields property and set the related model's
+                            # fields to their initial values to prevent IntegrityError from Django-Simple-History
+                            # historical model on delete().
+                            if hasattr(onetoone_form, "required_fields"):
+                                for field in onetoone_form.required_fields:
+                                    setattr(to_delete, field, onetoone_form.initial[field])
+                            # Set the object attr to None so it is reflected
+                            # in the QuerySet fed to update in form_valid()
+                            setattr(self.object, object_attr, None)
+                            onetoones_to_delete.append(to_delete)
+                else:
+                    try:
+                        onetoone_form.check_for_value()
+                        # Check if the value has changed and mark the related model for saving if so
+                        if onetoone_form.has_changed:
+                            onetoone = onetoone_form.save(commit=False)
+                            onetoones_to_save.append(onetoone)
+                        else:
+                            onetoone = onetoone_form.instance
+                        setattr(user, object_attr, onetoone)
+                    # If EmptyRelatedModel exception is raised by the related model's form save() method,
+                    # Check if the related model exists and delete it if it does
+                    except EmptyRelatedModel:
+                        # Check if the related model has already been saved to the DB and mark for deletion if so
+                        if onetoone_form.instance and not onetoone_form.instance._state.adding:
+                            to_delete = getattr(user, object_attr)
+                            # Iterate over the forms required_fields property and set the related model's
+                            # fields to their initial values to prevent IntegrityError from Django-Simple-History
+                            # historical model on delete().
+                            if hasattr(onetoone_form, "required_fields"):
+                                for field in onetoone_form.required_fields:
+                                    setattr(to_delete, field, onetoone_form.initial[field])
+                            # Set the object attr to None so it is reflected in
+                            # the QuerySet fed to update in form_valid()
+                            setattr(user, object_attr, None)
+                            onetoones_to_delete.append(to_delete)
+        return onetoones_to_save, onetoones_to_delete
 
 
 class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
@@ -650,7 +889,7 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 
     def get_initial(self) -> dict[str, Any]:
-        """Overwrite get_initial() to populate form non-field field inputs"""
+        """Overwrite get_initial() to populate form non-field form inputs"""
         initial = super().get_initial()
         if getattr(self.object, "crystal_analysis") is not None:
             initial["aspiration"] = True
@@ -693,7 +932,7 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             medhistorys_forms=medhistorys_forms, post_object=form.instance
         )
         form, onetoone_forms, errors_bool = self.post_process_urate_check(
-            form=form, post_object=form.instance, onetoone_forms=onetoone_forms, errors_bool=errors_bool
+            form=form, onetoone_forms=onetoone_forms, errors_bool=errors_bool
         )
         if errors_bool:
             return super().render_errors(

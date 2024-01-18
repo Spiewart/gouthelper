@@ -4,8 +4,10 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.models import AnonymousUser  # type: ignore
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet  # type: ignore
 from django.forms import model_to_dict  # type: ignore
+from django.http import Http404  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -36,16 +38,27 @@ from ...medhistorys.forms import (
     StrokeForm,
 )
 from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Menopause, Pvd, Stroke
+from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, MedHistory, Menopause, Pvd, Stroke
 from ...medhistorys.tests.factories import AnginaFactory, ChfFactory, GoutFactory, MenopauseFactory
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientFactory, PseudopatientPlusFactory
+from ...users.tests.factories import AdminFactory, PseudopatientFactory, PseudopatientPlusFactory, UserFactory
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
-from ..views import FlareAbout, FlareBase, FlareCreate, FlareDetail, FlarePseudopatientCreate, FlareUpdate
-from .factories import FlareFactory
+from ..selectors import flare_user_qs, user_flares
+from ..views import (
+    FlareAbout,
+    FlareBase,
+    FlareCreate,
+    FlareDetail,
+    FlarePseudopatientCreate,
+    FlarePseudopatientDetail,
+    FlarePseudopatientList,
+    FlarePseudopatientUpdate,
+    FlareUpdate,
+)
+from .factories import FlareFactory, FlareUserFactory, create_flare_data
 
 User = get_user_model()
 
@@ -173,7 +186,6 @@ class TestFlareBase(TestCase):
     def test__post_process_urate_check(self):
         _, _, errors_bool = self.view.post_process_urate_check(
             self.form,
-            self.flare,
             self.onetoone_forms,
         )
         # Assert there are no errors on the urate form
@@ -188,7 +200,6 @@ class TestFlareBase(TestCase):
         self.onetoone_forms.update({"urate_form": new_urate_form})
         _, _, errors_bool = self.view.post_process_urate_check(
             self.form,
-            self.flare,
             self.onetoone_forms,
         )
         # Assert there are errors on the urate form
@@ -511,7 +522,7 @@ class TestFlareDetail(TestCase):
         self.assertIsNone(Flare.objects.get().prevalence)
 
 
-class TestFlarePatientCreate(TestCase):
+class TestFlarePseudopatientCreate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.view = FlarePseudopatientCreate
@@ -523,7 +534,7 @@ class TestFlarePatientCreate(TestCase):
 
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
-        empty_user = PseudopatientFactory(dateofbirth=None, gender=None)
+        empty_user = PseudopatientFactory(dateofbirth=False, gender=False)
         with self.assertRaises(AttributeError) as exc:
             self.view().check_user_onetoones(empty_user)
         self.assertEqual(
@@ -556,7 +567,7 @@ class TestFlarePatientCreate(TestCase):
         """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
         view when the user doesn't have the required 1to1 related models."""
         # Create empty user and test that the view redirects to the user update view
-        empty_user = PseudopatientFactory(dateofbirth=None)
+        empty_user = PseudopatientFactory(dateofbirth=False)
         self.client.force_login(empty_user)
         response = self.client.get(
             reverse("flares:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
@@ -668,7 +679,1434 @@ class TestFlarePatientCreate(TestCase):
             request.user = self.anon_user
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
-        print(response)
+        assert response.status_code == 200
+
+    def test__post_sets_object_user(self):
+        """Test that the post() method for the view sets the
+        user on the object."""
+        # Create some fake data for a User's FlareAid
+        data = create_flare_data(self.user)
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        assert Flare.objects.filter(user=self.user).exists()
+        flare = Flare.objects.last()
+        assert flare.user
+        assert flare.user == self.user
+
+    def test__post_creates_medhistorys(self):
+        self.assertFalse(MedHistory.objects.filter(user=self.psp).exists())
+        data = create_flare_data(self.psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CAD}-value": True,
+                f"{MedHistoryTypes.CHF}-value": True,
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        self.assertTrue(MedHistory.objects.filter(user=self.psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
+    def test__post_deletes_medhistorys(self):
+        """Test that the post() method for the view deletes
+        medhistorys that are not selected."""
+        # Create an empty pseudopatient without any medhistorys
+        psp = PseudopatientFactory()
+        self.assertFalse(MedHistory.objects.filter(user=psp).exists())
+        # Create some fake data for a User's FlareAid
+        data = create_flare_data(psp)
+        # Add some medhistorys to the data
+        data.update(
+            {
+                f"{MedHistoryTypes.CAD}-value": True,
+                f"{MedHistoryTypes.CHF}-value": True,
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the medhistorys were created
+        self.assertTrue(MedHistory.objects.filter(user=psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
+    def test__post_unchanged_medhistorys(self):
+        """Test that post does not change medhistorys that are not changed
+        from their pre-post() values by the form."""
+        # Create an empty pseudopatient and then create some known medhistorys
+        psp = PseudopatientFactory()
+        AnginaFactory(user=psp)
+        ChfFactory(user=psp)
+        self.assertTrue(MedHistory.objects.filter(user=psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.ANGINA).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CHF).exists())
+        # Create some fake data for a User's FlareAid
+        data = create_flare_data(psp)
+        # Add the medhistorys to the data
+        data.update(
+            {
+                f"{MedHistoryTypes.ANGINA}-value": True,
+                f"{MedHistoryTypes.CHF}-value": True,
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the medhistorys were not changed
+        self.assertTrue(MedHistory.objects.filter(user=psp).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.ANGINA).exists())
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
+    def test__post_adds_urate(self):
+        """Test that the post() method creates a urate when provided the appropriate data
+        and that the urate is assigned to the flare onetoone urate field."""
+        data = create_flare_data(self.psp)
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        self.assertTrue(Urate.objects.filter(user=self.psp).exists())
+        flare = Flare.objects.get()
+        urate = Urate.objects.get()
+        self.assertEqual(urate, flare.urate)
+
+    def test__post_returns_errors(self):
+        """Test that the post() method returns the correct errors when the data is invalid."""
+        # Create some fake data and update it to have a urate_check but no urate-value
+        data = create_flare_data(self.psp)
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": "",
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        tests_print_response_form_errors(response)
+        # Assert that the form has an error on the urate_check field
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertEqual(
+            response.context_data["form"].errors["urate_check"][0], "If urate was checked, we should know it!"
+        )
+        # Assert that the urate_form has an error on the value field
+        self.assertTrue(response.context_data["urate_form"].errors)
+        self.assertEqual(
+            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+        )
+        # Change the fake data such that the urate stuff passes but that diagnosed is True but aspiration is
+        # not selected, which should result in an error on the aspiration field
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+                "diagnosed": True,
+                "aspiration": "",
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        assert response.status_code == 200
+        tests_print_response_form_errors(response)
+        # Assert that the form has an error on the aspiration field
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertEqual(
+            response.context_data["form"].errors["aspiration"][0],
+            "Joint aspiration must be selected if a clinician diagnosed the flare.",
+        )
+
+    def test__post_returns_high_likelihood_prevalence_flare(self):
+        """Test that a flare is created with a high likelihood and prevalence when the
+        data indicates a high likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects to facilitate high likelihood/prevalence
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 64)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.MALE
+        self.psp.gender.save()
+        # Create a fake data dict
+        data = create_flare_data(self.psp)
+        # Modify data entries to indicate a high likelihood and prevalence flare
+        data.update(
+            {
+                "onset": True,
+                "redness": True,
+                "joints": [LimitedJointChoices.MTP1L, LimitedJointChoices.MTP1R],
+                "urate_check": True,
+                "urate-value": Decimal("9.0"),
+                "diagnosed": True,
+                "aspiration": True,
+                "crystal_analysis": True,
+                "date_started": timezone.now().date() - timedelta(days=35),
+                "date_ended": timezone.now().date() - timedelta(days=25),
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the flare was created
+        self.assertTrue(Flare.objects.filter(user=self.psp).exists())
+        flare = Flare.objects.get()
+        # Assert that the flare has a high likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.LIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.HIGH)
+
+    def test__post_returns_moderate_likelihood_prevalence_flare(self):
+        """Test that a flare is created with a moderate likelihood and prevalence when the
+        data indicates a moderate likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects for consistency between test runs
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 64)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.MALE
+        self.psp.gender.save()
+        # Create a fake data dict
+        data = create_flare_data(self.psp)
+        # Modify data entries to indicate a moderate likelihood and prevalence flare
+        data.update(
+            {
+                "onset": True,
+                "redness": False,
+                "joints": [LimitedJointChoices.KNEER],
+                "date_started": timezone.now().date() - timedelta(days=7),
+                "date_ended": "",
+                "urate_check": True,
+                "urate-value": Decimal("7.0"),
+                "diagnosed": True,
+                "aspiration": False,
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the flare was created
+        self.assertTrue(Flare.objects.filter(user=self.psp).exists())
+        flare = Flare.objects.get()
+        # Assert that the flare has a moderate likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
+        self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
+
+    def test__post_returns_low_likelihood_prevalence_flare(self):
+        """Test that a flare is created with a low likelihood and prevalence when the
+        data indicates a low likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects to facilitate low likelihood/prevalence
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 24)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.FEMALE
+        self.psp.gender.save()
+        # Create a fake data dict
+        data = create_flare_data(self.psp)
+        # Modify data entries to indicate a low likelihood and prevalence flare
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": False,
+                "onset": False,
+                "redness": False,
+                "joints": [LimitedJointChoices.HIPL],
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+                "diagnosed": False,
+                "aspiration": "",
+                "crystal_analysis": "",
+                "date_started": timezone.now().date() - timedelta(days=135),
+                "date_ended": timezone.now().date() - timedelta(days=5),
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the flare was created
+        self.assertTrue(Flare.objects.filter(user=self.psp).exists())
+        flare = Flare.objects.get()
+        # Assert that the flare has a low likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.LOW)
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient
+        provider = UserFactory()
+        prov_psp = PseudopatientFactory(provider=provider)
+        prov_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
+        next_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={next_url}"
+        admin = AdminFactory()
+        admin_psp = PseudopatientFactory(provider=admin)
+        admin_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
+        redirect_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        # Create an anonymous Pseudopatient
+        anon_psp = PseudopatientFactory()
+        anon_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": anon_psp.username})
+        # Test that an anonymous user who is not logged in can't see any Pseudopatient
+        # with a provider but can see the anonymous Pseudopatient
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can access the view for his or her own Pseudopatient
+        self.client.force_login(provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can access the view for his or her own Pseudopatient
+        self.client.force_login(admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+
+
+class TestFlarePseudopatientDetail(TestCase):
+    """Test suite for the FlarePseudopatientDetail view."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = FlarePseudopatientDetail
+        self.anon_user = AnonymousUser()
+        self.psp = PseudopatientPlusFactory()
+        for psp in Pseudopatient.objects.all():
+            FlareUserFactory(user=psp)
+        self.empty_psp = PseudopatientPlusFactory()
+
+    def test__assign_flare_attrs_from_user(self):
+        """Test that the assign_flareaid_attrs_from_user() method for the view
+        transfers attributes from the QuerySet, which started with a User,
+        to the FlareAid object."""
+        flare = Flare.objects.filter(user=self.psp).last()
+        view = self.view()
+        request = self.factory.get("/fake-url/")
+        view.setup(request, username=self.psp.username)
+        assert not getattr(flare, "dateofbirth")
+        assert not getattr(flare, "gender")
+        assert not hasattr(flare, "medhistorys_qs")
+        view.assign_flare_attrs_from_user(flare=flare, user=flare_user_qs(self.psp.username, flare.pk).get())
+        assert getattr(flare, "dateofbirth") == self.psp.dateofbirth
+        assert getattr(flare, "gender") == self.psp.gender
+        assert hasattr(flare, "medhistorys_qs")
+
+    def test__dispatch(self):
+        """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
+        view when the user doesn't have the required 1to1 related models."""
+        response = self.client.get(
+            reverse(
+                "flares:pseudopatient-detail",
+                kwargs={"username": self.psp.username, "pk": self.psp.flare_set.first().pk},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+
+        self.psp.dateofbirth.delete()
+        # Test that dispatch redirects to the User Update view when the user doesn't have a dateofbirth
+        self.assertRedirects(
+            self.client.get(
+                reverse(
+                    "flares:pseudopatient-detail",
+                    kwargs={"username": self.psp.username, "pk": self.psp.flare_set.first().pk},
+                ),
+            ),
+            reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}),
+        )
+
+    def test__dispatch_sets_object_attr(self):
+        """Test that dispatch calls get_object() and sets the object attr on the view."""
+        flare = self.psp.flare_set.first()
+        request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=flare.pk)
+        view.dispatch(request)
+        assert hasattr(view, "object")
+        assert view.object == flare
+
+    def test__get_object_sets_user(self):
+        """Test that the get_object() method sets the user attribute."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.get_object()
+        assert hasattr(view, "user")
+        assert view.user == self.psp
+
+    def test__get_object_assigns_user_qs_attrs_to_flare(self):
+        """Test that the get_object method transfers required attributes from the
+        User QuerySet to the Flare object."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        flare = view.get_object()
+        assert hasattr(flare, "dateofbirth")
+        assert getattr(flare, "dateofbirth") == view.user.dateofbirth
+        assert hasattr(flare, "gender")
+        assert getattr(flare, "gender") == view.user.gender
+        assert hasattr(flare, "medhistorys_qs")
+        assert getattr(flare, "medhistorys_qs") == view.user.medhistorys_qs
+
+    def test__get_object_raises_404s(self):
+        """Test that get_object() raises a 404 if the User or the Flare doesn't exist."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.kwargs["username"] = "fake-username"
+        with self.assertRaises(Http404):
+            view.get_object()
+        view.kwargs["username"] = self.psp.username
+        view.kwargs["pk"] = 999
+        with self.assertRaises(Http404):
+            view.get_object()
+
+    def test__get_object(self):
+        """Test that the get_object() method returns the Flare object."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        flare = view.get_object()
+        assert isinstance(flare, Flare)
+        assert flare == self.psp.flare_set.first()
+
+    def test__get_permission_object(self):
+        """Test that the get_permission_object() method returns the
+        view's object, which must have already been set."""
+        request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.dispatch(request, username=self.psp.username)
+        pm_obj = view.get_permission_object()
+        assert pm_obj == view.object
+
+    def test__get_queryset(self):
+        """Test the get_queryset() method for the view."""
+        # Get a flare
+        flare = self.psp.flare_set.first()
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.psp.username, pk=flare.pk)
+        with self.assertNumQueries(3):
+            qs = view.get_queryset().get()
+            assert getattr(qs, "flare_qs") == [flare]
+        assert qs == self.psp
+        assert hasattr(qs, "flare_qs") and qs.flare_qs[0] == flare
+        assert hasattr(qs, "dateofbirth") and qs.dateofbirth == self.psp.dateofbirth
+        assert hasattr(qs, "gender") and qs.gender == self.psp.gender
+        assert hasattr(qs, "medhistorys_qs")
+        psp_mhs = self.psp.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS).all()
+        for mh in qs.medhistorys_qs:
+            assert mh in psp_mhs
+
+    def test__get_updates_Flare(self):
+        """Test that the get method updates the object when called with the
+        correct url parameters."""
+        psp = PseudopatientFactory(gender=Genders.FEMALE, dateofbirth=timezone.now().date() - timedelta(days=365 * 24))
+        # Create a Flare for the Pseudopatient
+        flare = FlareUserFactory(
+            user=psp,
+            onset=False,
+            redness=False,
+            joints=[LimitedJointChoices.HIPL],
+            date_started=timezone.now().date() - timedelta(days=135),
+            date_ended=timezone.now().date() - timedelta(days=5),
+            diagnosed=False,
+        )
+        flare.update(qs=flare_user_qs(psp.username, flare.pk))
+        flare.refresh_from_db()
+        self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.LOW)
+        # Modify the flare to have a high likelihood and prevalence
+        flare.onset = True
+        flare.redness = True
+        flare.joints = [LimitedJointChoices.MTP1L, LimitedJointChoices.MTP1R]
+        flare.urate = UrateFactory(user=psp, value=Decimal("9.0"))
+        flare.diagnosed = True
+        flare.crystal_analysis = True
+        flare.date_started = timezone.now().date() - timedelta(days=35)
+        flare.date_ended = timezone.now().date() - timedelta(days=25)
+        flare.save()
+        psp.gender.value = Genders.MALE
+        psp.gender.save()
+        self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.LOW)
+        # Call the view with the ?updated=True query parameter to test that it doesn't update the Flare
+        self.client.get(
+            reverse("flares:pseudopatient-detail", kwargs={"username": psp.username, "pk": flare.pk}) + "?updated=True"
+        )
+        flare.refresh_from_db()
+        # Assert that the flare has an unchanged likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.LOW)
+        # Call the view with the ?updated=True query parameter to test that it updates the Flare
+        self.client.get(reverse("flares:pseudopatient-detail", kwargs={"username": psp.username, "pk": flare.pk}))
+        flare.refresh_from_db()
+        # Assert that the flare has an updated likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.LIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.HIGH)
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient + Flare
+        provider = UserFactory()
+        prov_psp = PseudopatientFactory(provider=provider)
+        prov_psp_flare = FlareUserFactory(user=prov_psp)
+        prov_psp_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+        )
+        redirect_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+        )
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        admin = AdminFactory()
+        admin_psp = PseudopatientFactory(provider=admin)
+        admin_psp_flare = FlareUserFactory(user=admin_psp)
+        admin_psp_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+        )
+        redirect_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+        )
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        # Create an anonymous Pseudopatient + Flare
+        anon_psp = PseudopatientFactory()
+        anon_psp_flare = FlareUserFactory(user=anon_psp)
+        anon_psp_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": anon_psp.username, "pk": anon_psp_flare.pk}
+        )
+        # Test that an anonymous user who is not logged in can't see any Pseudopatient
+        # with a provider but can see the anonymous Pseudopatient
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can access the view for his or her own Pseudopatient
+        self.client.force_login(provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can access the view for his or her own Pseudopatient
+        self.client.force_login(admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+
+
+class TestFlarePseudopatientList(TestCase):
+    """Tests for the FlarePseudopatientList view."""
+
+    def setUp(self):
+        self.provider = UserFactory()
+        self.admin = AdminFactory()
+        self.anon_user = AnonymousUser()
+        self.psp = PseudopatientPlusFactory(provider=self.provider)
+        for _ in range(5):
+            FlareUserFactory(user=self.psp)
+        self.anon_psp = PseudopatientPlusFactory()
+        for _ in range(5):
+            FlareUserFactory(user=self.anon_psp)
+        self.empty_psp = PseudopatientPlusFactory()
+        self.view = FlarePseudopatientList
+
+    def test__dispatch(self):
+        """Test that dispatch sets the userattr on the view."""
+        # Create a fake request
+        request = RequestFactory().get("/fake-url/")
+        request.user = self.provider
+        # Create a view
+        view = self.view()
+        kwargs = {"username": self.psp.username}
+        # Setup the view
+        view.setup(request, **kwargs)
+        # Call dispatch
+        view.dispatch(request, **kwargs)
+        # Assert that the view has a user and object_list attr
+        assert hasattr(view, "user")
+        assert hasattr(view, "object_list")
+        # Assert that the user is the Pseudopatient
+        assert view.user == self.psp
+
+    def test__get(self):
+        """Test the get() method for the view."""
+        # Create a fake request
+        request = RequestFactory().get("/fake-url/")
+        request.user = self.provider
+        # Create a view
+        view = self.view()
+        # Set the user with the qs so that the related queries are populated on the user
+        view.user = user_flares(self.psp.username).get()
+        kwargs = {"username": self.psp.username}
+        # Setup the view
+        view.setup(request, **kwargs)
+        # Call the get() method
+        view.get(request, **kwargs)
+        # Assert that the object_list is the Pseudopatient's FlareAids
+        psp_flares = Flare.objects.filter(user=self.psp).select_related("urate").all()
+        for obj in view.object_list:
+            assert obj in psp_flares
+        for flare in psp_flares:
+            assert flare in view.object_list
+
+    def test__get_context_data(self):
+        """Test the get_context_data() method for the view."""
+        # Create a fake request
+        request = RequestFactory().get("/fake-url/")
+        request.user = self.provider
+        # Create a view
+        view = self.view()
+        # Set the user with the qs so that the related queries are populated on the user
+        view.user = user_flares(self.psp.username).get()
+        kwargs = {"username": self.psp.username}
+        # Setup the view
+        view.setup(request, **kwargs)
+        # Call the get_context_data() method
+        qs = user_flares(self.psp.username).get()
+        view.object_list = qs.flares_qs
+        context = view.get_context_data(**kwargs)
+        # Assert that the context has the correct keys
+        assert "patient" in context
+        assert "flares" in context
+        # Assert that the patient is the Pseudopatient
+        assert context["patient"] == self.psp
+        # Assert that the flares are the Pseudopatient's FlareAids
+        psp_flares = Flare.objects.filter(user=self.psp).select_related("urate").all()
+        for obj in context["flares"]:
+            assert obj in psp_flares
+        for flare in psp_flares:
+            assert flare in context["flares"]
+
+    def test__get_permission_object(self):
+        """Test that the get_permission_object() method returns the
+        view's object, which must have already been set."""
+        request = RequestFactory().get("/fake-url/")
+        request.user = self.anon_user
+        view = self.view()
+        view.setup(request, username=self.psp.username)
+        view.dispatch(request, username=self.psp.username)
+        pm_obj = view.get_permission_object()
+        assert pm_obj == view.user
+
+    def test__get_queryset(self):
+        """Test the get_queryset() method for the view."""
+        request = RequestFactory().get("/fake-url/")
+        request.user = self.anon_user
+        view = self.view()
+        view.setup(request, username=self.psp.username)
+        qs = view.get_queryset()
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertTrue(isinstance(qs, Pseudopatient))
+        self.assertEqual(qs, self.psp)
+        self.assertTrue(hasattr(qs, "flares_qs"))
+        self.assertTrue(hasattr(qs, "pseudopatientprofile"))
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient
+        provider = UserFactory()
+        prov_psp = PseudopatientFactory(provider=provider)
+        prov_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": prov_psp.username})
+        redirect_url = reverse("flares:pseudopatient-list", kwargs={"username": prov_psp.username})
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        admin = AdminFactory()
+        admin_psp = PseudopatientFactory(provider=admin)
+        admin_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": admin_psp.username})
+        redirect_url = reverse("flares:pseudopatient-list", kwargs={"username": admin_psp.username})
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
+        # Create an anonymous Pseudopatient
+        anon_psp = PseudopatientFactory()
+        anon_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": anon_psp.username})
+        # Test that an anonymous user who is not logged in can't see any Pseudopatient
+        # with a provider but can see the anonymous Pseudopatient
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 302
+        # Test that the Provider can access the view for his or her own Pseudopatient
+        self.client.force_login(provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 403
+        # Test that the Admin can access the view for his or her own Pseudopatient
+        self.client.force_login(admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 403
+
+
+class TestFlarePseudopatientUpdate(TestCase):
+    """Test suite for the FlarePatientUpdate view."""
+
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view = FlarePseudopatientUpdate
+        self.anon_user = AnonymousUser()
+        self.user = PseudopatientPlusFactory()
+        for _ in range(10):
+            PseudopatientPlusFactory()
+        self.psp = PseudopatientFactory()
+        for psp in Pseudopatient.objects.all():
+            FlareUserFactory(user=psp)
+
+    def test__check_user_onetoones(self):
+        """Tests that the view checks for the User's related models."""
+        empty_user = PseudopatientFactory(dateofbirth=False, gender=False)
+        with self.assertRaises(AttributeError) as exc:
+            self.view().check_user_onetoones(empty_user)
+        self.assertEqual(
+            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+        assert self.view().check_user_onetoones(self.user) is None
+
+    def test__ckddetail(self):
+        """Tests the ckddetail cached_property."""
+        self.assertFalse(self.view().ckddetail)
+
+    def test__dispatch(self):
+        """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
+        view when the user doesn't have the required 1to1 related models."""
+        # Create empty user and test that the view redirects to the user update view
+        empty_user = PseudopatientFactory(dateofbirth=False)
+        empty_user_Flare = FlareUserFactory(user=empty_user)
+        self.client.force_login(empty_user)
+        response = self.client.get(
+            reverse(
+                "flares:pseudopatient-update", kwargs={"username": empty_user.username, "pk": empty_user_Flare.pk}
+            ),
+            follow=True,
+        )
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        message = list(response.context.get("messages"))[0]
+        self.assertEqual(message.tags, "error")
+        self.assertEqual(
+            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
+        )
+
+    def test__goutdetail(self):
+        """Tests the goutdetail cached_property."""
+        self.assertFalse(self.view().goutdetail)
+
+    def test__get_context_data(self):
+        """Test that the non-onetoone and non-medhistory context data is correct."""
+        for user in Pseudopatient.objects.all():
+            flare = user.flare_set.first()
+            request = self.factory.get("/fake-url/")
+            if user.profile.provider:
+                request.user = user.profile.provider
+            else:
+                request.user = self.anon_user
+            kwargs = {"username": user.username, "pk": flare.pk}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            assert "flare" in response.context_data
+            assert response.context_data["flare"] == flare
+            assert "form" in response.context_data
+            assert response.context_data["form"].instance == flare
+            assert response.context_data["form"].instance._state.adding is False
+            assert response.context_data["form"].initial == {
+                "onset": flare.onset,
+                "redness": flare.redness,
+                "joints": flare.joints,
+                "urate_check": True if flare.urate else False,
+                "diagnosed": flare.diagnosed,
+                "aspiration": True if flare.crystal_analysis is not None else False if flare.diagnosed else None,
+                "crystal_analysis": flare.crystal_analysis,
+                "date_started": flare.date_started,
+                "date_ended": flare.date_ended,
+            }
+            assert (
+                response.context_data["urate_form"].initial == {"value": flare.urate.value}
+                if flare.urate
+                else {"value": None}
+            )
+            assert "patient" in response.context_data
+            assert response.context_data["patient"] == user
+
+    def test__get_context_data_onetoones(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.prefetch_related("flare_set").all():
+            flare = user.flare_set.first()
+            request = self.factory.get("/fake-url/")
+            if user.profile.provider:
+                request.user = user.profile.provider
+            else:
+                request.user = self.anon_user
+            kwargs = {"username": user.username, "pk": flare.pk}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            assert "age" in response.context_data
+            assert response.context_data["age"] == age_calc(user.dateofbirth.value)
+            assert "gender" in response.context_data
+            assert response.context_data["gender"] == user.gender.value
+            assert "urate_form" in response.context_data
+            if flare.urate:
+                assert response.context_data["urate_form"].instance == flare.urate
+                assert response.context_data["urate_form"].instance._state.adding is False
+                assert response.context_data["urate_form"].initial == {"value": flare.urate.value}
+            else:
+                assert response.context_data["urate_form"].instance._state.adding is True
+                assert response.context_data["urate_form"].initial == {"value": None}
+
+    def test__get_context_data_medhistorys(self):
+        """Test that the context data includes the user's
+        related models."""
+        for user in Pseudopatient.objects.all():
+            flare = user.flare_set.first()
+            request = self.factory.get("/fake-url/")
+            if user.profile.provider:
+                request.user = user.profile.provider
+            else:
+                request.user = self.anon_user
+            kwargs = {"username": user.username, "pk": flare.pk}
+            response = self.view.as_view()(request, **kwargs)
+            assert response.status_code == 200
+            for mh in user.medhistory_set.all():
+                if mh.medhistorytype in FLARE_MEDHISTORYS:
+                    if (
+                        not mh.medhistorytype == MedHistoryTypes.MENOPAUSE
+                        and not mh.medhistorytype == MedHistoryTypes.GOUT
+                    ):
+                        assert f"{mh.medhistorytype}_form" in response.context_data
+                        assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
+                        assert response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding is False
+                        assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
+                            f"{mh.medhistorytype}-value": True
+                        }
+                else:
+                    assert f"{mh.medhistorytype}_form" not in response.context_data
+            for mhtype in FLARE_MEDHISTORYS:
+                if mhtype == MedHistoryTypes.MENOPAUSE or mhtype == MedHistoryTypes.GOUT:
+                    assert f"{mhtype}_form" not in response.context_data
+                else:
+                    assert f"{mhtype}_form" in response.context_data
+                    if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
+                        assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
+                        if mhtype == MedHistoryTypes.MENOPAUSE:
+                            if user.gender.value == Genders.FEMALE:
+                                age = age_calc(user.dateofbirth.value)
+                                if age >= 60:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": True}
+                                elif age >= 40 and age < 60:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {
+                                        f"{mhtype}-value": False
+                                    }
+                                else:
+                                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
+            assert "ckddetail_form" not in response.context_data
+            assert "goutdetail_form" not in response.context_data
+
+    def test__get_form_kwargs(self):
+        # Create a fake request
+        request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
+        view = self.view(request=request)
+        # Create kwargs for view
+        kwargs = {"username": self.user.username, "pk": self.user.flare_set.first().pk}
+        # Setup the view
+        view.setup(request, **kwargs)
+        # Set the object on the view
+        view.object = view.get_object()
+        # Delete the user attr on the view because it will be set by the get_object() method
+        # and is checked for with hasattr(), which will return True even if it is None
+        delattr(view, "user")
+        # Get the form kwargs
+        form_kwargs = view.get_form_kwargs()
+        # Test form kwargs are correct
+        self.assertNotIn("patient", form_kwargs)
+        # Add add user attr to view, which should result in "patient" being added to form_kwargs
+        view.user = self.anon_user
+        form_kwargs = view.get_form_kwargs()
+        self.assertIn("patient", form_kwargs)
+        self.assertEqual(form_kwargs["patient"], True)
+
+    def test__get_initial(self):
+        """Test the get_initial() method for the view."""
+        # Iterate over all the flares with a user attr
+        for flare in Flare.objects.filter(Q(user__isnull=False)).all():
+            # Create a fake request
+            request = self.factory.get("/fake-url/")
+            request.user = self.anon_user
+            # Create a fake kwargs dict
+            kwargs = {"username": flare.user.username, "pk": flare.pk}
+            # Create the view
+            view = self.view(request=request)
+            # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+            view.setup(request, **kwargs)
+            view.object = view.get_object()
+            # Get the initial data
+            initial = view.get_initial()
+            # Assert that the initial data is a dict
+            self.assertTrue(isinstance(initial, dict))
+            # Assert that the initial data has the correct key/val pairs
+            if flare.crystal_analysis:
+                self.assertEqual(initial["aspiration"], True)
+            elif flare.diagnosed:
+                self.assertEqual(initial["aspiration"], False)
+            else:
+                self.assertEqual(initial["aspiration"], None)
+            if flare.urate:
+                self.assertEqual(initial["urate_check"], True)
+            else:
+                self.assertEqual(initial["urate_check"], False)
+
+    def test__get_object(self):
+        flareless_user = PseudopatientFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
+        kwargs = {"username": flareless_user.username, "pk": 1}
+        view = self.view(request=request)
+        view.setup(request, **kwargs)
+        with self.assertRaises(ObjectDoesNotExist):
+            view.get_object()
+        # Create a flare for the user
+        flare = FlareUserFactory(user=flareless_user)
+        kwargs = {"username": flareless_user.username, "pk": flare.pk}
+        view = self.view(request=request)
+        view.setup(request, **kwargs)
+        view.object = view.get_object()
+        self.assertTrue(isinstance(view.object, Flare))
+        self.assertEqual(view.object.user, flareless_user)
+
+    def test__get_permission_object(self):
+        """Test the get_permission_object() method for the view."""
+        request = self.factory.get("/fake-url/")
+        request.user = self.user
+        flare = self.user.flare_set.first()
+        kwargs = {"username": self.user.username, "pk": flare.pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        view.object = view.get_object()
+        permission_object = view.get_permission_object()
+        self.assertEqual(permission_object, flare)
+
+    def test__get_user_queryset(self):
+        """Test the get_user_queryset() method for the view."""
+        # Set a flare var and add a Urate to it for consistency
+        flare = self.user.flare_set.first()
+        flare.urate = UrateFactory(user=self.user)
+        flare.save()
+        request = self.factory.get("/fake-url/")
+        kwargs = {"username": self.user.username, "pk": self.user.flare_set.first().pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["username"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        with self.assertNumQueries(3):
+            qs = qs.get()
+            self.assertTrue(isinstance(qs, User))
+            self.assertTrue(hasattr(qs, "flare_qs"))
+            self.assertTrue(isinstance(qs.flare_qs, list))
+            self.assertEqual(qs.flare_qs[0], flare)
+            self.assertTrue(hasattr(qs.flare_qs[0], "urate"))
+            self.assertTrue(isinstance(qs.flare_qs[0].urate, Urate))
+            self.assertEqual(qs.flare_qs[0].urate, flare.urate)
+            self.assertTrue(hasattr(qs, "medhistorys_qs"))
+            self.assertTrue(hasattr(qs, "dateofbirth"))
+            self.assertTrue(hasattr(qs, "gender"))
+
+    def test__post_populate_onetoone_forms(self):
+        """Test the post_populate_onetoone_forms() method for the view."""
+        # Iterate over the Pseudopatients
+        for user in Pseudopatient.objects.all():
+            # Fetch the Flare, each User will only have 1
+            flare = user.flare_set.first()
+            # Create a fake POST request
+            request = self.factory.post("/fake-url/")
+            # Call the view and get the object
+            view = self.view()
+            view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.object = view.get_object()
+            # Create a onetoone_forms dict with the method for testing against
+            onetoone_forms = view.post_populate_onetoone_forms(
+                onetoones=view.onetoones,
+                request=request,
+                user=user,
+            )
+            for onetoone, modelform_dict in view.onetoones.items():
+                # Assert that the onetoone_forms dict has the correct keys
+                self.assertIn(f"{onetoone}_form", onetoone_forms)
+                # Assert that the onetoone_forms dict has the correct values
+                self.assertTrue(isinstance(onetoone_forms[f"{onetoone}_form"], modelform_dict["form"]))
+                # Assert that the onetoone_forms dict has the correct initial data
+                self.assertEqual(
+                    onetoone_forms[f"{onetoone}_form"].initial,
+                    {"value": getattr(user, onetoone, None).value}
+                    if onetoone != "urate"
+                    else {"value": getattr(view.object, onetoone, None).value},
+                )
+
+    def test__post_process_onetoone_forms(self):
+        """Test the post_process_onetoone_forms() method for the view."""
+        # Iterate over the Pseudopatients
+        for user in Pseudopatient.objects.all():
+            # Fetch the Flare, each User will only have 1
+            flare = user.flare_set.first()
+            # Create a fake POST request
+            request = self.factory.post("/fake-url/")
+            # Call the view and get the object
+            view = self.view()
+            view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.object = view.get_object()
+            # Create a onetoone_forms dict with the method for testing against
+            onetoone_forms = view.post_populate_onetoone_forms(
+                onetoones=view.onetoones,
+                request=request,
+                user=user,
+            )
+            # Create some fake flare data
+            data = create_flare_data(user=user, flare=flare)
+            # Iterate over the onetoone_forms and update the data with the fake data
+            for onetoone, form in onetoone_forms.items():
+                # Get the onetoone name str
+                onetoone = onetoone.split("_")[0]
+                form.data._mutable = True
+                form.data[f"{onetoone}-value"] = data.get(f"{onetoone}-value", "")
+                form.is_valid()
+            # Call the post_process_onetoone_forms() method and assign to new lists
+            # of onetoones to save and delete to test against
+            onetoones_to_save, onetoones_to_delete = view.post_process_onetoone_forms(
+                onetoone_forms=onetoone_forms,
+                req_onetoones=view.req_onetoones,
+                user=user,
+            )
+            # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
+            for onetoone in view.onetoones:
+                initial = onetoone_forms[f"{onetoone}_form"].initial["value"]
+                data_val = data.get(f"{onetoone}-value", "")
+                # Check if there was no pre-existing onetoone and there is no data to create a new one
+                if not initial and data_val == (None or ""):
+                    # Should not be marked for save or deletion
+                    assert not next(iter(onetoone for onetoone in onetoones_to_save), None) and not next(
+                        iter(onetoone for onetoone in onetoones_to_delete), None
+                    )
+                # If there was no pre-existing onetoone but there is data to create a new one
+                elif not initial and data_val != (None or ""):
+                    # Should be marked for save and not deletion
+                    assert next(iter(onetoone for onetoone in onetoones_to_save)) and not next(
+                        iter(onetoone for onetoone in onetoones_to_delete), None
+                    )
+                # If there was a pre-existing onetoone but the data is not present in the POST data
+                elif initial and data_val == (None or ""):
+                    # Should be marked for deletion and not save
+                    assert not next(iter(onetoone for onetoone in onetoones_to_save), None) and next(
+                        iter(onetoone for onetoone in onetoones_to_delete)
+                    )
+                # If there is a pre-existing object and there is data in the POST request
+                elif initial and data_val != (None or ""):
+                    # If the data changed, the object should be marked for saving
+                    if initial != data_val:
+                        assert next(iter(onetoone for onetoone in onetoones_to_save)) and not next(
+                            iter(onetoone for onetoone in onetoones_to_delete), None
+                        )
+                    # Otherwise it should not be marked for saving or
+                    # deletion and the form's changed_data dict should be empty
+                    else:
+                        assert (
+                            not next(iter(onetoone for onetoone in onetoones_to_save), None)
+                            and not next(iter(onetoone for onetoone in onetoones_to_delete), None)
+                            and not onetoone_forms[f"{onetoone}_form"].changed_data
+                        )
+                        assert onetoone_forms[f"{onetoone}_form"].changed_data == []
+
+    def test__post(self):
+        """Test the post() method for the view."""
+        request = self.factory.post("/fake-url/")
+        if self.user.profile.provider:  # type: ignore
+            request.user = self.user.profile.provider  # type: ignore
+        else:
+            request.user = self.anon_user
+        flare = self.user.flare_set.first()
+        kwargs = {"username": self.user.username, "pk": flare.pk}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+
+    def test__post_updates_medhistorys(self):
+        """Test that the post() method updates the user's medhistorys
+        correctly."""
+        # Iterate over the Pseudopatients
+        for user in Pseudopatient.objects.all():
+            # Copy the user's medhistorys to a list
+            medhistorys = list(user.medhistory_set.all())
+            # Fetch the Flare, each User will only have 1
+            flare = user.flare_set.first()
+            # Create some fake flare data
+            data = create_flare_data(user=user, flare=flare)
+            # Call the view
+            response = self.client.post(
+                reverse("flares:pseudopatient-update", kwargs={"username": user.username, "pk": flare.pk}), data=data
+            )
+            assert response.status_code == 302
+            # Assert that the medhistorys were updated correctly
+            for mh in medhistorys:
+                val = data.get(f"{mh.medhistorytype}-value", None)
+                if (
+                    mh.medhistorytype in FLARE_MEDHISTORYS
+                    and (val is False or val is None or val == "")
+                    # Need to exclude GOUT and MENOPAUSE because they aren't in the form for modification
+                    and mh.medhistorytype != MedHistoryTypes.MENOPAUSE
+                    and mh.medhistorytype != MedHistoryTypes.GOUT
+                ):
+                    self.assertFalse(user.medhistory_set.filter(medhistorytype=mh.medhistorytype).exists())
+                else:
+                    self.assertTrue(user.medhistory_set.filter(medhistorytype=mh.medhistorytype).exists())
+            # Iterate over the data for medhistory values and make sure they were created
+            for key, val in data.items():
+                mh = key.split("-")[0]
+                if mh in FLARE_MEDHISTORYS and (val is not False and val is not None and val != ""):
+                    self.assertTrue(MedHistory.objects.filter(medhistorytype=mh, user=user).exists())
+
+    def test__post_creates_urate(self):
+        """Test that the post() method creates a urate when provided the appropriate data."""
+        # Create a flare with a user and no urate
+        flare = FlareUserFactory(user=self.user, urate=None)
+        # Create some fake flare data
+        data = create_flare_data(user=self.user, flare=flare)
+        # Add the urate data
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+            }
+        )
+        # Call the view
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the urate was created
+        flare.refresh_from_db()
+        self.assertTrue(getattr(flare, "urate", None))
+        urate = flare.urate
+        self.assertEqual(urate.value, Decimal("5.0"))
+        self.assertEqual(flare.urate.user, self.user)
+
+    def test__post_updates_urate(self):
+        # Create a flare with a user and a urate
+        flare = FlareUserFactory(user=self.user, urate=UrateFactory(user=self.user, value=Decimal("5.0")))
+        # Create some fake flare data
+        data = create_flare_data(user=self.user, flare=flare)
+        # Add the urate data
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": Decimal("6.0"),
+            }
+        )
+        # Call the view
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the urate was updated
+        flare.refresh_from_db()
+        self.assertTrue(getattr(flare, "urate", None))
+        urate = flare.urate
+        self.assertEqual(urate.value, Decimal("6.0"))
+
+    def test__post_deletes_urate(self):
+        """Test that the post() method deletes a urate when provided the appropriate data."""
+        urate = UrateFactory(user=self.user, value=Decimal("5.0"))
+        # Create a flare with a user and a urate
+        flare = FlareUserFactory(user=self.user, urate=urate)
+        # Create some fake flare data
+        data = create_flare_data(user=self.user, flare=flare)
+        # Add the urate data
+        data.update(
+            {
+                "urate_check": False,
+                "urate-value": "",
+            }
+        )
+        # Call the view
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        # Assert that the urate was updated
+        flare.refresh_from_db()
+        self.assertIsNone(getattr(flare, "urate", None))
+        self.assertFalse(Urate.objects.filter(pk=urate.pk).exists())
+
+    def test__post_returns_errors(self):
+        """Test that the post() method returns the correct errors when the data is invalid."""
+        # Get a flare for the Pseudopatient
+        flare = self.psp.flare_set.first()
+        # Create some fake data and update it to have a urate_check but no urate-value
+        data = create_flare_data(self.psp)
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": "",
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+        )
+        assert response.status_code == 200
+        tests_print_response_form_errors(response)
+        # Assert that the form has an error on the urate_check field
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertEqual(
+            response.context_data["form"].errors["urate_check"][0], "If urate was checked, we should know it!"
+        )
+        # Assert that the urate_form has an error on the value field
+        self.assertTrue(response.context_data["urate_form"].errors)
+        self.assertEqual(
+            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+        )
+        # Change the fake data such that the urate stuff passes but that diagnosed is True but aspiration is
+        # not selected, which should result in an error on the aspiration field
+        data.update(
+            {
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+                "diagnosed": True,
+                "aspiration": "",
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+        )
+        assert response.status_code == 200
+        tests_print_response_form_errors(response)
+        # Assert that the form has an error on the aspiration field
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertEqual(
+            response.context_data["form"].errors["aspiration"][0],
+            "Joint aspiration must be selected if a clinician diagnosed the flare.",
+        )
+
+    def test__post_returns_high_likelihood_prevalence_flare(self):
+        """Test that a flare is updated with a high likelihood and prevalence when the
+        data indicates a high likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects to facilitate high likelihood/prevalence
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 64)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.MALE
+        self.psp.gender.save()
+        flare = Flare.objects.filter(user=self.psp).first()
+        # Create a fake data dict
+        data = create_flare_data(self.psp, flare=flare)
+        # Modify data entries to indicate a high likelihood and prevalence flare
+        data.update(
+            {
+                "onset": True,
+                "redness": True,
+                "joints": [LimitedJointChoices.MTP1L, LimitedJointChoices.MTP1R],
+                "urate_check": True,
+                "urate-value": Decimal("9.0"),
+                "diagnosed": True,
+                "aspiration": True,
+                "crystal_analysis": True,
+                "date_started": timezone.now().date() - timedelta(days=35),
+                "date_ended": timezone.now().date() - timedelta(days=25),
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        flare.refresh_from_db()
+        # Assert that the flare has a high likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.LIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.HIGH)
+
+    def test__post_returns_moderate_likelihood_prevalence_flare(self):
+        """Test that a flare is created with a moderate likelihood and prevalence when the
+        data indicates a moderate likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects for consistency between test runs
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 64)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.MALE
+        self.psp.gender.save()
+        # Get a flare for the Pseudopatient
+        flare = self.psp.flare_set.first()
+        # Create a fake data dict
+        data = create_flare_data(self.psp, flare)
+        # Modify data entries to indicate a moderate likelihood and prevalence flare
+        data.update(
+            {
+                "onset": True,
+                "redness": False,
+                "joints": [LimitedJointChoices.KNEER],
+                "date_started": timezone.now().date() - timedelta(days=7),
+                "date_ended": "",
+                "urate_check": True,
+                "urate-value": Decimal("7.0"),
+                "diagnosed": True,
+                "aspiration": False,
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        flare.refresh_from_db()
+        # Assert that the flare has a moderate likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
+        self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
+
+    def test__post_returns_low_likelihood_prevalence_flare(self):
+        """Test that a flare is created with a low likelihood and prevalence when the
+        data indicates a low likelihood and prevalence flare."""
+        # Modify Pseudopatient related demographic objects to facilitate low likelihood/prevalence
+        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 24)
+        self.psp.dateofbirth.save()
+        self.psp.gender.value = Genders.FEMALE
+        self.psp.gender.save()
+        # Get a flare for the Pseudopatient
+        flare = self.psp.flare_set.first()
+        # Create a fake data dict
+        data = create_flare_data(self.psp, flare)
+        # Modify data entries to indicate a low likelihood and prevalence flare
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": False,
+                "onset": False,
+                "redness": False,
+                "joints": [LimitedJointChoices.HIPL],
+                "urate_check": True,
+                "urate-value": Decimal("5.0"),
+                "diagnosed": False,
+                "aspiration": "",
+                "crystal_analysis": "",
+                "date_started": timezone.now().date() - timedelta(days=135),
+                "date_ended": timezone.now().date() - timedelta(days=5),
+            }
+        )
+        # Post the data
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        flare.refresh_from_db()
+        # Assert that the flare has a low likelihood and prevalence
+        self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
+        self.assertEqual(flare.prevalence, Prevalences.LOW)
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient + Flare
+        provider = UserFactory()
+        prov_psp = PseudopatientFactory(provider=provider)
+        prov_psp_flare = FlareUserFactory(user=prov_psp)
+        prov_psp_url = reverse(
+            "flares:pseudopatient-update", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+        )
+        prov_next_url = reverse(
+            "flares:pseudopatient-update", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+        )
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_next_url}"
+        admin = AdminFactory()
+        admin_psp = PseudopatientFactory(provider=admin)
+        admin_psp_flare = FlareUserFactory(user=admin_psp)
+        admin_psp_url = reverse(
+            "flares:pseudopatient-update", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+        )
+        admin_next_url = reverse(
+            "flares:pseudopatient-update", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+        )
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={admin_next_url}"
+        # Create an anonymous Pseudopatient + Flare
+        anon_psp = PseudopatientFactory()
+        anon_psp_flare = FlareUserFactory(user=anon_psp)
+        anon_psp_url = reverse(
+            "flares:pseudopatient-update", kwargs={"username": anon_psp.username, "pk": anon_psp_flare.pk}
+        )
+        # Test that an anonymous user who is not logged in can't see any Pseudopatient
+        # with a provider but can see the anonymous Pseudopatient
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can access the view for his or her own Pseudopatient
+        self.client.force_login(provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can access the view for his or her own Pseudopatient
+        self.client.force_login(admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can see an anonymous Pseudopatient
+        response = self.client.get(anon_psp_url)
         assert response.status_code == 200
 
 

@@ -263,8 +263,8 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
         return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
     def __str__(self):
-        return f"Baseline {getattr(self.LabTypes, self.labtype).label}: \
-{self.value.quantize(Decimal('1.00'))} {getattr(self.Units, self.units).label}"
+        return f"Baseline {self.get_labtype_display()}: \
+{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
 
 class Urate(Lab):
@@ -274,8 +274,8 @@ class Urate(Lab):
     objects = UrateManager()
 
     def __str__(self):
-        return f"{getattr(self.LabTypes, self.labtype).label}: \
-{self.value.quantize(Decimal('1.0'))} {getattr(self.Units, self.units).label}"
+        return f"{self.get_labtype_display()}: \
+{self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
 
     def get_medhistorytype(self) -> Literal[MedHistoryTypes.GOUT]:
         return MedHistoryTypes.GOUT

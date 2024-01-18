@@ -39,6 +39,14 @@ def flare_prefetch(pk: "UUID") -> Prefetch:
     )
 
 
+def flares_prefetch() -> Prefetch:
+    return Prefetch(
+        "flare_set",
+        queryset=apps.get_model("flares.Flare").objects.select_related("urate"),
+        to_attr="flares_qs",
+    )
+
+
 def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistorys",
@@ -69,5 +77,5 @@ def user_flares(username: str) -> "QuerySet":
     return (
         Pseudopatient.objects.filter(username=username)
         .select_related("pseudopatientprofile")
-        .prefetch_related("flare_set")
+        .prefetch_related(flares_prefetch())
     )

@@ -28,7 +28,8 @@ from ...medhistorys.tests.factories import (
 )
 from ...users.models import Pseudopatient
 from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
-from ..selectors import flare_user_qs, flare_userless_qs
+from ..models import Flare
+from ..selectors import flare_user_qs, flare_userless_qs, user_flares
 from .factories import FlareFactory, FlareUserFactory
 
 pytestmark = pytest.mark.django_db
@@ -123,7 +124,7 @@ class TestFlareUserQuerySet(TestCase):
     def setUp(self):
         self.user = UserFactory()
         for _ in range(5):
-            psp = PseudopatientPlusFactory(profile=self.user)
+            psp = PseudopatientPlusFactory(provider=self.user)
             FlareUserFactory(user=psp)
 
     def test__queryset_returns_correctly(self):
@@ -139,3 +140,40 @@ class TestFlareUserQuerySet(TestCase):
             for mh in psp.medhistory_set.all():
                 if mh in FLARE_MEDHISTORYS:
                     self.assertIn(mh, qs.medhistorys_qs)
+
+
+class TestUserFlaresQuerySet(TestCase):
+    """Test the user_flares() selector method."""
+
+    def setUp(self):
+        self.psp = PseudopatientPlusFactory()
+        for _ in range(5):
+            FlareUserFactory(user=self.psp)
+        self.empty_psp = PseudopatientPlusFactory()
+
+    def test__qs(self):
+        """Test that the queryset returns the correct objects and
+        number of queries."""
+        with CaptureQueriesContext(connection) as queries:
+            qs = user_flares(self.psp.username)
+            self.assertTrue(isinstance(qs, QuerySet))
+            qs = qs.get()
+        self.assertEqual(len(queries.captured_queries), 2)
+        self.assertTrue(isinstance(qs, Pseudopatient))
+        self.assertEqual(qs, self.psp)
+        self.assertTrue(hasattr(qs, "flares_qs"))
+        psp_flares = Flare.objects.filter(user=self.psp).all()
+        for flare in psp_flares:
+            assert flare in qs.flares_qs
+        for flare in qs.flares_qs:
+            assert flare in psp_flares
+        # Repeat for the empty Pseudopatient
+        with CaptureQueriesContext(connection) as queries:
+            qs = user_flares(self.empty_psp.username)
+            self.assertTrue(isinstance(qs, QuerySet))
+            qs = qs.get()
+        self.assertEqual(len(queries.captured_queries), 2)
+        self.assertTrue(isinstance(qs, Pseudopatient))
+        self.assertEqual(qs, self.empty_psp)
+        self.assertTrue(hasattr(qs, "flares_qs"))
+        self.assertFalse(getattr(qs, "flares_qs"))

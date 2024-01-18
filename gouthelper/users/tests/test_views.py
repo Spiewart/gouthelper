@@ -82,6 +82,17 @@ class TestPseudoPatientCreateView(TestCase):
         assert "gender_form" in response.context
         assert "goutdetail_form" in response.context
 
+    def test__get_permission_object(self):
+        """Test that the view's get_permission_object() method returns
+        the username kwarg.
+        """
+        view = PseudopatientCreateView()
+        request = self.rf.get("/fake-url/")
+        view.request = request
+        # Add the username kwarg
+        view.kwargs = {"username": self.provider.username}
+        assert view.get_permission_object() == self.provider.username
+
     def test__post_no_user(self):
         """Tests the post() method of the view."""
         data = {
@@ -117,6 +128,21 @@ class TestPseudoPatientCreateView(TestCase):
         assert gout.goutdetail.on_ult == data["on_ult"]
         # Assert that the Pseudopatient history was set correctly to track the creating User
         assert User.history.filter(username=pseudopatient.username).first().history_user is None
+        # Test that the view throws an error if a female between ages 40 and 60 doesn't have menopause data
+        data.update({"gender-value": Genders.FEMALE})
+        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        assert response.status_code == 200
+        assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"] == [
+            _(
+                "For females between ages 40 and 60, we need to know the patient's \
+menopause status to evaluate their flare."
+            )
+        ]
+        # Test that menopause is created
+        data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
+        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        assert response.status_code == 302
+        assert Pseudopatient.objects.last().menopause
 
     def test__post_with_provider_no_provider_kwarg(self):
         """Test that the view's post() method creates a Pseudopatient with
@@ -475,8 +501,8 @@ class TestPseudopatientUpdateView(TestCase):
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
         # Create a pseudopatient
-        self.psp = PseudopatientPlusFactory(profile=self.provider)
-        self.admin_psp = PseudopatientPlusFactory(profile=self.admin)
+        self.psp = PseudopatientPlusFactory(provider=self.provider)
+        self.admin_psp = PseudopatientPlusFactory(provider=self.admin)
         self.female = PseudopatientPlusFactory()
         self.female.dateofbirth.value = timezone.now() - timedelta(days=365 * 50)
         self.female.dateofbirth.save()
@@ -658,8 +684,8 @@ class TestUserDeleteView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, profile=self.provider)
-        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, profile=self.admin)
+        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, provider=self.provider)
+        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, provider=self.admin)
         self.anon_pseudopatient = PseudopatientFactory()
 
     def dummy_get_response(self, request: HttpRequest):

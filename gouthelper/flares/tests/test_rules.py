@@ -10,7 +10,7 @@ from .factories import FlareFactory, FlareUserFactory
 pytestmark = pytest.mark.django_db
 
 
-class TestCanChangeFlareAid(TestCase):
+class TestCanChangeFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
@@ -45,7 +45,7 @@ class TestCanChangeFlareAid(TestCase):
         assert not rules.test_rule("can_change_object", self.anon, self.admin_flare)
 
 
-class TestCanDeleteFlareAid(TestCase):
+class TestCanDeleteFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
@@ -80,7 +80,7 @@ class TestCanDeleteFlareAid(TestCase):
         assert not rules.test_rule("can_delete_object", self.anon, self.admin_flare)
 
 
-class TestCanViewFlareAid(TestCase):
+class TestCanViewFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
