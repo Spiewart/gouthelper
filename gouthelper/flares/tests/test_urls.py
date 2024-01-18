@@ -7,6 +7,7 @@ from ..views import (
     FlareCreate,
     FlareDetail,
     FlarePseudopatientCreate,
+    FlarePseudopatientDelete,
     FlarePseudopatientDetail,
     FlarePseudopatientList,
     FlarePseudopatientUpdate,
@@ -33,6 +34,11 @@ class FlaresURLsTest(TestCase):
         psp = PseudopatientFactory()
         url = reverse("flares:pseudopatient-create", kwargs={"username": psp.username})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientCreate)
+
+    def test_pseudopatient_delete_url_resolves(self):
+        flare = FlareUserFactory()
+        url = reverse("flares:pseudopatient-delete", kwargs={"username": flare.user.username, "pk": flare.pk})
+        self.assertEqual(resolve(url).func.view_class, FlarePseudopatientDelete)
 
     def test_pseudopatient_detail_url_resolves(self):
         flare = FlareUserFactory()

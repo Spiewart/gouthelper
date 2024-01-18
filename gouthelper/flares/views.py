@@ -8,7 +8,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.http import Http404, HttpResponseRedirect  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.views.generic import CreateView, DetailView, ListView, TemplateView, UpdateView  # type: ignore
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
 from ..contents.choices import Contexts
@@ -527,6 +527,48 @@ class FlarePseudopatientCreate(
                             setattr(user, object_attr, None)
                             onetoones_to_delete.append(to_delete)
         return onetoones_to_save, onetoones_to_delete
+
+
+class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView):
+    """View for deleting a Flare for a patient."""
+
+    model = Flare
+    success_message = "Flare successfully deleted."
+
+    def dispatch(self, request, *args, **kwargs):
+        # Set the user and object with get_object()
+        self.object = self.get_object()
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        """Overwritten to redirect appropriately."""
+        success_url = self.get_success_url()
+        self.object.delete()
+        return HttpResponseRedirect(success_url)
+
+    def get_object(self, *args, **kwargs) -> Flare:
+        """Overwritten to set the user attr on the view."""
+        try:
+            self.user: User = self.get_queryset().get()
+        except User.DoesNotExist as exc:
+            raise Http404(f"User with username {self.kwargs['username']} does not exist.") from exc
+        try:
+            flare: Flare = self.user.flare_qs[0]
+        except IndexError as exc:
+            raise Http404(f"Flare for {self.user} does not exist.") from exc
+        return flare
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_success_url(self) -> str:
+        return reverse("flares:pseudopatient-list", kwargs={"username": self.object.user.username})
+
+    def get_queryset(self) -> "QuerySet[Any]":
+        return flare_user_qs(
+            username=self.kwargs["username"],
+            flare_pk=self.kwargs["pk"],
+        )
 
 
 class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):

@@ -53,6 +53,7 @@ from ..views import (
     FlareCreate,
     FlareDetail,
     FlarePseudopatientCreate,
+    FlarePseudopatientDelete,
     FlarePseudopatientDetail,
     FlarePseudopatientList,
     FlarePseudopatientUpdate,
@@ -995,6 +996,146 @@ class TestFlarePseudopatientCreate(TestCase):
         # Test that the logged in Admin can see an anonymous Pseudopatient
         response = self.client.get(anon_psp_url)
         assert response.status_code == 200
+
+
+class TestFlarePseudopatientDelete(TestCase):
+    """Tests for the FlarePseudopatientDelete view."""
+
+    def setUp(self):
+        # Create a Provider and Admin, each with their own Pseudopatient and an
+        # anonymous Pseudopatient, each with a Flare
+        self.provider = UserFactory()
+        self.prov_psp = PseudopatientFactory(provider=self.provider)
+        self.prov_psp_flare = FlareUserFactory(user=self.prov_psp)
+        self.admin = AdminFactory()
+        self.admin_psp = PseudopatientFactory(provider=self.admin)
+        self.admin_psp_flare = FlareUserFactory(user=self.admin_psp)
+        self.anon_psp = PseudopatientFactory()
+        self.anon_psp_flare = FlareUserFactory(user=self.anon_psp)
+        self.factory = RequestFactory()
+        self.view = FlarePseudopatientDelete
+        self.anon_user = AnonymousUser()
+
+    def test__dispatch_sets_user_and_object_attrs(self):
+        """Test that the dispatch() method for the view sets the user and object attrs."""
+        request = self.factory.get("/fake-url/")
+        request.user = self.provider
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.dispatch(request)
+        assert hasattr(view, "user")
+        assert view.user == self.prov_psp
+        assert hasattr(view, "object")
+        assert view.object == self.prov_psp_flare
+
+    def test__get_object_sets_user_returns_object(self):
+        """Test that the get_object() method for the view sets the user attr and returns the object."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        flare = view.get_object()
+        assert hasattr(view, "user")
+        assert view.user == self.prov_psp
+        assert flare == self.prov_psp_flare
+
+    def test__get_object_raises_404(self):
+        """Test that the get_object() method for the view raises a 404 if the User or Flare doesn't exist."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.kwargs["username"] = "fake-username"
+        with self.assertRaises(Http404):
+            view.get_object()
+        view.kwargs["username"] = self.prov_psp.username
+        view.kwargs["pk"] = 999
+        with self.assertRaises(Http404):
+            view.get_object()
+
+    def test__get_permission_object(self):
+        """Test that the get_permission_object() method returns the
+        view's object, which must have already been set."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.object = self.prov_psp_flare
+        assert view.get_permission_object() == self.prov_psp_flare
+
+    def test__get_success_url(self):
+        """Test that the get_success_url() method returns the correct url."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.object = self.prov_psp_flare
+        assert view.get_success_url() == reverse(
+            "flares:pseudopatient-list", kwargs={"username": self.prov_psp.username}
+        )
+
+    def test__get_queryset(self):
+        """Test that the get_queryset() method returns the correct QuerySet."""
+        request = self.factory.get("/fake-url/")
+        view = self.view()
+        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        qs = view.get_queryset()
+        assert isinstance(qs, QuerySet)
+        user = qs.get()
+        assert user == self.prov_psp
+        assert hasattr(user, "flare_qs")
+        assert user.flare_qs[0] == self.prov_psp_flare
+        assert hasattr(user, "medhistorys_qs")
+
+    def test__rules(self):
+        """Test that django-rules permissions are set correctly and working for the view."""
+        # Create a Provider and Admin, each with their own Pseudopatient + Flare
+        prov_psp_url = reverse(
+            "flares:pseudopatient-delete", kwargs={"username": self.prov_psp.username, "pk": self.prov_psp_flare.pk}
+        )
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_psp_url}"
+        admin_psp_url = reverse(
+            "flares:pseudopatient-delete", kwargs={"username": self.admin_psp.username, "pk": self.admin_psp_flare.pk}
+        )
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={admin_psp_url}"
+        anon_psp_url = reverse(
+            "flares:pseudopatient-delete", kwargs={"username": self.anon_psp.username, "pk": self.anon_psp_flare.pk}
+        )
+        anon_psp_redirect_url = f"{reverse('account_login')}?next={anon_psp_url}"
+        # Test that an anonymous user who is not logged in can't delete anything
+        self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
+        self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
+        self.assertRedirects(self.client.get(anon_psp_url), anon_psp_redirect_url)
+        # Test that the Provider can delete his or her own Pseudopatient
+        self.client.force_login(self.provider)
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 200
+        # Test that the Provider can't access the view for the Admin's Pseudopatient
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Provider can't delete an anonymous Pseudopatient's flare
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 403
+        # Test that the Admin can delete his or her own Pseudopatient
+        self.client.force_login(self.admin)
+        response = self.client.get(admin_psp_url)
+        assert response.status_code == 200
+        # Test that the Admin can't access the view for the Provider's Pseudopatient
+        response = self.client.get(prov_psp_url)
+        assert response.status_code == 403
+        # Test that the logged in Admin can't delete an anonymous Pseudopatient's flare
+        response = self.client.get(anon_psp_url)
+        assert response.status_code == 403
+
+    def test__delete(self):
+        """Test that the delete() method for the view deletes the Flare and returns the
+        correct redirect."""
+        self.client.force_login(self.provider)
+        response = self.client.post(
+            reverse(
+                "flares:pseudopatient-delete",
+                kwargs={"username": self.prov_psp.username, "pk": self.prov_psp_flare.pk},
+            )
+        )
+        assert response.status_code == 302
+        assert not Flare.objects.filter(user=self.prov_psp).exists()
+        assert response.url == reverse("flares:pseudopatient-list", kwargs={"username": self.prov_psp.username})
 
 
 class TestFlarePseudopatientDetail(TestCase):

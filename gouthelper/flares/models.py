@@ -258,6 +258,13 @@ monosodium urate crystals on polarized microscopy?"
         return ", ".join([str(joint.label).lower() for joint in enum_list])
 
     @property
+    def description(self):
+        flare_str = "Monoarticular" if self.monoarticular else "Polyarticular"
+        flare_str += f", {self.date_started.strftime('%m/%d/%Y')} - "
+        flare_str += f"{self.date_ended.strftime('%m/%d/%Y')}" if self.date_ended else "present"
+        return flare_str
+
+    @property
     def duration(self) -> timedelta:
         return calculate_duration(date_started=self.date_started, date_ended=self.date_ended)
 
@@ -340,9 +347,12 @@ monosodium urate crystals on polarized microscopy?"
         )
 
     def __str__(self):
-        flare_str = "Monoarticular" if self.monoarticular else "Polyarticular"
-        flare_str += f", {self.date_started} - "
-        flare_str += f"{self.date_ended}" if self.date_ended else "present"
+        if self.user:
+            flare_str = f"{self.user}'s Flare"
+        else:
+            flare_str = "Flare"
+        flare_str += f" ({self.date_started.strftime('%m/%d/%Y')} - "
+        flare_str += f"{self.date_ended.strftime('%m/%d/%Y')})" if self.date_ended else "present)"
         return flare_str
 
     @cached_property
@@ -368,7 +378,7 @@ monosodium urate crystals on polarized microscopy?"
         returns: [Flare]: [Flare object]"""
         if qs is None:
             if self.user:
-                qs = flare_user_qs(username=self.user.username)
+                qs = flare_user_qs(username=self.user.username, flare_pk=self.pk)
             else:
                 qs = flare_userless_qs(pk=self.pk)
         decisionaid = FlareDecisionAid(qs=qs)

@@ -13,6 +13,7 @@ from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import AllopurinolhypersensitivityFactory, CkdFactory, MenopauseFactory
+from ...users.tests.factories import PseudopatientFactory
 from ..choices import Likelihoods, LimitedJointChoices
 from ..models import Flare
 from ..selectors import flare_userless_qs
@@ -230,16 +231,24 @@ than treat the gout!",
         self.assertTrue(flare.post_menopausal)
 
     def test___str__(self):
-        self.flare.joints = [LimitedJointChoices.KNEER]
         self.flare.date_started = (timezone.now() - timedelta(days=7)).date()
         self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Monoarticular, {self.flare.date_started} - present")
+        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - present)")
         self.flare.date_ended = (timezone.now() - timedelta(days=1)).date()
-        self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Monoarticular, {self.flare.date_started} - {self.flare.date_ended}")
-        self.flare.joints = [LimitedJointChoices.KNEER, LimitedJointChoices.ANKLEL]
-        self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Polyarticular, {self.flare.date_started} - {self.flare.date_ended}")
+        self.assertEqual(
+            self.flare.__str__(),
+            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
+        self.assertEqual(
+            self.flare.__str__(),
+            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
+        self.flare.user = PseudopatientFactory()
+        self.assertEqual(
+            self.flare.__str__(),
+            f"{self.flare.user}'s Flare ({self.flare.date_started.strftime('%m/%d/%Y')} \
+- {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
 
     def test__uncommon_joints(self):
         self.flare.joints = [LimitedJointChoices.HIPL, LimitedJointChoices.SHOULDERR, LimitedJointChoices.MTP1L]
