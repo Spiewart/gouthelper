@@ -11,7 +11,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import Treatments
+from ..treatments.choices import FlarePpxChoices, Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .selectors import flareaid_user_qs, flareaid_userless_qs
@@ -97,6 +97,10 @@ class FlareAid(
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return FLAREAID_MEDHISTORYS
+
+    @classmethod
+    def aid_treatments(cls) -> list[FlarePpxChoices]:
+        return FlarePpxChoices.values
 
     @cached_property
     def defaulttrtsettings(self) -> "DefaultFlareTrtSettings":

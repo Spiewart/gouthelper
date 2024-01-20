@@ -70,6 +70,8 @@ def flareaid_user_qs(username: str) -> "QuerySet":
 
 def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = apps.get_model("flareaids.FlareAid").objects.filter(pk=pk)
+    # Try to fetch the user to check if a redirect to a Pseudopatient view is needed
+    queryset = queryset.select_related("user")
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
     queryset = queryset.prefetch_related(medhistorys_prefetch())

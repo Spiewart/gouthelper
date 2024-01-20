@@ -30,7 +30,7 @@
       {% if request.user.is_authenticated %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'users:provider-create-pseudopatient' user.username %}">
+              action="{% url 'users:provider-pseudopatient-create' user.username %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_submit_button.html' %}
@@ -38,7 +38,7 @@
       {% else %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'users:create-pseudopatient' %}">
+              action="{% url 'users:pseudopatient-create' %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_submit_button.html' %}

@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 def flare_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = apps.get_model("flares.Flare").objects.filter(pk=pk)
+    # Fetch the user to check if a redirect to a Pseudopatient view is needed
+    queryset = queryset.select_related("user")
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
     queryset = queryset.select_related("urate")

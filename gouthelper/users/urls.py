@@ -13,12 +13,12 @@ from .views import (
 
 app_name = "users"
 urlpatterns = [
-    path("pseudopatients/create/", view=pseudopatient_create_view, name="create-pseudopatient"),
-    path("pseudopatients/delete/<str:username>/", view=user_delete_view, name="delete-pseudopatient"),
+    path("pseudopatients/create/", view=pseudopatient_create_view, name="pseudopatient-create"),
+    path("pseudopatients/delete/<str:username>/", view=user_delete_view, name="pseudopatient-delete"),
     path(
         "pseudopatients/provider-create/<str:username>/",
         view=pseudopatient_create_view,
-        name="provider-create-pseudopatient",
+        name="provider-pseudopatient-create",
     ),
     path("pseudopatients/<str:username>/", view=pseudopatient_detail_view, name="pseudopatient-detail"),
     path("pseudopatients/<str:username>/update/", view=pseudopatient_update_view, name="pseudopatient-update"),

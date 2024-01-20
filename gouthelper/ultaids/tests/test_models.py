@@ -14,9 +14,7 @@ from ...medhistorys.models import Erosions, Tophi
 from ...medhistorys.tests.factories import (
     AllopurinolhypersensitivityFactory,
     CkdFactory,
-    ErosionsFactory,
     FebuxostathypersensitivityFactory,
-    TophiFactory,
     XoiinteractionFactory,
 )
 from ...treatments.choices import AllopurinolDoses, FebuxostatDoses, Treatments
@@ -32,6 +30,39 @@ class TestUltAid(TestCase):
 
     def test___str__(self):
         self.assertEqual(str(self.ultaid), f"UltAid: {self.ultaid.created}")
+
+    def test__add_medallergys(self):
+        """Test that adding a medallergy to a UltAid works"""
+        medallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
+        self.ultaid.add_medallergys(
+            [medallergy],
+            medallergys_qs=self.ultaid.medallergys.all(),
+        )
+        self.assertIn(medallergy, self.ultaid.medallergys.all())
+
+    def test__add_medallergys_duplicates_raises_TypeError(self):
+        """Test that adding duplicate medallergys raises TypeError"""
+        medallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
+        self.ultaid.add_medallergys(
+            [medallergy],
+            medallergys_qs=self.ultaid.medallergys.all(),
+        )
+        with self.assertRaises(TypeError):
+            self.ultaid.add_medallergys(
+                [medallergy],
+                medallergys_qs=self.ultaid.medallergys.all(),
+            )
+
+    def test__add_multiple_medallergys(self):
+        """Test that adding multiple medallergys to a UltAid works"""
+        medallergy1 = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
+        medallergy2 = MedAllergyFactory(treatment=Treatments.FEBUXOSTAT)
+        self.ultaid.add_medallergys(
+            [medallergy1, medallergy2],
+            medallergys_qs=self.ultaid.medallergys.all(),
+        )
+        self.assertIn(medallergy1, self.ultaid.medallergys.all())
+        self.assertIn(medallergy2, self.ultaid.medallergys.all())
 
     def test__aid_dict(self):
         self.assertFalse(self.ultaid.decisionaid)
@@ -55,7 +86,9 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.allopurinolhypersensitivity
         del self.ultaid.contraindications
-        self.ultaid.add_medhistorys([AllopurinolhypersensitivityFactory()])
+        self.ultaid.medhistorys.add(
+            AllopurinolhypersensitivityFactory(),
+        )
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_allopurinol_allergy(self):
@@ -64,7 +97,9 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.allopurinol_allergys
         del self.ultaid.contraindications
-        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.ALLOPURINOL)])
+        self.ultaid.add_medallergys(
+            [MedAllergyFactory(treatment=Treatments.ALLOPURINOL)], medallergys_qs=self.ultaid.medallergys.all()
+        )
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_xoiinteraction(self):
@@ -73,7 +108,7 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.xoiinteraction
         del self.ultaid.contraindications
-        self.ultaid.add_medhistorys([XoiinteractionFactory()])
+        self.ultaid.medhistorys.add(XoiinteractionFactory())
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_hlab5801_contra(self):
@@ -92,7 +127,7 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.febuxostathypersensitivity
         del self.ultaid.contraindications
-        self.ultaid.add_medhistorys([FebuxostathypersensitivityFactory()])
+        self.ultaid.medhistorys.add(FebuxostathypersensitivityFactory())
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_febuxostat_allergys(self):
@@ -101,7 +136,9 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.febuxostat_allergys
         del self.ultaid.contraindications
-        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.FEBUXOSTAT)])
+        self.ultaid.add_medallergys(
+            [MedAllergyFactory(treatment=Treatments.FEBUXOSTAT)], medallergys_qs=self.ultaid.medallergys.all()
+        )
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_probenecid_ckd_contra(self):
@@ -113,7 +150,7 @@ class TestUltAid(TestCase):
         del self.ultaid.contraindications
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
-        self.ultaid.add_medhistorys([ckd])
+        self.ultaid.medhistorys.add(ckd)
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_probenecid_allergys(self):
@@ -122,7 +159,9 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.probenecid_allergys
         del self.ultaid.contraindications
-        self.ultaid.add_medallergys([MedAllergyFactory(treatment=Treatments.PROBENECID)])
+        self.ultaid.add_medallergys(
+            [MedAllergyFactory(treatment=Treatments.PROBENECID)], medallergys_qs=self.ultaid.medallergys.all()
+        )
         self.assertTrue(self.ultaid.contraindications)
 
     def test__defaulttrtsettings(self):
@@ -137,8 +176,7 @@ class TestUltAid(TestCase):
             False,
         )
         del self.ultaid.erosions
-        goalurate = GoalUrateFactory(ultaid=self.ultaid)
-        goalurate.add_medhistorys([ErosionsFactory()])
+        GoalUrateFactory(ultaid=self.ultaid, erosions=True)
         self.assertEqual(self.ultaid.erosions, Erosions.objects.get())
 
     def test__options(self):
@@ -161,7 +199,7 @@ class TestUltAid(TestCase):
             self.ultaid.recommendation,
             (Treatments.ALLOPURINOL, self.ultaid.options[Treatments.ALLOPURINOL]),
         )
-        self.ultaid.add_medhistorys([AllopurinolhypersensitivityFactory()])
+        self.ultaid.medhistorys.add(AllopurinolhypersensitivityFactory())
         self.ultaid.update()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
@@ -169,7 +207,7 @@ class TestUltAid(TestCase):
             self.ultaid.recommendation,
             (Treatments.FEBUXOSTAT, self.ultaid.options[Treatments.FEBUXOSTAT]),
         )
-        self.ultaid.add_medhistorys([FebuxostathypersensitivityFactory()])
+        self.ultaid.medhistorys.add(FebuxostathypersensitivityFactory())
         self.ultaid.update()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
@@ -179,7 +217,7 @@ class TestUltAid(TestCase):
         )
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
-        self.ultaid.add_medhistorys([ckd])
+        self.ultaid.medhistorys.add(ckd)
         self.ultaid.update()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
@@ -191,8 +229,7 @@ class TestUltAid(TestCase):
             False,
         )
         del self.ultaid.tophi
-        goalurate = GoalUrateFactory(ultaid=self.ultaid)
-        goalurate.add_medhistorys([TophiFactory()])
+        GoalUrateFactory(ultaid=self.ultaid, tophi=True)
         self.assertEqual(self.ultaid.tophi, Tophi.objects.get())
 
     def test__update(self):
@@ -222,7 +259,7 @@ class TestUltAidUpdate(TestCase):
 
     def test__allopurinolhypersensitivity_recommends_febuxostat(self):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
-        self.ultaid.add_medhistorys(medhistorys=[allopurinolhypersensitivity])
+        self.ultaid.medhistorys.add(allopurinolhypersensitivity)
         self.ultaid.update()
         self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])
         self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
@@ -231,7 +268,7 @@ class TestUltAidUpdate(TestCase):
     def test__dualhypersensitivity_recommends_probenecid(self):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
         febuxostathypersensitivity = FebuxostathypersensitivityFactory()
-        self.ultaid.add_medhistorys(medhistorys=[allopurinolhypersensitivity, febuxostathypersensitivity])
+        self.ultaid.medhistorys.add(allopurinolhypersensitivity, febuxostathypersensitivity)
         self.ultaid.update()
         self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])
@@ -242,7 +279,7 @@ class TestUltAidUpdate(TestCase):
     def test__ckd_3_dose_adjusts_xois_contraindicates_probenecid(self):
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
-        self.ultaid.add_medhistorys(medhistorys=[ckd])
+        self.ultaid.medhistorys.add(ckd)
         self.ultaid.update()
         self.assertIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertEqual(AllopurinolDoses.FIFTY, self.ultaid.options[Treatments.ALLOPURINOL]["dose"])

@@ -9,7 +9,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
-from ..treatments.choices import Treatments
+from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
@@ -76,6 +76,10 @@ class UltAid(
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return ULTAID_MEDHISTORYS
+
+    @classmethod
+    def aid_treatments(cls) -> list[Treatments]:
+        return UltChoices.values
 
     @cached_property
     def contraindications(self) -> bool:

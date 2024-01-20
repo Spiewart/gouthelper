@@ -195,6 +195,7 @@ class FlareAidPseudopatientCreate(
     """View for creating a FlareAid for a patient."""
 
     permission_required = "flareaids.can_add_pseudopatient_flareaid"
+    success_message = "%(username)s's FlareAid successfully created."
 
     def dispatch(self, request, *args, **kwargs):
         """Overwritten to check for a User on the object and redirect to the
@@ -241,6 +242,8 @@ class FlareAidPseudopatientCreate(
             labs_to_remove=labs_to_remove,
         )
         flareaid = form.save()
+        # Add the relationship to the existing user object so that user
+        # can be used as the QuerySet for the update method
         self.user.flareaid = flareaid
         # Update object / form instance
         flareaid.update(qs=self.user)
@@ -252,6 +255,9 @@ class FlareAidPseudopatientCreate(
         that is the username kwarg indicating which Psuedopatient the view is trying to create
         a FlareAid for."""
         return self.user
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
         (
@@ -294,11 +300,10 @@ class FlareAidPseudopatientCreate(
 class FlareAidPseudopatientUpdate(
     AutoPermissionRequiredMixin, FlareAidPatientBase, PatientAidUpdateView, SuccessMessageMixin
 ):
-    success_message = "FlareAid successfully updated."
+    success_message = "%(username)s's FlareAid successfully created."
 
     def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the User has a FlareAid and redirect to the
-        CreateView if not."""
+        """Overwritten to check if the User has a FlareAid and redirect to the CreateView if not."""
         try:
             self.object = self.get_object()
         except FlareAid.DoesNotExist as exc:
@@ -343,6 +348,8 @@ class FlareAidPseudopatientUpdate(
             labs_to_remove=labs_to_remove,
         )
         flareaid = form.save()
+        # Add the relationship to the existing user object so that user
+        # can be used as the QuerySet for the update method
         self.user.flareaid = flareaid
         # Update object / form instance
         flareaid.update(qs=self.user)
@@ -355,7 +362,12 @@ class FlareAidPseudopatientUpdate(
         a FlareAid for."""
         return self.object
 
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, username=self.user.username)
+
     def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For FlareAid, no additional processing is needed."""
         (
             errors,
             form,
@@ -428,8 +440,8 @@ class FlareAidDetail(FlareAidDetailBase):
                 return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        if not hasattr(self, "object"):
-            self.object = self.get_object()
+        """Overwritten to avoid calling get_object again, which is instead
+        called on dispatch()."""
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
@@ -442,6 +454,7 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
     building the content data."""
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
+        """Overwritten to add the FlareAid's user to the context as 'patient'."""
         context = super().get_context_data(**kwargs)
         context["patient"] = self.user
         return context
@@ -463,8 +476,7 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        if not hasattr(self, "object"):
-            self.object = self.get_object()
+        """Updates the objet prior to rendering the view."""
         # Check if FlareAid is up to date and update if not update
         if not request.GET.get("updated", None):
             self.object.update(qs=self.object)

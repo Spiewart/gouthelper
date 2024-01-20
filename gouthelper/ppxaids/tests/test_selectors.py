@@ -43,7 +43,7 @@ class TestPpxAidQuerySet(TestCase):
             gender=self.gender,
         )
         self.ppxaid.medhistorys.add(self.ckd)
-        self.ppxaid.add_medallergys([self.colchicine_allergy])
+        self.ppxaid.add_medallergys([self.colchicine_allergy], medallergys_qs=self.ppxaid.medallergys.all())
         self.empty_ppxaid = PpxAidFactory()
 
     def test__queryset_returns_correctly(self):

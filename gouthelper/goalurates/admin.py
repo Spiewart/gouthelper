@@ -7,7 +7,8 @@ from .models import GoalUrate
 @admin.register(GoalUrate)
 class GoalUrateHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "__str__",
+        "user",
+        "ultaid",
         "goal_urate",
         "created",
         "pk",

@@ -9,6 +9,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
+from ..treatments.choices import FlarePpxChoices
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 from .services import PpxAidDecisionAid
@@ -62,6 +63,10 @@ class PpxAid(
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return PPXAID_MEDHISTORYS
+
+    @classmethod
+    def aid_treatments(cls) -> list[FlarePpxChoices]:
+        return FlarePpxChoices.values
 
     @cached_property
     def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":

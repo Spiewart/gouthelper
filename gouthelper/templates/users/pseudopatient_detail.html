@@ -8,8 +8,18 @@
 {% block content %}
   <div class="container">
     <div class="row">
-      <div class="col-sm-12">
+      <div class="col">
         <h2>{{ object }}</h2>
+      </div>
+      <div class="col align-items-center d-flex justify-content-end">
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'users:pseudopatient-update' object.username %}"
+           role="button">Update Profile</a>
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'users:pseudopatient-delete' object.username %}"
+           role="button">Delete</a>
       </div>
     </div>
     <a class="btn btn-primary"
@@ -19,8 +29,8 @@
        href="{% url 'flares:pseudopatient-list' object.username %}"
        role="button">Flares</a>
     <a class="btn btn-primary"
-       href="{% url 'users:pseudopatient-update' object.username %}"
-       role="button">Update Profile</a>
+       href="{% url 'goalurates:pseudopatient-detail' object.username %}"
+       role="button">GoalUrate</a>
     <div class="row">
       <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>
       <div class="col-sm-6">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>

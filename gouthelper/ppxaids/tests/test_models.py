@@ -47,17 +47,26 @@ class TestFlareAidMethods(TestCase):
 
     def test__add_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.ppxaid.add_medallergys(medallergys=[colch_allergy])
+        self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
         self.ppxaid.refresh_from_db()
         self.assertIn(colch_allergy, self.ppxaid.medallergys.all())
 
     def test__add_multiple_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
         pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        self.ppxaid.add_medallergys(medallergys=[colch_allergy, pred_allergy])
+        self.ppxaid.add_medallergys(
+            medallergys=[colch_allergy, pred_allergy], medallergys_qs=self.ppxaid.medallergys.all()
+        )
         self.ppxaid.refresh_from_db()
         self.assertIn(colch_allergy, self.ppxaid.medallergys.all())
         self.assertIn(pred_allergy, self.ppxaid.medallergys.all())
+
+    def test__add_medallergys_duplicates_raises_TypeError(self):
+        """Test that adding duplicate medallergys raises TypeError"""
+        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
+        self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
+        with self.assertRaises(TypeError):
+            self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
 
     def test__remove_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
@@ -88,7 +97,7 @@ class TestFlareAidMethods(TestCase):
         self.assertIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
 
     def test__less_simple_recommendation(self):
-        self.ppxaid.add_medhistorys([CkdFactory()])
+        self.ppxaid.medhistorys.add(CkdFactory())
         self.assertTrue(self.ppxaid.recommendation)
         self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
         self.assertIn(Treatments.PREDNISONE, self.ppxaid.recommendation)

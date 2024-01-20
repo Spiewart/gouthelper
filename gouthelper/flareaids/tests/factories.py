@@ -16,6 +16,7 @@ from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
+from ...users.tests.factories import PseudopatientFactory
 from ..models import FlareAid
 
 if TYPE_CHECKING:
@@ -121,4 +122,5 @@ class FlareAidFactory(DjangoModelFactory):
 
 
 class FlareAidUserFactory(FlareAidFactory):
+    user = factory.SubFactory(PseudopatientFactory)
     dateofbirth = None

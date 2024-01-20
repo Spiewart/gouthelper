@@ -33,7 +33,7 @@
     {% else %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'users:delete-pseudopatient' object.username %}">
+            action="{% url 'users:pseudopatient-delete' object.username %}">
         {% csrf_token %}
         <p>Are you sure you want to delete "{{ object }}"?</p>
         <p>

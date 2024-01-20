@@ -435,8 +435,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         assert FlareAid.objects.filter(user=self.user).exists()
         flareaid = FlareAid.objects.last()
         assert flareaid.user
-        assert hasattr(flareaid.user, "pseudopatientprofile")
-        assert flareaid.user.pseudopatientprofile.provider is None
+        assert flareaid.user == self.user
 
     def test__post_creates_medhistorys(self):
         self.assertFalse(MedHistory.objects.filter(user=self.psp).exists())
@@ -912,15 +911,6 @@ class TestFlareAidPseudopatientDetail(TestCase):
         # This needs to be manually refetched from the db
         self.assertIn(Treatments.COLCHICINE, FlareAid.objects.get(user=psp).options)
 
-    def test__get_sets_object_attr(self):
-        """Test that the view's get() method sets the object attribute."""
-        request = self.factory.get("/fake-url/")
-        view = self.view()
-        view.setup(request, username=self.psp.username)
-        view.get(request, username=self.psp.username)
-        assert hasattr(view, "object")
-        assert view.object == FlareAid.objects.get(user=self.psp)
-
 
 class TestFlareAidPseudopatientUpdate(TestCase):
     def setUp(self):
@@ -1020,7 +1010,6 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         request = self.factory.get("/fake-url/")
         kwargs = {"username": self.user.username}
         view = self.view()
-        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
         qs = view.get_user_queryset(view.kwargs["username"])
         self.assertTrue(isinstance(qs, QuerySet))
@@ -1390,6 +1379,16 @@ class TestFlareAidDetail(TestCase):
         for content in self.content_qs:
             self.assertIn(content, self.view().contents)
 
+    def test__dispatch_redirects_if_flareaid_user(self):
+        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
+        FlareAid has a user."""
+        user_fa = FlareAidUserFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=user_fa.pk)
+        assert response.status_code == 302
+        assert response.url == reverse("flareaids:pseudopatient-detail", kwargs={"username": user_fa.user.username})
+
     def test__get_context_data(self):
         response = self.client.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
         context = response.context_data
@@ -1430,16 +1429,18 @@ class TestFlareAidDetail(TestCase):
 class TestFlareAidUpdate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view: FlareAidUpdate = FlareAidUpdate()
+        self.view: FlareAidUpdate = FlareAidUpdate
         self.anon_user = AnonymousUser()
 
-    def test__get_redirects_if_flareaid_has_user(self):
-        """Test that the view redirects if the FlareAid has a User."""
-        user = PseudopatientFactory()
-        flareaid = FlareAidUserFactory(user=user)
-        response = self.client.get(reverse("flareaids:update", kwargs={"pk": flareaid.pk}))
+    def test__dispatch_redirects_if_flareaid_user(self):
+        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
+        FlareAid has a user."""
+        user_fa = FlareAidUserFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=user_fa.pk)
         assert response.status_code == 302
-        assert response.url == reverse("flareaids:pseudopatient-update", kwargs={"username": user.username})
+        assert response.url == reverse("flareaids:pseudopatient-update", kwargs={"username": user_fa.user.username})
 
     def test__post_unchanged_medallergys(self):
         flareaid = FlareAidFactory()

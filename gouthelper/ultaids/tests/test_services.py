@@ -74,7 +74,9 @@ class TestUltAidDecisionAid(TestCase):
         )
         for medhistory in MedHistory.objects.filter().all():
             self.ultaid_userless.medhistorys.add(medhistory)
-        self.ultaid_userless.add_medallergys([self.userless_allopurinolallergy])
+        self.ultaid_userless.add_medallergys(
+            [self.userless_allopurinolallergy], medallergys_qs=self.ultaid_userless.medallergys.all()
+        )
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
@@ -223,7 +225,7 @@ class TestUltAidDecisionAid(TestCase):
 
     def test__process_febuxostat_with_cvd(self):
         ultaid = UltAidFactory()
-        ultaid.add_medhistorys([self.userless_heartattack, self.userless_angina])
+        ultaid.medhistorys.add(self.userless_heartattack, self.userless_angina)
         decisionaid = UltAidDecisionAid(pk=ultaid.pk)
         trt_dict = decisionaid._create_trts_dict()
         trt_dict = aids_process_medhistorys(
@@ -240,7 +242,7 @@ class TestUltAidDecisionAid(TestCase):
         settings.febu_cv_disease = False
         settings.save()
         ultaid = UltAidFactory()
-        ultaid.add_medhistorys([self.userless_angina, self.userless_heartattack])
+        ultaid.medhistorys.add(self.userless_angina, self.userless_heartattack)
         decisionaid = UltAidDecisionAid(pk=ultaid.pk)
         trt_dict = decisionaid._create_trts_dict()
         trt_dict = aids_process_medhistorys(

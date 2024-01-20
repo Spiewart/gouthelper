@@ -174,27 +174,28 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
         if self.medallergys:
             for medallergy in medallergys_to_save:
                 medallergy.save()
-            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
         if self.medhistorys:
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
                     medhistory.save()
             for medhistorydetail in medhistorydetails_to_save:
                 medhistorydetail.save()
-            # Create and populate the medhistory_qs attribute on the object
-            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
         if self.labs:
             for lab in labs_to_save:
                 lab.save()
-            # Create and populate the labs_qs attribute on the object
-            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
         saved_object = form.save()
         if self.medallergys:
-            saved_object.add_medallergys(medallergys=medallergys_to_save, commit=False)
+            saved_object.add_medallergys(medallergys=medallergys_to_save, medallergys_qs=[], commit=False)
         if self.medhistorys:
-            saved_object.add_medhistorys(medhistorys=medhistorys_to_save, commit=False)
+            saved_object.add_medhistorys(medhistorys=medhistorys_to_save, medhistorys_qs=[], commit=False)
         if self.labs:
             saved_object.add_labs(labs=labs_to_save, commit=False)
+        # Create and populate the medallergy_qs attribute on the object
+        self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+        # Create and populate the medhistory_qs attribute on the object
+        self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+        # Create and populate the labs_qs attribute on the object
+        self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
         # Return object for the child view to use
         return self.object
 
@@ -435,7 +436,6 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
-
         self.object = self.model
         form_class = self.get_form_class()
         if self.medallergys:
@@ -763,10 +763,10 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
-        if not hasattr(self, "user"):
-            self.user = self.get_user_queryset(kwargs["username"]).get()
-        if not hasattr(self, "object"):
-            self.object = self.get_object()  # type: ignore
+        # user and object attrs should be set by the dispatch() method on the
+        # child view, but if not, set them here by calling get_object()
+        if not hasattr(self, "user") or not hasattr(self, "object"):
+            self.object = self.get_object()
         form_class = self.get_form_class()
         if self.medallergys:
             form = form_class(
@@ -1428,8 +1428,6 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             if medallergys_to_remove:
                 for medallergy in medallergys_to_remove:
                     self.object.medallergys_qs.remove(medallergy)
-            # Create and populate the medallergy_qs attribute on the object
-            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
         if self.medhistorys:
             # Modify and remove medhistorydetails from the object
             # Add and remove medhistorys from the object
@@ -1439,8 +1437,6 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             if medhistorydetails_to_save:
                 for medhistorydetail in medhistorydetails_to_save:
                     medhistorydetail.save()
-            # Create and populate the medhistory_qs attribute on the object
-            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
             if medhistorys_to_remove:
                 for medhistory in medhistorys_to_remove:
                     self.object.medhistorys_qs.remove(medhistory)
@@ -1451,17 +1447,19 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             # Modify and remove labs from the object
             for lab in labs_to_save:
                 lab.save()
-            # Create and populate the labs_qs attribute on the object
-            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
         self.saved_object = form.save()
         if self.medallergys:
-            self.saved_object.add_medallergys(medallergys=medallergys_to_save, commit=False)
+            self.saved_object.add_medallergys(
+                medallergys=medallergys_to_save, medallergys_qs=self.object.medallergys_qs, commit=False
+            )
             self.saved_object.remove_medallergys(
                 medallergys=medallergys_to_remove,
                 commit=False,
             )
         if self.medhistorys:
-            self.saved_object.add_medhistorys(medhistorys=medhistorys_to_save, commit=False)
+            self.saved_object.add_medhistorys(
+                medhistorys=medhistorys_to_save, medhistorys_qs=self.object.medhistorys_qs, commit=False
+            )
             self.saved_object.remove_medhistorys(
                 medhistorys=medhistorys_to_remove,
                 commit=False,
@@ -1469,6 +1467,12 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         if self.labs:
             self.saved_object.add_labs(labs=labs_to_save, commit=False)
             self.saved_object.remove_labs(labs=labs_to_remove, commit=False)
+        # Create and populate the medallergy_qs attribute on the object
+        self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+        # Create and populate the medhistory_qs attribute on the object
+        self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+        # Create and populate the labs_qs attribute on the object
+        self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
         return self.object
 
     def context_onetoones(

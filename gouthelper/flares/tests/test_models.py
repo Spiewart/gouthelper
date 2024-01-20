@@ -28,13 +28,13 @@ class TestFlareMethods(TestCase):
 
     def test__add_medhistorys_adds_flare_medhistory(self):
         ckd = CkdFactory()
-        self.flare.add_medhistorys([ckd])
+        self.flare.add_medhistorys([ckd], [])
         self.assertIn(ckd, self.flare.medhistorys.all())
 
     def test__add_medhistorys_raises_TypeError_with_non_flare_medhistory(self):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
         with self.assertRaises(TypeError) as error:
-            self.flare.add_medhistorys([allopurinolhypersensitivity])
+            self.flare.add_medhistorys([allopurinolhypersensitivity], [])
         self.assertEqual(
             f"{allopurinolhypersensitivity} is not a valid MedHistory for {self.flare}",
             str(error.exception),
@@ -219,7 +219,7 @@ than treat the gout!",
         menopause = MenopauseFactory()
         flare = FlareFactory(dateofbirth=dateofbirth)
         self.assertFalse(flare.post_menopausal)
-        flare.add_medhistorys([menopause])
+        flare.medhistorys.add(menopause)
         flare = Flare.objects.get(pk=flare.pk)
         self.assertTrue(flare.post_menopausal)
         flare.remove_medhistorys([menopause])

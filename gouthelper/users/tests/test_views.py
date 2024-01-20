@@ -74,7 +74,7 @@ class TestPseudoPatientCreateView(TestCase):
 
     def test__get_context_data(self):
         """Tests that the required context data is passed to the template."""
-        response = self.client.get(reverse("users:create-pseudopatient"))
+        response = self.client.get(reverse("users:pseudopatient-create"))
         assert response.status_code == 200
         assert f"{MedHistoryTypes.GOUT}_form" in response.context
         assert "dateofbirth_form" in response.context
@@ -105,7 +105,7 @@ class TestPseudoPatientCreateView(TestCase):
             "on_ppx": False,
             "on_ult": False,
         }
-        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
         assert Pseudopatient.objects.count() == 1
         pseudopatient = Pseudopatient.objects.get()
@@ -130,7 +130,7 @@ class TestPseudoPatientCreateView(TestCase):
         assert User.history.filter(username=pseudopatient.username).first().history_user is None
         # Test that the view throws an error if a female between ages 40 and 60 doesn't have menopause data
         data.update({"gender-value": Genders.FEMALE})
-        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 200
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"] == [
             _(
@@ -140,7 +140,7 @@ menopause status to evaluate their flare."
         ]
         # Test that menopause is created
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
-        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
         assert Pseudopatient.objects.last().menopause
 
@@ -161,7 +161,7 @@ menopause status to evaluate their flare."
             "on_ppx": False,
             "on_ult": False,
         }
-        response = self.client.post(reverse("users:create-pseudopatient"), data=data)
+        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
         assert Pseudopatient.objects.count() == 1
         pseudopatient = Pseudopatient.objects.get()
@@ -203,7 +203,7 @@ menopause status to evaluate their flare."
             "on_ult": False,
         }
         response = self.client.post(
-            reverse("users:provider-create-pseudopatient", kwargs={"username": self.provider.username}), data=data
+            reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
         )
         assert response.status_code == 302
         assert Pseudopatient.objects.count() == 1
@@ -235,7 +235,7 @@ menopause status to evaluate their flare."
         by a provider.
         """
         view = PseudopatientCreateView
-        request = self.rf.get(reverse("users:create-pseudopatient"))
+        request = self.rf.get(reverse("users:pseudopatient-create"))
         request.user = self.provider
         assert view.as_view()(request)
 
@@ -246,7 +246,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.provider
         assert view.as_view()(request, **kwargs)
 
@@ -257,7 +257,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": self.patient.username}
-        request = self.rf.get(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.provider
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -268,7 +268,7 @@ menopause status to evaluate their flare."
         by an Admin.
         """
         view = PseudopatientCreateView
-        request = self.rf.get(reverse("users:create-pseudopatient"))
+        request = self.rf.get(reverse("users:pseudopatient-create"))
         request.user = self.admin
         assert view.as_view()(request)
 
@@ -279,7 +279,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": self.admin.username}
-        request = self.rf.post(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
 
@@ -290,7 +290,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": self.patient.username}
-        request = self.rf.get(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.admin
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -301,7 +301,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": "blahaha"}
-        request = self.rf.get(reverse("users:provider-create-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -311,7 +311,7 @@ menopause status to evaluate their flare."
         when called by a logged in Pseudopatient.
         """
         view = PseudopatientCreateView
-        request = self.rf.post(reverse("users:create-pseudopatient"))
+        request = self.rf.post(reverse("users:pseudopatient-create"))
         request.user = UserFactory(role=Roles.PSEUDOPATIENT)
         with pytest.raises(PermissionDenied):
             view.as_view()(request)
@@ -725,13 +725,13 @@ class TestUserDeleteView(TestCase):
         """Test that a Provider can delete his or her own Pseudopatient."""
         self.client.force_login(self.provider)
         initial_response = self.client.get(
-            reverse("users:delete-pseudopatient", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-delete", kwargs={"username": self.provider_pseudopatient.username})
         )
 
         assert initial_response.status_code == 200
 
         confirm_response = self.client.post(
-            reverse("users:delete-pseudopatient", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-delete", kwargs={"username": self.provider_pseudopatient.username})
         )
 
         assert confirm_response.status_code == 302
@@ -743,7 +743,7 @@ class TestUserDeleteView(TestCase):
         """Test that a Provider cannot delete an Admin's Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -753,7 +753,7 @@ class TestUserDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -767,7 +767,7 @@ class TestUserDeleteView(TestCase):
         """Test that a Provider cannot delete an Anonymous Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.anon_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -777,7 +777,7 @@ class TestUserDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -791,7 +791,7 @@ class TestUserDeleteView(TestCase):
         """Test that an Admin can delete his or her own Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -800,7 +800,7 @@ class TestUserDeleteView(TestCase):
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -813,7 +813,7 @@ class TestUserDeleteView(TestCase):
         """Test that an Admin cannot delete a Provider's Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.provider_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -823,7 +823,7 @@ class TestUserDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -837,7 +837,7 @@ class TestUserDeleteView(TestCase):
         """Test that an Admin cannot delete an Anonymous Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.anon_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -847,7 +847,7 @@ class TestUserDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(self.dummy_get_response).process_request(request)
@@ -861,12 +861,12 @@ class TestUserDeleteView(TestCase):
         """Test that a Patient cannot delete a Provider's Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.provider_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -875,12 +875,12 @@ class TestUserDeleteView(TestCase):
         """Test that a Patient cannot delete an Admin's Pseudopatient."""
         view = UserDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
-        request = self.rf.get(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:delete-pseudopatient", kwargs=kwargs))
+        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)

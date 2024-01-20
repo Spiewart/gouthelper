@@ -346,7 +346,6 @@ class DecisionAidModel(models.Model):
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         try:
-            print(medhistorys_get_menopause(self.medhistorys_qs))
             return medhistorys_get_menopause(self.medhistorys_qs)
         except AttributeError:
             try:
@@ -569,17 +568,22 @@ class MedAllergyAidModel(models.Model):
     def add_medallergys(
         self,
         medallergys: list["MedAllergy"],
+        medallergys_qs: QuerySet["MedAllergy"] | list["MedAllergy"],
         commit: bool = True,
     ) -> None:
         """Method that adds a list of medallergys to a DecisionAid without a User.
 
         Args:
             medallergys: list of MedAllergy objects to add
+            medallergys_qs: list of MedAllergy objects to check for duplicates
             commit: bool to commit the changes to the database
 
         Returns: None"""
         for medallergy in medallergys:
-            self.medallergys.add(medallergy)
+            if next(iter([ma for ma in medallergys_qs if ma.treatment == medallergy.treatment]), False):
+                raise TypeError(f"{medallergy} is already in {self}")
+            if medallergy.treatment in self.__class__.aid_treatments():
+                self.medallergys.add(medallergy)
         if commit:
             self.full_clean()
             self.save()
@@ -617,16 +621,20 @@ class MedHistoryAidModel(models.Model):
     def add_medhistorys(
         self,
         medhistorys: list["MedHistory"],
+        medhistorys_qs: QuerySet["MedHistory"] | list["MedHistory"],
         commit: bool = True,
     ) -> None:
         """Method that adds a list of medhistorys to a Aid without a User.
 
         Args:
             medhistorys: list of MedHistory objects to add
+            medhistorys_qs: list of MedHistory objects to check for duplicates
             commit: bool to commit the changes to the database
 
         Returns: None"""
         for medhistory in medhistorys:
+            if next(iter([mh for mh in medhistorys_qs if mh.medhistorytype == medhistory.medhistorytype]), False):
+                raise TypeError(f"{medhistory} is already in {self}")
             if medhistory.medhistorytype in self.__class__.aid_medhistorys():  # type: ignore
                 self.medhistorys.add(medhistory)
             else:

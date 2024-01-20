@@ -486,6 +486,18 @@ class TestFlareDetail(TestCase):
         for content in self.content_qs:
             self.assertIn(content, self.view().contents)
 
+    def test__dispatch_redirects_if_flare_user(self):
+        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
+        Flare has a user."""
+        user_f = FlareUserFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=user_f.pk)
+        assert response.status_code == 302
+        assert response.url == reverse(
+            "flares:pseudopatient-detail", kwargs={"username": user_f.user.username, "pk": user_f.pk}
+        )
+
     def test__get_context_data(self):
         response = self.client.get(reverse("flares:detail", kwargs={"pk": self.flare.pk}))
         context = response.context_data
@@ -2255,7 +2267,7 @@ class TestFlareUpdate(TestCase):
     def setUp(self):
         self.flare = FlareFactory(gender=GenderFactory(value=Genders.MALE))
         self.factory = RequestFactory()
-        self.view: FlareUpdate = FlareUpdate()
+        self.view: FlareUpdate = FlareUpdate
         self.flare_data = {
             "crystal_analysis": True,
             "date_ended": "",
@@ -2341,6 +2353,18 @@ class TestFlareUpdate(TestCase):
         self.assertIn(MedHistoryTypes.PVD, self.view.medhistorys)
         self.assertEqual(self.pvd_context, self.view.medhistorys[MedHistoryTypes.PVD])
 
+    def test__dispatch_redirects_if_flare_user(self):
+        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
+        Flare has a user."""
+        user_f = FlareUserFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=user_f.pk)
+        assert response.status_code == 302
+        assert response.url == reverse(
+            "flares:pseudopatient-update", kwargs={"username": user_f.user.username, "pk": user_f.pk}
+        )
+
     def test__form_valid_updates_new_medhistorys(self):
         flare = FlareFactory(
             crystal_analysis=None,
@@ -2362,7 +2386,7 @@ class TestFlareUpdate(TestCase):
         chf = ChfFactory()
         menopause = MenopauseFactory()
         gout = GoutFactory()
-        flare.add_medhistorys([angina, chf, gout, menopause])
+        flare.medhistorys.add(angina, chf, gout, menopause)
         flare.refresh_from_db()
         for medhistory in flare.medhistorys.all():
             self.flare_data[f"{medhistory.medhistorytype}-value"] = True

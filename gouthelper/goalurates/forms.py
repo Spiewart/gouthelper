@@ -23,6 +23,7 @@ class GoalUrateForm(
         )
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
         htmx = kwargs.pop("htmx", False)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()

@@ -1,6 +1,6 @@
 import random
 from datetime import timedelta
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import factory  # type: ignore
 import factory.fuzzy  # type: ignore
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 
-def create_flare_data(user: Union["User", None] = None, flare: Flare | None = None) -> dict[str, str]:
+def create_flare_data(user: Union["User", None] = None, flare: Flare | None = None) -> dict[str, Any]:
     """Method that returns fake data for a FlareAid object.
     takes an optional User *arg that will pull date of birth and gender
     from the user object."""
