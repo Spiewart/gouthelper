@@ -13,22 +13,22 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def medallergy_qs() -> "QuerySet":
+def medallergys_qs() -> "QuerySet":
     return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values)).all()
 
 
-def medallergy_prefetch() -> Prefetch:
+def medallergys_userless_prefetch() -> Prefetch:
     return Prefetch(
         "medallergys",
-        queryset=medallergy_qs(),
+        queryset=medallergys_qs(),
         to_attr="medallergys_qs",
     )
 
 
-def user_medallergy_prefetch() -> Prefetch:
+def medallergys_user_prefetch() -> Prefetch:
     return Prefetch(
         "medallergy_set",
-        queryset=medallergy_qs(),
+        queryset=medallergys_qs(),
         to_attr="medallergys_qs",
     )
 
@@ -41,7 +41,7 @@ def medhistorys_qs() -> "QuerySet":
     ).all()
 
 
-def medhistorys_prefetch() -> Prefetch:
+def medhistorys_userless_prefetch() -> Prefetch:
     return Prefetch(
         "medhistorys",
         queryset=medhistorys_qs(),
@@ -49,7 +49,7 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
-def medhistory_set_prefetch() -> Prefetch:
+def medhistorys_user_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=medhistorys_qs(),
@@ -63,8 +63,8 @@ def flareaid_user_qs(username: str) -> "QuerySet":
     queryset = queryset.select_related("gender")
     queryset = queryset.select_related("flareaid")
     queryset = queryset.select_related("defaultflaretrtsettings")
-    queryset = queryset.prefetch_related(medhistory_set_prefetch())
-    queryset = queryset.prefetch_related(user_medallergy_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_user_prefetch())
+    queryset = queryset.prefetch_related(medallergys_user_prefetch())
     return queryset
 
 
@@ -74,6 +74,6 @@ def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = queryset.select_related("user")
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergy_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_userless_prefetch())
+    queryset = queryset.prefetch_related(medallergys_userless_prefetch())
     return queryset

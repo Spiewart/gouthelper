@@ -42,7 +42,7 @@ class FlareAidDecisionAid:
     ):
         FlareAid = apps.get_model("flareaids", "FlareAid")
         # Set up the method by calling get() on the QuerySet and
-        # checking if the FlareAid is a FlareAid or User instance
+        # checking if the QuerySet is a FlareAid or User instance
         if isinstance(qs, QuerySet):
             qs = qs.get()
         if isinstance(qs, FlareAid):
@@ -64,17 +64,13 @@ class FlareAidDecisionAid:
             )
         else:
             raise ValueError("FlareAidDecisionAid requires a FlareAid or User instance.")
-        if qs.dateofbirth is not None:
-            self.dateofbirth = qs.dateofbirth
-            self.age = age_calc(qs.dateofbirth.value)
-            # Check if the QS is a FlareAid with a User, if so,
-            # then set its dateofbirth attr to None to avoid saving a
-            # FlareAid with a User and dateofbirth, which will raise and IntegrityError
-            if isinstance(qs, FlareAid) and qs.user:
-                setattr(self.flareaid, "dateofbirth", None)
-        else:
-            self.dateofbirth = None
-            self.age = None
+        self.dateofbirth = qs.dateofbirth
+        self.age = age_calc(qs.dateofbirth.value)
+        # Check if the QS is a FlareAid with a User, if so,
+        # then set its dateofbirth attr to None to avoid saving a
+        # FlareAid with a User and dateofbirth, which will raise and IntegrityError
+        if isinstance(qs, FlareAid) and qs.user:
+            setattr(self.flareaid, "dateofbirth", None)
         # If there are no defaultflaretrtsettings, which could have been assigned from the User
         # if the User is not None and has a defaultflaretrtsettings, then assign the default
         # This is in attempt to save a query to the database

@@ -8,14 +8,15 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import Treatments
 from ...utils.helpers.aid_helpers import aids_json_to_trt_dict
 from ..models import PpxAid
-from .factories import PpxAidFactory
+from .factories import PpxAidFactory, PpxAidUserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestFlareAidMethods(TestCase):
+class TestPpxAidMethods(TestCase):
     def setUp(self):
         self.ppxaid = PpxAidFactory()
+        self.user_ppxaid = PpxAidUserFactory()
 
     def test__aid_dict(self):
         # Test when decisionaid is empty
@@ -109,3 +110,9 @@ class TestFlareAidMethods(TestCase):
         self.assertIsInstance(self.ppxaid.update(), PpxAid)
         self.ppxaid.refresh_from_db()
         self.assertTrue(self.ppxaid.decisionaid)
+
+    def test__str__(self):
+        """Test the __str__() method for PpxAid."""
+
+        self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
+        self.assertEqual(str(self.user_ppxaid), f"{self.user_ppxaid.user.username.capitalize()}'s PpxAid")

@@ -159,8 +159,7 @@ class FlareAid(
         """Updates FlareAid decisionaid JSON field field.
 
         Args:
-            decisionaid (FlareAidDecisionAid, optional): FlareAidDecisionAid object. Defaults to None.
-            qs (FlareAid, optional): FlareAid object. Defaults to None. Should have related field objects
+            qs (FlareAid, User, optional): FlareAid or User object. Defaults to None. Should have related field objects
             prefetched and select_related.
 
         Returns:

@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -9,15 +10,21 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
+from .selectors import ppxaid_user_qs, ppxaid_userless_qs
 from .services import PpxAidDecisionAid
 
 if TYPE_CHECKING:
+    from django.contrib.auth import get_user_model  # type: ignore
+
     from ..defaults.models import DefaultPpxTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
     from ..treatments.choices import Treatments
+
+    User = get_user_model()
 
 
 class PpxAid(
@@ -31,9 +38,36 @@ class PpxAid(
 ):
     """Model picking flare prophylaxis medication for use during Ult titration."""
 
+    class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
+        constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        gender__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        dateofbirth__isnull=False,
+                        # gender can be null because not all FlareAids will have CkdDetail
+                    )
+                ),
+            ),
+        ]
+
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     decisionaid = models.JSONField(
         default=dict,
@@ -45,10 +79,14 @@ class PpxAid(
         null=True,
         blank=True,
     )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"ProphylaxisAid: created {self.created.date()}"
+        if self.user:
+            return f"{self.user.username.capitalize()}'s PpxAid"
+        else:
+            return f"PpxAid: created {self.created.date()}"
 
     @cached_property
     def aid_dict(self) -> dict:
@@ -56,9 +94,6 @@ class PpxAid(
         if not self.decisionaid:
             self.decisionaid = self.update().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
-
-    def get_absolute_url(self):
-        return reverse("ppxaids:detail", kwargs={"pk": self.pk})
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -72,7 +107,13 @@ class PpxAid(
     def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
         GoutHelper DefaultSettings."""
-        return defaults_defaultppxtrtsettings(user=None)
+        return defaults_defaultppxtrtsettings(user=self.user)
+
+    def get_absolute_url(self):
+        if self.user:
+            return reverse("ppxaids:pseudopatient-detail", kwargs={"username": self.user.username})
+        else:
+            return reverse("ppxaids:detail", kwargs={"pk": self.pk})
 
     @property
     def options(self) -> dict:
@@ -109,15 +150,19 @@ class PpxAid(
                         except KeyError:
                             return None
 
-    def update(self, decisionaid: PpxAidDecisionAid | None = None, qs: Union["PpxAid", None] = None) -> "PpxAid":
+    def update(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
         """Updates PpxAid decisionaid JSON field field.
 
         Args:
-            decisionaid (PpxAidDecisionAid, optional): PpxAidDecisionAid object. Defaults to None.
-            qs (PpxAid, optional): PpxAid object. Defaults to None.
+            qs (PpxAid, User, optional): PpxAid object. Defaults to None. Should have related field objects
+            prefetched and select_related.
 
         Returns:
             PpxAid: PpxAid object."""
-        if decisionaid is None:
-            decisionaid = PpxAidDecisionAid(pk=self.pk, qs=qs)
+        if qs is None:
+            if self.user:
+                qs = ppxaid_user_qs(username=self.user.username)
+            else:
+                qs = ppxaid_userless_qs(pk=self.pk)
+        decisionaid = PpxAidDecisionAid(qs=qs)
         return decisionaid._update()

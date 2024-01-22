@@ -8,7 +8,7 @@ from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
 from ..models import FlareAid
-from .factories import FlareAidFactory
+from .factories import FlareAidFactory, FlareAidUserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -17,9 +17,11 @@ class TestFlareAid(TestCase):
     def setUp(self):
         self.flareaid = FlareAidFactory()
         self.settings = DefaultFlareTrtSettings.objects.get(user=None)
+        self.user_flareaid = FlareAidUserFactory()
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
+        self.assertEqual(str(self.user_flareaid), f"{self.user_flareaid.user.username.capitalize()}'s FlareAid")
 
     def test__aid_dict(self):
         self.assertFalse(self.flareaid.decisionaid)

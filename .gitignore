@@ -283,3 +283,6 @@ vendors.js
 .env
 .envs/*
 !.envs/.local/
+
+# http://ses4j.github.io/2019/05/31/django-maintaining-database-per-branch-git-hook/
+gouthelper/settings/local_settings.py

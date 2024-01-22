@@ -20,7 +20,7 @@ from ...users.tests.factories import PseudopatientFactory
 from ..models import FlareAid
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model
+    from django.contrib.auth import get_user_model  # type: ignore
 
     User = get_user_model()
 

@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
+from django.db.models import QuerySet  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
-from ..defaults.models import DefaultPpxTrtSettings
 from ..defaults.selectors import (
     defaults_defaultmedhistorys_trttype,
     defaults_defaultppxtrtsettings,
@@ -21,41 +23,60 @@ from ..utils.helpers.aid_helpers import (
     aids_process_sideeffects,
     aids_process_steroids,
 )
-from .selectors import ppxaid_userless_qs
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
-    from django.db.models import QuerySet  # type: ignore
-
     from .models import PpxAid
+
+User = get_user_model()
 
 
 class PpxAidDecisionAid:
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["PpxAid", None] = None,
+        qs: Union["PpxAid", User, QuerySet] = None,
     ):
-        # Check if qs was passed in
-        if qs is not None:
-            # If so, use it to assign the PpxAid
+        PpxAid = apps.get_model("ppxaids", "PpxAid")
+        # Set up the method by calling get() on the QuerySet and
+        # checking if the PpxAid is a PpxAid or User instance
+        if isinstance(qs, QuerySet):
+            qs = qs.get()
+        if isinstance(qs, PpxAid):
             self.ppxaid = qs
+            self.user = qs.user
+            # If the queryset is a PpxAid instance with a user,
+            # try to assign defaultflaretrtsettings from it
+            self.defaultppxtrtsettings = (
+                self.user.defaultppxtrtsettings if self.user and hasattr(self.user, "defaultppxtrtsettings") else None
+            )
+        elif isinstance(qs, User):
+            self.ppxaid = qs.ppxaid
+            self.user = qs
+            # If the queryset is a User instance, try to assign defaultppxtrtsettings from it
+            self.defaultppxtrtsettings = qs.defaultppxtrtsettings if hasattr(qs, "defaultppxtrtsettings") else None
         else:
-            # Otherwise, use the ppxaid_userless_qs selector to assign the PpxAid
-            self.ppxaid = ppxaid_userless_qs(pk=pk).get()
-        # Assign PpxAid attributes to the class Method for processing
-        self.dateofbirth = self.ppxaid.dateofbirth
-        self.age = age_calc(self.ppxaid.dateofbirth.value)
-        if self.ppxaid.gender is not None:
-            self.gender = self.ppxaid.gender.value
-        else:
-            self.gender = None
-        self.medallergys = self.ppxaid.medallergys_qs
-        self.medhistorys = self.ppxaid.medhistorys_qs
+            raise ValueError("PpxAidDecisionAid requires a PpxAid or User instance.")
+        self.dateofbirth = qs.dateofbirth
+        self.age = age_calc(qs.dateofbirth.value)
+        # Check if the QS is a PpxAid with a User, if so,
+        # then set its dateofbirth attr to None to avoid saving a
+        # PpxAid with a User and dateofbirth, which will raise and IntegrityError
+        if isinstance(qs, PpxAid) and qs.user:
+            setattr(self.ppxaid, "dateofbirth", None)
+        # If there are no defaultppxtrtsettings, which could have been assigned from the User
+        # if the User is not None and has a defaultppxtrtsettings, then assign the default
+        # This is in attempt to save a query to the database
+        if not getattr(self, "defaultppxtrtsettings", None):
+            self.defaultppxtrtsettings = defaults_defaultppxtrtsettings(user=self.user)
+        self.gender = qs.gender
+        # Check if the QS is a FlareAid with a User, if so,
+        # then sets its gender attr to None to avoid saving a
+        # FlareAid with a User and a gender, which will raise and IntegrityError
+        if isinstance(qs, PpxAid) and qs.user:
+            setattr(self.ppxaid, "gender", None)
+        self.medallergys = qs.medallergys_qs
+        self.medhistorys = qs.medhistorys_qs
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
-        # Sideeffects are set to None because there are no User's in GoutHelper yet...
         self.sideeffects = None
 
     FlarePpxChoices = FlarePpxChoices
@@ -94,13 +115,7 @@ class PpxAidDecisionAid:
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
-        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.PPX, user=None)
-
-    @cached_property
-    def defaultppxtrtsettings(self) -> "DefaultPpxTrtSettings":
-        """Uses defaults_defaultsettings to fetch the DefaultPpxTrtSettings for the user or
-        GoutHelper DefaultPpxTrtSettings."""
-        return defaults_defaultppxtrtsettings(user=None)
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.PPX, user=self.user)
 
     @cached_property
     def default_trts(self) -> "QuerySet":
@@ -109,7 +124,7 @@ class PpxAidDecisionAid:
 
         Returns:
             QuerySet: of DefaultTrts filtered for trttype=PPX"""
-        return defaults_defaulttrts_trttype(trttype=TrtTypes.PPX, user=None)
+        return defaults_defaulttrts_trttype(trttype=TrtTypes.PPX, user=self.user)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the PpxAid decisionaid field as a JSON string.
