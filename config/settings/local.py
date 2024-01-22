@@ -23,32 +23,6 @@ CACHES = {
     }
 }
 
-# DATABASES
-# http://ses4j.github.io/2019/05/31/django-maintaining-database-per-branch-git-hook/
-# To manage multiple databases on a per-branch setting. This is useful if you make DB changes
-# in different branches.
-
-# Read local settings.  `get_additional_local_settings` lets you add settings
-# in your local_settings that are a function of other settings.  I pass ENV, here,
-# but if you need other variables, simply add them.  Make sure you accept
-# **kwargs in your `get_additional_local_settings` in case others change the list.
-
-
-def get_additional_local_settings(**kwargs):
-    return {}
-
-
-try:
-    from .local_settings import BRANCH, DATABASES
-except ImportError:
-    pass
-
-additional_local_settings = get_additional_local_settings(BRANCH=BRANCH, DATABASES=DATABASES)
-if additional_local_settings:
-    for setting_name, setting_value in additional_local_settings.items():
-        globals()[setting_name] = setting_value
-
-
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
