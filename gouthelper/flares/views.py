@@ -540,12 +540,6 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView):
         self.object = self.get_object()
         return super().dispatch(request, *args, **kwargs)
 
-    def delete(self, request, *args, **kwargs):
-        """Overwritten to redirect appropriately."""
-        success_url = self.get_success_url()
-        self.object.delete()
-        return HttpResponseRedirect(success_url)
-
     def get_object(self, *args, **kwargs) -> Flare:
         """Overwritten to set the user attr on the view."""
         try:

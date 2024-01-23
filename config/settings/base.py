@@ -85,6 +85,7 @@ THIRD_PARTY_APPS = [
     "markdownfield",
     "multiselectfield",
     "simple_history",
+    "django_recaptcha",
 ]
 
 LOCAL_APPS = [
@@ -339,3 +340,11 @@ SPECTACULAR_SETTINGS = {
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+# Google ReCaptcha
+RECAPTCHA_PUBLIC_KEY = env("RECAPTCHA_PUBLIC_KEY")
+RECAPTCHA_PRIVATE_KEY = env("RECAPTCHA_PRIVATE_KEY")
+
+CORRESPONDANCE_EMAIL = env(
+    "CORRESPONDANCE_EMAIL",
+    default=None,
+)

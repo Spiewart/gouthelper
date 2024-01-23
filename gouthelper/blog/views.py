@@ -22,7 +22,7 @@ class BlogList(ListView):
     template_name = "blog/list.html"
 
     def get_queryset(self):
-        return super().get_queryset().filter(status="published").prefetch_related("tags")
+        return super().get_queryset().filter(status="published").order_by("published_date").prefetch_related("tags")
 
 
 class BlogAuthorList(BlogList):

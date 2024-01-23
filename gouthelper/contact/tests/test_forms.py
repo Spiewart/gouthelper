@@ -1,7 +1,10 @@
+from unittest.mock import patch  # type: ignore
+
 import pytest  # type: ignore
 from django.conf import settings  # type: ignore
 from django.core import mail  # type: ignore
 from django.test import TestCase  # type: ignore
+from django_recaptcha.client import RecaptchaResponse  # type: ignore
 
 from ..choices import SubjectChoices
 from ..forms import ContactForm
@@ -16,11 +19,15 @@ class TestContactForm(TestCase):
             "email": "rweasley@hogwarts.com",
             "subject": SubjectChoices.CLINICALBUG,
             "message": "Your webapp broke my big toe! It's all red and angry and I can't put a sock on.",
+            "g-recaptcha-response": "PASSED",
         }
         self.form = ContactForm
 
-    def test__clean(self):
+    @patch("django_recaptcha.fields.client.submit")
+    def test__clean(self, mocked_submit):
         """Test that the clean method works as expected."""
+        # Add mocked RecaptchaResponse to mocked_submit so that the form is valid
+        mocked_submit.return_value = RecaptchaResponse(is_valid=True)
         # Test that the form is valid
         form = self.form(data=self.data)
         assert form.is_valid()
@@ -31,8 +38,11 @@ class TestContactForm(TestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(form.errors["other"], ['Please specify the "other" subject.'])
 
-    def test__get_info(self):
+    @patch("django_recaptcha.fields.client.submit")
+    def test__get_info(self, mocked_submit):
         """Test that the get_info method works as expected."""
+        # Add mocked RecaptchaResponse to mocked_submit so that the form is valid
+        mocked_submit.return_value = RecaptchaResponse(is_valid=True)
         form = self.form(data=self.data)
         self.assertTrue(form.is_valid())
 
@@ -47,8 +57,11 @@ class TestContactForm(TestCase):
         )
         self.assertEqual(from_email, "rweasley@hogwarts.com")
 
-    def test__send(self):
+    @patch("django_recaptcha.fields.client.submit")
+    def test__send(self, mocked_submit):
         """Test that the send method works as expected."""
+        # Add mocked RecaptchaResponse to mocked_submit so that the form is valid
+        mocked_submit.return_value = RecaptchaResponse(is_valid=True)
         form = self.form(data=self.data)
         self.assertTrue(form.is_valid())
 
@@ -57,7 +70,7 @@ class TestContactForm(TestCase):
         # Assert that the emails in the outbox are from the correct email addresses
         self.assertEqual(mail.outbox[0].from_email, settings.DEFAULT_FROM_EMAIL)
         # Assert that the emails in the outbox are directed to the correct email addresses
-        self.assertEqual(mail.outbox[0].to, [settings.DEFAULT_FROM_EMAIL, "rweasley@hogwarts.com"])
+        self.assertEqual(mail.outbox[0].to, [settings.CORRESPONDANCE_EMAIL, "rweasley@hogwarts.com"])
         # Assert that the subject is correct
         self.assertEqual(mail.outbox[0].subject, SubjectChoices.CLINICALBUG)
         # Assert that the message is correct

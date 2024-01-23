@@ -1,6 +1,7 @@
 from django import forms  # type: ignore
 from django.conf import settings  # type: ignore
 from django.core.mail import send_mail  # type: ignore
+from django_recaptcha.fields import ReCaptchaField
 
 from .choices import SubjectChoices
 
@@ -17,6 +18,7 @@ class ContactForm(forms.Form):
     subject = forms.ChoiceField(widget=forms.Select(), choices=SubjectChoices.choices)
     other = forms.CharField(max_length=70, required=False)
     message = forms.CharField(widget=forms.Textarea)
+    captcha = ReCaptchaField()
 
     def clean(self):
         """Overriding clean method to check for "other" subject.
@@ -56,5 +58,5 @@ class ContactForm(forms.Form):
             subject=subject,
             message=msg,
             from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[settings.DEFAULT_FROM_EMAIL, from_email],
+            recipient_list=[settings.CORRESPONDANCE_EMAIL, from_email],
         )
