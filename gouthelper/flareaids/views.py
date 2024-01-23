@@ -437,7 +437,7 @@ class FlareAidDetail(FlareAidDetailBase):
             # Check if FlareAid is up to date and update if not update
             if not request.GET.get("updated", None):
                 self.object.update(qs=self.object)
-                return super().dispatch(request, *args, **kwargs)
+            return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         """Overwritten to avoid calling get_object again, which is instead
