@@ -2,12 +2,10 @@
 
 from django.db import migrations
 
-from ..services import create_or_update_contents
-
 
 class Migration(migrations.Migration):
     dependencies = [
         ("contents", "0002_initial"),
     ]
 
-    operations = [migrations.RunPython(create_or_update_contents)]
+    operations = []
