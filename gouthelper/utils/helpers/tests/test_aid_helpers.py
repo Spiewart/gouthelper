@@ -42,8 +42,8 @@ from ....treatments.choices import (
 from ....ultaids.services import UltAidDecisionAid
 from ....ultaids.tests.factories import UltAidFactory
 from ..aid_helpers import (
-    aids_assign_userless_baselinecreatinine,
-    aids_assign_userless_ckddetail,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
     aids_assign_userless_goutdetail,
     aids_colchicine_ckd_contra,
     aids_create_trts_dosing_dict,
@@ -72,18 +72,18 @@ class TestAidsAssignUserlessBaselineCreatinine(TestCase):
 
     def test__no_ckd_returns_None(self):
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
 
     def test__ckd_but_not_baselinecreatinine_returns_None(self):
         CkdFactory()
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
 
     def test__ckd_with_baselinecreatinine_returns_ckddetail(self):
         ckd = CkdFactory()
         baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.0"))
         medhistorys = MedHistory.objects.filter().all()
-        self.assertEqual(aids_assign_userless_baselinecreatinine(medhistorys=medhistorys), baselinecreatinine)
+        self.assertEqual(aids_assign_baselinecreatinine(medhistorys=medhistorys), baselinecreatinine)
 
 
 class TestAidsAssignUserlessCkdDetail(TestCase):
@@ -94,18 +94,18 @@ class TestAidsAssignUserlessCkdDetail(TestCase):
 
     def test__no_ckd_returns_None(self):
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_ckddetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_but_not_ckddetail_returns_None(self):
         CkdFactory()
         medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_userless_ckddetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_with_ckddetail_returns_ckddetail(self):
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
         medhistorys = MedHistory.objects.filter().all()
-        self.assertEqual(aids_assign_userless_ckddetail(medhistorys=medhistorys), ckddetail)
+        self.assertEqual(aids_assign_ckddetail(medhistorys=medhistorys), ckddetail)
 
 
 class TestAidsAssignUserlessGoutDetail(TestCase):
@@ -224,7 +224,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
 
     def test_ckd_no_stage(self):
         ckd = CkdFactory()
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
@@ -242,7 +242,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
     def test_ckd_stage_3(self):
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
@@ -262,7 +262,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults.save()
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
@@ -284,7 +284,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults.save()
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FIVE)
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
@@ -312,7 +312,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
             dialysis_type=DialysisChoices.HEMODIALYSIS,
             dialysis_duration=DialysisDurations.MORETHANYEAR,
         )
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
@@ -340,7 +340,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
             dialysis_type=DialysisChoices.PERITONEAL,
             dialysis_duration=DialysisDurations.MORETHANYEAR,
         )
-        self.userless_ultaid.add_medhistorys([ckd])
+        self.userless_ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         contra, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
@@ -499,7 +499,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         custom_settings.save()
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR, dialysis=False)
-        self.ultaid.add_medhistorys([ckd])
+        self.ultaid.medhistorys.add(ckd)
         decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
         trt_dict = decisionaid._create_trts_dict()
         trt_dict = aids_process_medhistorys(
@@ -794,7 +794,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
     def test__ckd_without_ckddetail_contraindicates_probenecid(self):
         ckd = CkdFactory()
         ultaid = UltAidFactory()
-        ultaid.add_medhistorys([ckd])
+        ultaid.medhistorys.add(ckd)
         ultaid.update()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict
@@ -804,7 +804,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=3)
         ultaid = UltAidFactory()
-        ultaid.add_medhistorys([ckd])
+        ultaid.medhistorys.add(ckd)
         ultaid.update()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict
@@ -814,7 +814,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=2)
         ultaid = UltAidFactory()
-        ultaid.add_medhistorys([ckd])
+        ultaid.medhistorys.add(ckd)
         ultaid.update()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict

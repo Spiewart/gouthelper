@@ -29,7 +29,7 @@ from ..treatments.choices import (
     Treatments,
     TrtTypes,
 )
-from ..utils.models import GouthelperModel  # type: ignore
+from ..utils.models import GoutHelperModel  # type: ignore
 
 
 class TreatmentMixin(models.Model):
@@ -104,7 +104,7 @@ class TreatmentMixin(models.Model):
     treatment = models.CharField(_("Treatment"), max_length=50, choices=Treatments.choices, null=True, blank=True)
 
 
-class DefaultMedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class DefaultMedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model that stores defaults for classes of Historys.
     Describes History interactions with Treatments"""
 
@@ -227,7 +227,7 @@ Contraindication: {self.Contraindications(self.contraindication).label}"
 
 class DefaultTrt(
     RulesModelMixin,
-    GouthelperModel,
+    GoutHelperModel,
     TimeStampedModel,
     TreatmentMixin,
     metaclass=RulesModelBase,
@@ -505,7 +505,7 @@ class DefaultTrt(
             return f"{def_str}"
 
 
-class DefaultFlareTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default Flare Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
@@ -585,7 +585,7 @@ class DefaultFlareTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel
         default=None,
     )
     # Field to indicate whether NSAIDs should be recommended for use after age 65
-    # Gouthelper defaults to True
+    # GoutHelper defaults to True
     nsaid_age = models.BooleanField(
         choices=BOOL_CHOICES,
         verbose_name="NSAIDs after age 65",
@@ -622,10 +622,10 @@ class DefaultFlareTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel
         if self.user:
             return f"{self.user.username}'s Default Flare Treatment Settings"
         else:
-            return "Gouthelper Default Flare Treatment Settings"
+            return "GoutHelper Default Flare Treatment Settings"
 
 
-class DefaultPpxTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default PPx Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
@@ -740,10 +740,10 @@ class DefaultPpxTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, 
         if self.user:
             return f"{self.user.username}'s Default PPx Treatment Settings"
         else:
-            return "Gouthelper Default PPx Treatment Settings"
+            return "GoutHelper Default PPx Treatment Settings"
 
 
-class DefaultUltTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default ULT Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
@@ -819,4 +819,4 @@ class DefaultUltTrtSettings(RulesModelMixin, GouthelperModel, TimeStampedModel, 
         if self.user:
             return f"{self.user.username}'s Default Ult Treatment Settings"
         else:
-            return "Gouthelper Default Ult Treatment Settings"
+            return "GoutHelper Default Ult Treatment Settings"

@@ -34,7 +34,7 @@ class TestUltDecisionAid(TestCase):
         self.hyperuricemia = HyperuricemiaFactory()
         self.tophi = TophiFactory()
         self.uratestones = UratestonesFactory()
-        self.ult1.add_medhistorys(MedHistory.objects.all())
+        self.ult1.medhistorys.add(*MedHistory.objects.all())
         self.ult2 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
 
     def test__init__(self):
@@ -75,14 +75,14 @@ class TestUltDecisionAid(TestCase):
     def test__get_indication_erosions_indicated(self):
         # Test that erosions indicate treatment
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        ult.add_medhistorys([ErosionsFactory()])
+        ult.medhistorys.add(ErosionsFactory())
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.INDICATED)
 
     def test__get_indication_tophi_indicated(self):
         # Test that tophi indicate treatment
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        ult.add_medhistorys([TophiFactory()])
+        ult.medhistorys.add(TophiFactory())
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.INDICATED)
 
@@ -96,14 +96,14 @@ class TestUltDecisionAid(TestCase):
     def test__get_indication_first_flare_hyperuricemia_conditional(self):
         # Test that having hyperuricemia and a first flare conditionally indicates treatment
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        ult.add_medhistorys([HyperuricemiaFactory()])
+        ult.medhistorys.add(HyperuricemiaFactory())
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.CONDITIONAL)
 
     def test__get_indication_first_flare_uratestones_conditional(self):
         # Test that having uratestones and a first flare conditionally indicates treatment
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        ult.add_medhistorys([UratestonesFactory()])
+        ult.medhistorys.add(UratestonesFactory())
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.CONDITIONAL)
 
@@ -112,7 +112,7 @@ class TestUltDecisionAid(TestCase):
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ult.add_medhistorys([ckd])
+        ult.medhistorys.add(ckd)
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.CONDITIONAL)
 
@@ -121,7 +121,7 @@ class TestUltDecisionAid(TestCase):
         ult = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.ONE)
-        ult.add_medhistorys([ckd])
+        ult.medhistorys.add(ckd)
         ult_aid = self.aid(ult.pk)
         self.assertEqual(ult_aid._get_indication(), Indications.NOTINDICATED)
 

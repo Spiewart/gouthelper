@@ -1,2 +1,2 @@
 Clinician diagnosis doesn't factor into establishing the Prevalence of gout in a population similar to the Flare reported. There is enough variation in practice patterns between providers that
-Gouthelper doesn't increase the likelihood that a set of symptoms are from a gout flare based on provider diagnosis. The results of a crystal analysis performed on a joint (synovial) fluid aspiration, however, do factor into the Prevalence calculation.
+GoutHelper doesn't increase the likelihood that a set of symptoms are from a gout flare based on provider diagnosis. The results of a crystal analysis performed on a joint (synovial) fluid aspiration, however, do factor into the Prevalence calculation.

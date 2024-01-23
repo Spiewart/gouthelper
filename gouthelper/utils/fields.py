@@ -60,7 +60,7 @@ def format_link(attrs: dict[tuple, str], new: bool = False):
     return attrs
 
 
-class GouthelperMarkdownField(MarkdownField):
+class GoutHelperMarkdownField(MarkdownField):
     def pre_save(self, model_instance, add):
         value = super().pre_save(model_instance, add)
 

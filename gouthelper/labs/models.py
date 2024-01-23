@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
 from django.apps import apps  # type: ignore
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -12,7 +13,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LabTypes, LowerLimits, Units, UpperLimits
 from .helpers import (
     labs_eGFR_calculator,
@@ -52,7 +53,7 @@ class CreatinineBase:
         return labs_stage_calculator(self.eGFR)
 
 
-class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         abstract = True
         constraints = [
@@ -93,7 +94,6 @@ class LabBase(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
         max_digits=6,
         decimal_places=2,
     )
-    history = HistoricalRecords(inherit=True)
 
     @cached_property
     def abnormality(self) -> Literal[Abnormalitys.HIGH] | None:
@@ -156,6 +156,13 @@ class Lab(LabBase):
         ]
 
     date_drawn = models.DateTimeField(help_text="What day was this lab drawn?", default=timezone.now, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    history = HistoricalRecords()
     objects = models.Manager()
 
     def delete(
@@ -248,6 +255,7 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
     class Meta(BaselineLab.Meta):
         constraints = BaselineLab.Meta.constraints
 
+    history = HistoricalRecords()
     objects = CreatinineManager()
 
     @cached_property
@@ -255,8 +263,8 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
         return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
     def __str__(self):
-        return f"Baseline {getattr(self.LabTypes, self.labtype).label}: \
-{self.value.quantize(Decimal('1.00'))} {getattr(self.Units, self.units).label}"
+        return f"Baseline {self.get_labtype_display()}: \
+{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
 
 class Urate(Lab):
@@ -266,8 +274,8 @@ class Urate(Lab):
     objects = UrateManager()
 
     def __str__(self):
-        return f"{getattr(self.LabTypes, self.labtype).label}: \
-{self.value.quantize(Decimal('1.0'))} {getattr(self.Units, self.units).label}"
+        return f"{self.get_labtype_display()}: \
+{self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
 
     def get_medhistorytype(self) -> Literal[MedHistoryTypes.GOUT]:
         return MedHistoryTypes.GOUT
@@ -280,7 +288,7 @@ class Urate(Lab):
         return [MedHistoryTypes.GOUT]
 
 
-class Hlab5801(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -295,4 +303,4 @@ class Hlab5801(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rul
         verbose_name=_("HLA-B*5801"),
         help_text=_("HLA-B*5801 genotype present?"),
     )
-    history = HistoricalRecords(inherit=True)
+    history = HistoricalRecords()

@@ -12,10 +12,18 @@ if TYPE_CHECKING:
 def medhistorys_get_allopurinolhypersensitivity(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY or False."""
+    return next(
+        iter(
+            [
+                medhistory
+                for medhistory in medhistorys
+                if medhistory.medhistorytype == MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
+            ]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_anticoagulation(
@@ -23,19 +31,22 @@ def medhistorys_get_anticoagulation(
 ) -> Union["MedHistory", bool]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is MedHistoryTypes.ANTICOAGULATION or False."""
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.ANTICOAGULATION:
-            return medhistory
-    return False
+    return next(
+        iter(
+            [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.ANTICOAGULATION]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_bleed(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> Union["MedHistory", bool]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is MedHistoryTypes.BLEED or False."""
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.BLEED:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.BLEED or False."""
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.BLEED]), False
+    )
 
 
 def medhistorys_get_cvdiseases(
@@ -56,10 +67,11 @@ def medhistorys_get_cvdiseases_str(
 
 
 def medhistorys_get_ckd(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.CKD:
-            return medhistory
-    return False
+    """Method that iterates over a list of medhistorys and returns one
+    whose medhistorytype field is CKD or False."""
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.CKD]), False
+    )
 
 
 def medhistorys_get_ckd_3_or_higher(
@@ -75,29 +87,42 @@ def medhistorys_get_ckd_3_or_higher(
     returns:
         Union[bool, "MedHistory"]
     """
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.CKD and hasattr(medhistory, "ckddetail"):
-            if medhistory.ckddetail.stage >= medhistory.ckddetail.Stages.THREE:
-                return medhistory
-    return False
+    return next(
+        iter(
+            [
+                medhistory
+                for medhistory in medhistorys
+                if medhistory.medhistorytype == MedHistoryTypes.CKD
+                and hasattr(medhistory, "ckddetail")
+                and medhistory.ckddetail.stage >= medhistory.ckddetail.Stages.THREE
+            ]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_colchicineinteraction(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.COLCHICINEINTERACTION:
-            return medhistory
-    return False
+    return next(
+        iter(
+            [
+                medhistory
+                for medhistory in medhistorys
+                if medhistory.medhistorytype == MedHistoryTypes.COLCHICINEINTERACTION
+            ]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_diabetes(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.DIABETES:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.DIABETES]),
+        False,
+    )
 
 
 def medhistorys_get_default_medhistorytype(medhistory: "MedHistory") -> MedHistoryTypes:
@@ -119,19 +144,25 @@ def medhistorys_get_default_medhistorytype(medhistory: "MedHistory") -> MedHisto
 def medhistorys_get_erosions(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.EROSIONS:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.EROSIONS]),
+        False,
+    )
 
 
 def medhistorys_get_febuxostathypersensitivity(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY:
-            return medhistory
-    return False
+    return next(
+        iter(
+            [
+                medhistory
+                for medhistory in medhistorys
+                if medhistory.medhistorytype == MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
+            ]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_gastricbypass(
@@ -139,44 +170,44 @@ def medhistorys_get_gastricbypass(
 ) -> Union["MedHistory", bool]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is MedHistoryTypes.GASTRICBYPASS or False."""
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.GASTRICBYPASS:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.GASTRICBYPASS]),
+        False,
+    )
 
 
 def medhistorys_get_gout(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.GOUT:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.GOUT or False."""
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.GOUT]), False
+    )
 
 
 def medhistorys_get_hyperuricemia(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.HYPERURICEMIA:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.HYPERURICEMIA]),
+        False,
+    )
 
 
 def medhistorys_get_ibd(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> Union["MedHistory", bool]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is MedHistoryTypes.IBD or False."""
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.IBD:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.IBD]), False
+    )
 
 
 def medhistorys_get_menopause(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE:
-            return medhistory
-    return False
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE]),
+        False,
+    )
 
 
 def medhistorys_get_nsaid_contras(
@@ -192,10 +223,12 @@ def medhistorys_get_nsaid_contras(
 def medhistorys_get_organtransplant(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.ORGANTRANSPLANT:
-            return medhistory
-    return False
+    return next(
+        iter(
+            [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.ORGANTRANSPLANT]
+        ),
+        False,
+    )
 
 
 def medhistorys_get_other_nsaid_contras(
@@ -205,25 +238,32 @@ def medhistorys_get_other_nsaid_contras(
 
 
 def medhistorys_get_tophi(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.TOPHI:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.TOPHI or False."""
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.TOPHI]), False
+    )
 
 
 def medhistorys_get_uratestones(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.URATESTONES:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.URATESTONES or False."""
+    return next(
+        iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.URATESTONES]),
+        False,
+    )
 
 
 def medhistorys_get_xoiinteraction(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:
-    for medhistory in medhistorys:
-        if medhistory.medhistorytype == MedHistoryTypes.XOIINTERACTION:
-            return medhistory
-    return False
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is MedHistoryTypes.XOIINTERACTION or False."""
+    return next(
+        iter(
+            [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.XOIINTERACTION]
+        ),
+        False,
+    )

@@ -1,18 +1,18 @@
-# About Gouthelper
+# About GoutHelper
 
 ---
 
 - [What is it](#what-is-it)
 - [Development](#development)
-- [Why Gouthelper](#why-gouthelper)
+- [Why GoutHelper](#why-gouthelper)
 - [Disclaimer](#disclaimer)
 - [Privacy](#privacy)
 
 ---
 
-## <span id="what-is-it">What is Gouthelper</span>
+## <span id="what-is-it">What is GoutHelper</span>
 
-Gouthelper is a web application to inform patients and providers about gout and contains a suite of tools that answers
+GoutHelper is a web application to inform patients and providers about gout and contains a suite of tools that answers
 common clinical questions in gout management like:
 
 1. Flare: Are the symptoms (joint pain, etc) due to gout?
@@ -23,21 +23,21 @@ common clinical questions in gout management like:
 6. Ppx: Is [prophylaxis](/treatments/about/ppx/) for gout flares needed?
 7. PpxAid: If so, what is the best choice of prophylaxis?
 
-## <span id="development">How was Gouthelper developed?</span>
+## <span id="development">How was GoutHelper developed?</span>
 
-Gouthelper is a hobby project developed by Dr. David Ewart, a rheumatologist in Minneapolis, Minnesota. The project started
+GoutHelper is a hobby project developed by Dr. David Ewart, a rheumatologist in Minneapolis, Minnesota. The project started
 during COVID-19 in 2019 as a way to learn Python and web development and to try to improve gout and the lives of patients with gout along the way. The project is open source and is available on [GitHub](https://github.com/Spiewart/gouthelper). The project is written predominantly in Python and uses the [Django](https://www.djangoproject.com/) web framework. Please check the readme on GitHub for more information on the project, including how to contribute.
 
-## <span id="why-gouthelper">Why Gouthelper?</span>
+## <span id="why-gouthelper">Why GoutHelper?</span>
 
 Gout is pretty common and can be quite disabling. People miss activities, time with family, and work because of gout. The
 treatments for gout are VERY effective, but they are not used as often as they should be and are often used incorrectly. Further,
 there are a lot of misconceptions about gout that are a detriment
-to getting it treated. Gouthelper is an attempt to help patients and providers get the most out of gout treatment.
+to getting it treated. GoutHelper is an attempt to help patients and providers get the most out of gout treatment.
 
 ## <span id="disclaimer">Why the disclaimer?</span>
 
-Gouthelper is a computer program, and a very early testing version at that. It is not a substitute for medical advice, so please do not use it as such.
+GoutHelper is a computer program, and a very early testing version at that. It is not a substitute for medical advice, so please do not use it as such.
 
 ## <span id="privacy">Privacy</span>
 

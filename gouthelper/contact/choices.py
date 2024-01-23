@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 
 class SubjectChoices(TextChoices):
     """TextChoices to describe different subjects for
-    Gouthelper contact emails."""
+    GoutHelper contact emails."""
 
     GENERAL = "general", _("General")
     COMPLIMENT = "compliment", _("Compliment")

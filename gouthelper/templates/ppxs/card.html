@@ -1,7 +1,12 @@
-<div class="card text-center spacious-cards">
+<div id="ppx-card" class="card text-center spacious-cards">
   <div class="card-body">
-    <h5 class="card-title">Ppx</h5>
-    <p class="card-text">Does your patient need prophylaxis?</p>
+    <h2 class="card-title">Ppx</h2>
+    <p class="card-text">
+      Does your patient need <a href="{% url 'treatments:about-ppx' %}">prophylaxis</a> (preventative treatment) against gout flares?
+      Prophylaxis is NOT a long-term therapy for gout, but is typically started at the same time as urate-lowering therapy
+      (<a href="{% url 'treatments:about-ult' %}">ULT</a>). It is used to prevent flares while ULT is being adjusted. The <strong>Ppx</strong>
+      Decision Aid can help you figure it out.
+    </p>
     <a href="{% url 'ppxs:create' %}"
        class="btn btn-primary spacious-buttons">Create</a>
     <a href="{% url 'ppxs:about' %}"

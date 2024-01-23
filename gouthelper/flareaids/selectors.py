@@ -4,6 +4,8 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
+from ..treatments.choices import FlarePpxChoices
+from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -11,19 +13,27 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def medallergy_userless_qs() -> "QuerySet":
-    return apps.get_model("medallergys.MedAllergy").objects.all()
+def medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values)).all()
 
 
-def medallergy_userless_prefetch() -> Prefetch:
+def medallergys_userless_prefetch() -> Prefetch:
     return Prefetch(
         "medallergys",
-        queryset=medallergy_userless_qs(),
+        queryset=medallergys_qs(),
         to_attr="medallergys_qs",
     )
 
 
-def medhistory_userless_qs() -> "QuerySet":
+def medallergys_user_prefetch() -> Prefetch:
+    return Prefetch(
+        "medallergy_set",
+        queryset=medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
+def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
@@ -31,18 +41,39 @@ def medhistory_userless_qs() -> "QuerySet":
     ).all()
 
 
-def medhistory_userless_prefetch() -> Prefetch:
+def medhistorys_userless_prefetch() -> Prefetch:
     return Prefetch(
         "medhistorys",
-        queryset=medhistory_userless_qs(),
+        queryset=medhistorys_qs(),
         to_attr="medhistorys_qs",
     )
 
 
-def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("flareaids.FlareAid").objects.filter(pk=pk)
+def medhistorys_user_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def flareaid_user_qs(username: str) -> "QuerySet":
+    queryset = Pseudopatient.objects.filter(username=username)
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistory_userless_prefetch())
-    queryset = queryset.prefetch_related(medallergy_userless_prefetch())
+    queryset = queryset.select_related("flareaid")
+    queryset = queryset.select_related("defaultflaretrtsettings")
+    queryset = queryset.prefetch_related(medhistorys_user_prefetch())
+    queryset = queryset.prefetch_related(medallergys_user_prefetch())
+    return queryset
+
+
+def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
+    queryset = apps.get_model("flareaids.FlareAid").objects.filter(pk=pk)
+    # Try to fetch the user to check if a redirect to a Pseudopatient view is needed
+    queryset = queryset.select_related("user")
+    queryset = queryset.select_related("dateofbirth")
+    queryset = queryset.select_related("gender")
+    queryset = queryset.prefetch_related(medhistorys_userless_prefetch())
+    queryset = queryset.prefetch_related(medallergys_userless_prefetch())
     return queryset

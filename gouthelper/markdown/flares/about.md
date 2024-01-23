@@ -23,10 +23,10 @@ data don't fit.
 
 ## <span id="likelihood">Likelihood</span>
 
-Likelihood is Gouthelper's estimation of how likely it is that
+Likelihood is GoutHelper's estimation of how likely it is that
 the Flare reported is due to gout. **This is not a fully evidence-based
 or quantiative determination**. The likelihood is based on the evidence-based
-[Diagnostic Rule](#diagnosticrule) for gout that Gouthelper expands upon
+[Diagnostic Rule](#diagnosticrule) for gout that GoutHelper expands upon
 by gathering additional information that experienced providers would consider when
 evaluating a potential gout flare.
 
@@ -44,11 +44,11 @@ European medical centers.
 
 The potential [Prevalences](#prevalences) are: **Low** (2.2%), **Medium** (31.2%), and **High** (80.4%).
 
-Gouthelper's opinion of this work is that it is really cool and helpful. There are a few caveats to their use however. First,
+GoutHelper's opinion of this work is that it is really cool and helpful. There are a few caveats to their use however. First,
 these studies only looked at patients who had sudden onset pain in a single joint. Thus, extrapolating this to
 patients with pain in more than one joint or pain that came on gradually is not supported by the evidence. Second,
 they didn't include other factors into their final model that are very important practical considerations when clinicians evaluate
-a patient with gout. This is why Gouthelper gathers additional information about the Flare and integrates
+a patient with gout. This is why GoutHelper gathers additional information about the Flare and integrates
 that with the [Diagnostic Rule](#diagnosticrule) to provide a [Likelihood](#likelihood).
 
 ---

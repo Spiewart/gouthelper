@@ -8,6 +8,7 @@ from .models import DateOfBirth  # type: ignore
 class DateOfBirthAdmin(SimpleHistoryAdmin):
     list_display = (
         "value",
+        "user",
         "created",
         "pk",
     )

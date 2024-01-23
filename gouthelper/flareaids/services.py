@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
+from django.db.models import QuerySet  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
-from ..defaults.models import DefaultFlareTrtSettings
 from ..defaults.selectors import (
     defaults_defaultflaretrtsettings,
     defaults_defaultmedhistorys_trttype,
@@ -11,8 +13,8 @@ from ..defaults.selectors import (
 )
 from ..treatments.choices import FlarePpxChoices, TrtTypes
 from ..utils.helpers.aid_helpers import (
-    aids_assign_userless_baselinecreatinine,
-    aids_assign_userless_ckddetail,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
     aids_create_trts_dosing_dict,
     aids_dict_to_json,
     aids_process_medallergys,
@@ -21,37 +23,69 @@ from ..utils.helpers.aid_helpers import (
     aids_process_sideeffects,
     aids_process_steroids,
 )
-from .selectors import flareaid_userless_qs
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
-    from django.db.models import QuerySet  # type: ignore
-
     from ..flareaids.models import FlareAid
+
+User = get_user_model()
 
 
 class FlareAidDecisionAid:
+    """DecisionAid to create/update the FlareAid decisionaid field.
+    Requires a queryset (qs) of a FlareAid or User instance with
+    select_related and prefetch_related to avoid extra queries and to
+    not raise an AttributeError, respectively."""
+
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["FlareAid", None] = None,
+        qs: Union["FlareAid", User, QuerySet],
     ):
-        if qs:
+        FlareAid = apps.get_model("flareaids", "FlareAid")
+        # Set up the method by calling get() on the QuerySet and
+        # checking if the QuerySet is a FlareAid or User instance
+        if isinstance(qs, QuerySet):
+            qs = qs.get()
+        if isinstance(qs, FlareAid):
             self.flareaid = qs
+            self.user = qs.user
+            # If the queryset is a FlareAid instance with a user,
+            # try to assign defaultflaretrtsettings from it
+            self.defaultflaretrtsettings = (
+                self.user.defaultflaretrtsettings
+                if self.user and hasattr(self.user, "defaultflaretrtsettings")
+                else None
+            )
+        elif isinstance(qs, User):
+            self.flareaid = qs.flareaid
+            self.user = qs
+            # If the queryset is a User instance, try to assign defaultflaretrtsettings from it
+            self.defaultflaretrtsettings = (
+                qs.defaultflaretrtsettings if hasattr(qs, "defaultflaretrtsettings") else None
+            )
         else:
-            self.flareaid = flareaid_userless_qs(pk=pk).get()
-        if self.flareaid.dateofbirth is not None:
-            self.dateofbirth = self.flareaid.dateofbirth
-            self.age = age_calc(self.flareaid.dateofbirth.value)
-        else:
-            self.dateofbirth = None
-            self.age = None
-        self.gender = self.flareaid.gender
-        self.medallergys = self.flareaid.medallergys_qs
-        self.medhistorys = self.flareaid.medhistorys_qs
-        self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
-        self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+            raise ValueError("FlareAidDecisionAid requires a FlareAid or User instance.")
+        self.dateofbirth = qs.dateofbirth
+        self.age = age_calc(qs.dateofbirth.value)
+        # Check if the QS is a FlareAid with a User, if so,
+        # then set its dateofbirth attr to None to avoid saving a
+        # FlareAid with a User and dateofbirth, which will raise and IntegrityError
+        if isinstance(qs, FlareAid) and qs.user:
+            setattr(self.flareaid, "dateofbirth", None)
+        # If there are no defaultflaretrtsettings, which could have been assigned from the User
+        # if the User is not None and has a defaultflaretrtsettings, then assign the default
+        # This is in attempt to save a query to the database
+        if not getattr(self, "defaultflaretrtsettings", None):
+            self.defaultflaretrtsettings = defaults_defaultflaretrtsettings(user=self.user)
+        self.gender = qs.gender
+        # Check if the QS is a FlareAid with a User, if so,
+        # then sets its gender attr to None to avoid saving a
+        # FlareAid with a User and a gender, which will raise and IntegrityError
+        if isinstance(qs, FlareAid) and qs.user:
+            setattr(self.flareaid, "gender", None)
+        self.medallergys = qs.medallergys_qs
+        self.medhistorys = qs.medhistorys_qs
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         self.sideeffects = None
 
     FlarePpxChoices = FlarePpxChoices
@@ -71,37 +105,33 @@ class FlareAidDecisionAid:
         Returns:
             dict: keys = Treatments, vals = sub-dict of dosing + contra, which defaults to False."""
         # Create default trt_dict
-        self.trt_dict = self._create_trts_dict()
+        trt_dict = self._create_trts_dict()
         # Set contras to True if indicated per MedHistorys
-        self.trt_dict = aids_process_medhistorys(
-            trt_dict=self.trt_dict,
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
             medhistorys=self.medhistorys,
             ckddetail=self.ckddetail,
             default_medhistorys=self.default_medhistorys,
             defaulttrtsettings=self.defaultflaretrtsettings,
         )
         # Set contras to True if indicated per MedAllergys
-        self.trt_dict = aids_process_medallergys(trt_dict=self.trt_dict, medallergys=self.medallergys)
-        self.trt_dict = aids_process_sideeffects(trt_dict=self.trt_dict, sideeffects=self.sideeffects)
-        self.trt_dict = aids_process_nsaids(
-            trt_dict=self.trt_dict, dateofbirth=self.dateofbirth, defaulttrtsettings=self.defaultflaretrtsettings
+        trt_dict = aids_process_medallergys(trt_dict=trt_dict, medallergys=self.medallergys)
+        trt_dict = aids_process_sideeffects(trt_dict=trt_dict, sideeffects=self.sideeffects)
+        trt_dict = aids_process_nsaids(
+            trt_dict=trt_dict, dateofbirth=self.dateofbirth, defaulttrtsettings=self.defaultflaretrtsettings
         )
-        self.trt_dict = aids_process_steroids(trt_dict=self.trt_dict, defaulttrtsettings=self.defaultflaretrtsettings)
-        return self.trt_dict
+        trt_dict = aids_process_steroids(trt_dict=trt_dict, defaulttrtsettings=self.defaultflaretrtsettings)
+        return trt_dict
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
-        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=None)
-
-    @cached_property
-    def defaultflaretrtsettings(self) -> "DefaultFlareTrtSettings":
-        """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
-        return defaults_defaultflaretrtsettings(user=None)
+        return defaults_defaultmedhistorys_trttype(
+            medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=self.user
+        )
 
     @cached_property
     def default_trts(self) -> "QuerySet":
-        return defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=None)
+        return defaults_defaulttrts_trttype(trttype=TrtTypes.FLARE, user=self.user)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the FlareAid decisionaid field as a JSON string.

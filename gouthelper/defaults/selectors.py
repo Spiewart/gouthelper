@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 def defaults_defaultflaretrtsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    Gouthelper's default DefaultFlareTrtSettings.
+    GoutHelper's default DefaultFlareTrtSettings.
 
     Returns: DefaultFlareTrtSettings object"""
     return (
@@ -27,7 +27,7 @@ def defaults_defaultflaretrtsettings(user: Union["User", None]) -> Any:
 
 def defaults_defaultppxtrtsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    Gouthelper's default DefaultPpxTrtSettings.
+    GoutHelper's default DefaultPpxTrtSettings.
 
     Returns: DefaultPpxTrtSettings object"""
     return (
@@ -40,7 +40,7 @@ def defaults_defaultppxtrtsettings(user: Union["User", None]) -> Any:
 
 def defaults_defaultulttrtsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    Gouthelper's default DefaultUltTrtSettings.
+    GoutHelper's default DefaultUltTrtSettings.
 
     Returns: DefaultUltTrtSettings object"""
     return (
@@ -84,7 +84,7 @@ def defaults_defaultmedhistorys_trttype(
     Returns a QuerySet of DefaultMedHistory objects filtered by the medhistorytype from a list
     of medhistorys, trttype, and optional User. Returns only a single DefaultMedHistory object
     for each medhistorytype and trttype, preferring custom User DefaultMedHistory objects over
-    Gouthelper defaults.
+    GoutHelper defaults.
 
     If no medhistorys are passed, returns an empty QuerySet.
 

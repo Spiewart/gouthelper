@@ -57,7 +57,7 @@ class TestPpx(TestCase):
         # Need to delete BOTH cached_properties to test the property again.
         del self.ppx.gout
         del self.ppx.flaring
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         self.ppx.refresh_from_db()
         self.assertTrue(self.ppx.flaring)
         # As above
@@ -75,7 +75,7 @@ class TestPpx(TestCase):
         # Need to delete the cached_property to test the property again.
         self.goutdetail.hyperuricemic = False
         self.goutdetail.save()
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         del self.ppx.gout
         del self.ppx.hyperuricemic
         self.ppx.refresh_from_db()
@@ -121,7 +121,7 @@ class TestPpx(TestCase):
         del self.ppx.on_ppx
         self.goutdetail.on_ppx = False
         self.goutdetail.save()
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         self.ppx.refresh_from_db()
         self.assertFalse(self.ppx.on_ppx)
         self.goutdetail.on_ppx = True
@@ -134,7 +134,7 @@ class TestPpx(TestCase):
         del self.ppx.on_ult
         self.goutdetail.on_ult = False
         self.goutdetail.save()
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         self.ppx.refresh_from_db()
         self.assertFalse(self.ppx.on_ult)
         self.goutdetail.on_ult = True
@@ -164,7 +164,7 @@ class TestPpx(TestCase):
 
     def test__update(self):
         self.assertEqual(self.ppx.indication, self.ppx.Indications.NOTINDICATED)
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         self.ppx.starting_ult = True
         self.ppx.save()
         self.assertTrue(isinstance(self.ppx.update(), Ppx))
@@ -175,7 +175,7 @@ class TestPpx(TestCase):
         self.assertFalse(self.ppx.urates_discrepant)
         self.ppx.add_labs(self.urates)
         self.assertFalse(self.ppx.urates_discrepant)
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         del self.ppx.urates_discrepant
         self.assertFalse(self.ppx.urates_discrepant)
         self.goutdetail.hyperuricemic = True
@@ -191,7 +191,7 @@ class TestPpx(TestCase):
         self.assertIsNone(
             self.ppx.urates_discrepant_str,
         )
-        self.ppx.add_medhistorys([self.gout])
+        self.ppx.medhistorys.add(self.gout)
         del self.ppx.goutdetail
         del self.ppx.gout
         self.assertEqual(

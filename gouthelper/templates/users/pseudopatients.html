@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1>{{ view.kwargs|get_key:"username"|capfirst }}'s Pseudopatients</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href=""
+         role="button">About</a>
+    </div>
+  </div>
+{% endblock heading %}
+{% block content %}
+  <main role="main">
+    <div class="container bodytainer">
+      {% for object in object_list %}
+        <div class="card spacious-cards">
+          <div class="card-header"></div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col">
+                <h3 class="card-title">
+                  <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ view.kwargs.username }}-{{ object.created }}</a>
+                </h3>
+              </div>
+              <div class="col">
+                <a type="button"
+                   class="btn btn-primary btn-lg mini-button"
+                   href="{% url 'users:pseudopatient-delete' object.username %}"
+                   role="button">Delete</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+      {% if object_list %}
+        {% if page_obj %}
+          <div class="pagination">
+            <span class="step-links">
+              {% if page_obj.has_previous %}
+                <a href="?page=1" class="hyperlink"><< first</a>
+                <a href="?page={{ page_obj.previous_page_number }}" class="hyperlink">previous</a>
+              {% endif %}
+              <span class="current">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="hyperlink">next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}" class="hyperlink">last >></a>
+              {% endif %}
+            </span>
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </main>
+{% endblock content %}

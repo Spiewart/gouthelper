@@ -8,14 +8,15 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import Treatments
 from ...utils.helpers.aid_helpers import aids_json_to_trt_dict
 from ..models import PpxAid
-from .factories import PpxAidFactory
+from .factories import PpxAidFactory, PpxAidUserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestFlareAidMethods(TestCase):
+class TestPpxAidMethods(TestCase):
     def setUp(self):
         self.ppxaid = PpxAidFactory()
+        self.user_ppxaid = PpxAidUserFactory()
 
     def test__aid_dict(self):
         # Test when decisionaid is empty
@@ -47,17 +48,26 @@ class TestFlareAidMethods(TestCase):
 
     def test__add_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.ppxaid.add_medallergys(medallergys=[colch_allergy])
+        self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
         self.ppxaid.refresh_from_db()
         self.assertIn(colch_allergy, self.ppxaid.medallergys.all())
 
     def test__add_multiple_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
         pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        self.ppxaid.add_medallergys(medallergys=[colch_allergy, pred_allergy])
+        self.ppxaid.add_medallergys(
+            medallergys=[colch_allergy, pred_allergy], medallergys_qs=self.ppxaid.medallergys.all()
+        )
         self.ppxaid.refresh_from_db()
         self.assertIn(colch_allergy, self.ppxaid.medallergys.all())
         self.assertIn(pred_allergy, self.ppxaid.medallergys.all())
+
+    def test__add_medallergys_duplicates_raises_TypeError(self):
+        """Test that adding duplicate medallergys raises TypeError"""
+        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
+        self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
+        with self.assertRaises(TypeError):
+            self.ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.ppxaid.medallergys.all())
 
     def test__remove_medallergys(self):
         colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
@@ -88,7 +98,7 @@ class TestFlareAidMethods(TestCase):
         self.assertIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
 
     def test__less_simple_recommendation(self):
-        self.ppxaid.add_medhistorys([CkdFactory()])
+        self.ppxaid.medhistorys.add(CkdFactory())
         self.assertTrue(self.ppxaid.recommendation)
         self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
         self.assertIn(Treatments.PREDNISONE, self.ppxaid.recommendation)
@@ -100,3 +110,9 @@ class TestFlareAidMethods(TestCase):
         self.assertIsInstance(self.ppxaid.update(), PpxAid)
         self.ppxaid.refresh_from_db()
         self.assertTrue(self.ppxaid.decisionaid)
+
+    def test__str__(self):
+        """Test the __str__() method for PpxAid."""
+
+        self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
+        self.assertEqual(str(self.user_ppxaid), f"{self.user_ppxaid.user.username.capitalize()}'s PpxAid")

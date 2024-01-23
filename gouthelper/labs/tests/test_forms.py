@@ -138,10 +138,7 @@ class TestUrateFlareForm(TestCase):
         self.assertEqual(self.form.fields["value"].label, "Flare Urate")
         self.assertEqual(
             self.form.fields["value"].help_text,
-            mark_safe(
-                "Was the patient's uric acid checked during the flare? If not, leave it blank. \
-Uric acid is typically reported in micrograms per deciliter (mg/dL)."
-            ),
+            mark_safe("Uric acid is typically reported in micrograms per deciliter (mg/dL)."),
         )
         self.assertEqual(self.form.fields["value"].decimal_places, 1)
         self.assertFalse(self.form.fields["value"].required)

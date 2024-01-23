@@ -1,8 +1,11 @@
+from unittest.mock import patch  # type: ignore
+
 import pytest  # type: ignore
 from django.conf import settings  # type: ignore
 from django.core import mail  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
+from django_recaptcha.client import RecaptchaResponse  # type: ignore
 
 from ..choices import SubjectChoices
 from ..views import ContactSuccessView, ContactView
@@ -47,14 +50,17 @@ class TestContactView(TestCase):
         response = self.view(request)
         self.assertEqual(response.template_name[0], "contact/contact.html")
 
-    def test__emails_sent_by_form_valid(self):
+    @patch("django_recaptcha.fields.client.submit")
+    def test__emails_sent_by_form_valid(self, mocked_submit):
         """Test that the view returns a 302 response when a valid form is posted."""
+        mocked_submit.return_value = RecaptchaResponse(is_valid=True)
         data = {
             "name": "Ronald Weasley",
             "email": "rweasley@hogwarts.com",
             "subject": SubjectChoices.OTHER,
             "other": "I ate a bad jellybean...",
             "message": "I ate the allopurobean and now I'm all red and angry and I can't put a sock on.",
+            "g-recaptcha-response": "PASSED",
         }
 
         request = self.factory.post(self.url, data=data)
@@ -65,7 +71,7 @@ class TestContactView(TestCase):
         # Assert that the emails in the outbox are from the correct email addresses
         self.assertEqual(mail.outbox[0].from_email, settings.DEFAULT_FROM_EMAIL)
         # Assert that the emails in the outbox are directed to the correct email addresses
-        self.assertEqual(mail.outbox[0].to, [settings.DEFAULT_FROM_EMAIL, "rweasley@hogwarts.com"])
+        self.assertEqual(mail.outbox[0].to, [settings.CORRESPONDANCE_EMAIL, "rweasley@hogwarts.com"])
         # Assert that the subject is correct
         self.assertEqual(mail.outbox[0].subject, f"{SubjectChoices.OTHER}: I ate a bad jellybean...")
         # Assert that the message is correct

@@ -1,29 +1,71 @@
 <script>
-  // this is executed once when the page loads
   $(document).ready(function() {
+    CKD_checker();
+    dialysis_checker();
     $('#id_CKD-value').change(CKD_checker);
-    CKD_checker($('#id_CKD-value'));
     $('#id_dialysis').change(dialysis_checker);
-    dialysis_checker($('#id_dialysis'));
-    $('#id_dateofbirth-value').change(compare_stage_creat);
-    compare_stage_creat($('#id_dateofbirth-value'));
-    $('#id_gender-value').change(compare_stage_creat);
-    compare_stage_creat($('#id_gender-value'));
-    $('#id_baselinecreatinine-value').change(compare_stage_creat);
-    compare_stage_creat($('#id_baselinecreatinine-value'));
-    $('#id_stage').change(compare_stage_creat);
-    compare_stage_creat($('#id_stage'));
   });
 </script>
-{% if optional %}
+{% if not view.kwargs.username %}
   <script>
+    // this is executed if there is no username in the url
     $(document).ready(function() {
-      $('#id_CKD-value').change(CKD_optional_checker);
-      CKD_optional_checker($('#id_CKD-value'));
-      $('#id_baselinecreatinine-value').change(CKD_optional_checker);
-      CKD_optional_checker($('#id_baselinecreatinine-value'));
+      compare_stage_creat(patient = false);
+      $('#id_dateofbirth-value').change(function() {
+        compare_stage_creat(patient = false);
+      });
+      $('#id_gender-value').change(function() {
+        compare_stage_creat(patient = false);
+      });
+      $('#id_baselinecreatinine-value').change(function() {
+        compare_stage_creat(patient = false);
+      });
+      $('#id_stage').change(function() {
+        compare_stage_creat(patient = false);
+      });
     });
   </script>
+{% else %}
+  <script>
+    var age = '{{ age }}'
+    var gender = '{{ gender }}'
+    $(document).ready(function() {
+      compare_stage_creat(patient = true, u_age = age, u_gender = gender);
+      $('#id_baselinecreatinine-value').change(function() {
+        compare_stage_creat(patient = true, u_age = age, u_gender = gender);
+      });
+      $('#id_stage').change(function() {
+        compare_stage_creat(patient = true, u_age = age, u_gender = gender);
+      });
+    });
+  </script>
+{% endif %}
+{% if optional %}
+  {% if view.kwargs.username %}
+    <script>
+      $(document).ready(function() {
+        CKD_optional_checker(patient = true);
+        $('#id_CKD-value').change(function() {
+          CKD_optional_checker(patient = true);
+        });
+        $('#id_baselinecreatinine-value').change(function() {
+          CKD_optional_checker(patient = true);
+        });
+      });
+    </script>
+  {% else %}
+    <script>
+      $(document).ready(function() {
+        CKD_optional_checker(patient = false);
+        $('#id_CKD-value').change(function() {
+          CKD_optional_checker(patient = false);
+        });
+        $('#id_baselinecreatinine-value').change(function() {
+          CKD_optional_checker(patient = false);
+        });
+      });
+    </script>
+  {% endif %}
 {% endif %}
 <link rel="stylesheet"
       href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />

@@ -43,14 +43,6 @@
   <script>
     $(document).ready(function() {
       // For Flare datepicker
-      $('input[id*="dateofbirth"]').each(function() {
-        $(this).datepicker({
-          changeYear: true,
-          yearRange: "-100:-18",
-          minDate: "-100y",
-          maxDate: "-18y"
-        });
-      });
       $('#id_num_flares').change(ult_checker);
       ult_checker($('#id_num_flares'));
       $('#id_freq_flares').change(ult_checker);

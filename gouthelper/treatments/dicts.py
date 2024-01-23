@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from .choices import Freqs, Treatments, TrtTypes
 
-# Dictionary of defaults for all ULT, Flare, and PPx Treatments for Gouthelper
+# Dictionary of defaults for all ULT, Flare, and PPx Treatments for GoutHelper
 TREATMENTS_DEFAULT_DOSING = {
     Treatments.ALLOPURINOL: {
         TrtTypes.ULT: {

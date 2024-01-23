@@ -14,7 +14,6 @@ class GenderForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["value"].label = "Gender"
         self.helper = FormHelper()
         self.helper.form_tag = False
 

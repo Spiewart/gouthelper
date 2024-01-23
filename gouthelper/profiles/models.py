@@ -1,14 +1,37 @@
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
+from django.dispatch import receiver  # type: ignore
 from django.urls import reverse  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel
+from ..users.choices import Roles
+from ..users.models import Admin, Provider
+from ..utils.models import GoutHelperModel
 
 
-class Profile(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+def get_user_change(instance, request, **kwargs):
+    # https://django-simple-history.readthedocs.io/en/latest/user_tracking.html
+    """Method for django-simple-history to assign the user who made the change
+    to the HistoricalProfile history_user field. Written to deal with the case where
+    the User is deleting his or her own account and its associated profile and
+    setting the history_user to the User's id will result in an IntegrityError."""
+    # Check if the user is authenticated and the user is the User instance
+    # and if the url for the request is for the User's deletion
+    if request and request.user and request.user.is_authenticated:
+        if request.user == instance.user and request.path.endswith(reverse("users:delete")):
+            # Set the history_user to None
+            return None
+        else:
+            # Otherwise, return the request.user
+            return request.user
+    else:
+        # Otherwise, return None
+        return None
+
+
+class Profile(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     # If you do this you need to either have a post_save signal or redirect to a profile_edit view on initial login
     class Meta:
         abstract = True
@@ -18,14 +41,40 @@ class Profile(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
         on_delete=models.CASCADE,
     )
 
+    def __str__(self):
+        return str(self.user.username + "'s Profile")
 
-class AdminProfile(Profile):
+    def get_absolute_url(self):
+        return reverse("users:detail", kwargs={"username": self.user_username})
+
+
+class ProviderBase(Profile):
+    class Meta:
+        abstract = True
+
+
+class AdminProfile(ProviderBase):
     """Admin User Profile. Meant for superusers, organizational staff who are not explicitly providers,
-    or contributors to Gouthelper.
+    or contributors to GoutHelper.
     """
 
-    organization = models.CharField(max_length=200, help_text="Organization", null=True, blank=True)
-    history = HistoricalRecords()
+    history = HistoricalRecords(get_user=get_user_change)
+
+
+# post_save() signal to create AdminProfile at User creation
+@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
+def update_or_create_adminprofile_via_user(sender, instance, created, **kwargs):
+    # Check if the User is an Admin and is being created
+    if instance.role == Roles.ADMIN and created:
+        AdminProfile.objects.create(user=instance)
+
+
+# post_save() signal to create AdminProfile at User creation
+@receiver(models.signals.post_save, sender=Admin)
+def update_or_create_adminprofile(sender, instance, created, **kwargs):
+    # Check if the User is an Admin and is being created
+    if instance.role == Roles.ADMIN and created:
+        AdminProfile.objects.create(user=instance)
 
 
 class PatientProfile(Profile):
@@ -35,70 +84,48 @@ class PatientProfile(Profile):
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="patient_provider",
+        related_name="patient_providers",
         null=True,
         blank=True,
         default=None,
     )
-    patient_id = models.IntegerField(
-        help_text="Does the patient have an ID for you to reference?\
-Do not put anything personal information in this field.",
-        null=True,
-        blank=True,
-        default=None,
-    )
-    history = HistoricalRecords()
-
-    def __str__(self):
-        return str(self.user.username + "'s profile")
-
-    def get_absolute_url(self):
-        return reverse("users:detail", kwargs={"username": self.user_username})
+    history = HistoricalRecords(get_user=get_user_change)
 
 
-class ProviderProfile(Profile):
+class ProviderProfile(ProviderBase):
     """Provider User Profile.
-    Meant for providers who want to keep track of their patients Gouthelper data.
+    Meant for providers who want to keep track of their patients GoutHelper data.
     """
 
-    organization = models.CharField(max_length=200, help_text="Organization", null=True, blank=True)
-    surrogate = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="surrogate_user",
-    )
-    history = HistoricalRecords()
+    history = HistoricalRecords(get_user=get_user_change)
+
+
+# post_save() signal to create ProviderProfile at User creation
+@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
+def update_or_create_providerprofile_via_user(sender, instance, created, **kwargs):
+    # Check if the User is a Provider and is being created
+    if instance.role == Roles.PROVIDER and created:
+        ProviderProfile.objects.create(user=instance)
+
+
+# post_save() signal to create ProviderProfile at User creation
+@receiver(models.signals.post_save, sender=Provider)
+def update_or_create_providerprofile(sender, instance, created, **kwargs):
+    # Check if the User is a Provider and is being created
+    if instance.role == Roles.PROVIDER and created:
+        ProviderProfile.objects.create(user=instance)
 
 
 class PseudopatientProfile(Profile):
     """Profile for a fake patient.
-    Used to aggregate DecisionAid's and other Gouthelper data."""
+    Used to aggregate DecisionAid's and other GoutHelper data."""
 
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="pseudopatient_provider",
-        null=True,
-        blank=True,
-        default=None,
-    )
-    # alias field for provider's to use to identify different pseudopatients
-    alias = models.CharField(
-        max_length=200,
-        help_text="Does the patient have an alias for you to reference? \
-Do not put anything personal information in this field.",
+        related_name="pseudopatient_providers",
         null=True,
         blank=True,
         default=None,
     )
     history = HistoricalRecords()
-
-    def __str__(self):
-        if self.alias:
-            return str(self.alias + "'s profile")
-        else:
-            return str(self.user.username + "'s profile")
-
-    def get_absolute_url(self):
-        return reverse("users:detail", kwargs={"username": self.user_username})

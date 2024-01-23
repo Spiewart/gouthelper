@@ -10,4 +10,5 @@ class FlareAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "__str__",
         "pk",
+        "created",
     )

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags %}
+{% load project_tags %}
+
+{% block title %}
+  {% if form.instance.created %}
+    Update GoutPatient
+  {% else %}
+    Create GoutPatient
+  {% endif %}
+{% endblock title %}
+{% block heading %}
+  <h1>GoutPatient</h1>
+{% endblock heading %}
+{% block subheading %}
+  GoutPatients are the starting point for building a comprehensive plan for a patient's gout.
+{% endblock subheading %}
+{% block content %}
+  <main class="container">
+    {% if form.instance.created and request.user.is_authenticated %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'users:pseudopatient-update' object.username %}">
+        {% csrf_token %}
+        {% crispy form %}
+        {% include '_submit_button.html' %}
+      </form>
+    {% else %}
+      {% if request.user.is_authenticated %}{% endif %}
+    {% endif %}
+  </main>
+{% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      // call starting_ult_help_text() to set the help text for the starting_ult field
+      starting_ult_help_text();
+      $('#id_on_ult').change(starting_ult_help_text);
+      menopause_checker(patient = false);
+      $('#id_dateofbirth-value').change(function() {
+        menopause_checker(patient = false, change = true);
+      });
+      $('#id_gender-value').change(function() {
+        menopause_checker(patient = false, change = true);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

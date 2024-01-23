@@ -34,5 +34,5 @@ NSAIDs, steroids, and colchicine all work by reducing inflammation. The mechanis
 ## <span id="bad-flares">Bad Flares</span>
 
 Some gout flares are particularly severe. In these cases, it is often necessary to use medication doses
-higher than that which Gouthelper typically recommends. We sometimes also use combinations of medications.
+higher than that which GoutHelper typically recommends. We sometimes also use combinations of medications.
 These are typically done under the supervision of a physician, usually a rheumatologist. Injections of corticosteroids directly into the joint can also be performed, this is also done by a physician.

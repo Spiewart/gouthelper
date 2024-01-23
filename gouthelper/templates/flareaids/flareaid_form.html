@@ -4,7 +4,11 @@
 {% load project_tags %}
 
 {% block title %}
-  New FlareAid
+  {% if form.instance.created %}
+    Edit FlareAid
+  {% else %}
+    New FlareAid
+  {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>Gout FlareAid</h1>
@@ -15,38 +19,45 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'flareaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:pseudopatient-update' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'flareaids:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:pseudopatient-create' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flareaids:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      // For Flare datepicker
-      $('input[id*="dateofbirth"]').each(function() {
-        $(this).datepicker({
-          changeYear: true,
-          yearRange: "-100:-18",
-          minDate: "-100y",
-          maxDate: "-18y"
-        });
-      });
-    });
-  </script>
   {% include 'medhistorys/_ckd_js.html' %}
 {% endblock inline_javascript %}

@@ -318,7 +318,7 @@ class TestFlareHelpers(TestCase):
         self.flare.dateofbirth.save()
         self.flare.gender.value = Genders.FEMALE
         self.flare.gender.save()
-        self.flare.add_medhistorys([MenopauseFactory()])
+        self.flare.medhistorys.add(MenopauseFactory())
         less_likelys = flares_get_less_likelys(
             age=age_calc(self.flare.dateofbirth.value),
             date_ended=None,
@@ -336,7 +336,7 @@ class TestFlareHelpers(TestCase):
         self.flare.dateofbirth.save()
         self.flare.gender.value = Genders.FEMALE
         self.flare.gender.save()
-        self.flare.add_medhistorys([CkdFactory()])
+        self.flare.medhistorys.add(CkdFactory())
         less_likelys = flares_get_less_likelys(
             age=age_calc(self.flare.dateofbirth.value),
             date_ended=None,

@@ -7,11 +7,11 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
 
 
-class MedHistoryDetail(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Base model for models that save extra information on a History object."""
 
     class Meta:

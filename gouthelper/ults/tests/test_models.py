@@ -73,7 +73,7 @@ class TestUltAid(TestCase):
 
     def test__ckd(self):
         ckd = CkdFactory()
-        self.ult.add_medhistorys([ckd])
+        self.ult.medhistorys.add(ckd)
         self.assertFalse(self.ult.ckd)
         del self.ult.ckd
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.TWO)
@@ -95,7 +95,7 @@ class TestUltAid(TestCase):
         self.assertTrue(ult1.contraindicated)
         del ult1.contraindicated
         ckd = CkdFactory()
-        ult1.add_medhistorys([ckd])
+        ult1.medhistorys.add(ckd)
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
         del ult1.ckd
         del ult1.ckddetail
@@ -105,7 +105,7 @@ class TestUltAid(TestCase):
         del ult1.ckd
         del ult1.ckddetail
         del ult1.uratestones
-        ult1.add_medhistorys([UratestonesFactory()])
+        ult1.medhistorys.add(UratestonesFactory())
         self.assertFalse(ult1.contraindicated)
         del ult1.contraindicated
         del ult1.uratestones
@@ -113,11 +113,11 @@ class TestUltAid(TestCase):
         self.assertTrue(ult1.contraindicated)
         del ult1.contraindicated
         del ult1.hyperuricemia
-        ult1.add_medhistorys([HyperuricemiaFactory()])
+        ult1.medhistorys.add(HyperuricemiaFactory())
         self.assertFalse(ult1.contraindicated)
         ult2 = UltFactory(num_flares=FlareNums.ZERO, freq_flares=None)
         self.assertTrue(ult2.contraindicated)
-        ult2.add_medhistorys([ErosionsFactory()])
+        ult2.medhistorys.add(ErosionsFactory())
         del ult2.contraindicated
         del ult2.erosions
         self.assertFalse(ult2.contraindicated)
@@ -127,7 +127,7 @@ class TestUltAid(TestCase):
         self.assertTrue(ult2.contraindicated)
         del ult2.contraindicated
         del ult2.tophi
-        ult2.add_medhistorys([TophiFactory()])
+        ult2.medhistorys.add(TophiFactory())
         self.assertFalse(ult2.contraindicated)
 
     def test__firstflare(self):
@@ -137,7 +137,7 @@ class TestUltAid(TestCase):
         remove_cps(ult1)
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ult1.add_medhistorys([ckd])
+        ult1.medhistorys.add(ckd)
         self.assertFalse(ult1.firstflare)
         del ult1.firstflare
         remove_cps(ult1)
@@ -145,7 +145,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare
         remove_cps(ult1)
         # Add an erosions
-        ult1.add_medhistorys([ErosionsFactory()])
+        ult1.medhistorys.add(ErosionsFactory())
         self.assertFalse(ult1.firstflare)
         del ult1.firstflare
         remove_cps(ult1)
@@ -153,7 +153,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare
         remove_cps(ult1)
         # Add a tophi
-        ult1.add_medhistorys([TophiFactory()])
+        ult1.medhistorys.add(TophiFactory())
         self.assertFalse(ult1.firstflare)
         del ult1.firstflare
         remove_cps(ult1)
@@ -161,7 +161,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare
         remove_cps(ult1)
         # Add a uratestones
-        ult1.add_medhistorys([UratestonesFactory()])
+        ult1.medhistorys.add(UratestonesFactory())
         self.assertFalse(ult1.firstflare)
         del ult1.firstflare
         remove_cps(ult1)
@@ -169,7 +169,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare
         remove_cps(ult1)
         # Add a hyperuricemia
-        ult1.add_medhistorys([HyperuricemiaFactory()])
+        ult1.medhistorys.add(HyperuricemiaFactory())
         self.assertFalse(ult1.firstflare)
 
     def test__firstflare_plus(self):
@@ -179,7 +179,7 @@ class TestUltAid(TestCase):
         remove_cps(ult1)
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ult1.add_medhistorys([ckd])
+        ult1.medhistorys.add(ckd)
         self.assertTrue(ult1.firstflare_plus)
         del ult1.firstflare_plus
         remove_cps(ult1)
@@ -187,7 +187,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare_plus
         remove_cps(ult1)
         # Add a hyperuricemia
-        ult1.add_medhistorys([HyperuricemiaFactory()])
+        ult1.medhistorys.add(HyperuricemiaFactory())
         self.assertTrue(ult1.firstflare_plus)
         del ult1.firstflare_plus
         remove_cps(ult1)
@@ -195,7 +195,7 @@ class TestUltAid(TestCase):
         del ult1.firstflare_plus
         remove_cps(ult1)
         # Add a uratestones
-        ult1.add_medhistorys([UratestonesFactory()])
+        ult1.medhistorys.add(UratestonesFactory())
         self.assertTrue(ult1.firstflare_plus)
 
     def test__frequentflares(self):

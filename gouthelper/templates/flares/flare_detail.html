@@ -6,13 +6,25 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1 class="display-4">Flare</h1>
+      <h1>Flare</h1>
+      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
     </div>
-    <div class="col align-items-center d-flex">
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'flares:update' pk=object.pk %}"
-         role="button">Update</a>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flares:pseudopatient-update' username=object.user.username pk=object.pk %}"
+           role="button">Update</a>
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flares:pseudopatient-delete' username=object.user.username pk=object.pk %}"
+           role="button">Delete</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flares:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flares:about' %}"

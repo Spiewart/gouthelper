@@ -13,9 +13,10 @@ from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import AllopurinolhypersensitivityFactory, CkdFactory, MenopauseFactory
+from ...users.tests.factories import PseudopatientFactory
 from ..choices import Likelihoods, LimitedJointChoices
 from ..models import Flare
-from ..services import FlareDecisionAid
+from ..selectors import flare_userless_qs
 from .factories import FlareFactory
 
 pytestmark = pytest.mark.django_db
@@ -27,13 +28,13 @@ class TestFlareMethods(TestCase):
 
     def test__add_medhistorys_adds_flare_medhistory(self):
         ckd = CkdFactory()
-        self.flare.add_medhistorys([ckd])
+        self.flare.add_medhistorys([ckd], [])
         self.assertIn(ckd, self.flare.medhistorys.all())
 
     def test__add_medhistorys_raises_TypeError_with_non_flare_medhistory(self):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
         with self.assertRaises(TypeError) as error:
-            self.flare.add_medhistorys([allopurinolhypersensitivity])
+            self.flare.add_medhistorys([allopurinolhypersensitivity], [])
         self.assertEqual(
             f"{allopurinolhypersensitivity} is not a valid MedHistory for {self.flare}",
             str(error.exception),
@@ -218,7 +219,7 @@ than treat the gout!",
         menopause = MenopauseFactory()
         flare = FlareFactory(dateofbirth=dateofbirth)
         self.assertFalse(flare.post_menopausal)
-        flare.add_medhistorys([menopause])
+        flare.medhistorys.add(menopause)
         flare = Flare.objects.get(pk=flare.pk)
         self.assertTrue(flare.post_menopausal)
         flare.remove_medhistorys([menopause])
@@ -230,16 +231,24 @@ than treat the gout!",
         self.assertTrue(flare.post_menopausal)
 
     def test___str__(self):
-        self.flare.joints = [LimitedJointChoices.KNEER]
         self.flare.date_started = (timezone.now() - timedelta(days=7)).date()
         self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Monoarticular, {self.flare.date_started} - present")
+        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - present)")
         self.flare.date_ended = (timezone.now() - timedelta(days=1)).date()
-        self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Monoarticular, {self.flare.date_started} - {self.flare.date_ended}")
-        self.flare.joints = [LimitedJointChoices.KNEER, LimitedJointChoices.ANKLEL]
-        self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Polyarticular, {self.flare.date_started} - {self.flare.date_ended}")
+        self.assertEqual(
+            self.flare.__str__(),
+            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
+        self.assertEqual(
+            self.flare.__str__(),
+            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
+        self.flare.user = PseudopatientFactory()
+        self.assertEqual(
+            self.flare.__str__(),
+            f"{self.flare.user}'s Flare ({self.flare.date_started.strftime('%m/%d/%Y')} \
+- {self.flare.date_ended.strftime('%m/%d/%Y')})",
+        )
 
     def test__uncommon_joints(self):
         self.flare.joints = [LimitedJointChoices.HIPL, LimitedJointChoices.SHOULDERR, LimitedJointChoices.MTP1L]
@@ -260,8 +269,7 @@ than treat the gout!",
     def test__update_with_kwarg(self):
         self.assertIsNone(self.flare.prevalence)
         self.assertIsNone(self.flare.likelihood)
-        decisionaid = FlareDecisionAid(pk=self.flare.pk)
-        self.assertEqual(self.flare, self.flare.update(decisionaid=decisionaid))
+        self.assertEqual(self.flare, self.flare.update(qs=flare_userless_qs(pk=self.flare.pk)))
         self.flare.refresh_from_db()
         self.assertIsNotNone(self.flare.prevalence)
         self.assertIsNotNone(self.flare.likelihood)

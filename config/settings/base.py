@@ -85,6 +85,7 @@ THIRD_PARTY_APPS = [
     "markdownfield",
     "multiselectfield",
     "simple_history",
+    "django_recaptcha",
 ]
 
 LOCAL_APPS = [
@@ -332,10 +333,18 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Gouthelper API",
-    "DESCRIPTION": "Documentation of API endpoints of Gouthelper",
+    "TITLE": "GoutHelper API",
+    "DESCRIPTION": "Documentation of API endpoints of GoutHelper",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+# Google ReCaptcha
+RECAPTCHA_PUBLIC_KEY = env("RECAPTCHA_PUBLIC_KEY")
+RECAPTCHA_PRIVATE_KEY = env("RECAPTCHA_PRIVATE_KEY")
+
+CORRESPONDANCE_EMAIL = env(
+    "CORRESPONDANCE_EMAIL",
+    default=None,
+)

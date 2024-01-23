@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% load static %}
+{% load project_tags %}
+
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1 class="display-4">Flares</h1>
+    </div>
+    <div class="col align-items-center d-flex">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flares:about' %}"
+         role="button">About</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'flares:pseudopatient-create' username=patient.username %}"
+         role="button">Create</a>
+    </div>
+  </div>
+{% endblock heading %}
+{% block content %}
+  <main role="main">
+    {% for flare in object_list %}
+      <a href="{% url 'flares:pseudopatient-detail' username=patient.username pk=flare.pk %}">{{ flare }}</a>
+    {% endfor %}
+  </main>
+{% endblock content %}

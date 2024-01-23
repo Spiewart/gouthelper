@@ -16,3 +16,8 @@ def test_update():
 def test_redirect():
     assert reverse("users:redirect") == "/users/~redirect/"
     assert resolve("/users/~redirect/").view_name == "users:redirect"
+
+
+def test_pseudopatients():
+    assert reverse("users:pseudopatients", kwargs={"username": "fake-user"}) == "/users/fake-user/pseudopatients/"
+    assert resolve("/users/fake-user/pseudopatients/").view_name == "users:pseudopatients"

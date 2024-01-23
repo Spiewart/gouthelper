@@ -94,13 +94,14 @@ function CKD_checker() {
 }
 
 // function that checks whether an OPTIONAL CKD is checked and hides/shows dateofbirth and gender fields as appropriate
-function CKD_optional_checker() {
+function CKD_optional_checker(patient = false) {
   // function that checks whether CKD is checked or not, shows/hides dateofbirth and gender forms
   var baselinecreatinine = $('#id_baselinecreatinine-value').val();
   // Check if there's a baseline creatinine to show/hide dateofbirth and gender forms
   if (
-    ($('#id_CKD-value').find(':selected').val() == 'True') &
-    (baselinecreatinine.length > 0)
+    $('#id_CKD-value').find(':selected').val() == 'True' &&
+    baselinecreatinine.length > 0 &&
+    !patient
   ) {
     $('#dateofbirth').show();
     add_asterisk($('#dateofbirth'));
@@ -206,15 +207,18 @@ function labs_stage_calculator(egfr) {
   return stage;
 }
 
-function compare_stage_creat() {
-  var age = getAge($('#id_dateofbirth-value').val());
-  var gender = $('#id_gender-value').val();
-  var creatinine = $('#id_baselinecreatinine-value').val();
+function compare_stage_creat(patient = false, u_age = 0, u_gender = 0) {
+  if (patient) {
+    var age = u_age;
+    var gender = u_gender;
+  } else {
+    var age = $('#id_dateofbirth-value').val();
+    var gender = $('#id_gender-value').val();
+  }
   var stage = $('#id_stage').val();
   var baselinecreatinine = $('#id_baselinecreatinine-value').val();
-  var stage = $('#id_stage').val();
   if (baselinecreatinine != '' && typeof baselinecreatinine != 'undefined') {
-    if (isNaN(age) || gender == '') {
+    if (age == '' || gender == '') {
       baselinecreatinine_error = `<span id='baselinecreatinine_error' css_class='invalid-feedback'><strong>Age and gender are needed to correctly interpret a baseline creatinine.</strong></span>`;
       dateofbirth_error = `<span id='dateofbirth_error' css_class='invalid-feedback'><strong>Age is needed to correctly interpret a baseline creatinine.</strong></span>`;
       gender_error = `<span id='gender_error' css_class='invalid-feedback'><strong>Gender is needed to correctly interpret a baseline creatinine.</strong></span>`;
@@ -231,7 +235,7 @@ function compare_stage_creat() {
         $('#baselinecreatinine_error').css('font-size', '0.875rem');
         $('#baselinecreatinine_error').css('background-color', 'yellow');
       }
-      if (isNaN(age)) {
+      if (age == '' && !patient) {
         if ($('#dateofbirth_error').length > 0) {
           $('#dateofbirth_error').replaceWith(dateofbirth_error);
           $('#dateofbirth_error').css('display', 'block');
@@ -245,10 +249,10 @@ function compare_stage_creat() {
           $('#dateofbirth_error').css('font-size', '0.875rem');
           $('#dateofbirth_error').css('background-color', 'yellow');
         }
-      } else {
+      } else if (!patient) {
         $('#dateofbirth_error').remove();
       }
-      if (gender == '') {
+      if (gender == '' && !patient) {
         if ($('#gender_error').length > 0) {
           $('#gender_error').replaceWith(gender_error);
           $('#gender_error').css('display', 'block');
@@ -262,18 +266,18 @@ function compare_stage_creat() {
           $('#gender_error').css('font-size', '0.875rem');
           $('#gender_error').css('background-color', 'yellow');
         }
-      } else {
+      } else if (!patient) {
         $('#gender_error').remove();
       }
     } else {
-      if ($('#dateofbirth_error').length > 0) {
+      if ($('#dateofbirth_error').length > 0 && !patient) {
         $('#dateofbirth_error').remove();
       }
-      if ($('#gender_error').length > 0) {
+      if ($('#gender_error').length > 0 && !patient) {
         $('#gender_error').remove();
       }
       var egfr = egfr_calc(
-        (creatinine = creatinine),
+        (creatinine = baselinecreatinine),
         (age = age),
         (gender = gender),
       );
@@ -314,10 +318,10 @@ function compare_stage_creat() {
         if ($('#baselinecreatinine_error').length > 0) {
           $('#baselinecreatinine_error').remove();
         }
-        if ($('#dateofbirth_error').length > 0) {
+        if ($('#dateofbirth_error').length > 0 && !patient) {
           $('#dateofbirth_error').remove();
         }
-        if ($('#gender_error').length > 0) {
+        if ($('#gender_error').length > 0 && !patient) {
           $('#gender_error').remove();
         }
       }
@@ -329,10 +333,10 @@ function compare_stage_creat() {
     if ($('#baselinecreatinine_error').length > 0) {
       $('#baselinecreatinine_error').remove();
     }
-    if ($('#dateofbirth_error').length > 0) {
+    if ($('#dateofbirth_error').length > 0 && !patient) {
       $('#dateofbirth_error').remove();
     }
-    if ($('#gender_error').length > 0) {
+    if ($('#gender_error').length > 0 && !patient) {
       $('#gender_error').remove();
     }
   }
@@ -391,13 +395,27 @@ function getAge(dateString) {
   return age;
 }
 
-function menopause_checker() {
-  if ($('#id_gender-value').find(':selected').val() == 1) {
-    var age = getAge($('#id_dateofbirth-value').val());
-    if (age >= 40 && age < 60) {
+function menopause_checker(
+  patient = false,
+  change = false,
+  u_age = 0,
+  u_gender = 0,
+) {
+  if (patient) {
+    var age = u_age;
+    var gender = u_gender;
+  } else {
+    var age = $('#id_dateofbirth-value').val();
+    var gender = $('#id_gender-value').val();
+  }
+  if (gender && gender == 1) {
+    if (age && age >= 40 && age && age < 60) {
       $('#menopause').show();
       $('#id_MENOPAUSE-value').prop('required', true);
       add_asterisk($('#menopause'));
+      if (change) {
+        $('#id_MENOPAUSE-value').val('');
+      }
     } else {
       remove_asterisk($('#menopause'));
       $('#id_MENOPAUSE-value').prop('required', false);

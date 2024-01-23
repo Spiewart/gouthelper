@@ -8,13 +8,13 @@ from markdownfield.validators import VALIDATOR_CLASSY  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.fields import GouthelperMarkdownField
+from ..utils.fields import GoutHelperMarkdownField
 from ..utils.helpers.helpers import now_date
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import StatusChoices
 
 
-class Blogtag(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Blogtag(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model to store tags for posts."""
 
     history = HistoricalRecords()
@@ -24,7 +24,7 @@ class Blogtag(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
         return self.name
 
 
-class Blogpost(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Blogpost(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model to store Blog Posts as HTML Markdown pages."""
 
     class Meta:
@@ -47,7 +47,7 @@ class Blogpost(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rul
     slug = AutoSlugField(populate_from="title", unique=True)
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default="draft")
     tags = models.ManyToManyField(to=Blogtag, related_name="posts", blank=True)
-    text = GouthelperMarkdownField(rendered_field="text_rendered", validator=VALIDATOR_CLASSY)
+    text = GoutHelperMarkdownField(rendered_field="text_rendered", validator=VALIDATOR_CLASSY)
     text_rendered = RenderedMarkdownField()
     title = models.CharField(max_length=255)
     updated_date = models.DateField(null=True, blank=True)

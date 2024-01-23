@@ -12,6 +12,7 @@
 {% endblock title %}
 {% block heading %}
   <h1>Gout Flare</h1>
+  {{ form.errors }}
 {% endblock heading %}
 {% block subheading %}
   Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
@@ -19,21 +20,41 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'flares:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flares:pseudopatient-update' object.user.username object.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flares:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'flares:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flares:pseudopatient-create' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'flares:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
@@ -50,14 +71,6 @@
       $('input[id*="date_ended"]').each(function() {
         $(this).datepicker({
           changeYear: true
-        });
-      });
-      $('input[id*="dateofbirth"]').each(function() {
-        $(this).datepicker({
-          changeYear: true,
-          yearRange: "-100:-18",
-          minDate: "-100y",
-          maxDate: "-18y"
         });
       });
       $('#id_diagnosed').change(diagnosed_checker);

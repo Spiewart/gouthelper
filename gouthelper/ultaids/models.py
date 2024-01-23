@@ -9,10 +9,10 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
-from ..treatments.choices import Treatments
+from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
 
 if TYPE_CHECKING:
     from ..defaults.models import DefaultUltTrtSettings
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class UltAid(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedAllergyAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -77,6 +77,10 @@ class UltAid(
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return ULTAID_MEDHISTORYS
 
+    @classmethod
+    def aid_treatments(cls) -> list[Treatments]:
+        return UltChoices.values
+
     @cached_property
     def contraindications(self) -> bool:
         """Returns True if patient has a contraindication to any ULT Treatments."""
@@ -94,7 +98,7 @@ class UltAid(
     @cached_property
     def defaulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
+        GoutHelper DefaultSettings."""
         return defaults_defaultulttrtsettings(user=None)
 
     @cached_property

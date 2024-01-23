@@ -8,6 +8,7 @@ from django.utils import timezone  # type: ignore
 
 from ...contents.choices import Tags
 from ...contents.models import Content
+from ...dateofbirths.helpers import age_calc
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
@@ -53,7 +54,7 @@ class TestUltAidCreate(TestCase):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
         ultaid_data = {
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             "hlab5801-value": True,
@@ -78,7 +79,7 @@ class TestUltAidCreate(TestCase):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
         ultaid_data = {
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             "hlab5801-value": False,
@@ -103,7 +104,7 @@ class TestUltAidCreate(TestCase):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
         ultaid_data = {
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             "hlab5801-value": "",
@@ -127,7 +128,7 @@ class TestUltAidCreate(TestCase):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
         ultaid_data = {
-            "dateofbirth-value": (timezone.now() - timedelta(days=365 * 50)).date(),
+            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             "hlab5801-value": "",
@@ -217,7 +218,7 @@ class TestUltAidUpdate(TestCase):
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": "",
@@ -244,7 +245,7 @@ class TestUltAidUpdate(TestCase):
         self.assertFalse(Hlab5801.objects.all())
         self.assertIsNone(UltAid.objects.get().hlab5801)
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": False,
@@ -273,7 +274,7 @@ class TestUltAidUpdate(TestCase):
         self.assertFalse(Hlab5801.objects.all())
         self.assertIsNone(UltAid.objects.get().hlab5801)
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": True,
@@ -302,7 +303,7 @@ class TestUltAidUpdate(TestCase):
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": False,
@@ -331,7 +332,7 @@ class TestUltAidUpdate(TestCase):
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": True,
@@ -361,7 +362,7 @@ class TestUltAidUpdate(TestCase):
         self.assertFalse(ultaid.ckd)
         self.assertFalse(ultaid.ckddetail)
         ultaid_data = {
-            "dateofbirth-value": ultaid.dateofbirth.value,
+            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
             "gender-value": ultaid.gender.value,
             "ethnicity-value": ultaid.ethnicity.value,
             "hlab5801-value": "",

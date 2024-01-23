@@ -1,16 +1,11 @@
 from typing import TYPE_CHECKING, Any
 
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
 
 from ..goalurates.choices import GoalUrates
 
-User = get_user_model()
-
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
-
-    from ..users.models import User
 
 
 def defaults_get_goalurate(goal_urate_object: Any) -> "GoalUrates":
@@ -20,7 +15,7 @@ def defaults_get_goalurate(goal_urate_object: Any) -> "GoalUrates":
     Otherwise returns the GoutHelper default which is 6.0 mg/dL."""
     GoalUrate = apps.get_model("goalurates.GoalUrate")
     UltAid = apps.get_model("ultaids.UltAid")
-    if isinstance(goal_urate_object, User):
+    if isinstance(goal_urate_object, apps.get_model("users.Pseudopatient")):
         # Call hasattr to avoid AttributeError if user has no goalurate
         if hasattr(goal_urate_object, "goalurate"):
             return goal_urate_object.goalurate.goal_urate

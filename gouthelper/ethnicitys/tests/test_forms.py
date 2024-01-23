@@ -16,7 +16,7 @@ class TestEthnicityForm(TestCase):
         self.assertEqual(self.form.prefix, "ethnicity")
 
     def test__value_label(self):
-        self.assertEqual(self.form.fields["value"].label, "Ethnicity")
+        self.assertEqual(self.form.fields["value"].label, "Ethnicity or Race")
 
 
 class TestEthnicityFormOptional(TestCase):

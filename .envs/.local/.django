@@ -2,3 +2,13 @@
 # ------------------------------------------------------------------------------
 USE_DOCKER=yes
 IPYTHONDIR=/app/.ipython
+
+# Set to True for development Git branch
+DJANGO_ACCOUNT_ALLOW_REGISTRATION=True
+
+# Google ReCaptcha
+RECAPTCHA_PUBLIC_KEY=6LepRFkpAAAAAPeFT5mdfFC4mwXoJVH-s_RaLIJJ
+RECAPTCHA_PRIVATE_KEY=6LepRFkpAAAAAPxDdYBEk2EITH8-3rohuBKFpsxz
+
+# Email
+CORRESPONDANCE_EMAIL=wildworldofgout@gouthelper.com

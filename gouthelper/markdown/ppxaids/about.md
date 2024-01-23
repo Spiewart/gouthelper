@@ -25,7 +25,7 @@ PpxAid takes into account the following factors:
 - **Patient's gender** - Biological gender is used to calculate kidney function when dosing colchicine.
 
 - **Cardiovascular disease** - NSAIDs are generally contraindicated in patients with cardiovascular disease.
-  It's probably safe to use them for a limited, short-duration, but out of caution Gouthelper defaults to avoiding NSAIDs in patients with cardiovascular disease.
+  It's probably safe to use them for a limited, short-duration, but out of caution GoutHelper defaults to avoiding NSAIDs in patients with cardiovascular disease.
 
 - **Anticoagulation** - NSAIDs can increase the risk of bleeding. Thus, anticoagulation is generally a contraindication to NSAID use.
 

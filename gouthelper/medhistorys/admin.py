@@ -8,6 +8,7 @@ from .models import MedHistory
 class MedHistoryHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "medhistorytype",
+        "user",
         "created",
         "pk",
     )

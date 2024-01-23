@@ -8,20 +8,22 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.tests.factories import CkdFactory
-from ...ppxaids.tests.factories import PpxAidFactory
-from ...treatments.choices import Treatments
-from ..selectors import ppxaid_userless_qs
+from ...treatments.choices import FlarePpxChoices, Treatments
+from ..selectors import ppxaid_user_qs, ppxaid_userless_qs
+from .factories import PpxAidFactory, PpxAidUserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestPpxAidQuerySet(TestCase):
+class TestPpxAidUserlessQuerySet(TestCase):
     def setUp(self):
         self.ckd = CkdFactory()
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))
@@ -43,7 +45,7 @@ class TestPpxAidQuerySet(TestCase):
             gender=self.gender,
         )
         self.ppxaid.medhistorys.add(self.ckd)
-        self.ppxaid.add_medallergys([self.colchicine_allergy])
+        self.ppxaid.add_medallergys([self.colchicine_allergy], medallergys_qs=self.ppxaid.medallergys.all())
         self.empty_ppxaid = PpxAidFactory()
 
     def test__queryset_returns_correctly(self):
@@ -73,3 +75,44 @@ class TestPpxAidQuerySet(TestCase):
         self.assertEqual(len(queries.captured_queries), 3)
         self.assertFalse(queryset.medhistorys_qs)
         self.assertFalse(queryset.medallergys_qs)
+
+    def test__queryset_returns_user(self):
+        """Assert that the ppxaid_userless_qs() queryset returns the user
+        if called on a PpxAid with a user."""
+        user_ppx = PpxAidUserFactory()
+        with CaptureQueriesContext(connection) as queries:
+            queryset = ppxaid_userless_qs(user_ppx.pk)
+            self.assertIsInstance(queryset, QuerySet)
+            queryset = queryset.get()
+            self.assertTrue(queryset.user)
+            self.assertEqual(len(queries.captured_queries), 3)
+
+
+class TestPpxAidUserQuerySet(TestCase):
+    """Tests for the ppxaid_user_qs() queryset."""
+
+    def setUp(self):
+        self.user_ppx = PpxAidUserFactory()
+        self.defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=self.user_ppx.user)
+
+    def test__queryset_returns_correctly(self):
+        with CaptureQueriesContext(connection) as queries:
+            queryset = ppxaid_user_qs(self.user_ppx.user.username)
+            self.assertIsInstance(queryset, QuerySet)
+            queryset = queryset.get()
+            self.assertEqual(queryset, self.user_ppx.user)
+            self.assertEqual(len(queries.captured_queries), 3)
+            self.assertTrue(hasattr(queryset, "ppxaid"))
+            self.assertEqual(queryset.ppxaid, self.user_ppx)
+            self.assertTrue(hasattr(queryset, "defaultppxtrtsettings"))
+            self.assertEqual(queryset.defaultppxtrtsettings, self.defaultppxtrtsettings)
+            self.assertTrue(hasattr(queryset, "dateofbirth"))
+            self.assertEqual(queryset.dateofbirth, self.user_ppx.user.dateofbirth)
+            self.assertTrue(hasattr(queryset, "gender"))
+            self.assertEqual(queryset.gender, self.user_ppx.user.gender)
+            self.assertTrue(hasattr(queryset, "medhistorys_qs"))
+            for mh in self.user_ppx.user.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS):
+                self.assertIn(mh, queryset.medhistorys_qs)
+            self.assertTrue(hasattr(queryset, "medallergys_qs"))
+            for ma in self.user_ppx.user.medallergy_set.filter(treatment__in=FlarePpxChoices.values):
+                self.assertIn(ma, queryset.medallergys_qs)

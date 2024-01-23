@@ -12,4 +12,4 @@ class TestGenderMethods(TestCase):
         self.gender = GenderFactory()
 
     def test____str__(self):
-        self.assertIn(self.gender.__str__(), Genders.labels)
+        self.assertIn(self.gender.__str__().capitalize(), Genders.labels)

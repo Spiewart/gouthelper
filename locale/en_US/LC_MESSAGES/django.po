@@ -1,4 +1,4 @@
-# Translations for the Gouthelper project
+# Translations for the GoutHelper project
 # Copyright (C) 2023 Dave Ewart, MD
 # Dave Ewart, MD <gouthelper@gmail.com>, 2023.
 #

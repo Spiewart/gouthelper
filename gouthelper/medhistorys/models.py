@@ -1,4 +1,5 @@
 from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
@@ -6,7 +7,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GouthelperModel
+from ..utils.models import GoutHelperModel
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
 from .managers import (
@@ -39,9 +40,11 @@ from .managers import (
     XoiinteractionManager,
 )
 
+User = get_user_model()
 
-class MedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
-    """Gouthelper MedHistory model to store medical, family, social history data
+
+class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+    """GoutHelper MedHistory model to store medical, family, social history data
     for Patients. value field is a Boolean that is required and defaults to False.
     """
 
@@ -57,6 +60,11 @@ class MedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=R
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_medhistorytype_valid",
                 check=models.Q(medhistorytype__in=MedHistoryTypes.values),
+            ),
+            # A User can only have one of each type of MedHistory
+            models.UniqueConstraint(
+                fields=["user", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_user",
             ),
         ]
 
@@ -75,6 +83,7 @@ class MedHistory(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=R
         null=True,
         blank=True,
     )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
     objects = models.Manager()
 

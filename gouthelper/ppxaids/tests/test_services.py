@@ -26,6 +26,7 @@ from ...medhistorys.tests.factories import (
 )
 from ...ppxaids.tests.factories import PpxAidFactory
 from ...treatments.choices import FlarePpxChoices, Freqs, Treatments, TrtTypes
+from ..selectors import ppxaid_userless_qs
 from ..services import PpxAidDecisionAid
 
 pytestmark = pytest.mark.django_db
@@ -49,27 +50,29 @@ class TestPpxAidMethods(TestCase):
         for medhistory in MedHistory.objects.filter().all():
             self.ppxaid.medhistorys.add(medhistory)
         self.allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
-        self.ppxaid.medallergys.add(self.allopurinolallergy)
-        self.decisionaid = PpxAidDecisionAid(pk=self.ppxaid.pk)
+        self.colchicineallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
+        self.ppxaid.medallergys.add(self.allopurinolallergy, self.colchicineallergy)
+        self.decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
         self.empty_ppxaid = PpxAidFactory()
-        self.empty_decisionaid = PpxAidDecisionAid(pk=self.empty_ppxaid.pk)
+        self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
-            decisionaid = PpxAidDecisionAid(pk=self.ppxaid.pk)
-        self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
+            decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
+        self.assertEqual(len(context.captured_queries), 4)  # 3 queries for medhistorys
         self.assertEqual(age_calc(self.ppxaid.dateofbirth.value), decisionaid.age)
-        self.assertEqual(self.userless_gender.value, decisionaid.gender)
+        self.assertEqual(self.userless_gender, decisionaid.gender)
         self.assertEqual(self.userless_ckd.ckddetail, decisionaid.ckddetail)
         for medhistory in MedHistory.objects.filter().all():
             self.assertIn(medhistory, decisionaid.medhistorys)
         self.assertEqual(self.ppxaid, decisionaid.ppxaid)
-        self.assertIn(self.allopurinolallergy, decisionaid.medallergys)
+        self.assertNotIn(self.allopurinolallergy, decisionaid.medallergys)
+        self.assertIn(self.colchicineallergy, decisionaid.medallergys)
 
     def test__init_with_empty_ppxaid(self):
         with CaptureQueriesContext(connection) as context:
-            empty_decisionaid = PpxAidDecisionAid(pk=self.empty_ppxaid.pk)
-        self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
+            empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
+        self.assertEqual(len(context.captured_queries), 4)  # 3 queries for medhistorys
         self.assertTrue(empty_decisionaid.age)
         self.assertIsNone(empty_decisionaid.ckddetail)
         self.assertIsNone(empty_decisionaid.baselinecreatinine)
@@ -142,6 +145,7 @@ class TestPpxAidMethods(TestCase):
 
     def test__colchicine_dose_reduced_ckd_3(self):
         self.userless_colchicineinteraction.delete()
+        self.colchicineallergy.delete()
         self.userless_ckddetail.stage = Stages.THREE
         self.userless_ckddetail.save()
         self.ppxaid.update()
@@ -172,6 +176,7 @@ class TestPpxAidMethods(TestCase):
         default_ppx_trt_settings = DefaultPpxTrtSettings.objects.get()
         default_ppx_trt_settings.colch_dose_adjust = False
         default_ppx_trt_settings.save()
+        self.colchicineallergy.delete()
         self.ppxaid.update()
         self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, self.ppxaid.options)

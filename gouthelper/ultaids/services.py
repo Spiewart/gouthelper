@@ -10,8 +10,8 @@ from ..defaults.selectors import (
 )
 from ..treatments.choices import TrtTypes, UltChoices
 from ..utils.helpers.aid_helpers import (
-    aids_assign_userless_baselinecreatinine,
-    aids_assign_userless_ckddetail,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
     aids_create_trts_dosing_dict,
     aids_dict_to_json,
     aids_process_hlab5801,
@@ -59,8 +59,8 @@ class UltAidDecisionAid:
             self.hlab5801 = None
         self.medallergys = self.ultaid.medallergys_qs
         self.medhistorys = self.ultaid.medhistorys_qs
-        self.baselinecreatinine = aids_assign_userless_baselinecreatinine(medhistorys=self.medhistorys)
-        self.ckddetail = aids_assign_userless_ckddetail(medhistorys=self.medhistorys)
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         self.sideeffects = None
 
     UltChoices = UltChoices
@@ -103,17 +103,17 @@ class UltAidDecisionAid:
     @cached_property
     def default_trts(self) -> "QuerySet":
         """Uses defaults_defaulttrts_trttype to fetch the ULT DefaultTrts for the user or
-        Gouthelper DefaultTrts.
+        GoutHelper DefaultTrts.
 
         Returns:
-            QuerySet: ULT DefaultTrts for the user or Gouthelper
+            QuerySet: ULT DefaultTrts for the user or GoutHelper
         """
         return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
 
     @cached_property
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultUltTrtSettings."""
+        GoutHelper DefaultUltTrtSettings."""
         return defaults_defaultulttrtsettings(user=None)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:

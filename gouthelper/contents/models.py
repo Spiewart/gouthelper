@@ -6,12 +6,12 @@ from markdownfield.validators import VALIDATOR_CLASSY  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.fields import GouthelperMarkdownField
-from ..utils.models import GouthelperModel
+from ..utils.fields import GoutHelperMarkdownField
+from ..utils.models import GoutHelperModel
 from .choices import Contexts, Tags
 
 
-class Content(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Content(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Model to store HTML Markdown pages."""
 
     class Meta:
@@ -56,7 +56,7 @@ class Content(RulesModelMixin, GouthelperModel, TimeStampedModel, metaclass=Rule
     history = HistoricalRecords()
     slug = models.SlugField(max_length=255)
     tag = models.CharField(max_length=255, choices=Tags.choices, null=True, blank=True)
-    text = GouthelperMarkdownField(rendered_field="text_rendered", validator=VALIDATOR_CLASSY)
+    text = GoutHelperMarkdownField(rendered_field="text_rendered", validator=VALIDATOR_CLASSY)
     text_rendered = RenderedMarkdownField()
 
     def __str__(self):

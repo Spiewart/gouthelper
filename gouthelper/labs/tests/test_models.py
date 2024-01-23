@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest  # type: ignore
 from django.db.utils import IntegrityError  # type: ignore
 from django.test import TestCase  # type: ignore
+from django.utils import timezone  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
@@ -133,7 +134,7 @@ class TestLab(TestCase):
 
     def test__date_drawn_not_in_future_constraint(self):
         urate = UrateFactory()
-        urate.date_drawn = "2099-01-01"
+        urate.date_drawn = timezone.now() + timezone.timedelta(days=100)
         with self.assertRaises(IntegrityError) as context:
             urate.save()
         self.assertTrue("date_drawn_not_in_future" in str(context.exception))
@@ -244,7 +245,7 @@ class TestHlab5801(TestCase):
         self.hlab5801 = Hlab5801Factory()
 
     def test__date_drawn_not_in_future_constraint(self):
-        self.hlab5801.date_drawn = "2099-01-01"
+        self.hlab5801.date_drawn = timezone.now() + timezone.timedelta(days=100)
         with self.assertRaises(IntegrityError) as context:
             self.hlab5801.save()
         self.assertTrue("date_drawn_not_in_future" in str(context.exception))

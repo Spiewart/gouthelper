@@ -6,17 +6,25 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1 class="display-4">FlareAid</h1>
+      <h1>FlareAid</h1>
+      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
     </div>
     <div class="col align-items-center d-flex">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flareaids:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'flareaids:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flareaids:pseudopatient-update' username=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'flareaids:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

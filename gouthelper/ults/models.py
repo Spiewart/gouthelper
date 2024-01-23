@@ -12,7 +12,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..medhistorydetails.choices import Stages
 from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.models import DecisionAidModel, GouthelperModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
 from .choices import FlareFreqs, FlareNums, Indications
 from .services import UltDecisionAid
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 class Ult(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

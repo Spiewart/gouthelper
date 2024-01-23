@@ -142,7 +142,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_ckd(self.medhistorys_qs)  # type: ignore
         except AttributeError:
-            return medhistorys_get_ckd(self.medhistorys.all())
+            try:
+                return medhistorys_get_ckd(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_ckd(self.medhistory_set.all())
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
@@ -181,7 +184,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_colchicineinteraction(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_colchicineinteraction(self.medhistorys.all())
+            try:
+                return medhistorys_get_colchicineinteraction(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_colchicineinteraction(self.medhistory_set.all())
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
@@ -204,7 +210,7 @@ class DecisionAidModel(models.Model):
     @cached_property
     def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Method that returns DefaultUltTrtSettings object from the objects user
-        attribute/property or the Gouthelper default if User doesn't exist."""
+        attribute/property or the GoutHelper default if User doesn't exist."""
         return defaults_defaultulttrtsettings(user=None)
 
     @cached_property
@@ -214,7 +220,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_diabetes(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_diabetes(self.medhistorys.all())
+            try:
+                return medhistorys_get_diabetes(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_diabetes(self.medhistory_set.all())
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -288,7 +297,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_gout(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_gout(self.medhistorys.all())
+            try:
+                return medhistorys_get_gout(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_gout(self.medhistory_set.all())
 
     @cached_property
     def goutdetail(self) -> Union["GoutDetail", None]:
@@ -336,7 +348,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_menopause(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_menopause(self.medhistorys.all())
+            try:
+                return medhistorys_get_menopause(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_menopause(self.medhistory_set.all())
 
     @cached_property
     def nsaid_age_contra(self) -> bool | None:
@@ -394,7 +409,10 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_organtransplant(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_organtransplant(self.medhistorys.all())
+            try:
+                return medhistorys_get_organtransplant(self.medhistorys.all())
+            except AttributeError:
+                return medhistorys_get_organtransplant(self.medhistory_set.all())
 
     @cached_property
     def other_nsaid_contras(self) -> list["MedHistory"]:
@@ -550,17 +568,22 @@ class MedAllergyAidModel(models.Model):
     def add_medallergys(
         self,
         medallergys: list["MedAllergy"],
+        medallergys_qs: QuerySet["MedAllergy"] | list["MedAllergy"],
         commit: bool = True,
     ) -> None:
         """Method that adds a list of medallergys to a DecisionAid without a User.
 
         Args:
             medallergys: list of MedAllergy objects to add
+            medallergys_qs: list of MedAllergy objects to check for duplicates
             commit: bool to commit the changes to the database
 
         Returns: None"""
         for medallergy in medallergys:
-            self.medallergys.add(medallergy)
+            if next(iter([ma for ma in medallergys_qs if ma.treatment == medallergy.treatment]), False):
+                raise TypeError(f"{medallergy} is already in {self}")
+            if medallergy.treatment in self.__class__.aid_treatments():
+                self.medallergys.add(medallergy)
         if commit:
             self.full_clean()
             self.save()
@@ -598,16 +621,20 @@ class MedHistoryAidModel(models.Model):
     def add_medhistorys(
         self,
         medhistorys: list["MedHistory"],
+        medhistorys_qs: QuerySet["MedHistory"] | list["MedHistory"],
         commit: bool = True,
     ) -> None:
         """Method that adds a list of medhistorys to a Aid without a User.
 
         Args:
             medhistorys: list of MedHistory objects to add
+            medhistorys_qs: list of MedHistory objects to check for duplicates
             commit: bool to commit the changes to the database
 
         Returns: None"""
         for medhistory in medhistorys:
+            if next(iter([mh for mh in medhistorys_qs if mh.medhistorytype == medhistory.medhistorytype]), False):
+                raise TypeError(f"{medhistory} is already in {self}")
             if medhistory.medhistorytype in self.__class__.aid_medhistorys():  # type: ignore
                 self.medhistorys.add(medhistory)
             else:
@@ -637,7 +664,7 @@ class MedHistoryAidModel(models.Model):
             self.save()
 
 
-class GouthelperModel(models.Model):
+class GoutHelperModel(models.Model):
     """
     Model Mixin to add UUID field for objects.
     """

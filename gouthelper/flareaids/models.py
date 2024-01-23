@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -9,20 +10,26 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
-from ..treatments.choices import Treatments
+from ..rules import add_object, change_object, delete_object, view_object
+from ..treatments.choices import FlarePpxChoices, Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GouthelperModel, MedAllergyAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
+from .selectors import flareaid_user_qs, flareaid_userless_qs
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
+    from django.contrib.auth import get_user_model  # type: ignore
+
     from ..defaults.models import DefaultFlareTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
+
+    User = get_user_model()
 
 
 class FlareAid(
     RulesModelMixin,
     DecisionAidModel,
-    GouthelperModel,
+    GoutHelperModel,
     MedAllergyAidModel,
     MedHistoryAidModel,
     TimeStampedModel,
@@ -30,9 +37,36 @@ class FlareAid(
 ):
     """Model that can make a recommendation for gout flare treatment."""
 
+    class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
+        constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        gender__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        dateofbirth__isnull=False,
+                        # gender can be null because not all FlareAids will have CkdDetail
+                    )
+                ),
+            ),
+        ]
+
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     decisionaid = models.JSONField(
         default=dict,
@@ -44,10 +78,14 @@ class FlareAid(
         null=True,
         blank=True,
     )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"FlareAid: created {self.created.date()}"
+        if self.user:
+            return f"{self.user.username.capitalize()}'s FlareAid"
+        else:
+            return f"FlareAid: created {self.created.date()}"
 
     @cached_property
     def aid_dict(self) -> dict:
@@ -60,16 +98,21 @@ class FlareAid(
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return FLAREAID_MEDHISTORYS
 
+    @classmethod
+    def aid_treatments(cls) -> list[FlarePpxChoices]:
+        return FlarePpxChoices.values
+
     @cached_property
     def defaulttrtsettings(self) -> "DefaultFlareTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        Gouthelper DefaultSettings."""
-        # Fetch default FlareTrtSettings for Gouthelper with user=None
-        # TODO: When a patient is added to the model in the future, this will need to be updated.
-        return defaults_defaultflaretrtsettings(user=None)
+        GoutHelper DefaultSettings."""
+        return defaults_defaultflaretrtsettings(user=self.user)
 
     def get_absolute_url(self):
-        return reverse("flareaids:detail", kwargs={"pk": self.pk})
+        if self.user:
+            return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
+        else:
+            return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
     @property
     def options(self) -> dict:
@@ -112,16 +155,19 @@ class FlareAid(
                         except KeyError:
                             return None
 
-    def update(self, decisionaid: FlareAidDecisionAid | None = None, qs: Union["FlareAid", None] = None) -> "FlareAid":
+    def update(self, qs: Union["FlareAid", "User", None] = None) -> "FlareAid":
         """Updates FlareAid decisionaid JSON field field.
 
         Args:
-            decisionaid (FlareAidDecisionAid, optional): FlareAidDecisionAid object. Defaults to None.
-            qs (FlareAid, optional): FlareAid object. Defaults to None. Should have related field objects
+            qs (FlareAid, User, optional): FlareAid or User object. Defaults to None. Should have related field objects
             prefetched and select_related.
 
         Returns:
             FlareAid: FlareAid object."""
-        if decisionaid is None:
-            decisionaid = FlareAidDecisionAid(pk=self.pk, qs=qs)
+        if qs is None:
+            if self.user:
+                qs = flareaid_user_qs(username=self.user.username)
+            else:
+                qs = flareaid_userless_qs(pk=self.pk)
+        decisionaid = FlareAidDecisionAid(qs=qs)
         return decisionaid._update()
