@@ -105,12 +105,6 @@
                   </li>
                 {% endif %}
               {% endif %}
-              {% if patient %}
-                <li class="nav-item">
-                  <a class="nav-link"
-                     href="{% url 'users:pseudopatient-detail' patient.username %}">{{ patient }}</a>
-                </li>
-              {% endif %}
             </ul>
           </div>
         </div>
