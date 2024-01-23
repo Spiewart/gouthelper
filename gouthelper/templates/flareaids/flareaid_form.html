@@ -11,10 +11,18 @@
   {% endif %}
 {% endblock title %}
 {% block heading %}
-  <h1>Gout FlareAid</h1>
+  {% if form.instance.created %}
+    <h1>Edit FlareAid</h1>
+  {% else %}
+    <h1>New FlareAid</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Figure out how to treat a gout flare.
+  {% if form.instance.created %}
+    Edit this FlareAid for updated recommendations.
+  {% else %}
+    Figure out how to treat a gout flare.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">

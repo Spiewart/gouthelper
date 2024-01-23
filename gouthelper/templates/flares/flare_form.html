@@ -11,11 +11,18 @@
   {% endif %}
 {% endblock title %}
 {% block heading %}
-  <h1>Gout Flare</h1>
-  {{ form.errors }}
+  {% if form.instance.created %}
+    <h1>Edit Flare</h1>
+  {% else %}
+    <h1>New Flare</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
+  {% if form.instance.created %}
+    Update this Flare for updated information.
+  {% else %}
+    Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">

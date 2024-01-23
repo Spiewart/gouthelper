@@ -11,10 +11,18 @@
   {% endif %}
 {% endblock title %}
 {% block heading %}
-  <h1>GoutPatient</h1>
+  {% if form.instance.created %}
+    <h1>Edit GoutPatient</h1>
+  {% else %}
+    <h1>New GoutPatient</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  GoutPatients are the starting point for building a comprehensive plan for a patient's gout.
+  {% if form.instance.created %}
+    Update {{ form.instance }}'s general information.
+  {% else %}
+    Start building a comprehensive plan for a patient's gout.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
