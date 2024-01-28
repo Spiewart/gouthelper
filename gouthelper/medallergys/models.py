@@ -7,12 +7,13 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments
-from ..utils.models import GoutHelperModel
+from ..utils.models import GoutHelperModel, TreatmentAidRelation
 
 
 class MedAllergy(
     RulesModelMixin,
     GoutHelperModel,
+    TreatmentAidRelation,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):
@@ -28,9 +29,39 @@ class MedAllergy(
             "delete": delete_object,
         }
         constraints = [
+            # If there's a User, there can be no associated TreatmentAid objects
+            # Likewise, if there's a TreatmentAid object, there can be no User
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_aid_exclusive",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        flareaid__isnull=True,
+                        ppxaid__isnull=True,
+                        ultaid__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                    ),
+                ),
+            ),
+            # Each user can only have one allergy for each treatment
             models.UniqueConstraint(
                 fields=["user", "treatment"],
                 name="%(app_label)s_%(class)s_unique_user",
+            ),
+            # Each TreatmentAid can only have one allergy for each treatment
+            models.UniqueConstraint(
+                fields=["flareaid", "treatment"],
+                name="%(app_label)s_%(class)s_unique_flareaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ppxaid", "treatment"],
+                name="%(app_label)s_%(class)s_unique_ppxaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ultaid", "treatment"],
+                name="%(app_label)s_%(class)s_unique_ultaid",
             ),
             models.CheckConstraint(
                 check=models.Q(treatment__in=Treatments.values),

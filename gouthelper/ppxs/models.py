@@ -20,7 +20,7 @@ from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
-from ..utils.models import DecisionAidModel, GoutHelperModel, LabAidModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
 from .services import PpxDecisionAid
 
@@ -33,8 +33,6 @@ class Ppx(
     RulesModelMixin,
     DecisionAidModel,
     GoutHelperModel,
-    LabAidModel,
-    MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):

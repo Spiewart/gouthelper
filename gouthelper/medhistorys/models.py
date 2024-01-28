@@ -7,7 +7,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GoutHelperModel
+from ..utils.models import DecisionAidRelation, GoutHelperModel, TreatmentAidRelation
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
 from .managers import (
@@ -43,13 +43,40 @@ from .managers import (
 User = get_user_model()
 
 
-class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class MedHistory(
+    RulesModelMixin,
+    GoutHelperModel,
+    DecisionAidRelation,
+    TreatmentAidRelation,
+    TimeStampedModel,
+    metaclass=RulesModelBase,
+):
     """GoutHelper MedHistory model to store medical, family, social history data
     for Patients. value field is a Boolean that is required and defaults to False.
     """
 
     class Meta:
         constraints = [
+            # If there's a User, there can be no associated Aid objects
+            # Likewise, if there's an Aid object, there can be no User
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_aid_exclusive",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        flare__isnull=True,
+                        flareaid__isnull=True,
+                        goalurate__isnull=True,
+                        ppxaid__isnull=True,
+                        ppx__isnull=True,
+                        ultaid__isnull=True,
+                        ult__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                    ),
+                ),
+            ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_set_date_valid",
                 check=(
@@ -65,6 +92,36 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
             models.UniqueConstraint(
                 fields=["user", "medhistorytype"],
                 name="%(app_label)s_%(class)s_unique_user",
+            ),
+            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
+            # one of each type of MedHistory
+            models.UniqueConstraint(
+                fields=["flare", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_flare",
+            ),
+            models.UniqueConstraint(
+                fields=["flareaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_flareaid",
+            ),
+            models.UniqueConstraint(
+                fields=["goalurate", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_goalurate",
+            ),
+            models.UniqueConstraint(
+                fields=["ppxaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ppxaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ppx", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ppx",
+            ),
+            models.UniqueConstraint(
+                fields=["ultaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ultaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ult", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ult",
             ),
         ]
 

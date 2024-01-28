@@ -19,7 +19,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers.helpers import calculate_duration, now_date
-from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel
 from .choices import Likelihoods, LimitedJointChoices, Prevalences
 from .helpers import (
     flares_abnormal_duration,
@@ -39,7 +39,6 @@ class Flare(
     RulesModelMixin,
     DecisionAidModel,
     GoutHelperModel,
-    MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):

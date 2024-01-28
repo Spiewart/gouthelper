@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from ..dateofbirths.models import DateOfBirth
     from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
     from ..ethnicitys.models import Ethnicity
-    from ..labs.models import BaselineCreatinine, Hlab5801, Lab
+    from ..labs.models import BaselineCreatinine, Hlab5801
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
@@ -927,167 +927,6 @@ class DecisionAidModel(models.Model):
                 )
 
 
-class LabAidModel(models.Model):
-    """Abstract base model to add labs to a model without a User."""
-
-    class Meta:
-        abstract = True
-
-    labs = models.ManyToManyField(
-        "labs.Lab",
-    )
-
-    def add_labs(
-        self,
-        labs: list["Lab"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of labs to a Aid without a User.
-
-        Args:
-            labs: list of Lab objects to add
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for lab in labs:
-            if lab.labtype in self.__class__.aid_labs():  # type: ignore
-                self.labs.add(lab)
-            else:
-                raise TypeError(f"{lab} is not a valid Lab for {self}")
-        if commit:
-            self.full_clean()
-            self.save()
-
-    def remove_labs(
-        self,
-        labs: list["Lab"],
-        commit: bool = True,
-    ) -> None:
-        """Method that removes a list of labs to a DecisionAid without a User.
-
-        Args:
-            labs: list of Lab objects to remove
-            commit: bool to commit the changes to the database
-            updating: DecisionAid object that is being updated, optional
-
-        Returns: None"""
-        for lab in labs:
-            self.labs.remove(lab)
-            lab.delete()
-        if commit:
-            self.full_clean()
-            self.save()
-
-
-class MedAllergyAidModel(models.Model):
-    """Abstract base model to add medallergys to a DecisionAid without a User."""
-
-    class Meta:
-        abstract = True
-
-    medallergys = models.ManyToManyField(
-        "medallergys.MedAllergy",
-    )
-
-    def add_medallergys(
-        self,
-        medallergys: list["MedAllergy"],
-        medallergys_qs: QuerySet["MedAllergy"] | list["MedAllergy"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of medallergys to a DecisionAid without a User.
-
-        Args:
-            medallergys: list of MedAllergy objects to add
-            medallergys_qs: list of MedAllergy objects to check for duplicates
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for medallergy in medallergys:
-            if next(iter([ma for ma in medallergys_qs if ma.treatment == medallergy.treatment]), False):
-                raise TypeError(f"{medallergy} is already in {self}")
-            if medallergy.treatment in self.__class__.aid_treatments():
-                self.medallergys.add(medallergy)
-        if commit:
-            self.full_clean()
-            self.save()
-
-    def remove_medallergys(
-        self,
-        medallergys: list["MedAllergy"],
-        commit=True,
-    ) -> None:
-        """Method that removes a list of medallergys to a UltAid without a User.
-
-        Args:
-            medallergys: list of MedAllergy objects to remove
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for medallergy in medallergys:
-            self.medallergys.remove(medallergy)
-            medallergy.delete()
-        if commit:
-            self.full_clean()
-            self.save()
-
-
-class MedHistoryAidModel(models.Model):
-    """Abstract base model to add medhistorys to a model without a User."""
-
-    class Meta:
-        abstract = True
-
-    medhistorys = models.ManyToManyField(
-        "medhistorys.Medhistory",
-    )
-
-    def add_medhistorys(
-        self,
-        medhistorys: list["MedHistory"],
-        medhistorys_qs: QuerySet["MedHistory"] | list["MedHistory"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of medhistorys to a Aid without a User.
-
-        Args:
-            medhistorys: list of MedHistory objects to add
-            medhistorys_qs: list of MedHistory objects to check for duplicates
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for medhistory in medhistorys:
-            if next(iter([mh for mh in medhistorys_qs if mh.medhistorytype == medhistory.medhistorytype]), False):
-                raise TypeError(f"{medhistory} is already in {self}")
-            if medhistory.medhistorytype in self.__class__.aid_medhistorys():  # type: ignore
-                self.medhistorys.add(medhistory)
-            else:
-                raise TypeError(f"{medhistory} is not a valid MedHistory for {self}")
-        if commit:
-            self.full_clean()
-            self.save()
-
-    def remove_medhistorys(
-        self,
-        medhistorys: list["MedHistory"],
-        commit: bool = True,
-    ) -> None:
-        """Method that removes a list of medhistorys to a UltAid without a User.
-
-        Args:
-            medhistorys: list of MedHistory objects to remove
-            commit: bool to commit the changes to the database
-            updating: DecisionAid object that is being updated, optional
-
-        Returns: None"""
-        for medhistory in medhistorys:
-            self.medhistorys.remove(medhistory)
-            medhistory.delete()
-        if commit:
-            self.full_clean()
-            self.save()
-
-
 class GoutHelperModel(models.Model):
     """
     Model Mixin to add UUID field for objects.
@@ -1099,3 +938,68 @@ class GoutHelperModel(models.Model):
         abstract = True
 
     objects = models.Manager()
+
+
+class DecisionAidRelation(models.Model):
+    """Abstract base model for adding DecisionAid OneToOneFields to models."""
+
+    class Meta:
+        abstract = True
+
+    flare = models.OneToOneField(
+        "flares.Flare",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+    goalurate = models.OneToOneField(
+        "goalurates.GoalUrate",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+    ppx = models.OneToOneField(
+        "ppxs.Ppx",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+    ult = models.OneToOneField(
+        "ults.Ult",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+
+
+class TreatmentAidRelation(models.Model):
+    """Abstract base model for adding TreatmentAid OneToOneFields to models."""
+
+    class Meta:
+        abstract = True
+
+    flareaid = models.OneToOneField(
+        "flareaids.FlareAid",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+    ppxaid = models.OneToOneField(
+        "ppxaids.PpxAid",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )
+    ultaid = models.OneToOneField(
+        "ultaids.UltAid",
+        on_delete=models.SET_NULL,
+        related_name="%(class)s",
+        null=True,
+        blank=True,
+    )

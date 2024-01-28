@@ -148,6 +148,7 @@ class BaselineLab(LabBase):
 
 class Lab(LabBase):
     class Meta(LabBase.Meta):
+        abstract = True
         constraints = LabBase.Meta.constraints + [
             models.CheckConstraint(
                 check=models.Q(date_drawn__lte=models.functions.Now()),
@@ -164,34 +165,6 @@ class Lab(LabBase):
     )
     history = HistoricalRecords()
     objects = models.Manager()
-
-    def delete(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Overwritten to change class before and after calling super().delete()
-        so Django-Simple-History works."""
-        # Change class to Lab, call super().delete(), then change class back
-        # to proxy model class in order for Django-Simple-History to work properly
-        self.__class__ = Lab
-        super().delete(*args, **kwargs)
-        self.__class__ = apps.get_model(f"labs.{self.labtype}")
-
-    def save(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Overwritten to change class before and after calling super().save()
-        so Django-Simple-History works."""
-        # Change class to MedHistory, call super().save(), then change class back
-        # to proxy model class in order for Django-Simple-History to work properly
-        if self._state.adding is True:
-            self.set_fields()
-        self.__class__ = Lab
-        super().save(*args, **kwargs)
-        self.__class__ = apps.get_model(f"labs.{self.labtype}")
 
     def __str__(self):
         return apps.get_model("labs", self.labtype).__str__(self)
@@ -269,8 +242,28 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
 
 class Urate(Lab):
     class Meta:
-        proxy = True
+        constraints = Lab.Meta.constraints + [
+            # If there's a User, there can be no associated Ppx objects
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_ppx_exclusive",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        ppx__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                    ),
+                ),
+            ),
+        ]
 
+    ppx = models.ForeignKey(
+        "ppxs.Ppx",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
     objects = UrateManager()
 
     def __str__(self):

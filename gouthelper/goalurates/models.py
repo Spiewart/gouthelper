@@ -9,7 +9,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
+from ..utils.models import DecisionAidModel, GoutHelperModel
 from .choices import GoalUrates
 from .selectors import goalurate_user_qs, goalurate_userless_qs
 
@@ -25,7 +25,6 @@ class GoalUrate(
     RulesModelMixin,
     DecisionAidModel,
     GoutHelperModel,
-    MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):
