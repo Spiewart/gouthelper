@@ -34,11 +34,11 @@ class MedAllergy(
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_aid_exclusive",
                 check=(
-                    models.Q(
-                        user__isnull=False,
-                        flareaid__isnull=True,
-                        ppxaid__isnull=True,
-                        ultaid__isnull=True,
+                    (
+                        models.Q(user__isnull=False)
+                        & models.Q(flareaid__isnull=True)
+                        & models.Q(ppxaid__isnull=True)
+                        & models.Q(ultaid__isnull=True)
                     )
                     | models.Q(
                         user__isnull=True,

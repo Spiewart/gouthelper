@@ -9,8 +9,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..genders.choices import Genders
 from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
-from .choices import LabTypes, LowerLimits, Units
-from .dicts import LABS_LABTYPES_LOWER_LIMITS, LABS_LABTYPES_UNITS, LABS_LABTYPES_UPPER_LIMITS
+from .choices import LabTypes
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
@@ -81,48 +80,6 @@ def labs_eGFR_calculator(
     )
     # Return eGFR rounded to 0 decimal points
     return labs_round_decimal(eGFR, 0)
-
-
-def labs_get_default_labtype(lab_name: LabTypes) -> LabTypes:
-    """Method that returns the default LabType for a given Lab proxy model.
-    Will raise ValueError if called on Generic Lab parent model
-    because it won't find a LabType for LAB in LabTypes.
-
-    Args:
-        lab_name (LabTypes enum): LabTypes enum object
-
-    Returns:
-        LabTypes enum object: default LabType for a given Lab proxy model
-
-    Raises:
-        ValueError: if called on Generic Lab parent model or an invalid arg otherwise
-    """
-    try:
-        return LabTypes(lab_name)
-    except ValueError as exc:
-        # If the LabType doesn't exist, raise a KeyError
-        raise ValueError(f"labs_get_default_labtype() was called on a non-Lab object: {lab_name}") from exc
-
-
-def labs_get_default_lower_limit(lab_name: LabTypes) -> LowerLimits:
-    """Method that returns the default lower limit for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a LowerLimit for LAB in LowerLimits."""
-    return next(iter(LABS_LABTYPES_LOWER_LIMITS[lab_name].values()))
-
-
-def labs_get_default_units(lab_name: LabTypes) -> Units:
-    """Method that returns the default units for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a Units for LAB in Units."""
-    return LABS_LABTYPES_UNITS[lab_name][0]
-
-
-def labs_get_default_upper_limit(lab_name: LabTypes) -> Decimal:
-    """Method that returns the default upper limit for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a UpperLimit for LAB in UpperLimits."""
-    return next(iter(LABS_LABTYPES_UPPER_LIMITS[lab_name].values()))
 
 
 def labs_round_decimal(value: Decimal, places: int) -> Decimal:

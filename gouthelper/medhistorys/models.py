@@ -62,15 +62,15 @@ class MedHistory(
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_aid_exclusive",
                 check=(
-                    models.Q(
-                        user__isnull=False,
-                        flare__isnull=True,
-                        flareaid__isnull=True,
-                        goalurate__isnull=True,
-                        ppxaid__isnull=True,
-                        ppx__isnull=True,
-                        ultaid__isnull=True,
-                        ult__isnull=True,
+                    (
+                        models.Q(user__isnull=False)
+                        & models.Q(flare__isnull=True)
+                        & models.Q(flareaid__isnull=True)
+                        & models.Q(goalurate__isnull=True)
+                        & models.Q(ppxaid__isnull=True)
+                        & models.Q(ppx__isnull=True)
+                        & models.Q(ultaid__isnull=True)
+                        & models.Q(ult__isnull=True)
                     )
                     | models.Q(
                         user__isnull=True,
