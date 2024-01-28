@@ -9,6 +9,12 @@ if TYPE_CHECKING:
     from ..medhistorys.models import MedHistory
 
 
+def medhistorys_get(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"], medhistorytype: MedHistoryTypes):
+    """Method that iterates over a list of MedHistory objects and returns
+    one whose MedHistoryType is medhistorytype or False."""
+    return next(iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]), False)
+
+
 def medhistorys_get_allopurinolhypersensitivity(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
 ) -> Union[bool, "MedHistory"]:

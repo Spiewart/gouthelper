@@ -1,7 +1,13 @@
-from typing import TYPE_CHECKING, Union
+import random
+from typing import TYPE_CHECKING, Any, Union
+
+from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
+from ...ethnicitys.choices import Ethnicitys
+from ...genders.choices import Genders
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
+from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import OTHER_NSAID_CONTRAS
 from ...treatments.choices import NsaidChoices, Treatments
@@ -10,7 +16,297 @@ if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
     from django.http import HttpResponse  # type: ignore
 
+    from ...flareaids.models import FlareAid
+    from ...flares.models import Flare
+    from ...goalurates.models import GoalUrate
+    from ...medhistorydetails.models import CkdDetail
+    from ...ppxaids.models import PpxAid
+    from ...ppxs.models import Ppx
+    from ...ultaids.models import UltAid
+    from ...ults.models import Ult
+
     User = get_user_model()
+
+fake = faker.Faker()
+
+DialysisDurations = DialysisDurations.values
+DialysisDurations.remove("")
+Stages = Stages.values
+Stages.remove(None)
+
+
+def get_True_or_empty_str() -> bool | str:
+    return fake.boolean() or ""
+
+
+def get_mh_val(medhistory: MedHistoryTypes, bool_mhs: MedHistoryTypes) -> bool | str:
+    if medhistory in bool_mhs:
+        return fake.boolean()
+    else:
+        return get_True_or_empty_str()
+
+
+def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: int = None) -> dict:
+    if user and dateofbirth or user and gender:
+        raise ValueError("Calling this function with both a user and demographic information. Not allowed.")
+    data = {}
+    dialysis_value = fake.boolean()
+    data["dialysis"] = dialysis_value
+    if dialysis_value:
+        data["dialysis_duration"] = random.choice(DialysisDurations)
+        data["dialysis_type"] = random.choice(DialysisChoices.values)
+    else:
+        data["dialysis_duration"] = ""
+        data["dialysis_type"] = ""
+        # 50/50 chance of having stage data
+        if fake.boolean():
+            # 50/50 chance of having baseline creatinine
+            if fake.boolean():
+                # Create a fake baselinecreatinine value
+                bc_value = fake.pydecimal(
+                    left_digits=2,
+                    right_digits=2,
+                    positive=True,
+                    min_value=2,
+                    max_value=10,
+                )
+                data["baselinecreatinine-value"] = bc_value
+                data["stage"] = labs_stage_calculator(
+                    eGFR=labs_eGFR_calculator(
+                        creatinine=bc_value,
+                        age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
+                        gender=gender if not user else user.gender.value,
+                    )
+                )
+            else:
+                data["stage"] = random.choice(Stages)
+        else:
+            # Then there is just a baselinecreatinine
+            # Create a fake baselinecreatinine value
+            bc_value = fake.pydecimal(
+                left_digits=2,
+                right_digits=2,
+                positive=True,
+                min_value=2,
+                max_value=10,
+            )
+            data["baselinecreatinine-value"] = bc_value
+    return data
+
+
+def medallergy_diff_obj_data(obj: Any, data: dict, medallergys: list[Treatments]) -> int:
+    """Method that compares an object with a medallergys attr and fake data form a form
+    and calculates the difference between the existing number of medallergys and the
+    number of medallergys intended by the data. Uses a list of Treatments to sort through the
+    data dictionary for items that correspond to the object's medallergys attr."""
+    ma_count = obj.medallergys.count()
+    ma_data_count = len(
+        [ma for ma in data if ma.startswith("medallergy_") and ma.endswith(tuple(medallergys)) and data[ma] is True]
+    )
+    return ma_data_count - ma_count
+
+
+def medhistory_diff_obj_data(obj: Any, data: dict, medhistorys: list[MedHistoryTypes]) -> int:
+    """Method that compares an object with a medhistorys attr and fake data form a form
+    and calculates the difference between the existing number of medhistorys and the
+    number of medhistorys intended by the data. Uses a list of MedHistorys to sort through the
+    data dictionary for items that correspond to the object's medhistorys attr."""
+    mh_count = obj.medhistorys.count()
+    mh_data_count = len(
+        [mh for mh in data if mh.startswith(tuple(medhistorys)) and mh.endswith("-value") and data[mh] is True]
+    )
+    return mh_data_count - mh_count
+
+
+def update_ckddetail_data(ckddetail: "CkdDetail", data: dict) -> None:
+    """Method that updates a data dictionary with CkdDetail values from a
+    CkdDetail object."""
+    data.update(
+        {
+            "dialysis": ckddetail.dialysis,
+            "dialysis_duration": ckddetail.dialysis_duration if ckddetail.dialysis_duration else "",
+            "dialysis_type": ckddetail.dialysis_type if ckddetail.dialysis_type else "",
+            "stage": ckddetail.stage,
+        }
+    )
+    print(ckddetail.dialysis)
+    print(ckddetail.dialysis_duration)
+    print(DialysisDurations)
+    print(data)
+
+
+class DataMixin:
+    def __init__(
+        self,
+        medallergys: list[Treatments] = None,
+        medhistorys: list[MedHistoryTypes] = None,
+        bool_mhs: list[MedHistoryTypes] = None,
+        mh_details: list[MedHistoryTypes] = None,
+        onetoones: list[str] = None,
+        user: "User" = None,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] = None,
+    ):
+        self.medallergys = medallergys
+        self.medhistorys = medhistorys
+        self.bool_mhs = bool_mhs
+        self.mh_details = mh_details
+        self.onetoones = onetoones
+        if user:
+            for onetoone in self.onetoones:
+                if onetoone == "dateofbirth":
+                    setattr(self, onetoone, age_calc(getattr(user, onetoone).value))
+                else:
+                    setattr(self, onetoone, getattr(user, onetoone).value)
+        elif aid_obj and aid_obj.user:
+            for onetoone in self.onetoones:
+                if onetoone != "dateofbirth":
+                    setattr(self, onetoone, age_calc(getattr(aid_obj.user, onetoone).value))
+                else:
+                    setattr(self, onetoone, age_calc(getattr(aid_obj.user, onetoone).value))
+        elif aid_obj:
+            for onetoone in self.onetoones:
+                if onetoone != "dateofbirth":
+                    setattr(self, onetoone, age_calc(getattr(aid_obj, onetoone).value))
+                else:
+                    setattr(self, onetoone, age_calc(getattr(aid_obj, onetoone).value))
+        else:
+            for onetoone in self.onetoones:
+                if onetoone == "dateofbirth":
+                    self.dateofbirth = age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
+                elif onetoone == "ethnicity":
+                    self.ethnicity = random.choice(Ethnicitys.values)
+                elif onetoone == "gender":
+                    self.gender = random.choice(Genders.values)
+        self.user = user
+        self.aid_obj = aid_obj
+
+
+class MedHistoryDataMixin(DataMixin):
+    """Mixin for creating data for MedHistorys and MedHistoryDetails to
+    populate forms for testing."""
+
+    def create_mh_data(self):
+        data = {}
+        # Create MedHistory data
+        for medhistory in self.medhistorys:
+            if self.user:
+                data[f"{medhistory}-value"] = (
+                    True if getattr(self.user, medhistory.lower()) else False if medhistory in self.bool_mhs else ""
+                )
+            elif self.aid_obj and self.aid_obj.user:
+                data[f"{medhistory}-value"] = (
+                    True
+                    if getattr(self.aid_obj.user, medhistory.lower()).value
+                    else False
+                    if medhistory in self.bool_mhs
+                    else ""
+                )
+            elif self.aid_obj:
+                data[f"{medhistory}-value"] = (
+                    True
+                    if getattr(self.aid_obj, medhistory.lower()).value
+                    else False
+                    if medhistory in self.bool_mhs
+                    else ""
+                )
+            else:
+                data[f"{medhistory}-value"] = get_mh_val(medhistory, self.bool_mhs)
+            if medhistory == MedHistoryTypes.CKD:
+                ckd_value = data[f"{medhistory}-value"]
+                if ckd_value and MedHistoryTypes.CKD in self.mh_details:
+                    if self.user:
+                        if hasattr(self.user, "ckddetail"):
+                            ckdetail = self.user.ckddetail
+                            update_ckddetail_data(ckdetail, data)
+                            data["baselinecreatinine-value"] = (
+                                self.user.baselinecreatinine.value if getattr(self.user, "baselinecreatinine") else ""
+                            )
+                        else:
+                            data.update(**make_ckddetail_data(user=self.user))
+                    elif self.aid_obj and self.aid_obj.user:
+                        if hasattr(self.aid_obj.user, "ckddetail"):
+                            ckdetail = self.aid_obj.user.ckddetail
+                            update_ckddetail_data(ckdetail, data)
+                            data["baselinecreatinine-value"] = (
+                                self.user.baselinecreatinine.value
+                                if getattr(self.aid_obj.user, "baselinecreatinine")
+                                else ""
+                            )
+                        else:
+                            data.update(**make_ckddetail_data(user=self.aid_obj.user))
+                    elif self.aid_obj:
+                        if hasattr(self.aid_obj, "ckddetail"):
+                            ckdetail = self.aid_obj.ckddetail
+                            update_ckddetail_data(ckdetail, data)
+                            data["baselinecreatinine-value"] = (
+                                self.aid_obj.baselinecreatinine.value
+                                if getattr(self.aid_obj, "baselinecreatinine")
+                                else ""
+                            )
+                        else:
+                            data.update(
+                                **make_ckddetail_data(dateofbirth=self.aid_obj.dateofbirth, gender=self.aid_obj.gender)
+                            )
+                    else:
+                        data.update(**make_ckddetail_data(dateofbirth=self.dateofbirth, gender=self.gender))
+
+        return data
+
+    def create(self):
+        return self.create_mh_data()
+
+
+class MedAllergyDataMixin(DataMixin):
+    """Mixin for creating data for MedAllergys to populate forms for testing."""
+
+    def create_ma_data(self):
+        data = {}
+        # Create MedAllergy data
+        if self.user:
+            try:
+                ma_qs = self.user.medallergy_qs
+            except AttributeError:
+                ma_qs = self.user.medallergy_set.filter(treatment__in=self.medallergys).all()
+        elif self.aid_obj and self.aid_obj.user:
+            try:
+                ma_qs = self.aid_obj.user.medallergy_qs
+            except AttributeError:
+                ma_qs = self.aid_obj.user.medallergy_set.filter(treatment__in=self.medallergys).all()
+        elif self.aid_obj:
+            try:
+                ma_qs = self.aid_obj.medallergy_qs
+            except AttributeError:
+                ma_qs = self.aid_obj.medallergys.filter(treatment__in=self.medallergys).all()
+        else:
+            ma_qs = None
+        if ma_qs:
+            for treatment in self.medallergys:
+                data[f"medallergy_{treatment}"] = True if [ma for ma in ma_qs if ma.treatment == treatment] else ""
+        else:
+            for treatment in self.medallergys:
+                data[f"medallergy_{treatment}"] = get_True_or_empty_str()
+        return data
+
+    def create(self):
+        return self.create_ma_data()
+
+
+class OneToOneDataMixin(DataMixin):
+    """Mixin for creating data for OneToOne models to populate forms for testing."""
+
+    def create_oto_data(self):
+        data = {}
+        for onetoone in self.onetoones:
+            if onetoone == "dateofbirth":
+                data[f"{onetoone}-value"] = self.dateofbirth
+            elif onetoone == "ethnicity":
+                data[f"{onetoone}-value"] = self.ethnicity
+            elif onetoone == "gender":
+                data[f"{onetoone}-value"] = self.gender
+        return data
+
+    def create(self):
+        return self.create_oto_data()
 
 
 def form_data_colchicine_contra(data: dict, user: "User") -> Contraindications | None:
@@ -60,17 +356,21 @@ def form_data_nsaid_contra(data: dict) -> Contraindications | None:
 
 def tests_print_response_form_errors(response: Union["HttpResponse", None] = None) -> None:
     """Will print errors for all forms and formsets in the context_data."""
+
     if response and hasattr(response, "context_data"):
         for key, val in response.context_data.items():
             if key.endswith("_form") or key == "form":
                 if getattr(val, "errors", None):
+                    print("printing form errors")
                     print(key, val.errors)
             elif key.endswith("_formset") and val:
                 non_form_errors = val.non_form_errors()
                 if non_form_errors:
+                    print("printing non form errors")
                     print(key, non_form_errors)
                 # Check if the formset has forms and iterate over them if so
                 if val.forms:
                     for form in val.forms:
                         if getattr(form, "errors", None):
+                            print("printing formset form errors")
                             print(key, form.errors)

@@ -2,7 +2,6 @@ from django.db import connection  # type: ignore
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
-from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ..choices import MedHistoryTypes
 from ..models import (
     Allopurinolhypersensitivity,
@@ -34,256 +33,205 @@ from ..models import (
 
 
 class TestAllopurinolHypersensitivityManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.allopurinolhypersensitivity = Allopurinolhypersensitivity.objects.create()
         self.assertEqual(self.allopurinolhypersensitivity.medhistorytype, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY)
-
-    def test__get_queryset(self):
-        self.assertEqual(Allopurinolhypersensitivity.objects.get_queryset().count(), 1)
-        self.assertEqual(Allopurinolhypersensitivity.objects.get_queryset().first(), self.allopurinolhypersensitivity)
+        for mh in Allopurinolhypersensitivity.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY)
 
 
 class TestAnginaManager(TestCase):
-    def setUp(self):
+    def test_manager(self):
         self.angina = Angina.objects.create()
         self.assertEqual(self.angina.medhistorytype, MedHistoryTypes.ANGINA)
-
-    def test__get_queryset(self):
-        self.assertEqual(Angina.objects.get_queryset().count(), 1)
-        self.assertEqual(Angina.objects.get_queryset().first(), self.angina)
+        for mh in Angina.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.ANGINA)
 
 
 class TestAnticoagulationManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.anticoagulation = Anticoagulation.objects.create()
         self.assertEqual(self.anticoagulation.medhistorytype, MedHistoryTypes.ANTICOAGULATION)
-
-    def test__get_queryset(self):
-        self.assertEqual(Anticoagulation.objects.get_queryset().count(), 1)
-        self.assertEqual(Anticoagulation.objects.get_queryset().first(), self.anticoagulation)
+        for mh in Anticoagulation.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.ANTICOAGULATION)
 
 
 class TestBleedManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.bleed = Bleed.objects.create()
         self.assertEqual(self.bleed.medhistorytype, MedHistoryTypes.BLEED)
-
-    def test__get_queryset(self):
-        self.assertEqual(Bleed.objects.get_queryset().count(), 1)
-        self.assertEqual(Bleed.objects.get_queryset().first(), self.bleed)
+        for mh in Bleed.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.BLEED)
 
 
 class TestCadManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.cad = Cad.objects.create()
         self.assertEqual(self.cad.medhistorytype, MedHistoryTypes.CAD)
-
-    def test__get_queryset(self):
-        self.assertEqual(Cad.objects.get_queryset().count(), 1)
-        self.assertEqual(Cad.objects.get_queryset().first(), self.cad)
+        for mh in Cad.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.CAD)
 
 
 class TestChfManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.chf = Chf.objects.create()
         self.assertEqual(self.chf.medhistorytype, MedHistoryTypes.CHF)
-
-    def test__get_queryset(self):
-        self.assertEqual(Chf.objects.get_queryset().count(), 1)
-        self.assertEqual(Chf.objects.get_queryset().first(), self.chf)
+        for mh in Chf.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.CHF)
 
 
 class TestCkdManagers(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.ckd = Ckd.objects.create()
         self.assertEqual(self.ckd.medhistorytype, MedHistoryTypes.CKD)
-        CkdDetailFactory(medhistory=self.ckd)
-
-    def test__get_queryset(self):
-        self.assertEqual(Ckd.objects.get_queryset().count(), 1)
-        self.assertEqual(Ckd.objects.get_queryset().first(), self.ckd)
+        for mh in Ckd.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.CKD)
 
     def test__related_objects(self):
         with CaptureQueriesContext(connection) as queries:
-            Ckd.related_objects.get()
+            Ckd.related_objects.all()
         self.assertEqual(len(queries), 1)
 
 
 class TestColchicineInteractionManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.colchicineinteraction = Colchicineinteraction.objects.create()
         self.assertEqual(self.colchicineinteraction.medhistorytype, MedHistoryTypes.COLCHICINEINTERACTION)
-
-    def test__get_queryset(self):
-        self.assertEqual(Colchicineinteraction.objects.get_queryset().count(), 1)
-        self.assertEqual(Colchicineinteraction.objects.get_queryset().first(), self.colchicineinteraction)
+        for mh in Colchicineinteraction.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.COLCHICINEINTERACTION)
 
 
 class TestDiabetesManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.diabetes = Diabetes.objects.create()
         self.assertEqual(self.diabetes.medhistorytype, MedHistoryTypes.DIABETES)
-
-    def test__get_queryset(self):
-        self.assertEqual(Diabetes.objects.get_queryset().count(), 1)
-        self.assertEqual(Diabetes.objects.get_queryset().first(), self.diabetes)
+        for mh in Diabetes.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.DIABETES)
 
 
 class TestErosionsManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.erosions = Erosions.objects.create()
         self.assertEqual(self.erosions.medhistorytype, MedHistoryTypes.EROSIONS)
-
-    def test__get_queryset(self):
-        self.assertEqual(Erosions.objects.get_queryset().count(), 1)
-        self.assertEqual(Erosions.objects.get_queryset().first(), self.erosions)
+        for mh in Erosions.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.EROSIONS)
 
 
 class TestFebuxostatHypersensitivityManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.febuxostathypersensitivity = Febuxostathypersensitivity.objects.create()
         self.assertEqual(self.febuxostathypersensitivity.medhistorytype, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY)
-
-    def test__get_queryset(self):
-        self.assertEqual(Febuxostathypersensitivity.objects.get_queryset().count(), 1)
-        self.assertEqual(Febuxostathypersensitivity.objects.get_queryset().first(), self.febuxostathypersensitivity)
+        for mh in Febuxostathypersensitivity.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY)
 
 
 class TestGastricbypassManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.gastricbypass = Gastricbypass.objects.create()
         self.assertEqual(self.gastricbypass.medhistorytype, MedHistoryTypes.GASTRICBYPASS)
-
-    def test__get_queryset(self):
-        self.assertEqual(Gastricbypass.objects.get_queryset().count(), 1)
-        self.assertEqual(Gastricbypass.objects.get_queryset().first(), self.gastricbypass)
+        for mh in Gastricbypass.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.GASTRICBYPASS)
 
 
 class TestGoutManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.gout = Gout.objects.create()
         self.assertEqual(self.gout.medhistorytype, MedHistoryTypes.GOUT)
-
-    def test__get_queryset(self):
-        self.assertEqual(Gout.objects.get_queryset().count(), 1)
-        self.assertEqual(Gout.objects.get_queryset().first(), self.gout)
+        for mh in Gout.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.GOUT)
 
 
 class TestHeartattackManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.heartattack = Heartattack.objects.create()
         self.assertEqual(self.heartattack.medhistorytype, MedHistoryTypes.HEARTATTACK)
-
-    def test__get_queryset(self):
-        self.assertEqual(Heartattack.objects.get_queryset().count(), 1)
-        self.assertEqual(Heartattack.objects.get_queryset().first(), self.heartattack)
+        for mh in Heartattack.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.HEARTATTACK)
 
 
 class TestHypertensionManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.hypertension = Hypertension.objects.create()
         self.assertEqual(self.hypertension.medhistorytype, MedHistoryTypes.HYPERTENSION)
-
-    def test__get_queryset(self):
-        self.assertEqual(Hypertension.objects.get_queryset().count(), 1)
-        self.assertEqual(Hypertension.objects.get_queryset().first(), self.hypertension)
+        for mh in Hypertension.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.HYPERTENSION)
 
 
 class TestHyperuricemiaManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.hyperuricemia = Hyperuricemia.objects.create()
         self.assertEqual(self.hyperuricemia.medhistorytype, MedHistoryTypes.HYPERURICEMIA)
-
-    def test__get_queryset(self):
-        self.assertEqual(Hyperuricemia.objects.get_queryset().count(), 1)
-        self.assertEqual(Hyperuricemia.objects.get_queryset().first(), self.hyperuricemia)
+        for mh in Hyperuricemia.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.HYPERURICEMIA)
 
 
 class TestIbdManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.ibd = Ibd.objects.create()
         self.assertEqual(self.ibd.medhistorytype, MedHistoryTypes.IBD)
-
-    def test__get_queryset(self):
-        self.assertEqual(Ibd.objects.get_queryset().count(), 1)
-        self.assertEqual(Ibd.objects.get_queryset().first(), self.ibd)
+        for mh in Ibd.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.IBD)
 
 
 class TestMenopauseManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.menopause = Menopause.objects.create()
         self.assertEqual(self.menopause.medhistorytype, MedHistoryTypes.MENOPAUSE)
-
-    def test__get_queryset(self):
-        self.assertEqual(Menopause.objects.get_queryset().count(), 1)
-        self.assertEqual(Menopause.objects.get_queryset().first(), self.menopause)
+        for mh in Menopause.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.MENOPAUSE)
 
 
 class TestOrgantransplantManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.organtransplant = Organtransplant.objects.create()
         self.assertEqual(self.organtransplant.medhistorytype, MedHistoryTypes.ORGANTRANSPLANT)
-
-    def test__get_queryset(self):
-        self.assertEqual(Organtransplant.objects.get_queryset().count(), 1)
-        self.assertEqual(Organtransplant.objects.get_queryset().first(), self.organtransplant)
+        for mh in Organtransplant.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.ORGANTRANSPLANT)
 
 
 class TestOsteoporosisManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.osteoporosis = Osteoporosis.objects.create()
         self.assertEqual(self.osteoporosis.medhistorytype, MedHistoryTypes.OSTEOPOROSIS)
-
-    def test__get_queryset(self):
-        self.assertEqual(Osteoporosis.objects.get_queryset().count(), 1)
-        self.assertEqual(Osteoporosis.objects.get_queryset().first(), self.osteoporosis)
+        for mh in Osteoporosis.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.OSTEOPOROSIS)
 
 
 class TestPvdManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.pvd = Pvd.objects.create()
         self.assertEqual(self.pvd.medhistorytype, MedHistoryTypes.PVD)
-
-    def test__get_queryset(self):
-        self.assertEqual(Pvd.objects.get_queryset().count(), 1)
-        self.assertEqual(Pvd.objects.get_queryset().first(), self.pvd)
+        for mh in Pvd.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.PVD)
 
 
 class TestStrokeManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.stroke = Stroke.objects.create()
         self.assertEqual(self.stroke.medhistorytype, MedHistoryTypes.STROKE)
-
-    def test__get_queryset(self):
-        self.assertEqual(Stroke.objects.get_queryset().count(), 1)
-        self.assertEqual(Stroke.objects.get_queryset().first(), self.stroke)
+        for mh in Stroke.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.STROKE)
 
 
 class TestTophiManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.tophi = Tophi.objects.create()
         self.assertEqual(self.tophi.medhistorytype, MedHistoryTypes.TOPHI)
-
-    def test__get_queryset(self):
-        self.assertEqual(Tophi.objects.get_queryset().count(), 1)
-        self.assertEqual(Tophi.objects.get_queryset().first(), self.tophi)
+        for mh in Tophi.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.TOPHI)
 
 
 class TestUratestonesManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.uratestones = Uratestones.objects.create()
         self.assertEqual(self.uratestones.medhistorytype, MedHistoryTypes.URATESTONES)
-
-    def test__get_queryset(self):
-        self.assertEqual(Uratestones.objects.get_queryset().count(), 1)
-        self.assertEqual(Uratestones.objects.get_queryset().first(), self.uratestones)
+        for mh in Uratestones.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.URATESTONES)
 
 
 class TestXoiinteractionManager(TestCase):
-    def setUp(self):
+    def test__manager(self):
         self.xoiinteraction = Xoiinteraction.objects.create()
         self.assertEqual(self.xoiinteraction.medhistorytype, MedHistoryTypes.XOIINTERACTION)
-
-    def test__get_queryset(self):
-        self.assertEqual(Xoiinteraction.objects.get_queryset().count(), 1)
-        self.assertEqual(Xoiinteraction.objects.get_queryset().first(), self.xoiinteraction)
+        for mh in Xoiinteraction.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.XOIINTERACTION)

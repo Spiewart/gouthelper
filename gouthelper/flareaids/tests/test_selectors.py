@@ -16,8 +16,7 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices
-from ...users.choices import Roles
-from ...users.tests.factories import UserFactory
+from ...users.tests.factories import create_psp
 from ..selectors import flareaid_user_qs, flareaid_userless_qs
 from .factories import FlareAidFactory, FlareAidUserFactory
 
@@ -68,7 +67,7 @@ class TestFlareAidUserlessQuerySet(TestCase):
 
 class TestFlareAidUserQuerySet(TestCase):
     def setUp(self):
-        self.user = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.user = create_psp()
         self.custom_settings = DefaultFlareTrtSettingsFactory(user=self.user)
         self.ckd = CkdFactory(user=self.user)
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))

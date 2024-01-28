@@ -7,12 +7,12 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...defaults.models import DefaultPpxTrtSettings
-from ...genders.tests.factories import GenderFactory
+from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
-from ...medhistorys.lists import PPXAID_MEDHISTORYS
-from ...medhistorys.models import MedHistory
+from ...medhistorys.choices import CVDiseases, MedHistoryTypes
+from ...medhistorys.lists import OTHER_NSAID_CONTRAS, PPXAID_MEDHISTORYS
 from ...medhistorys.tests.factories import (
     AnginaFactory,
     AnticoagulationFactory,
@@ -24,61 +24,108 @@ from ...medhistorys.tests.factories import (
     GastricbypassFactory,
     HeartattackFactory,
 )
-from ...ppxaids.tests.factories import PpxAidFactory
-from ...treatments.choices import FlarePpxChoices, Freqs, Treatments, TrtTypes
-from ..selectors import ppxaid_userless_qs
+from ...treatments.choices import FlarePpxChoices, Freqs, NsaidChoices, Treatments, TrtTypes
+from ...users.tests.factories import PseudopatientFactory
+from ..models import PpxAid
+from ..selectors import ppxaid_user_qs, ppxaid_userless_qs
 from ..services import PpxAidDecisionAid
+from .factories import PpxAidFactory, PpxAidUserFactory
 
 pytestmark = pytest.mark.django_db
 
 
 class TestPpxAidMethods(TestCase):
     def setUp(self):
-        self.userless_angina = AnginaFactory()
-        self.userless_anticoagulation = AnticoagulationFactory()
-        self.userless_bleed = BleedFactory()
-        self.userless_chf = ChfFactory()
-        self.userless_colchicineinteraction = ColchicineinteractionFactory()
-        self.userless_diabetes = DiabetesFactory()
-        self.userless_gastricbypass = GastricbypassFactory()
-        self.userless_heartattack = HeartattackFactory()
-        self.userless_allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
-        self.userless_ckd = CkdFactory()
-        self.userless_gender = GenderFactory()
-        self.userless_ckddetail = CkdDetailFactory(medhistory=self.userless_ckd, stage=Stages.FOUR)
-        self.ppxaid = PpxAidFactory(gender=self.userless_gender)
-        for medhistory in MedHistory.objects.filter().all():
-            self.ppxaid.medhistorys.add(medhistory)
-        self.allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
-        self.colchicineallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.ppxaid.medallergys.add(self.allopurinolallergy, self.colchicineallergy)
+        angina = AnginaFactory()
+        anticoagulation = AnticoagulationFactory()
+        bleed = BleedFactory()
+        chf = ChfFactory()
+        colchicineinteraction = ColchicineinteractionFactory()
+        diabetes = DiabetesFactory()
+        gastricbypass = GastricbypassFactory()
+        heartattack = HeartattackFactory()
+        allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
+        colchicineallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
+        ckd = CkdFactory()
+        CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
+        medhistorys = [
+            angina,
+            anticoagulation,
+            bleed,
+            chf,
+            colchicineinteraction,
+            diabetes,
+            gastricbypass,
+            heartattack,
+            ckd,
+        ]
+        self.ppxaid = PpxAidFactory(medhistorys=medhistorys, medallergys=[allopurinolallergy, colchicineallergy])
         self.decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
-        self.empty_ppxaid = PpxAidFactory()
+        self.empty_ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
         self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
 
     def test__init_without_user(self):
-        with CaptureQueriesContext(connection) as context:
-            decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
-        self.assertEqual(len(context.captured_queries), 4)  # 3 queries for medhistorys
-        self.assertEqual(age_calc(self.ppxaid.dateofbirth.value), decisionaid.age)
-        self.assertEqual(self.userless_gender, decisionaid.gender)
-        self.assertEqual(self.userless_ckd.ckddetail, decisionaid.ckddetail)
-        for medhistory in MedHistory.objects.filter().all():
-            self.assertIn(medhistory, decisionaid.medhistorys)
-        self.assertEqual(self.ppxaid, decisionaid.ppxaid)
-        self.assertNotIn(self.allopurinolallergy, decisionaid.medallergys)
-        self.assertIn(self.colchicineallergy, decisionaid.medallergys)
+        """Test the __init__() method when the QuerySet is a PpxAid without a user."""
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
+            with CaptureQueriesContext(connection) as context:
+                ppxaid_qs = ppxaid_userless_qs(pk=ppxaid.pk).get()
+                decisionaid = PpxAidDecisionAid(qs=ppxaid_qs)
+            self.assertEqual(len(context.captured_queries), 4)  # 4 queries for medhistorys
+            self.assertEqual(age_calc(ppxaid_qs.dateofbirth.value), decisionaid.age)
+            self.assertEqual(ppxaid_qs.gender, decisionaid.gender)
+            self.assertTrue(hasattr(decisionaid, "defaultppxtrtsettings"))
+            self.assertEqual(
+                decisionaid.defaultppxtrtsettings, DefaultPpxTrtSettings.objects.filter(user__isnull=True).get()
+            )
+            if ppxaid_qs.ckd:
+                if hasattr(ppxaid_qs.ckd, "baselinecreatinine"):
+                    self.assertEqual(ppxaid_qs.ckd.baselinecreatinine, decisionaid.baselinecreatinine)
+                else:
+                    self.assertIsNone(decisionaid.baselinecreatinine)
+                if hasattr(ppxaid_qs.ckd, "ckddetail"):
+                    self.assertEqual(ppxaid_qs.ckd.ckddetail, decisionaid.ckddetail)
+                else:
+                    self.assertIsNone(decisionaid.ckddetail)
+            for medhistory in ppxaid_qs.medhistorys_qs:
+                self.assertIn(medhistory, decisionaid.medhistorys)
+            self.assertEqual(ppxaid, decisionaid.ppxaid)
+            for medallergy in ppxaid_qs.medallergys_qs:
+                self.assertIn(medallergy, decisionaid.medallergys)
 
-    def test__init_with_empty_ppxaid(self):
+    def test__init__with_user(self):
+        """Test that __init__() assigns the correct attrs when the QuerySet is a user
+        with related models."""
+
+        ppxaid = PpxAidUserFactory()
+        defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=ppxaid.user)
+        qs = ppxaid_user_qs(username=ppxaid.user.username)
         with CaptureQueriesContext(connection) as context:
-            empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
-        self.assertEqual(len(context.captured_queries), 4)  # 3 queries for medhistorys
-        self.assertTrue(empty_decisionaid.age)
-        self.assertIsNone(empty_decisionaid.ckddetail)
-        self.assertIsNone(empty_decisionaid.baselinecreatinine)
-        self.assertIsNone(empty_decisionaid.gender)
-        self.assertFalse(empty_decisionaid.medhistorys)
-        self.assertFalse(empty_decisionaid.medallergys)
+            decisionaid = PpxAidDecisionAid(qs=qs)
+            # QuerySet is 3 queries because the user has a defaultppxtrtsettings
+            self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
+            qs = qs.get()
+            self.assertTrue(hasattr(decisionaid, "ppxaid"))
+            self.assertEqual(decisionaid.ppxaid, ppxaid)
+            self.assertTrue(hasattr(decisionaid, "user"))
+            self.assertEqual(decisionaid.user, ppxaid.user)
+            self.assertTrue(hasattr(decisionaid, "dateofbirth"))
+            self.assertEqual(decisionaid.dateofbirth, ppxaid.user.dateofbirth)
+            self.assertTrue(decisionaid.age)
+            self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
+            self.assertTrue(hasattr(decisionaid, "defaultppxtrtsettings"))
+            self.assertEqual(decisionaid.defaultppxtrtsettings, defaultppxtrtsettings)
+            self.assertTrue(decisionaid.gender)
+            self.assertEqual(decisionaid.gender, ppxaid.user.gender)
+            self.assertTrue(hasattr(decisionaid, "medallergys"))
+            self.assertEqual(decisionaid.medallergys, qs.medallergys_qs)
+            self.assertTrue(hasattr(decisionaid, "medhistorys"))
+            self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
+            self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
+            self.assertEqual(decisionaid.baselinecreatinine, ppxaid.baselinecreatinine)
+            self.assertTrue(hasattr(decisionaid, "ckddetail"))
+            self.assertEqual(decisionaid.ckddetail, ppxaid.ckddetail)
+            self.assertTrue(hasattr(decisionaid, "sideeffects"))
+            self.assertEqual(decisionaid.sideeffects, None)
 
     def test__default_medhistorys(self):
         empty_defaults = self.empty_decisionaid.default_medhistorys
@@ -104,98 +151,175 @@ class TestPpxAidMethods(TestCase):
         for default in defaults:
             self.assertEqual(default.trttype, TrtTypes.PPX)
 
-    def test__defaultppxtrtsettings(self):
-        default_ppx_trt_settings = DefaultPpxTrtSettings.objects.get()
-        self.assertEqual(self.empty_decisionaid.defaultppxtrtsettings, default_ppx_trt_settings)
-
     def test__default_trts(self):
+        """Test that the default_trts property returns the correct QuerySet of DefaultTrt objects."""
         defaults = self.empty_decisionaid.default_trts
         for treatment in FlarePpxChoices.values:
             self.assertIn(treatment, [default.treatment for default in defaults])
         for default in defaults:
             self.assertEqual(default.trttype, TrtTypes.PPX)
 
-    def test__baseline_methods_work(self):
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)
-        self.assertNotIn(Treatments.COLCHICINE, self.ppxaid.options)
-        self.assertIn(Treatments.PREDNISONE, self.ppxaid.options)
-        self.assertIn(Treatments.PREDNISONE, self.ppxaid.recommendation)
+    def test__baseline_methods_work_with_user(self):
+        """Test that a PpxAid's options and recommendation work and are correct
+        when the PpxAid has a user."""
+        # Create a PpxAid with a user that doesn't have any medhistorys or medallergys
+        ppxaid = PpxAidUserFactory(user=PseudopatientFactory())
 
-    def test__baseline_methods_work_no_user(self):
-        ppxaid = PpxAidFactory()
+        # Test that the options and recommendation are correct
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
         self.assertIn(Treatments.PREDNISONE, ppxaid.options)
         self.assertIn(Treatments.NAPROXEN, ppxaid.recommendation)
 
-    def test__process_nsaids_works(self):
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)
-        self.assertNotIn(Treatments.COLCHICINE, self.ppxaid.options)
-        self.assertIn(Treatments.PREDNISONE, self.ppxaid.options)
-        self.assertNotIn(Treatments.COLCHICINE, self.ppxaid.recommendation)
+    def test__baseline_methods_work_no_user(self):
+        """Test that a basically empty PpxAid's options and recommendation work and are correct
+        when it doesn't have a user."""
+        # Create a PpxAid without any medhistorys or medallergys
+        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
 
-    def test__process_nsaids_works_no_user(self):
-        heartattack = HeartattackFactory()
-        ppxaid = PpxAidFactory()
-        ppxaid.medhistorys.add(heartattack)
-        self.assertNotIn(Treatments.NAPROXEN, ppxaid.options)
+        # Test that the options and recommendation are correct
+        self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
         self.assertIn(Treatments.PREDNISONE, ppxaid.options)
-        self.assertIn(Treatments.COLCHICINE, ppxaid.recommendation)
+        self.assertIn(Treatments.NAPROXEN, ppxaid.recommendation)
+
+    def test__process_nsaids_works_with_user(self):
+        """Test that a PpxAid that has a user with a medhistory or medallergy that is a contraindication to NSAIDs
+        does not include NSAIDs in the options or recommendation."""
+        NSAID_CONTRAS = CVDiseases.values + OTHER_NSAID_CONTRAS + [MedHistoryTypes.CKD]
+        # Iterate over the PpxAid's with a User and get the user's username
+        for username in PpxAid.objects.filter(user__isnull=False).values_list("user__username", flat=True):
+            # Iterate over the username and get the ppxaid_user_qs
+            ppxaid_qs = ppxaid_user_qs(username=username).get()
+            # Assign the ppxaid from the User
+            ppxaid = ppxaid_qs.ppxaid
+
+            # Check the queryset for MedHistorys or MedAllergys that are contraindications to NSAIDs
+            if [mh for mh in ppxaid_qs.medhistorys_qs if mh.medhistorytype in NSAID_CONTRAS] or [
+                ma for ma in ppxaid_qs.medallergys_qs if ma.treatment in NsaidChoices.values
+            ]:
+                # Test that the options and recommendation are correct and exclude NSAIDs
+                for nsaid in NsaidChoices.values:
+                    self.assertNotIn(nsaid, ppxaid.options)
+                    if ppxaid.recommendation:
+                        self.assertNotIn(nsaid, ppxaid.recommendation)
+            else:
+                # Test that the options and recommendation are correct and include NSAIDs
+                for nsaid in NsaidChoices.values:
+                    self.assertIn(nsaid, ppxaid.options)
+                if ppxaid.recommendation:
+                    self.assertEqual(NsaidChoices.NAPROXEN, ppxaid.recommendation[0])
+
+    def test__process_nsaids_works_no_user(self):
+        """Test that a PpxAid that has a medhistory or medallergy that is a contraindication to NSAIDs
+        does not include NSAIDs in the options or recommendation."""
+        # Create a PpxAid with a medhistory that is a contraindication to NSAIDs
+        ppxaid = PpxAidFactory(
+            medhistorys=[HeartattackFactory()],
+            medallergys=[],
+        )
+
+        # Test that the options and recommendation are correct and exclude NSAIDs
+        for nsaid in NsaidChoices.values:
+            self.assertNotIn(nsaid, ppxaid.options)
+            self.assertNotIn(nsaid, ppxaid.recommendation)
 
     def test__colchicine_dose_reduced_ckd_3(self):
-        self.userless_colchicineinteraction.delete()
-        self.colchicineallergy.delete()
-        self.userless_ckddetail.stage = Stages.THREE
-        self.userless_ckddetail.save()
-        self.ppxaid.update()
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)
-        self.assertIn(Treatments.COLCHICINE, self.ppxaid.options)
-        colch_dict = self.ppxaid.options[Treatments.COLCHICINE]
-        self.assertEqual(Decimal("0.3"), colch_dict["dose"])
-        self.assertIn(Treatments.PREDNISONE, self.ppxaid.options)
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
+        """Test that a PpxAid that has colchicine as an option alters the dose
+        when indicated by the CKD stage."""
+        # Create a PpxAid for which colchicine is an option
+        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
 
-    def test__colchicine_dose_reduced_ckd_3_no_user(self):
+        # Assert that colchicine is in the options dict
+
+        self.assertIn(Treatments.COLCHICINE, ppxaid.options)
+
+        # Assert that the dose and frequency are correct
+
+        colch_dict = ppxaid.options[Treatments.COLCHICINE]
+        self.assertEqual(Decimal("0.6"), colch_dict["dose"])
+        self.assertEqual(Freqs.QDAY, colch_dict["freq"])
+
+        # Add a CKD medhistory with a CkdDetail stage <= 3 to the PpxAid
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ppxaid = PpxAidFactory()
-        ppxaid.medhistorys.add(ckd)
-        ppxaid.save()
-        self.assertNotIn(Treatments.NAPROXEN, ppxaid.options)
+        ppxaid.add_medhistorys([ckd], [])
+
+        # Update the PpxAid
+        ppxaid.update()
+
+        # Refresh the ppxaid from the database in order to update the decisionaid field
+        ppxaid.refresh_from_db()
+        # Delete the aid_dict cached_property so that it will be recalculated
+        del ppxaid.aid_dict
+
+        # Test that the colchicine dosing is adjusted
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
         colch_dict = ppxaid.options[Treatments.COLCHICINE]
         self.assertEqual(Decimal("0.3"), colch_dict["dose"])
-        self.assertIn(Treatments.PREDNISONE, ppxaid.options)
-        self.assertNotIn(Treatments.NAPROXEN, ppxaid.recommendation)
+        self.assertEqual(Freqs.QDAY, colch_dict["freq"])
 
     def test__colchicine_freq_reduced_ckd_3_custom_user_settings(self):
-        self.userless_colchicineinteraction.delete()
-        self.userless_ckddetail.stage = Stages.THREE
-        self.userless_ckddetail.save()
+        """Test that a PpxAid that has colchicine as an option alters the frequency
+        of dosing when indicated by the CKD stage and custom DefaultPpxTrtSettings."""
+        # Create a PpxAid for which colchicine is an option
+
+        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+
+        # Assert that colchicine is in the options dict
+        self.assertIn(Treatments.COLCHICINE, ppxaid.options)
+        # Assert that the dose and frequency are correct
+        colch_dict = ppxaid.options[Treatments.COLCHICINE]
+        self.assertEqual(Decimal("0.6"), colch_dict["dose"])
+        self.assertEqual(Freqs.QDAY, colch_dict["freq"])
+
+        # Add a CKD medhistory with a CkdDetail stage <= 3 to the PpxAid
+        ckd = CkdFactory()
+        CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
+        ppxaid.add_medhistorys([ckd], [])
+
+        # Modify the GoutHelper default DefaultPpxTrtSettings to have colchicine
+        # frequency be adjusted for CKD, not the dose
         default_ppx_trt_settings = DefaultPpxTrtSettings.objects.get()
         default_ppx_trt_settings.colch_dose_adjust = False
         default_ppx_trt_settings.save()
-        self.colchicineallergy.delete()
-        self.ppxaid.update()
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.options)
-        self.assertIn(Treatments.COLCHICINE, self.ppxaid.options)
-        colch_dict = self.ppxaid.options[Treatments.COLCHICINE]
+
+        # Update the PpxAid
+        ppxaid.update()
+
+        # Refresh the ppxaid from the database in order to update the decisionaid field
+        ppxaid.refresh_from_db()
+        # Delete the aid_dict cached_property so that it will be recalculated
+        del ppxaid.aid_dict
+
+        # Test that the colchicine dosing frequency is adjusted rather than the dose
+        self.assertIn(Treatments.COLCHICINE, ppxaid.options)
+        colch_dict = ppxaid.options[Treatments.COLCHICINE]
         self.assertEqual(Decimal("0.6"), colch_dict["dose"])
         self.assertEqual(Freqs.QOTHERDAY, colch_dict["freq"])
-        self.assertIn(Treatments.PREDNISONE, self.ppxaid.options)
-        self.assertNotIn(Treatments.NAPROXEN, self.ppxaid.recommendation)
 
     def test__update_updates_decisionaid_json(self):
-        self.assertFalse(self.ppxaid.decisionaid)
-        self.assertEqual({}, self.ppxaid.decisionaid)
-        self.ppxaid.update()
-        self.ppxaid.refresh_from_db()
-        self.assertTrue(isinstance(self.ppxaid.decisionaid, str))
-        self.assertIn(Treatments.COLCHICINE, self.ppxaid.decisionaid)
+        """Test that the update() method creates/updates the decisionaid field."""
+        # Get a PpxAid without a user
+        ppxaid = PpxAid.objects.filter(user__isnull=True).last()
+
+        # Assert that the decisionaid field is empty
+        self.assertFalse(ppxaid.decisionaid)
+        self.assertEqual({}, ppxaid.decisionaid)
+
+        # Update the PpxAid and refresh from the database
+        ppxaid.update()
+        ppxaid.refresh_from_db()
+
+        # Assert that the decisionaid field is not empty, should be a str because it's a JSONField
+        self.assertTrue(isinstance(ppxaid.decisionaid, str))
 
     def test__aid_dict_returns_dict(self):
+        """Test that the aid_dict property returns a dict with the correct keys."""
+        # Set the decisionaid_dict
         decisionaid_dict = self.ppxaid.aid_dict
+
+        # Test that it contains the correct keys
         self.assertTrue(isinstance(decisionaid_dict, dict))
         for treatment in FlarePpxChoices.values:
             self.assertIn(treatment, decisionaid_dict.keys())
@@ -203,4 +327,3 @@ class TestPpxAidMethods(TestCase):
             self.assertIn(key, FlarePpxChoices)
             self.assertIn("dose", val_dict.keys())
             self.assertIn("freq", val_dict.keys())
-        self.assertIn(Treatments.COLCHICINE, decisionaid_dict.keys())

@@ -19,9 +19,10 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import Xoiinteraction
 from ...treatments.choices import Treatments
+from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import UltAid
 from ..views import UltAidAbout, UltAidCreate, UltAidDetail, UltAidUpdate
-from .factories import UltAidFactory
+from .factories import UltAidFactory, ultaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -53,76 +54,54 @@ class TestUltAidCreate(TestCase):
     def test__post_adds_hlab5801_True(self):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
-        ultaid_data = {
-            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
-            "gender-value": Genders.FEMALE,
-            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
-            "hlab5801-value": True,
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.XOIINTERACTION}-value": False,
-        }
+        # Create some fake data and add hlab5801-value to it
+        ultaid_data = ultaid_data_factory()
+        ultaid_data.update({"hlab5801-value": True})
+
+        # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(UltAid.objects.get())
-        self.assertTrue(Hlab5801.objects.get())
-        self.assertTrue(Hlab5801.objects.get().value)
-        self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
+
+        # Test that the UltAid and Hlab5801 objects were created
+        ultaid = UltAid.objects.order_by("created").last()
+        hlab5801 = Hlab5801.objects.order_by("created").last()
+        self.assertEqual(ultaid.hlab5801, hlab5801)
+        self.assertTrue(hlab5801.value)
 
     def test__post_adds_hlab5801_False(self):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
-        ultaid_data = {
-            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
-            "gender-value": Genders.FEMALE,
-            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
-            "hlab5801-value": False,
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.XOIINTERACTION}-value": False,
-        }
+        # Create some fake data and add hlab5801-value to it
+        ultaid_data = ultaid_data_factory()
+        ultaid_data.update({"hlab5801-value": False})
+
+        # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(UltAid.objects.get())
-        self.assertTrue(Hlab5801.objects.get())
-        self.assertFalse(Hlab5801.objects.get().value)
-        self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
+
+        # Test that the UltAid and Hlab5801 objects were created
+        ultaid = UltAid.objects.order_by("created").last()
+        hlab5801 = Hlab5801.objects.order_by("created").last()
+        self.assertEqual(ultaid.hlab5801, hlab5801)
+        self.assertFalse(hlab5801.value)
 
     def test__post_doesnt_add_hlab5801(self):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
         to the created UltAid."""
-        ultaid_data = {
-            "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
-            "gender-value": Genders.FEMALE,
-            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
-            "hlab5801-value": "",
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.XOIINTERACTION}-value": False,
-        }
+        # Create some fake data without hlab5801-value
+        ultaid_data = ultaid_data_factory()
+        ultaid_data.update({"hlab5801-value": ""})
+
+        # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(UltAid.objects.get())
-        self.assertFalse(Hlab5801.objects.all())
-        self.assertIsNone(UltAid.objects.get().hlab5801)
+
+        # Test that the UltAid and Hlab5801 objects were created
+        ultaid = UltAid.objects.order_by("created").last()
+        self.assertIsNone(ultaid.hlab5801)
 
     def test__post_adds_xoiinteraction_contraindicates_xois(self):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
@@ -139,15 +118,12 @@ class TestUltAidCreate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": True,
         }
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(UltAid.objects.exists())
         ultaid = UltAid.objects.get()
         self.assertTrue(Xoiinteraction.objects.exists())
-        xoiinteraction = Xoiinteraction.objects.get()
+        xoiinteraction = Xoiinteraction.objects.order_by("created").last()
         self.assertIn(xoiinteraction, ultaid.medhistorys.all())
         self.assertNotIn(Treatments.ALLOPURINOL, ultaid.options)
         self.assertNotIn(Treatments.FEBUXOSTAT, ultaid.options)
@@ -229,10 +205,7 @@ class TestUltAidUpdate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": False,
         }
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Hlab5801.objects.all())
         ultaid.refresh_from_db()
@@ -256,10 +229,7 @@ class TestUltAidUpdate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": False,
         }
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors
         self.assertEqual(response.status_code, 302)
         ultaid.refresh_from_db()
         self.assertTrue(Hlab5801.objects.all())
@@ -285,10 +255,7 @@ class TestUltAidUpdate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": False,
         }
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         ultaid.refresh_from_db()
         self.assertTrue(Hlab5801.objects.all())
@@ -343,10 +310,7 @@ class TestUltAidUpdate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": False,
         }
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.all())
         hlab5801 = Hlab5801.objects.get()

@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.conf import settings
-from django.contrib import messages
+from django.contrib import auth, messages
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -40,7 +40,7 @@ from ..views import (
     UserUpdateView,
     user_detail_view,
 )
-from .factories import PseudopatientFactory, PseudopatientPlusFactory, UserFactory
+from .factories import UserFactory, create_psp
 
 pytestmark = pytest.mark.django_db
 
@@ -95,6 +95,9 @@ class TestPseudoPatientCreateView(TestCase):
 
     def test__post_no_user(self):
         """Tests the post() method of the view."""
+        # Count the Pseudopatients
+        psp_count = Pseudopatient.objects.count()
+
         data = {
             "dateofbirth-value": 50,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
@@ -107,8 +110,10 @@ class TestPseudoPatientCreateView(TestCase):
         }
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
-        assert Pseudopatient.objects.count() == 1
-        pseudopatient = Pseudopatient.objects.get()
+
+        # Assert that a Pseudopatient was created
+        assert Pseudopatient.objects.count() == psp_count + 1
+        pseudopatient = Pseudopatient.objects.last()
         assert getattr(pseudopatient, "dateofbirth", None)
         assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
         assert getattr(pseudopatient, "ethnicity", None)
@@ -116,7 +121,7 @@ class TestPseudoPatientCreateView(TestCase):
         assert getattr(pseudopatient, "gender", None)
         assert pseudopatient.gender.value == data["gender-value"]
         assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.get()
+        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
         assert profile.user == pseudopatient
         assert profile.provider is None
         assert pseudopatient.medhistory_set.count() == 1
@@ -149,6 +154,9 @@ menopause status to evaluate their flare."
         a unique username when called by a logged in Provider but with no provider
         kwarg in the url.
         """
+        # Count the Pseudopatients
+        psp_count = Pseudopatient.objects.count()
+
         # Log in the provider
         self.client.force_login(self.provider)
         data = {
@@ -163,8 +171,9 @@ menopause status to evaluate their flare."
         }
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
-        assert Pseudopatient.objects.count() == 1
-        pseudopatient = Pseudopatient.objects.get()
+        # Assert that a Pseudopatient was created
+        assert Pseudopatient.objects.count() == psp_count + 1
+        pseudopatient = Pseudopatient.objects.last()
         assert getattr(pseudopatient, "dateofbirth", None)
         assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
         assert getattr(pseudopatient, "ethnicity", None)
@@ -172,7 +181,7 @@ menopause status to evaluate their flare."
         assert getattr(pseudopatient, "gender", None)
         assert pseudopatient.gender.value == data["gender-value"]
         assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.get()
+        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
         assert profile.user == pseudopatient
         assert profile.provider is None
         assert pseudopatient.medhistory_set.count() == 1
@@ -190,6 +199,9 @@ menopause status to evaluate their flare."
         a unique username when called by a logged in User and with a provider
         kwarg in the url.
         """
+        # Count the Pseudopatients
+        psp_count = Pseudopatient.objects.count()
+
         # Log in the provider
         self.client.force_login(self.provider)
         data = {
@@ -206,8 +218,9 @@ menopause status to evaluate their flare."
             reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
         )
         assert response.status_code == 302
-        assert Pseudopatient.objects.count() == 1
-        pseudopatient = Pseudopatient.objects.get()
+        # Assert that a Pseudopatient was created
+        assert Pseudopatient.objects.count() == psp_count + 1
+        pseudopatient = Pseudopatient.objects.last()
         assert getattr(pseudopatient, "dateofbirth", None)
         assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
         assert getattr(pseudopatient, "ethnicity", None)
@@ -215,7 +228,7 @@ menopause status to evaluate their flare."
         assert getattr(pseudopatient, "gender", None)
         assert pseudopatient.gender.value == data["gender-value"]
         assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.get()
+        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
         assert profile.user == pseudopatient
         # Need to check or id, not equivalence because of proxy model status (i.e. User vs Provider)
         assert profile.provider.id == self.provider.id
@@ -312,7 +325,7 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         request = self.rf.post(reverse("users:pseudopatient-create"))
-        request.user = UserFactory(role=Roles.PSEUDOPATIENT)
+        request.user = create_psp()
         with pytest.raises(PermissionDenied):
             view.as_view()(request)
 
@@ -323,13 +336,13 @@ class TestPseudopatientDetailView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.anon_pseudopatient = create_psp()
 
     def test__rules_provider_can_see_own_pseudopatient(self):
         """Test that a Provider can see his or her own Pseudopatient's detail."""
@@ -395,12 +408,12 @@ class TestPseudopatientListView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
 
@@ -438,7 +451,7 @@ class TestPseudopatientListView(TestCase):
     def test__rules_provider_other_provider_list(self):
         """Test that a Provider cannot see another Provider's list."""
         provider2 = UserFactory()
-        provider2_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        provider2_pseudopatient = create_psp()
         provider2_pseudopatient.profile.provider = provider2
         provider2_pseudopatient.profile.save()
         view = PseudopatientListView
@@ -501,9 +514,9 @@ class TestPseudopatientUpdateView(TestCase):
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
         # Create a pseudopatient
-        self.psp = PseudopatientPlusFactory(provider=self.provider)
-        self.admin_psp = PseudopatientPlusFactory(provider=self.admin)
-        self.female = PseudopatientPlusFactory()
+        self.psp = create_psp(provider=self.provider)
+        self.admin_psp = create_psp(provider=self.admin)
+        self.female = create_psp()
         self.female.dateofbirth.value = timezone.now() - timedelta(days=365 * 50)
         self.female.dateofbirth.save()
         self.female.gender.value = Genders.FEMALE
@@ -614,7 +627,7 @@ class TestPseudopatientUpdateView(TestCase):
 
     def test__post(self):
         """Test that the post() method updates onetoones and medhistorys/medhistorydetails."""
-        psp = PseudopatientPlusFactory()
+        psp = create_psp()
         psp.goutdetail.flaring = False
         psp.goutdetail.hyperuricemic = False
         psp.goutdetail.on_ppx = True
@@ -684,9 +697,9 @@ class TestUserDeleteView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, provider=self.provider)
-        self.admin_pseudopatient = PseudopatientFactory(role=Roles.PSEUDOPATIENT, provider=self.admin)
-        self.anon_pseudopatient = PseudopatientFactory()
+        self.provider_pseudopatient = create_psp(provider=self.provider)
+        self.admin_pseudopatient = create_psp(provider=self.admin)
+        self.anon_pseudopatient = create_psp()
 
     def dummy_get_response(self, request: HttpRequest):
         return None
@@ -724,10 +737,11 @@ class TestUserDeleteView(TestCase):
     def test__rules_provider_can_delete_own_pseudopatient(self):
         """Test that a Provider can delete his or her own Pseudopatient."""
         self.client.force_login(self.provider)
+        user = auth.get_user(self.client)
+        assert user.is_authenticated
         initial_response = self.client.get(
             reverse("users:pseudopatient-delete", kwargs={"username": self.provider_pseudopatient.username})
         )
-
         assert initial_response.status_code == 200
 
         confirm_response = self.client.post(
@@ -960,13 +974,13 @@ class TestUserUpdateView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.anon_pseudopatient = create_psp()
 
     def dummy_get_response(self, request: HttpRequest):
         return None
@@ -1025,13 +1039,9 @@ class TestUserDetailView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.anon_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp(provider=self.provider)
+        self.admin_pseudopatient = create_psp(provider=self.admin)
+        self.anon_pseudopatient = create_psp()
 
     def test_authenticated(self):
         request = self.rf.get(f"users/{self.provider.username}/")

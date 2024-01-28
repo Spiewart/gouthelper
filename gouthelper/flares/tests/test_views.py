@@ -337,18 +337,29 @@ class TestFlareCreate(TestCase):
         )
 
     def test__post_no_medhistorys(self):
+        # Count flares, dateofbirths, and genders
+        flare_count, dateofbirth_count, gender_count = (
+            Flare.objects.count(),
+            DateOfBirth.objects.count(),
+            Gender.objects.count(),
+        )
         response = self.client.post(reverse("flares:create"), self.flare_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(Flare.objects.count(), 1)
-        self.assertEqual(DateOfBirth.objects.count(), 1)
-        self.assertEqual(Gender.objects.count(), 1)
-        flare = Flare.objects.get()
-        dateofbirth = DateOfBirth.objects.get()
-        gender = Gender.objects.get()
+        self.assertEqual(Flare.objects.count(), flare_count + 1)
+        self.assertEqual(DateOfBirth.objects.count(), dateofbirth_count + 1)
+        self.assertEqual(Gender.objects.count(), gender_count + 1)
+        flare = Flare.objects.order_by("created").last()
+        dateofbirth = DateOfBirth.objects.order_by("created").last()
+        gender = Gender.objects.order_by("created").last()
         self.assertEqual(dateofbirth, flare.dateofbirth)
         self.assertEqual(gender, flare.gender)
 
     def test__post_medhistorys(self):
+        """Test that medhistorys can be created."""
+        # Count flares and medhistorys
+        flare_count, medhistorys_count = Flare.objects.count(), MedHistory.objects.count()
+
+        # Create fake data to post()
         self.flare_data.update(
             {
                 f"{MedHistoryTypes.ANGINA}-value": True,
@@ -356,11 +367,11 @@ class TestFlareCreate(TestCase):
         )
         response = self.client.post(reverse("flares:create"), self.flare_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(Flare.objects.count(), 1)
-        self.assertEqual(Angina.objects.count(), 1)
-        flare = Flare.objects.get()
-        angina = Angina.objects.get()
-        menopause = Menopause.objects.get()
+        self.assertEqual(Flare.objects.count(), flare_count + 1)
+        self.assertEqual(MedHistory.objects.count(), medhistorys_count + 1)
+        flare = Flare.objects.order_by("created").last()
+        angina = Angina.objects.order_by("created").last()
+        menopause = Menopause.objects.order_by("created").last()
         self.assertIn(angina, flare.medhistorys.all())
         self.assertIn(menopause, flare.medhistorys.all())
         self.assertEqual(flare.medhistorys.count(), 2)
@@ -381,6 +392,14 @@ class TestFlareCreate(TestCase):
         self.assertEqual(urate, flare.urate)
 
     def test__post_multiple_medhistorys_urate(self):
+        """Test that multiple medhistorys can be created and that the urate is created."""
+        # Count the number of flares, medhistorys and urates
+        flare_count, medhistorys_count, urates_count = (
+            Flare.objects.count(),
+            MedHistory.objects.count(),
+            Urate.objects.count(),
+        )
+
         flare_data = {
             "crystal_analysis": "",
             "date_ended": "",
@@ -402,9 +421,9 @@ class TestFlareCreate(TestCase):
         }
         response = self.client.post(reverse("flares:create"), flare_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(Flare.objects.count(), 1)
-        self.assertEqual(Urate.objects.count(), 1)
-        self.assertEqual(Menopause.objects.count(), 1)
+        self.assertEqual(Flare.objects.count(), flare_count + 1)
+        self.assertEqual(Urate.objects.count(), urates_count + 1)
+        self.assertEqual(MedHistory.objects.count(), medhistorys_count + 4)
         flare = Flare.objects.get()
         urate = Urate.objects.get()
         menopause = Menopause.objects.get()
@@ -429,8 +448,6 @@ class TestFlareCreate(TestCase):
         }
         response = self.client.post(reverse("flares:create"), flare_data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Flare.objects.count(), 0)
-        self.assertEqual(Angina.objects.count(), 0)
         self.assertFalse(response.context_data["form"].errors)  # type: ignore
         self.assertTrue(response.context_data["gender_form"].errors)  # type: ignore
         self.assertIn("value", response.context_data["gender_form"].errors)  # type: ignore
@@ -2391,10 +2408,7 @@ class TestFlareUpdate(TestCase):
         for medhistory in flare.medhistorys.all():
             self.flare_data[f"{medhistory.medhistorytype}-value"] = True
         response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), self.flare_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         flare.refresh_from_db()
         self.assertEqual(flare.prevalence, Prevalences.HIGH)
@@ -2530,10 +2544,7 @@ class TestFlareUpdate(TestCase):
         for medhistory in self.flare.medhistorys.all():
             flare_data[f"{medhistory.medhistorytype}-value"] = True
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), flare_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form"):
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.flare.refresh_from_db()
 
@@ -2562,17 +2573,14 @@ class TestFlareUpdate(TestCase):
         flare_data[f"{MedHistoryTypes.GOUT}-value"] = True
         flare_data[f"{MedHistoryTypes.STROKE}-value"] = True
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), flare_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.flare.refresh_from_db()
         medhistorys = self.flare.medhistorys.all()
         self.assertIn(angina, medhistorys)
-        self.assertIn(Cad.objects.last(), medhistorys)
-        self.assertIn(chf, medhistorys)
-        self.assertIn(Stroke.objects.last(), medhistorys)
+        self.assertIn(Cad.objects.last().pk, [mh.pk for mh in medhistorys])
+        self.assertIn(chf, [mh.pk for mh in medhistorys])
+        self.assertIn(Stroke.objects.last().pk, [mh.pk for mh in medhistorys])
 
     def test__post_remove_medhistorys(self):
         angina = AnginaFactory()
@@ -2595,10 +2603,7 @@ class TestFlareUpdate(TestCase):
             "diagnosed": self.flare.diagnosed,
         }
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), flare_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        #    if key.endswith("_form") or key == "form":
-        #        print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.flare.refresh_from_db()
         medhistorys = self.flare.medhistorys.all()

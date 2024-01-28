@@ -13,12 +13,12 @@ pytestmark = pytest.mark.django_db
 class TestCanChangeFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = PseudopatientFactory()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flare = FlareUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = PseudopatientFactory()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flare = FlareUserFactory(user=self.admin_pseudopatient)
@@ -79,12 +79,12 @@ class TestCanCreateFlare(TestCase):
 class TestCanDeleteFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = PseudopatientFactory()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flare = FlareUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = PseudopatientFactory()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flare = FlareUserFactory(user=self.admin_pseudopatient)
@@ -114,12 +114,12 @@ class TestCanDeleteFlare(TestCase):
 class TestCanViewFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = PseudopatientFactory()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flare = FlareUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = PseudopatientFactory()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flare = FlareUserFactory(user=self.admin_pseudopatient)

@@ -4,7 +4,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 from ...users.choices import Roles
-from ...users.tests.factories import UserFactory
+from ...users.tests.factories import UserFactory, create_psp
 from .factories import FlareAidFactory, FlareAidUserFactory
 
 pytestmark = pytest.mark.django_db
@@ -13,12 +13,12 @@ pytestmark = pytest.mark.django_db
 class TestCanChangeFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flareaid = FlareAidUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flareaid = FlareAidUserFactory(user=self.admin_pseudopatient)
@@ -48,12 +48,12 @@ class TestCanChangeFlareAid(TestCase):
 class TestCanDeleteFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flareaid = FlareAidUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flareaid = FlareAidUserFactory(user=self.admin_pseudopatient)
@@ -83,12 +83,12 @@ class TestCanDeleteFlareAid(TestCase):
 class TestCanViewFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
         self.provider_flareaid = FlareAidUserFactory(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
         self.admin_flareaid = FlareAidUserFactory(user=self.admin_pseudopatient)

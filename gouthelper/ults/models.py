@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.core.validators import MaxValueValidator, MinValueValidator  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
@@ -10,14 +11,15 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorydetails.choices import Stages
+from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.models import DecisionAidModel, GoutHelperModel, MedHistoryAidModel
 from .choices import FlareFreqs, FlareNums, Indications
 from .services import UltDecisionAid
 
 if TYPE_CHECKING:
-    from ..medhistorys.choices import MedHistoryTypes
     from ..medhistorys.models import Ckd
 
 
@@ -30,6 +32,12 @@ class Ult(
     metaclass=RulesModelBase,
 ):
     class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
         constraints = [
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_num_flares_valid",
@@ -49,6 +57,20 @@ class Ult(
                     (models.Q(num_flares=FlareNums.TWOPLUS) & models.Q(freq_flares__isnull=False))
                     | (models.Q(num_flares=FlareNums.ONE) & models.Q(freq_flares__isnull=True))
                     | (models.Q(num_flares=FlareNums.ZERO) & models.Q(freq_flares__isnull=True))
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        gender__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        # dateofbirth and gender can be null because not all Ults will have a CkdDetail
+                    )
                 ),
             ),
         ]
@@ -91,10 +113,11 @@ class Ult(
         validators=[MinValueValidator(0), MaxValueValidator(2)],
         help_text="How many gout flares have you had?",
     )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     @classmethod
-    def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
+    def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return ULT_MEDHISTORYS
 
     @cached_property
@@ -103,7 +126,14 @@ class Ult(
         try:
             return medhistorys_get_ckd_3_or_higher(self.medhistorys_qs)  # type: ignore
         except AttributeError:
-            return medhistorys_get_ckd_3_or_higher(self.medhistorys.all())
+            if not self.user:
+                return medhistorys_get_ckd_3_or_higher(
+                    self.medhistorys.filter(medhistorytype=MedHistoryTypes.CKD).all()
+                )
+            else:
+                return medhistorys_get_ckd_3_or_higher(
+                    self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).all()
+                )
 
     @cached_property
     def conditional_indication(self) -> bool:

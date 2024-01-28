@@ -177,7 +177,7 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.erosions
         GoalUrateFactory(ultaid=self.ultaid, erosions=True)
-        self.assertEqual(self.ultaid.erosions, Erosions.objects.get())
+        self.assertEqual(self.ultaid.erosions, Erosions.objects.order_by("created").last())
 
     def test__options(self):
         self.assertTrue(isinstance(self.ultaid.options, dict))
@@ -230,7 +230,7 @@ class TestUltAid(TestCase):
         )
         del self.ultaid.tophi
         GoalUrateFactory(ultaid=self.ultaid, tophi=True)
-        self.assertEqual(self.ultaid.tophi, Tophi.objects.get())
+        self.assertEqual(self.ultaid.tophi, Tophi.objects.order_by("created").last())
 
     def test__update(self):
         self.assertFalse(self.ultaid.decisionaid)

@@ -2,16 +2,16 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
+from django.contrib.auth.models import AnonymousUser  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
+from django.http import HttpResponse  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...contents.models import Content, Tags
 from ...dateofbirths.helpers import age_calc
-from ...dateofbirths.models import DateOfBirth
 from ...genders.choices import Genders
-from ...genders.models import Gender
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
 from ...medallergys.models import MedAllergy
@@ -20,12 +20,11 @@ from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
-from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import Treatments
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import PpxAid
 from ..views import PpxAidAbout, PpxAidCreate, PpxAidDetail, PpxAidUpdate
-from .factories import PpxAidFactory
+from .factories import PpxAidFactory, ppxaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -63,41 +62,61 @@ class TestPpxAidCreate(TestCase):
         }
 
     def test__successful_post(self):
+        # Count the number of PpxAid objects before the POST
+        ppxaid_count = PpxAid.objects.count()
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         tests_print_response_form_errors(response)
-        self.assertTrue(PpxAid.objects.get())
         self.assertEqual(response.status_code, 302)
 
+        # Test that a PpxAid was created
+        self.assertEqual(PpxAid.objects.count(), ppxaid_count + 1)
+
     def test__post_creates_medhistory(self):
+        """Test that the post() method creates a MedHistory object."""
+
+        # Count the number of MedHistory objects before the POST
+        medhistory_count = MedHistory.objects.count()
+
+        # Create some fake post() data with CKD and POST it
         self.ppxaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         tests_print_response_form_errors(response)
-        self.assertTrue(PpxAid.objects.get())
+
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertEqual(MedHistory.objects.count(), 1)
-        self.assertIn(
-            MedHistoryTypes.STROKE, PpxAid.objects.get().medhistorys.values_list("medhistorytype", flat=True)
-        )
+
+        # Test that a MedHistory was created
+        self.assertEqual(MedHistory.objects.count(), medhistory_count + 1)
+        ppxaid = PpxAid.objects.order_by("created").last()
+        mh = MedHistory.objects.order_by("created").last()
+        self.assertIn(mh, ppxaid.medhistorys.all())
 
     def test__post_creates_medhistorys(self):
+        """Test that the post() method creates multiple MedHistory objects."""
+
+        # Count the number of MedHistory objects before the POST
+        medhistory_count = MedHistory.objects.count()
+
+        # Create some fake post() data with CKD and POST it
         self.ppxaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         self.ppxaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         tests_print_response_form_errors(response)
-        self.assertTrue(PpxAid.objects.get())
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
-        self.assertEqual(MedHistory.objects.count(), 2)
-        self.assertIn(
-            MedHistoryTypes.STROKE, PpxAid.objects.get().medhistorys.values_list("medhistorytype", flat=True)
-        )
-        self.assertIn(
-            MedHistoryTypes.DIABETES, PpxAid.objects.get().medhistorys.values_list("medhistorytype", flat=True)
-        )
+
+        self.assertEqual(MedHistory.objects.count(), medhistory_count + 2)
+        ppxaid = PpxAid.objects.order_by("created").prefetch_related("medhistorys").last()
+        ppxaid_medhistorys = ppxaid.medhistorys.all()
+        stroke = MedHistory.objects.order_by("created").filter(medhistorytype=MedHistoryTypes.STROKE).last()
+        diabetes = MedHistory.objects.order_by("created").filter(medhistorytype=MedHistoryTypes.DIABETES).last()
+        self.assertIn(stroke, ppxaid_medhistorys)
+        self.assertIn(diabetes, ppxaid_medhistorys)
 
     def test__post_creates_ckddetail(self):
+        """Test that the post() method creates a CkdDetail object."""
+        # Count the number of CkdDetail objects before the POST
+        ckddetail_count = CkdDetail.objects.count()
+
+        # Create some fake post() data with CKD and POST it
         self.ppxaid_data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -108,10 +127,19 @@ class TestPpxAidCreate(TestCase):
         )
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         tests_print_response_form_errors(response)
-        self.assertTrue(CkdDetail.objects.get())
-        self.assertTrue(PpxAid.objects.get().ckddetail)
+        self.assertEqual(response.status_code, 302)
+
+        # Test that a CkdDetail was created
+        self.assertEqual(CkdDetail.objects.count(), ckddetail_count + 1)
+
+        ppxaid = PpxAid.objects.order_by("created").last()
+        ckddetail = CkdDetail.objects.order_by("created").last()
+        self.assertEqual(ppxaid.ckddetail, ckddetail)
 
     def test__post_creates_baselinecreatinine(self):
+        """Test that the post() method creates a BaselineCreatinine object."""
+        # Count the number of BaselineCreatinine objects before the POST
+        baselinecreatinine_count = BaselineCreatinine.objects.count()
         self.ppxaid_data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -124,16 +152,19 @@ class TestPpxAidCreate(TestCase):
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(BaselineCreatinine.objects.get())
-        self.assertEqual(PpxAid.objects.get().ckd.baselinecreatinine.value, Decimal("2.2"))
-        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+
+        self.assertEqual(BaselineCreatinine.objects.count(), baselinecreatinine_count + 1)
+        ppxaid = PpxAid.objects.order_by("created").last()
+        bc = BaselineCreatinine.objects.order_by("created").last()
+        ckddetail = CkdDetail.objects.order_by("created").last()
+        self.assertEqual(ppxaid.ckd.baselinecreatinine.value, Decimal("2.2"))
         self.assertEqual(
-            CkdDetail.objects.get().stage,
+            ckddetail.stage,
             labs_stage_calculator(
                 labs_eGFR_calculator(
-                    BaselineCreatinine.objects.get(),
-                    age_calc(DateOfBirth.objects.get().value),
-                    Gender.objects.get().value,
+                    bc,
+                    age_calc(ppxaid.dateofbirth.value),
+                    ppxaid.gender.value,
                 )
             ),
         )
@@ -181,6 +212,11 @@ class TestPpxAidCreate(TestCase):
         self.assertIn("baseline creatinine", response.context["gender_form"].errors["value"][0])
 
     def test__post_adds_medallergys(self):
+        """Test that the post() method creates medallergys."""
+        # Count the number of MedAllergy objects before the POST
+        medallergy_count = MedAllergy.objects.count()
+
+        # Create some fake post() data with medallergys and POST it
         self.ppxaid_data.update(
             {
                 f"medallergy_{Treatments.COLCHICINE}": True,
@@ -190,10 +226,12 @@ class TestPpxAidCreate(TestCase):
         )
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
         self.assertEqual(response.status_code, 302)
+
+        # Test that the MedAllergy objects have been created
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.PREDNISONE).exists())
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.NAPROXEN).exists())
-        self.assertEqual(MedAllergy.objects.count(), 3)
+        self.assertEqual(MedAllergy.objects.count(), medallergy_count + 3)
 
 
 class TestPpxAidDetail(TestCase):
@@ -203,7 +241,7 @@ class TestPpxAidDetail(TestCase):
         self.content_qs = Content.objects.filter(
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.PPXAID, slug__isnull=False
         ).all()
-        self.ppxaid = PpxAidFactory()
+        self.ppxaid = PpxAid.objects.filter(user__isnull=True).first()
 
     def test__contents(self):
         self.assertTrue(self.view().contents)
@@ -232,159 +270,106 @@ class TestPpxAidDetail(TestCase):
         self.assertTrue(hasattr(qs.first(), "gender"))
 
     def test__get_object_updates(self):
-        self.assertTrue(self.ppxaid.recommendation[0] == Treatments.NAPROXEN)
+        """Test that calling the view without the updated=True query param updates the ppxaid."""
+        # Create a blank PpxAid and assert that it has vanilla recommendations
+        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
+
+        # Add some contraindications that will be updated for
         medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
-        self.ppxaid.medallergys.add(medallergy)
-        request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}))
-        self.view.as_view()(request, pk=self.ppxaid.pk)
-        # This needs to be manually refetched from the db
-        self.assertFalse(PpxAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
+        ppxaid.medallergys.add(medallergy)
+
+        # Re-POST the view and check to see if if the recommendation has been updated
+        request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
+        self.view.as_view()(request, pk=ppxaid.pk)
+
+        # Refresh the ppxaid from the db
+        ppxaid.refresh_from_db()
+        # Delete the cached_propertys so that the recommendation is recalculated
+        del ppxaid.aid_dict
+        del ppxaid.recommendation
+        self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
     def test__get_object_does_not_update(self):
-        self.assertTrue(self.ppxaid.recommendation[0] == Treatments.NAPROXEN)
+        # Create an empty PpxAid
+        ppxaid: PpxAid = PpxAidFactory(medhistorys=[], medallergys=[])
+
+        # Assert that it's recommendations are vanilla
+        self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
+
+        # Create some contraindications that will not be updated for
+        medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
+        ppxaid.medallergys.add(medallergy)
+
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}) + "?updated=True")
         self.view.as_view()(request, pk=self.ppxaid.pk)
         # This needs to be manually refetched from the db
-        self.assertTrue(PpxAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
+        self.assertTrue(PpxAid.objects.order_by("created").last().recommendation[0] == Treatments.NAPROXEN)
+
+        # Call without the updated=True query param and assert that the recommendation has been updated
+        request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
+        self.view.as_view()(request, pk=ppxaid.pk)
+        # Refresh the ppxaid from the db
+        ppxaid.refresh_from_db()
+        # Delete the cached_propertys so that the recommendation is recalculated
+        del ppxaid.aid_dict
+        del ppxaid.recommendation
+        self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
 
 class TestPpxAidUpdate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view: PpxAidUpdate = PpxAidUpdate()
+        self.view: PpxAidUpdate = PpxAidUpdate
 
-    def test__post_unchanged_medallergys(self):
-        ppxaid = PpxAidFactory()
-        medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid.medallergys.add(medallergy)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"medallergy_{Treatments.COLCHICINE}": True,
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
+    def test__dispatch_returns_HttpResponse(self):
+        """Test that the overwritten dispatch() method returns an HttpResponse."""
+        fa = PpxAidFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        view = self.view()
+        kwargs = {"pk": fa.pk}
+        view.setup(request, **kwargs)
+        response = view.dispatch(request, **kwargs)
+        assert response.status_code == 200
+        assert isinstance(response, HttpResponse)
 
-    def test__post_add_medallergys(self):
-        ppxaid = PpxAidFactory()
-        medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid.medallergys.add(medallergy)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"medallergy_{Treatments.COLCHICINE}": True,
-            f"medallergy_{Treatments.PREDNISONE}": True,
-            f"medallergy_{Treatments.NAPROXEN}": True,
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.PREDNISONE).exists())
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.NAPROXEN).exists())
-        self.assertEqual(MedAllergy.objects.count(), 3)
+    def test__post_updates_medallergys(self):
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
+            data = ppxaid_data_factory()
 
-    def test__post_delete_medallergys(self):
-        ppxaid = PpxAidFactory()
-        medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid.medallergys.add(medallergy)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"medallergy_{Treatments.COLCHICINE}": "",
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        self.assertEqual(response.status_code, 302)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertFalse(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
-        self.assertEqual(MedAllergy.objects.count(), 0)
+            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
 
-    def test__post_unchanged_medhistorys(self):
-        ppxaid = PpxAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        ppxaid.medhistorys.add(medhistory)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertEqual(MedHistory.objects.count(), 1)
+            tests_print_response_form_errors(response)
+            self.assertEqual(response.status_code, 302)
 
-    def test__post_delete_medhistorys(self):
-        ppxaid = PpxAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        ppxaid.medhistorys.add(medhistory)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            # Need to mark Colchicineinteraction as False to delete it, required by form.
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertEqual(MedHistory.objects.count(), 0)
+            # Iterate over the data and check the medallergy values are reflected in the updated ppxaid
+            for key, val in data.items():
+                split_key = key.split("_")
+                try:
+                    trt = split_key[1]
+                except IndexError:
+                    continue
+                if trt in Treatments.values:
+                    if val:
+                        self.assertTrue(ppxaid.medallergys.filter(treatment=trt).exists())
+                    else:
+                        self.assertFalse(ppxaid.medallergys.filter(treatment=trt).exists())
 
-    def test__post_add_medhistorys(self):
-        ppxaid = PpxAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        ppxaid.medhistorys.add(medhistory)
-        ppxaid_data = {
-            "dateofbirth-value": age_calc(ppxaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            # Need to mark Colchicineinteraction as False to delete it, required by form.
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True,
-            f"{MedHistoryTypes.DIABETES}-value": True,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.STROKE}-value": True,
-        }
-        response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), ppxaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertEqual(MedHistory.objects.count(), 3)
+    def test__post_updates_medhistorys(self):
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
+            data = ppxaid_data_factory()
+
+            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
+
+            tests_print_response_form_errors(response)
+            self.assertEqual(response.status_code, 302)
+
+            # Iterate over data and check medhistory values are reflected in the updated ppxaid
+            for key, val in data.items():
+                mh = key.split("-")[0]
+                if mh in MedHistoryTypes.values:
+                    if val:
+                        self.assertTrue(ppxaid.medhistorys.filter(medhistorytype=mh).exists())
+                    else:
+                        self.assertFalse(ppxaid.medhistorys.filter(medhistorytype=mh).exists())

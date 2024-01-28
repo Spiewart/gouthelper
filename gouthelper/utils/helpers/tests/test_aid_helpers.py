@@ -13,6 +13,7 @@ from ....defaults.selectors import (
     defaults_defaultulttrtsettings,
 )
 from ....ethnicitys.choices import Ethnicitys
+from ....ethnicitys.tests.factories import EthnicityFactory
 from ....flareaids.tests.factories import FlareAidFactory
 from ....labs.tests.factories import BaselineCreatinineFactory, Hlab5801Factory
 from ....medallergys.models import MedAllergy
@@ -71,18 +72,16 @@ class TestAidsAssignUserlessBaselineCreatinine(TestCase):
         GastricbypassFactory()
 
     def test__no_ckd_returns_None(self):
-        medhistorys = MedHistory.objects.filter().all()
-        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=[]))
 
     def test__ckd_but_not_baselinecreatinine_returns_None(self):
-        CkdFactory()
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [CkdFactory()]
         self.assertIsNone(aids_assign_baselinecreatinine(medhistorys=medhistorys))
 
     def test__ckd_with_baselinecreatinine_returns_ckddetail(self):
         ckd = CkdFactory()
         baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.0"))
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [ckd]
         self.assertEqual(aids_assign_baselinecreatinine(medhistorys=medhistorys), baselinecreatinine)
 
 
@@ -93,18 +92,17 @@ class TestAidsAssignUserlessCkdDetail(TestCase):
         GastricbypassFactory()
 
     def test__no_ckd_returns_None(self):
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = MedHistory.objects.filter().none()
         self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_but_not_ckddetail_returns_None(self):
-        CkdFactory()
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [CkdFactory()]
         self.assertIsNone(aids_assign_ckddetail(medhistorys=medhistorys))
 
     def test__ckd_with_ckddetail_returns_ckddetail(self):
         ckd = CkdFactory()
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [ckd]
         self.assertEqual(aids_assign_ckddetail(medhistorys=medhistorys), ckddetail)
 
 
@@ -115,18 +113,17 @@ class TestAidsAssignUserlessGoutDetail(TestCase):
         GastricbypassFactory()
 
     def test__no_gout_returns_None(self):
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = MedHistory.objects.filter().none()
         self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
 
     def test__gout_but_not_goutdetail_returns_None(self):
-        GoutFactory()
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [GoutFactory()]
         self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
 
     def test__gout_with_goutdetail_returns_goutdetail(self):
         gout = GoutFactory()
         goutdetail = GoutDetailFactory(medhistory=gout)
-        medhistorys = MedHistory.objects.filter().all()
+        medhistorys = [gout]
         self.assertEqual(aids_assign_userless_goutdetail(medhistorys=medhistorys), goutdetail)
 
 
@@ -683,10 +680,15 @@ class TestAidsProcessHlab5801(TestCase):
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["contra"], True)
 
     def test__unrisky_ethnicity_without_hlab5801_doesnt_return_contraindication(self):
-        self.ultaid.ethnicity.value = Ethnicitys.CAUCASIANAMERICAN
-        self.ultaid.ethnicity.save()
-        ethnicity = self.ultaid.ethnicity
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        """Test that a UltAid with an ethnicity that isn't high risk for having HLA-B*5801
+        doesn't return a contraindication for allopurinol when there is no HLA-B*5801 test result."""
+        # Create a UltAid with a non-high-risk ethnicity
+        ultaid = UltAidFactory(
+            ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN), medhistorys=[], medallergys=[]
+        )
+
+        ethnicity = ultaid.ethnicity
+        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
         trt_dict = decisionaid._create_decisionaid_dict()
         self.default_ult_trt_settings.allo_no_ethnicity_no_hlab5801 = False
         self.default_ult_trt_settings.save()
@@ -788,7 +790,9 @@ class TestAidsProcessMedAllergys(TestCase):
 
 class TestAidsProcessProbenecidCkdContraindication(TestCase):
     def test__no_ckd_leaves_probenecid_unchanged(self):
-        ultaid = UltAidFactory()
+        """Test that an aid without any contraindications to probencid (e.g. no CKD or allergy)
+        leaves probenecid unchanged."""
+        ultaid = UltAidFactory(medhistorys=[], medallergys=[])
         self.assertFalse(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__ckd_without_ckddetail_contraindicates_probenecid(self):
@@ -897,7 +901,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
     def test__ckd_with_stage_3_or_less_is_doseadj_contraindication_no_user(self):
         self.ckd = CkdFactory()
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.THREE)
-        self.medhistorys = MedHistory.objects.filter().all()
+        self.medhistorys = [self.ckd]
         self.defaulttrtsettings = DefaultFlareTrtSettings.objects.get()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
@@ -948,7 +952,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
 
 class TestAidsOptions(TestCase):
     def test__returns_unchanged_dict(self):
-        self.medhistorys = MedHistory.objects.all()
+        self.medhistorys = MedHistory.objects.none()
         self.defaulttrtsettings = defaults_defaultppxtrtsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
@@ -970,8 +974,7 @@ class TestAidsOptions(TestCase):
         self.assertIn(Treatments.IBUPROFEN, self.modified_trt_dict)
 
     def test__returns_dict_modified_for_comorbs(self):
-        self.heartattack = HeartattackFactory()
-        self.medhistorys = MedHistory.objects.all()
+        self.medhistorys = [HeartattackFactory()]
         self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
@@ -993,9 +996,7 @@ class TestAidsOptions(TestCase):
         self.assertNotIn(Treatments.IBUPROFEN, self.modified_trt_dict)
 
     def test__returns_dict_modified_only_allergy(self):
-        # Create allopurinol allergy only
-        MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
-        self.medhistorys = MedHistory.objects.all()
+        self.medhistorys = MedHistory.objects.none()
         self.defaulttrtsettings = defaults_defaultulttrtsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
@@ -1014,7 +1015,7 @@ class TestAidsOptions(TestCase):
         )
         self.trt_dict = aids_process_medallergys(
             trt_dict=self.trt_dict,
-            medallergys=MedAllergy.objects.all(),
+            medallergys=[MedAllergyFactory(treatment=Treatments.ALLOPURINOL)],
         )
         options = aids_options(self.trt_dict)
         self.assertNotIn(Treatments.ALLOPURINOL, options)
@@ -1022,7 +1023,7 @@ class TestAidsOptions(TestCase):
 
 class TestAidsProcessNsaids(TestCase):
     def test__returns_unchanged_dictionary(self):
-        self.medhistorys = MedHistory.objects.all()
+        self.medhistorys = MedHistory.objects.none()
         self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=None
@@ -1036,9 +1037,8 @@ class TestAidsProcessNsaids(TestCase):
         self.assertEqual(self.trt_dict, mod_trt_dict)
 
     def test__returns_ibuprofen_allergy_for_all_nsaids(self):
-        self.ibuprofen_allergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
-        self.medallergys = MedAllergy.objects.all()
-        self.medhistorys = MedHistory.objects.all()
+        self.medallergys = [MedAllergyFactory(treatment=Treatments.IBUPROFEN)]
+        self.medhistorys = MedHistory.objects.none()
         self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,

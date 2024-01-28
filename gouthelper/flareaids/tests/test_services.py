@@ -30,8 +30,7 @@ from ...medhistorys.tests.factories import (
     HeartattackFactory,
 )
 from ...treatments.choices import FlarePpxChoices, NsaidChoices, Treatments
-from ...users.choices import Roles
-from ...users.tests.factories import UserFactory
+from ...users.tests.factories import PseudopatientFactory
 from ...utils.helpers.aid_helpers import aids_dict_to_json
 from ..selectors import flareaid_user_qs, flareaid_userless_qs
 from ..services import FlareAidDecisionAid
@@ -62,7 +61,7 @@ class TestFlareAidMethods(TestCase):
         self.userless_qs = flareaid_userless_qs(pk=self.userless_flareaid.pk)
         self.userless_decisionaid = FlareAidDecisionAid(qs=self.userless_qs)
         # Set up user FlareAidDecisionAid
-        self.user = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.user = PseudopatientFactory()
         self.user.dateofbirth = DateOfBirthFactory(user=self.user)
         self.user.gender = GenderFactory(user=self.user)
         self.user_angina = AnginaFactory(user=self.user)
@@ -168,8 +167,9 @@ class TestFlareAidMethods(TestCase):
         self.assertIn(custom_colchicine_default, decisionaid.default_trts)
 
     def test__defaultmedhistorys_no_user(self):
+        """Test that the default_medhistorys property returns a QuerySet of DefaultMedHistorys
+        that is correct and filtered by trttype=FLARE and the FlareAid or it's users medhistorys."""
         default_medhistorys = self.userless_decisionaid.default_medhistorys
-        self.assertEqual(len(default_medhistorys), 44)
         medhistorytypes = [medhistory.medhistorytype for medhistory in self.userless_flareaid.medhistorys.all()]
         default_medhistorytypes = [default.medhistorytype for default in default_medhistorys]
         for default in list(default_medhistorys):
@@ -177,10 +177,9 @@ class TestFlareAidMethods(TestCase):
             self.assertIsNone(default.user)
             self.assertIn(default.medhistorytype, medhistorytypes)
         for medhistorytype in medhistorytypes:
-            # Diabetes will not be in the default_medhistorytypes because it's not a contraindication
-            # to steroids. Included to prompt the DetailView to show the user a sub-template about how
-            # steroids affect blood sugar.
-            if medhistorytype != MedHistoryTypes.DIABETES:
+            # Diabetes and gout will not be in the default_medhistorytypes because they aren't contraindications
+            # to any Flare treatments. They are used for other FlareAid processing.
+            if medhistorytype != MedHistoryTypes.DIABETES and medhistorytype != MedHistoryTypes.GOUT:
                 self.assertIn(medhistorytype, default_medhistorytypes)
 
     def test__defaultmedhistorys_with_user(self):

@@ -24,7 +24,7 @@ def is_user(obj, user):
 @rules.predicate
 def is_an_admin(user):
     """Expects a User object."""
-    return user.role == Roles.ADMIN
+    return user.role == Roles.ADMIN if hasattr(user, "role") else False
 
 
 @rules.predicate
@@ -42,7 +42,7 @@ def is_provider(user, obj):
 @rules.predicate
 def is_a_provider(user):
     """Expects a User object."""
-    return user.role == Roles.PROVIDER
+    return user.role == Roles.PROVIDER if hasattr(user, "role") else False
 
 
 @rules.predicate

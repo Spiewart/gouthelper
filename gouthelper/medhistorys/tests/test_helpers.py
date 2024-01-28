@@ -45,37 +45,38 @@ pytestmark = pytest.mark.django_db
 
 class TestMedHistoryHelpers(TestCase):
     def setUp(self):
+        self.medhistorys = []
         for medhistory in MedHistoryTypes:
             setattr(self, medhistory.name.lower(), MedHistoryFactory(medhistorytype=medhistory))
-        self.medhistorys = MedHistory.objects.all()
+            self.medhistorys.append(getattr(self, medhistory.name.lower()))
         self.nullhistorys = []
 
     # Test each of the imported helpers
     def test__medhistorys_get_allopurinolhypersensitivity_returns_true(self):
         self.assertEqual(
-            medhistorys_get_allopurinolhypersensitivity(self.medhistorys), self.allopurinolhypersensitivity
+            medhistorys_get_allopurinolhypersensitivity(self.medhistorys).pk, self.allopurinolhypersensitivity.pk
         )
         self.assertFalse(medhistorys_get_allopurinolhypersensitivity(self.nullhistorys))
 
     def test__medhistorys_get_anticoagulation_returns_true(self):
-        self.assertEqual(medhistorys_get_anticoagulation(self.medhistorys), self.anticoagulation)
+        self.assertEqual(medhistorys_get_anticoagulation(self.medhistorys).pk, self.anticoagulation.pk)
         self.assertFalse(medhistorys_get_anticoagulation(self.nullhistorys))
 
     def test__medhistorys_get_bleed_returns_true(self):
-        self.assertEqual(medhistorys_get_bleed(self.medhistorys), self.bleed)
+        self.assertEqual(medhistorys_get_bleed(self.medhistorys).pk, self.bleed.pk)
         self.assertFalse(medhistorys_get_bleed(self.nullhistorys))
 
     def test__medhistorys_get_ckd_returns_true(self):
-        self.assertEqual(medhistorys_get_ckd(self.medhistorys), self.ckd)
+        self.assertEqual(medhistorys_get_ckd(self.medhistorys).pk, self.ckd.pk)
         self.assertFalse(medhistorys_get_ckd(self.nullhistorys))
 
     def test__medhistorys_get_ckd_3_or_higher_returns_true(self):
         CkdDetailFactory(medhistory=self.ckd, stage=3)
-        self.assertEqual(medhistorys_get_ckd_3_or_higher(self.medhistorys), self.ckd)
+        self.assertEqual(medhistorys_get_ckd_3_or_higher(self.medhistorys).pk, self.ckd.pk)
         self.assertFalse(medhistorys_get_ckd_3_or_higher(self.nullhistorys))
 
     def test__medhistorys_get_colchicineinteraction_returns_true(self):
-        self.assertEqual(medhistorys_get_colchicineinteraction(self.medhistorys), self.colchicineinteraction)
+        self.assertEqual(medhistorys_get_colchicineinteraction(self.medhistorys).pk, self.colchicineinteraction.pk)
         self.assertFalse(medhistorys_get_colchicineinteraction(self.nullhistorys))
 
     def test__medhistorys_get_cvdiseases_returns_list_cvdiseases(self):
@@ -102,35 +103,37 @@ class TestMedHistoryHelpers(TestCase):
             self.assertEqual(medhistorys_get_default_medhistorytype(medhistory), medhistory.medhistorytype)
 
     def test__medhistorys_get_diabetes_returns_true(self):
-        self.assertEqual(medhistorys_get_diabetes(self.medhistorys), self.diabetes)
+        self.assertEqual(medhistorys_get_diabetes(self.medhistorys).pk, self.diabetes.pk)
         self.assertFalse(medhistorys_get_diabetes(self.nullhistorys))
 
     def test__medhistorys_get_erosions_returns_true(self):
-        self.assertEqual(medhistorys_get_erosions(self.medhistorys), self.erosions)
+        self.assertEqual(medhistorys_get_erosions(self.medhistorys).pk, self.erosions.pk)
         self.assertFalse(medhistorys_get_erosions(self.nullhistorys))
 
     def test__medhistorys_get_febuxostathypersensitivity_returns_true(self):
-        self.assertEqual(medhistorys_get_febuxostathypersensitivity(self.medhistorys), self.febuxostathypersensitivity)
+        self.assertEqual(
+            medhistorys_get_febuxostathypersensitivity(self.medhistorys).pk, self.febuxostathypersensitivity.pk
+        )
         self.assertFalse(medhistorys_get_febuxostathypersensitivity(self.nullhistorys))
 
     def test__medhistorys_get_gastricbypass_returns_true(self):
-        self.assertEqual(medhistorys_get_gastricbypass(self.medhistorys), self.gastricbypass)
+        self.assertEqual(medhistorys_get_gastricbypass(self.medhistorys).pk, self.gastricbypass.pk)
         self.assertFalse(medhistorys_get_gastricbypass(self.nullhistorys))
 
     def test__medhistorys_get_gout_returns_true(self):
-        self.assertEqual(medhistorys_get_gout(self.medhistorys), self.gout)
+        self.assertEqual(medhistorys_get_gout(self.medhistorys).pk, self.gout.pk)
         self.assertFalse(medhistorys_get_gout(self.nullhistorys))
 
     def test__medhistorys_get_hyperuricemia_returns_true(self):
-        self.assertEqual(medhistorys_get_hyperuricemia(self.medhistorys), self.hyperuricemia)
+        self.assertEqual(medhistorys_get_hyperuricemia(self.medhistorys).pk, self.hyperuricemia.pk)
         self.assertFalse(medhistorys_get_hyperuricemia(self.nullhistorys))
 
     def test__medhistorys_get_ibd_returns_true(self):
-        self.assertEqual(medhistorys_get_ibd(self.medhistorys), self.ibd)
+        self.assertEqual(medhistorys_get_ibd(self.medhistorys).pk, self.ibd.pk)
         self.assertFalse(medhistorys_get_ibd(self.nullhistorys))
 
     def test__medhistorys_get_menopause_returns_true(self):
-        self.assertEqual(medhistorys_get_menopause(self.medhistorys), self.menopause)
+        self.assertEqual(medhistorys_get_menopause(self.medhistorys).pk, self.menopause.pk)
         self.assertFalse(medhistorys_get_menopause(self.nullhistorys))
 
     def test__medhistorys_get_nsaid_contras_returns_true(self):
@@ -143,7 +146,7 @@ class TestMedHistoryHelpers(TestCase):
             self.assertNotIn(medhistory, null_nsaid_contras)
 
     def test__medhistorys_get_organtransplant_returns_true(self):
-        self.assertEqual(medhistorys_get_organtransplant(self.medhistorys), self.organtransplant)
+        self.assertEqual(medhistorys_get_organtransplant(self.medhistorys).pk, self.organtransplant.pk)
         self.assertFalse(medhistorys_get_organtransplant(self.nullhistorys))
 
     def test__medhistorys_get_other_nsaid_contras_returns_true(self):
@@ -156,15 +159,15 @@ class TestMedHistoryHelpers(TestCase):
             self.assertNotIn(medhistory, null_other_nsaid_contras)
 
     def test__medhistorys_get_tophi_returns_true(self):
-        self.assertEqual(medhistorys_get_tophi(self.medhistorys), self.tophi)
+        self.assertEqual(medhistorys_get_tophi(self.medhistorys).pk, self.tophi.pk)
         self.assertFalse(medhistorys_get_tophi(self.nullhistorys))
 
     def test__medhistorys_get_uratestones_returns_true(self):
-        self.assertEqual(medhistorys_get_uratestones(self.medhistorys), self.uratestones)
+        self.assertEqual(medhistorys_get_uratestones(self.medhistorys).pk, self.uratestones.pk)
         self.assertFalse(medhistorys_get_uratestones(self.nullhistorys))
 
     def test__medhistorys_get_xoiinteraction_returns_true(self):
-        self.assertEqual(medhistorys_get_xoiinteraction(self.medhistorys), self.xoiinteraction)
+        self.assertEqual(medhistorys_get_xoiinteraction(self.medhistorys).pk, self.xoiinteraction.pk)
         self.assertFalse(medhistorys_get_xoiinteraction(self.nullhistorys))
 
 

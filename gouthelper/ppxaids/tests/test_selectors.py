@@ -43,10 +43,10 @@ class TestPpxAidUserlessQuerySet(TestCase):
         self.ppxaid = PpxAidFactory(
             dateofbirth=self.dateofbirth,
             gender=self.gender,
+            medallergys=[self.colchicine_allergy],
+            medhistorys=[self.ckd],
         )
-        self.ppxaid.medhistorys.add(self.ckd)
-        self.ppxaid.add_medallergys([self.colchicine_allergy], medallergys_qs=self.ppxaid.medallergys.all())
-        self.empty_ppxaid = PpxAidFactory()
+        self.empty_ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
 
     def test__queryset_returns_correctly(self):
         queryset = ppxaid_userless_qs(self.ppxaid.pk)
@@ -63,6 +63,9 @@ class TestPpxAidUserlessQuerySet(TestCase):
         self.assertIn(self.colchicine_allergy, queryset.medallergys_qs)
 
     def test__queryset_returns_empty_correctly(self):
+        """Test that calling ppxaid_userless_qs on a PpxAid without
+        any medallergys or medhistorys doesn't return any of those objects
+        that don't belong."""
         queryset = ppxaid_userless_qs(self.empty_ppxaid.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
@@ -71,7 +74,7 @@ class TestPpxAidUserlessQuerySet(TestCase):
         self.assertEqual(queryset, self.empty_ppxaid)
         # Dateofbirth created by PpxAid factory because it's a required field
         self.assertTrue(queryset.dateofbirth)
-        self.assertIsNone(queryset.gender)
+        self.assertTrue(queryset.gender)
         self.assertEqual(len(queries.captured_queries), 3)
         self.assertFalse(queryset.medhistorys_qs)
         self.assertFalse(queryset.medallergys_qs)

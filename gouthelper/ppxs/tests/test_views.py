@@ -28,6 +28,12 @@ class TestPpxCreate(TestCase):
 
     def test__post_creates_ppx(self):
         """Tests that a POST request creates a Ppx object."""
+        # Count the number of existing Ppx, Gout, and GoutDetail objects
+        ppx_count = Ppx.objects.count()
+        gout_count = Gout.objects.count()
+        goutdetail_count = GoutDetail.objects.count()
+
+        # Create fake post() data and POST it
         ppx_data = {
             f"{MedHistoryTypes.GOUT}-value": True,
             "on_ult": False,
@@ -40,11 +46,15 @@ class TestPpxCreate(TestCase):
         # NOTE: Will print errors for all forms in the context_data.
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Ppx.objects.get())
-        self.assertTrue(Gout.objects.get())
-        self.assertTrue(GoutDetail.objects.get())
-        gout = Gout.objects.get()
-        goutdetail = GoutDetail.objects.get()
+
+        # Assert that the number of Ppx, Gout, and GoutDetail objects has increased by 1
+        self.assertEqual(Ppx.objects.count(), ppx_count + 1)
+        self.assertEqual(Gout.objects.count(), gout_count + 1)
+        self.assertEqual(GoutDetail.objects.count(), goutdetail_count + 1)
+
+        # Test that the created Gout and GoutDetail objects have the correct fields
+        gout = Gout.objects.order_by("created").last()
+        goutdetail = GoutDetail.objects.order_by("created").last()
         # Assert that the GoutDetail object attrs are correct
         self.assertEqual(goutdetail.medhistory, gout)
         self.assertFalse(goutdetail.on_ult)
@@ -67,7 +77,7 @@ class TestPpxCreate(TestCase):
         # NOTE: Will print errors for all forms in the context_data.
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        goutdetail = GoutDetail.objects.get()
+        goutdetail = GoutDetail.objects.order_by("created").last()
         # Assert that the GoutDetail object attrs are correct
         self.assertTrue(goutdetail.on_ult)
         self.assertTrue(goutdetail.flaring)
@@ -357,7 +367,7 @@ class TestPpxUpdate(TestCase):
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         # Test that the GoutDetail object attrs are correct
-        goutdetail = GoutDetail.objects.get()
+        goutdetail = GoutDetail.objects.order_by("created").last()
         self.assertNotEqual(goutdetail.on_ult, on_ult)
         self.assertNotEqual(goutdetail.flaring, flaring)
         self.assertNotEqual(goutdetail.hyperuricemic, hyperuricemic)

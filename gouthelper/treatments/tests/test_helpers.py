@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 class TestTreatmentsStringifyTrtTuple(TestCase):
     def setUp(self):
-        self.ppxaid = PpxAidFactory()
+        self.ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
         self.trt = next(iter(self.ppxaid.options))
         self.dosing = self.ppxaid.options[self.trt]
 

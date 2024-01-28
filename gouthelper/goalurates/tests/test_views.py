@@ -1,5 +1,4 @@
 import pytest  # type: ignore
-from django.apps import apps
 from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.models import AnonymousUser  # type: ignore
 from django.contrib.messages.middleware import MessageMiddleware
@@ -144,8 +143,8 @@ class TestGoalUrateCreate(TestCase):
         goal_urate = GoalUrate.objects.first()
         erosions = Erosions.objects.first()
         tophi = Tophi.objects.first()
-        self.assertIn(erosions, goal_urate.medhistorys.all())
-        self.assertIn(tophi, goal_urate.medhistorys.all())
+        self.assertIn(erosions.pk, goal_urate.medhistorys.values_list("pk", flat=True))
+        self.assertIn(tophi.pk, goal_urate.medhistorys.values_list("pk", flat=True))
 
     def test__post_creates_goalurate_with_ultaid(self):
         data = {
@@ -223,6 +222,7 @@ class TestGoalUrateUpdate(TestCase):
         self.factory = RequestFactory()
 
     def test__get_context_data(self):
+        gu_medhistorys = self.goalurate.medhistorys.all()
         for medhistory in GOALURATE_MEDHISTORYS:
             self.assertIn(f"{medhistory}_form", self.response.context_data)  # type: ignore
             self.assertIsInstance(
@@ -231,7 +231,7 @@ class TestGoalUrateUpdate(TestCase):
             )
             self.assertEqual(
                 self.response.context_data[f"{medhistory}_form"].instance,  # type: ignore
-                apps.get_model(f"medhistorys.{medhistory.value}").objects.get(),
+                [mh for mh in gu_medhistorys if mh.medhistorytype == medhistory][0].value,
             )
 
     def test__dispatch_redirects_if_goalurate_user(self):
@@ -281,8 +281,8 @@ class TestGoalUrateUpdate(TestCase):
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
         self.assertIsNone(goal_urate.ultaid)
         self.assertFalse(goal_urate.medhistorys.all())
-        self.assertFalse(Erosions.objects.all())
-        self.assertFalse(Tophi.objects.all())
+        self.assertFalse(goal_urate.tophi)
+        self.assertFalse(goal_urate.erosions)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__post_adds_medhistorys(self):

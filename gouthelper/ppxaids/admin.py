@@ -7,7 +7,7 @@ from .models import PpxAid
 @admin.register(PpxAid)
 class PpxAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "__str__",
+        "user",
         "created",
         "pk",
     )

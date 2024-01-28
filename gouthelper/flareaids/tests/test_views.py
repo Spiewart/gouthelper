@@ -4,17 +4,16 @@ from decimal import Decimal
 import pytest  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.models import AnonymousUser  # type: ignore
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
+from django.http import HttpResponse  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...contents.models import Content, Tags
 from ...dateofbirths.helpers import age_calc
-from ...dateofbirths.models import DateOfBirth
 from ...genders.choices import Genders
-from ...genders.models import Gender
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
@@ -33,6 +32,8 @@ from ...users.tests.factories import AdminFactory, PseudopatientFactory, Pseudop
 from ...utils.helpers.test_helpers import (
     form_data_colchicine_contra,
     form_data_nsaid_contra,
+    medallergy_diff_obj_data,
+    medhistory_diff_obj_data,
     tests_print_response_form_errors,
 )
 from ..models import FlareAid
@@ -46,7 +47,7 @@ from ..views import (
     FlareAidPseudopatientUpdate,
     FlareAidUpdate,
 )
-from .factories import FlareAidFactory, FlareAidUserFactory, create_flareaid_data
+from .factories import FlareAidFactory, FlareAidUserFactory, flareaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -93,18 +94,25 @@ class TestFlareAidCreate(TestCase):
         self.assertEqual(response.status_code, 302)
 
     def test__post_creates_medhistory(self):
+        # Count the MedHistorys
+        mh_count = MedHistory.objects.count()
+
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertEqual(MedHistory.objects.count(), 1)
+
+        # Test that a MedHistory was created
+        self.assertEqual(MedHistory.objects.count(), mh_count + 1)
         self.assertIn(
             MedHistoryTypes.STROKE, FlareAid.objects.get().medhistorys.values_list("medhistorytype", flat=True)
         )
 
     def test__post_creates_medhistorys(self):
+        # Count the number of MedHistorys before the post
+        mh_count = MedHistory.objects.count()
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         self.flareaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
@@ -113,7 +121,7 @@ class TestFlareAidCreate(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
-        self.assertEqual(MedHistory.objects.count(), 2)
+        self.assertEqual(MedHistory.objects.count(), mh_count + 2)
         self.assertIn(
             MedHistoryTypes.STROKE, FlareAid.objects.get().medhistorys.values_list("medhistorytype", flat=True)
         )
@@ -122,6 +130,8 @@ class TestFlareAidCreate(TestCase):
         )
 
     def test__post_creates_ckddetail(self):
+        # Count the number of CkdDetails
+        ckddetail_count = CkdDetail.objects.count()
         self.flareaid_data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -132,10 +142,16 @@ class TestFlareAidCreate(TestCase):
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         tests_print_response_form_errors(response)
-        self.assertTrue(CkdDetail.objects.get())
-        self.assertTrue(FlareAid.objects.get().ckddetail)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(CkdDetail.objects.count(), ckddetail_count + 1)
+        self.assertTrue(FlareAid.objects.order_by("created").get().ckddetail)
 
     def test__post_creates_baselinecreatinine(self):
+        """Test that the view creates a BaselineCreatinine object."""
+        # Count the number of BaselineCreatinines
+        baselinecreatinine_count = BaselineCreatinine.objects.count()
+
+        # Create some fake data and post() it
         self.flareaid_data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -148,16 +164,24 @@ class TestFlareAidCreate(TestCase):
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(BaselineCreatinine.objects.get())
-        self.assertEqual(FlareAid.objects.get().ckd.baselinecreatinine.value, Decimal("2.2"))
-        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+
+        # Test that a BaselineCreatinine was created
+        self.assertEqual(BaselineCreatinine.objects.count(), baselinecreatinine_count + 1)
+
+        # Test that the baseline creatinine was properly created
+        flareaid = FlareAid.objects.order_by("created").last()
+        bc = BaselineCreatinine.objects.order_by("created").last()
+        ckddetail = CkdDetail.objects.order_by("created").last()
+
+        self.assertEqual(bc.value, Decimal("2.2"))
+        self.assertEqual(flareaid.ckd.baselinecreatinine, bc)
         self.assertEqual(
-            CkdDetail.objects.get().stage,
+            ckddetail.stage,
             labs_stage_calculator(
                 labs_eGFR_calculator(
-                    BaselineCreatinine.objects.get(),
-                    age_calc(DateOfBirth.objects.get().value),
-                    Gender.objects.get().value,
+                    bc,
+                    age_calc(flareaid.dateofbirth.value),
+                    flareaid.gender.value,
                 )
             ),
         )
@@ -205,6 +229,11 @@ class TestFlareAidCreate(TestCase):
         self.assertIn("baseline creatinine", response.context["gender_form"].errors["value"][0])
 
     def test__post_adds_medallergys(self):
+        """Test that the view creates MedAllergy objects."""
+        # Count the number of MedAllergys
+        medallergy_count = MedAllergy.objects.count()
+
+        # Create some fake data and post() it
         self.flareaid_data.update(
             {
                 f"medallergy_{Treatments.COLCHICINE}": True,
@@ -214,10 +243,19 @@ class TestFlareAidCreate(TestCase):
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.PREDNISONE).exists())
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.NAPROXEN).exists())
-        self.assertEqual(MedAllergy.objects.count(), 3)
+
+        self.assertEqual(MedAllergy.objects.count(), medallergy_count + 3)
+
+        flareaid = FlareAid.objects.order_by("created").last()
+        colch_allergy = MedAllergy.objects.order_by("created").filter(treatment=Treatments.COLCHICINE).last()
+        pred_allergy = MedAllergy.objects.order_by("created").filter(treatment=Treatments.PREDNISONE).last()
+        naproxen_allergy = MedAllergy.objects.order_by("created").filter(treatment=Treatments.NAPROXEN).last()
+
+        # Test that the medallergys are in the flareaid's medallergys field
+        flareaid_medallergys = flareaid.medallergys.all()
+        self.assertIn(colch_allergy, flareaid_medallergys)
+        self.assertIn(pred_allergy, flareaid_medallergys)
+        self.assertIn(naproxen_allergy, flareaid_medallergys)
 
 
 class TestFlareAidPseudopatientCreate(TestCase):
@@ -426,7 +464,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         """Test that the post() method for the view sets the
         user on the object."""
         # Create some fake data for a User's FlareAid
-        data = create_flareaid_data(self.user)
+        data = flareaid_data_factory(self.user)
         response = self.client.post(
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
         )
@@ -585,7 +623,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         """Test that the view creates the User's FlareAid object with the correct
         recommendations."""
         for user in Pseudopatient.objects.all():
-            data = create_flareaid_data(user)
+            data = flareaid_data_factory(user)
             if user.profile.provider:
                 self.client.force_login(user.profile.provider)
             response = self.client.post(
@@ -635,7 +673,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         the form or javascript."""
         # Test that the view returns errors when the baselinecreatinine and
         # stage are not congruent
-        data = create_flareaid_data(user=self.psp)
+        data = flareaid_data_factory(user=self.psp)
         data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -654,7 +692,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         assert "baselinecreatinine_form" in response.context_data
         assert "value" in response.context_data["baselinecreatinine_form"].errors
         # Test that the view returns errors when CKD is True and dialysis is left blank
-        data = create_flareaid_data(user=self.psp)
+        data = flareaid_data_factory(user=self.psp)
         data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -1120,7 +1158,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         psp = Pseudopatient.objects.last()
         for mh in FLAREAID_MEDHISTORYS:
             setattr(self, f"{mh}_bool", psp.medhistory_set.filter(medhistorytype=mh).exists())
-        data = create_flareaid_data(psp)
+        data = flareaid_data_factory(psp)
         data.update(
             {
                 **{
@@ -1147,7 +1185,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         psp = Pseudopatient.objects.last()
         for ma in FlarePpxChoices.values:
             setattr(self, f"{ma}_bool", psp.medallergy_set.filter(treatment=ma).exists())
-        data = create_flareaid_data(psp)
+        data = flareaid_data_factory(psp)
         data.update(
             {
                 **{f"medallergy_{ma}": not getattr(self, f"{ma}_bool") for ma in FlarePpxChoices.values},
@@ -1229,10 +1267,21 @@ class TestFlareAidPseudopatientUpdate(TestCase):
     def test__post_creates_flareaids_with_correct_recommendations(self):
         """Test that the view creates the User's FlareAid object with the correct
         recommendations."""
+        print(Pseudopatient.objects.count())
         for user in Pseudopatient.objects.all():
+            print(user)
+            print(user.ckd)
+            print(user.ckddetail)
+            if user.ckddetail:
+                print(user.ckddetail.dialysis)
+                print(user.ckddetail.dialysis_duration)
+                print(user.ckddetail.stage)
+                print(user.ckddetail.dialysis_type)
             if not hasattr(user, "flareaid"):
                 FlareAidUserFactory(user=user)
-            data = create_flareaid_data(user)
+            data = flareaid_data_factory(user)
+            print(user.role)
+            print(user.profile)
             if user.profile.provider:
                 self.client.force_login(user.profile.provider)
             response = self.client.post(
@@ -1282,7 +1331,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         the form or javascript."""
         # Test that the view returns errors when the baselinecreatinine and
         # stage are not congruent
-        data = create_flareaid_data(user=self.psp)
+        data = flareaid_data_factory(user=self.psp)
         data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -1301,7 +1350,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         assert "baselinecreatinine_form" in response.context_data
         assert "value" in response.context_data["baselinecreatinine_form"].errors
         # Test that the view returns errors when CKD is True and dialysis is left blank
-        data = create_flareaid_data(user=self.psp)
+        data = flareaid_data_factory(user=self.psp)
         data.update(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
@@ -1369,7 +1418,7 @@ class TestFlareAidDetail(TestCase):
         self.content_qs = Content.objects.filter(
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.FLAREAID, slug__isnull=False
         ).all()
-        self.flareaid = FlareAidFactory()
+        self.flareaid = FlareAidFactory(medallergys=[], medhistorys=[])
 
     def test__contents(self):
         self.assertTrue(self.view().contents)
@@ -1442,6 +1491,18 @@ class TestFlareAidUpdate(TestCase):
         assert response.status_code == 302
         assert response.url == reverse("flareaids:pseudopatient-update", kwargs={"username": user_fa.user.username})
 
+    def test__dispatch_returns_HttpResponse(self):
+        """Test that the overwritten dispatch() method returns an HttpResponse."""
+        fa = FlareAidFactory()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        view = self.view()
+        kwargs = {"pk": fa.pk}
+        view.setup(request, **kwargs)
+        response = view.dispatch(request, **kwargs)
+        assert response.status_code == 200
+        assert isinstance(response, HttpResponse)
+
     def test__post_unchanged_medallergys(self):
         flareaid = FlareAidFactory()
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
@@ -1456,17 +1517,18 @@ class TestFlareAidUpdate(TestCase):
             f"medallergy_{Treatments.COLCHICINE}": True,
         }
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
 
     def test__post_add_medallergys(self):
-        flareaid = FlareAidFactory()
-        medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        flareaid.medallergys.add(medallergy)
+        """Test that the view creates the User's MedAllergy object."""
+        # Create a FlareAid with a single medallergy
+        flareaid = FlareAidFactory(medallergys=[MedAllergyFactory(treatment=Treatments.COLCHICINE)])
+
+        # Count the medallergys
+        ma_count = MedAllergy.objects.count()
+
         flareaid_data = {
             "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
             "gender-value": "",
@@ -1479,101 +1541,92 @@ class TestFlareAidUpdate(TestCase):
             f"medallergy_{Treatments.NAPROXEN}": True,
         }
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.PREDNISONE).exists())
-        self.assertTrue(MedAllergy.objects.filter(treatment=Treatments.NAPROXEN).exists())
-        self.assertEqual(MedAllergy.objects.count(), 3)
+
+        self.assertTrue(flareaid.medallergys.filter(treatment=Treatments.PREDNISONE).exists())
+        self.assertTrue(flareaid.medallergys.filter(treatment=Treatments.NAPROXEN).exists())
+        self.assertEqual(MedAllergy.objects.count(), ma_count + 2)
 
     def test__post_delete_medallergys(self):
-        flareaid = FlareAidFactory()
-        medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        flareaid.medallergys.add(medallergy)
-        flareaid_data = {
-            "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"medallergy_{Treatments.COLCHICINE}": "",
-        }
-        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
+        """Test that the view deletes the User's MedAllergy object."""
+        # Create a FlareAid and a MedAllergy
+        flareaid = FlareAidFactory(medallergys=[MedAllergyFactory(treatment=Treatments.COLCHICINE)])
+
+        # Create fake data
+        data = flareaid_data_factory()
+
+        # Count the medallergy difference between the FlareAid and the data and the number of all medallergys
+        ma_count = MedAllergy.objects.count()
+        ma_diff = medallergy_diff_obj_data(obj=flareaid, data=data, medallergys=Treatments)
+
+        # Post the data
+        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
         self.assertEqual(response.status_code, 302)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
-        self.assertFalse(MedAllergy.objects.filter(treatment=Treatments.COLCHICINE).exists())
-        self.assertEqual(MedAllergy.objects.count(), 0)
+        tests_print_response_form_errors(response)
+
+        # Assert that the medallergy was deleted
+        self.assertEqual(MedAllergy.objects.count(), ma_count + ma_diff)
 
     def test__post_unchanged_medhistorys(self):
-        flareaid = FlareAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        flareaid.medhistorys.add(medhistory)
-        flareaid_data = {
-            "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-        }
-        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        # Create a FlareAid with a single medhistory
+        flareaid = FlareAidFactory(
+            medhistorys=[MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)]
+        )
+
+        # Create some fake data
+        data = flareaid_data_factory()
+
+        # Count medhistorys, medhistorys historys, and the anticipated change between the data and the current flareaid
+        mh_count = MedHistory.objects.count()
+        mh_diff = medhistory_diff_obj_data(obj=flareaid, data=data, medhistorys=FLAREAID_MEDHISTORYS)
+
+        # POST the data
+        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertEqual(MedHistory.objects.count(), 1)
+
+        # Assert that the medhistory number changed correctly
+        self.assertEqual(MedHistory.objects.count(), mh_count + mh_diff)
 
     def test__post_delete_medhistorys(self):
-        flareaid = FlareAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        flareaid.medhistorys.add(medhistory)
-        flareaid_data = {
-            "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            # Need to mark Colchicineinteraction as False to delete it, required by form.
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
-            f"{MedHistoryTypes.DIABETES}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-        }
-        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+        """Test that the view deletes the User's MedHistory object."""
+        # Create a FlareAid and a MedHistory and add the new medhistory to the FlareAid
+        flareaid = FlareAidFactory(
+            medhistorys=[MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)]
+        )
+
+        # Create fake data
+        data = flareaid_data_factory()
+
+        # Count the medhistorys and medhistorys.historys before post()
+        mh_count = MedHistory.objects.count()
+        mh_diff = medhistory_diff_obj_data(obj=flareaid, data=data, medhistorys=FLAREAID_MEDHISTORYS)
+
+        # Post the data
+        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertEqual(MedHistory.objects.count(), 0)
+
+        # Assert that the correct number of medhistorys were created/deleted
+        self.assertEqual(MedHistory.objects.count(), mh_count + mh_diff)
 
     def test__post_add_medhistorys(self):
+        """Test that the view adds the User's MedHistory object."""
+        # Create a FlareAid and count its medhistorys
         flareaid = FlareAidFactory()
-        medhistory = MedHistoryFactory(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)
-        flareaid.medhistorys.add(medhistory)
-        flareaid_data = {
-            "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
-            "gender-value": "",
-            f"{MedHistoryTypes.CKD}-value": False,
-            # Need to mark Colchicineinteraction as False to delete it, required by form.
-            f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": True,
-            f"{MedHistoryTypes.DIABETES}-value": True,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.STROKE}-value": True,
-        }
-        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        # NOTE: Will print errors for all forms in the context_data.
-        # for key, val in response.context_data.items():
-        # if key.endswith("_form") or key == "form":
-        # print(key, val.errors)
+
+        # Create fake data
+        data = flareaid_data_factory()
+
+        # Count the medhistory difference between the FlareAid and the data and the number of all medhistorys
+        mh_diff = medhistory_diff_obj_data(obj=flareaid, data=data, medhistorys=FLAREAID_MEDHISTORYS)
+        mh_count = MedHistory.objects.count()
+
+        # Post the data
+        response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertEqual(MedHistory.objects.count(), 3)
+
+        # Assert that the number of medhistorys was increased or decreased correctly by the view
+        self.assertEqual(MedHistory.objects.count(), mh_count + mh_diff)

@@ -1,6 +1,6 @@
 import random
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any, Union
 
 from django.contrib.auth import get_user_model
 from factory import Faker, RelatedFactory, post_generation
@@ -12,14 +12,25 @@ from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...profiles.models import PatientProfile, PseudopatientProfile
+from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ..choices import Roles
+from ..models import Pseudopatient
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    from ...ethnicitys.choices import Ethnicitys
+
+    User = get_user_model()
+
+fake = faker.Faker()
 
 
 class UserFactory(DjangoModelFactory):
@@ -42,16 +53,6 @@ class UserFactory(DjangoModelFactory):
             ).evaluate(None, None, extra={"locale": None})
         )
         self.set_password(password)
-
-    @post_generation
-    def provider(self, create: bool, extracted: Sequence[Any], **kwargs):
-        """Creates a profile for the Pseudopatient / Patient and assigns a
-        provider if one is passed in."""
-        if create:
-            if self.role == Roles.PATIENT:
-                PatientProfile(user=self, provider=extracted if extracted else None).save()
-            elif self.role == Roles.PSEUDOPATIENT:
-                PseudopatientProfile(user=self, provider=extracted if extracted else None).save()
 
     @classmethod
     def _after_postgeneration(cls, instance, create, results=None):
@@ -79,34 +80,6 @@ class PatientFactory(UserFactory):
 class PseudopatientFactory(UserFactory):
     role = Roles.PSEUDOPATIENT
 
-    @post_generation
-    def dateofbirth(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            if extracted is None:
-                DateOfBirthFactory(user=self)
-            elif extracted is not False:
-                DateOfBirthFactory(user=self, value=extracted)
-            else:
-                pass
-
-    @post_generation
-    def gender(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            if extracted is None:
-                GenderFactory(user=self)
-            elif extracted is not False:
-                GenderFactory(user=self, value=extracted)
-            else:
-                pass
-
-    @post_generation
-    def ethnicity(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            if extracted:
-                EthnicityFactory(user=self, value=extracted)
-            else:
-                EthnicityFactory(user=self)
-
 
 class PseudopatientPlusFactory(PseudopatientFactory):
     """Factory that adds a Pseudopatient with their one-to-one fields as above
@@ -132,11 +105,27 @@ class PseudopatientPlusFactory(PseudopatientFactory):
                 )
                 if medhistory.medhistorytype == MedHistoryTypes.CKD:
                     # 50/50 chance of having a CKD detail
-                    if random.randint(0, 1) == 1:
-                        CkdDetailFactory(medhistory=medhistory)
-                    # 50/50 chance of having a Baseline Creatinine
-                    if random.randint(0, 1) == 1:
-                        BaselineCreatinineFactory(medhistory=medhistory)
+                    dialysis = fake.boolean()
+                    if dialysis:
+                        CkdDetailFactory(medhistory=medhistory, on_dialysis=True)
+                    # Check if the CkdDetail has a dialysis value, and if not,
+                    # 50/50 chance of having a baselinecreatinine associated with
+                    # the stage
+                    else:
+                        if fake.boolean():
+                            baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
+                            CkdDetailFactory(
+                                medhistory=medhistory,
+                                stage=labs_stage_calculator(
+                                    eGFR=labs_eGFR_calculator(
+                                        creatinine=baselinecreatinine.value,
+                                        age=age_calc(self.dateofbirth.value),
+                                        gender=self.gender.value,
+                                    )
+                                ),
+                            )
+                        else:
+                            CkdDetailFactory(medhistory=medhistory)
 
     @post_generation
     def create_medallergys(self, create: bool, extracted: Sequence[Any], **kwargs):
@@ -147,7 +136,6 @@ class PseudopatientPlusFactory(PseudopatientFactory):
 
     @post_generation
     def menopausal(self, create: bool, extracted: Sequence[Any], **kwargs):
-        fake = faker.Faker()
         if create:
             if self.gender.value == Genders.FEMALE:
                 if extracted is True:
@@ -160,3 +148,131 @@ class PseudopatientPlusFactory(PseudopatientFactory):
                         MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
                     else:
                         MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
+
+
+def create_psp(
+    dateofbirth: Union["date", None] = None,
+    ethnicity: Union["Ethnicitys", None] = None,
+    gender: Genders | None = None,
+    provider: Union["User", None] = None,
+    medhistorys: list[MedHistoryTypes] | None = None,
+    medallergys: list[Treatments] | None = None,
+    menopause: bool = False,
+    plus: bool = False,
+) -> Pseudopatient:
+    """Method that creates a Pseudopatient and dynamically set related models
+    using FactoryBoy. Hopefully avoids IntegrityErrors."""
+    psp = PseudopatientFactory()
+    if dateofbirth:
+        psp.dateofbirth = DateOfBirthFactory(user=psp, value=dateofbirth)
+    else:
+        psp.dateofbirth = DateOfBirthFactory(user=psp)
+    if ethnicity:
+        psp.ethnicity = EthnicityFactory(user=psp, value=ethnicity)
+    else:
+        psp.ethnicity = EthnicityFactory(user=psp)
+    if gender:
+        if gender == Genders.MALE and menopause is True:
+            raise ValueError("Can't have a menopausal male.")
+        psp.gender = GenderFactory(user=psp, value=gender)
+    else:
+        if menopause:
+            psp.gender = GenderFactory(user=psp, value=Genders.FEMALE)
+        else:
+            psp.gender = GenderFactory(user=psp)
+    # Create the PseudopatientProfile with the provider *arg passed in
+    psp.pseudopatientprofile = PseudopatientProfileFactory(user=psp, provider=provider)
+    # Next deal with required, optional, and randomly generated MedHistorys
+    medhistorytypes = MedHistoryTypes.values
+    # Remove GOUT and MENOPAUSE from the medhistorytypes, will be handled non-randomly
+    medhistorytypes.remove(MedHistoryTypes.GOUT)
+    medhistorytypes.remove(MedHistoryTypes.MENOPAUSE)
+    # Create a Gout MedHistory and GoutDetail, as all Pseudopatients have Gout
+    gout = MedHistoryFactory(
+        user=psp,
+        medhistorytype=MedHistoryTypes.GOUT,
+    )
+    GoutDetailFactory(medhistory=gout)
+    if psp.gender.value == Genders.FEMALE:
+        if menopause:
+            MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+        else:
+            age = age_calc(psp.dateofbirth.value)
+            if age < 40:
+                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+            elif age >= 40 and age < 60 and fake.boolean():
+                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+            else:
+                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+    if medhistorys or plus:
+        if medhistorys:
+            for medhistory in medhistorys:
+                # pop the medhistory from the list
+                medhistorytypes.remove(medhistory)
+                setattr(psp, medhistory, MedHistoryFactory(user=psp, medhistorytype=medhistory))
+                if medhistory == MedHistoryTypes.CKD:
+                    # 50/50 chance of having a CKD detail
+                    dialysis = fake.boolean()
+                    if dialysis:
+                        CkdDetailFactory(medhistory=getattr(psp, medhistory), on_dialysis=True)
+                    # Check if the CkdDetail has a dialysis value, and if not,
+                    # 50/50 chance of having a baselinecreatinine associated with
+                    # the stage
+                    else:
+                        if fake.boolean():
+                            baselinecreatinine = BaselineCreatinineFactory(medhistory=getattr(psp, medhistory))
+                            CkdDetailFactory(
+                                medhistory=getattr(psp, medhistory),
+                                stage=labs_stage_calculator(
+                                    eGFR=labs_eGFR_calculator(
+                                        creatinine=baselinecreatinine.value,
+                                        age=age_calc(psp.dateofbirth.value),
+                                        gender=psp.gender.value,
+                                    )
+                                ),
+                            )
+                        else:
+                            CkdDetailFactory(medhistory=getattr(psp, medhistory))
+        # If plus is True, create a random number of MedHistory objects
+        if plus:
+            for _ in range(0, random.randint(0, 10)):
+                # Create a random MedHistoryType, popping the value from the list
+                medhistory = medhistorytypes.pop(random.randint(0, len(medhistorytypes) - 1))
+                setattr(psp, medhistory, MedHistoryFactory(user=psp, medhistorytype=medhistory))
+                if medhistory == MedHistoryTypes.CKD:
+                    # 50/50 chance of having a CKD detail
+                    dialysis = fake.boolean()
+                    if dialysis:
+                        CkdDetailFactory(medhistory=getattr(psp, medhistory), on_dialysis=True)
+                    # Check if the CkdDetail has a dialysis value, and if not,
+                    # 50/50 chance of having a baselinecreatinine associated with
+                    # the stage
+                    else:
+                        if fake.boolean():
+                            baselinecreatinine = BaselineCreatinineFactory(medhistory=getattr(psp, medhistory))
+                            CkdDetailFactory(
+                                medhistory=getattr(psp, medhistory),
+                                stage=labs_stage_calculator(
+                                    eGFR=labs_eGFR_calculator(
+                                        creatinine=baselinecreatinine.value,
+                                        age=age_calc(psp.dateofbirth.value),
+                                        gender=psp.gender.value,
+                                    )
+                                ),
+                            )
+                        else:
+                            CkdDetailFactory(medhistory=getattr(psp, medhistory))
+    if medallergys or plus:
+        treatments = Treatments.values
+        if medallergys:
+            for treatment in medallergys:
+                # pop the treatment from the list
+                treatments.remove(treatment)
+                # Create a MedAllergy for the Pseudopatient
+                MedAllergyFactory(user=psp, treatment=treatment)
+        # If plus is True, create a random number of MedAllergy objects
+        if plus:
+            for _ in range(0, random.randint(0, 2)):
+                MedAllergyFactory(user=psp, treatment=treatments.pop(random.randint(0, len(treatments) - 1)))
+
+    return psp

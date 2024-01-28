@@ -13,6 +13,11 @@ def django_db_setup(django_db_setup, django_db_blocker):
     with django_db_blocker.unblock():
         update_defaults(apps=apps, schema_editor=None)
         create_or_update_contents(apps=apps, schema_editor=None)
+        for _ in range(10):
+            # psp = PseudopatientPlusFactory()
+            # PpxAidFactory()
+            # PpxAidUserFactory(user=psp)
+            pass
 
 
 @pytest.fixture(autouse=True)

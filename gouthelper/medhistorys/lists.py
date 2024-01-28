@@ -66,7 +66,6 @@ PPXAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.COLCHICINEINTERACTION,  # Colchicine Interaction
     MedHistoryTypes.DIABETES,  # Diabetes
     MedHistoryTypes.GASTRICBYPASS,  # Gastric Bypass
-    MedHistoryTypes.GOUT,  # Gout
     MedHistoryTypes.HEARTATTACK,  # Heart Attack
     MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease

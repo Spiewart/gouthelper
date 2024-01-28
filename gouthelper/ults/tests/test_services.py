@@ -34,18 +34,27 @@ class TestUltDecisionAid(TestCase):
         self.hyperuricemia = HyperuricemiaFactory()
         self.tophi = TophiFactory()
         self.uratestones = UratestonesFactory()
-        self.ult1.medhistorys.add(*MedHistory.objects.all())
+        self.ult1.add_medhistorys(
+            [
+                self.ckd,
+                self.erosions,
+                self.hyperuricemia,
+                self.tophi,
+                self.uratestones,
+            ],
+            [],
+        )
         self.ult2 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
 
     def test__init__(self):
         ult1_aid = self.aid(self.ult1.pk)
         self.assertEqual(ult1_aid.ult, self.ult1)
-        self.assertEqual(ult1_aid.ckd, self.ckd)
+        self.assertEqual(ult1_aid.ckd.pk, self.ckd.pk)
         self.assertEqual(ult1_aid.ckddetail, self.ckddetail)
-        self.assertEqual(ult1_aid.erosions, self.erosions)
-        self.assertEqual(ult1_aid.hyperuricemia, self.hyperuricemia)
-        self.assertEqual(ult1_aid.tophi, self.tophi)
-        self.assertEqual(ult1_aid.uratestones, self.uratestones)
+        self.assertEqual(ult1_aid.erosions.pk, self.erosions.pk)
+        self.assertEqual(ult1_aid.hyperuricemia.pk, self.hyperuricemia.pk)
+        self.assertEqual(ult1_aid.tophi.pk, self.tophi.pk)
+        self.assertEqual(ult1_aid.uratestones.pk, self.uratestones.pk)
         for medhistory in MedHistory.objects.all():
             self.assertIn(medhistory, ult1_aid.medhistorys)
         ult2_aid = self.aid(self.ult2.pk)

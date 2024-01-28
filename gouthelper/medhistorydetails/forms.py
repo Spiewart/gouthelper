@@ -107,12 +107,13 @@ class CkdDetailForm(forms.ModelForm):
                     ),
                 )
             if stage is not Stages.FIVE:
-                cleaned_data["stage"] = Stages.FIVE
+                cleaned_data.update({"stage": Stages.FIVE})
         else:
             if cleaned_data["dialysis_type"] is not None:
-                cleaned_data["dialysis_type"] = None
+                cleaned_data.update({"dialysis_type": None})
             if cleaned_data["dialysis_duration"] is not None:
-                cleaned_data["dialysis_duration"] = None
+                cleaned_data.update({"dialysis_duration": None})
+        return cleaned_data
 
 
 class CkdDetailOptionalForm(CkdDetailForm):

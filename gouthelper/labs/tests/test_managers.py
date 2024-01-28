@@ -7,6 +7,9 @@ from ..models import BaselineCreatinine, Urate
 
 class CreatinineManagerTestCase(TestCase):
     def test_get_queryset(self):
+        # Count baselinecreatinine objects using the manager
+        bc_count = BaselineCreatinine.objects.count()
+
         # Create some Creatinine objects
         BaselineCreatinine.objects.create(medhistory=CkdFactory(), value=1.0)
         BaselineCreatinine.objects.create(medhistory=CkdFactory(), value=2.0)
@@ -16,14 +19,17 @@ class CreatinineManagerTestCase(TestCase):
         queryset = BaselineCreatinine.objects.get_queryset()
 
         # Assert that the queryset contains all Creatinine objects
-        self.assertEqual(queryset.count(), 3)
+        self.assertEqual(queryset.count(), bc_count + 3)
 
     def test_create(self):
+        # Count baselinecreatinine objects using the manager
+        bc_count = BaselineCreatinine.objects.count()
+
         # Create a Creatinine object using the manager
         BaselineCreatinine.objects.create(medhistory=CkdFactory(), value=1.5)
 
         # Assert that the object was created
-        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+        self.assertEqual(BaselineCreatinine.objects.count(), bc_count + 1)
 
         # Assert that the created object has the right attrs
         creatinine = BaselineCreatinine.objects.get()

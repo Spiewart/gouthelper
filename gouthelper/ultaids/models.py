@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -9,6 +10,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
@@ -29,6 +31,33 @@ class UltAid(
     metaclass=RulesModelBase,
 ):
     """Model to determine urate-lowering therapy(ies) for a Patient"""
+
+    class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
+        constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_valid",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        dateofbirth__isnull=True,
+                        ethnicity__isnull=True,
+                        gender__isnull=True,
+                        hlab5801__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        ethnicity__isnull=False,
+                        # dateofbirth, gender, and hlab5801 can be null because not all UltAids will require them
+                    )
+                ),
+            ),
+        ]
 
     dateofbirth = models.OneToOneField(
         "dateofbirths.DateOfBirth",
@@ -56,6 +85,7 @@ class UltAid(
         null=True,
         blank=True,
     )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     objects = models.Manager()

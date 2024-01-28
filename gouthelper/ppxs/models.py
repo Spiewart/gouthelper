@@ -1,6 +1,7 @@
 from datetime import timedelta
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings  # type: ignore
 from django.core.validators import MaxValueValidator, MinValueValidator  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
@@ -17,6 +18,7 @@ from ..labs.choices import LabTypes
 from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal, labs_urates_recent_urate
 from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
 from ..utils.models import DecisionAidModel, GoutHelperModel, LabAidModel, MedHistoryAidModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
@@ -41,11 +43,19 @@ class Ppx(
 
     Indications = Indications
 
+    class Meta:
+        rules_permissions = {
+            "add": add_object,
+            "change": change_object,
+            "delete": delete_object,
+            "view": view_object,
+        }
+
     indication = models.IntegerField(
         _("Indication"),
         validators=[MinValueValidator(0), MaxValueValidator(2)],
         choices=Indications.choices,
-        help_text="Does the patient have an indication for ULT?",
+        help_text="Does the patient have an indication for prophylaxis?",
         default=Indications.NOTINDICATED,
     )
     starting_ult = models.BooleanField(
@@ -54,7 +64,7 @@ class Ppx(
         default=False,
         help_text="Is the patient starting ULT?",
     )
-
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     @classmethod
