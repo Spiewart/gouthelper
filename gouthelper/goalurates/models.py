@@ -90,7 +90,7 @@ class GoalUrate(
         else:
             return reverse("goalurates:detail", kwargs={"pk": self.pk})
 
-    def update(
+    def update_aid(
         self,
         qs: Union["GoalUrate", "User", None] = None,
     ) -> "GoalUrate":

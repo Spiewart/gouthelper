@@ -368,7 +368,7 @@ monosodium urate crystals on polarized microscopy?"
         # https://stackoverflow.com/questions/10880813/typeerror-sequence-item-0-expected-string-int-found
         return ", ".join([str(joint.label).lower() for joint in enum_list])
 
-    def update(self, qs: Union["Flare", "User", None] = None) -> "Flare":
+    def update_aid(self, qs: Union["Flare", "User", None] = None) -> "Flare":
         """Updates Flare prevalence and likelihood fields.
 
         args:

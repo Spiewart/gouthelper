@@ -513,10 +513,10 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
 class TestAidsJsonToTrtDict(TestCase):
     def test__converts_json_to_dict_simple(self):
         user_flareaid = FlareAidFactory()
-        user_flareaid.update()
+        user_flareaid.update_aid()
         user_flareaid.refresh_from_db()
         user_ppxaid = PpxAidFactory()
-        user_ppxaid.update()
+        user_ppxaid.update_aid()
         user_ppxaid.refresh_from_db()
         flareaid_json = user_flareaid.decisionaid
         flareaid_dict = aids_json_to_trt_dict(flareaid_json)
@@ -799,7 +799,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
         ckd = CkdFactory()
         ultaid = UltAidFactory()
         ultaid.medhistorys.add(ckd)
-        ultaid.update()
+        ultaid.update_aid()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict
         self.assertTrue(aid_dict[Treatments.PROBENECID]["contra"])
@@ -809,7 +809,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
         CkdDetailFactory(medhistory=ckd, stage=3)
         ultaid = UltAidFactory()
         ultaid.medhistorys.add(ckd)
-        ultaid.update()
+        ultaid.update_aid()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict
         self.assertTrue(aid_dict[Treatments.PROBENECID]["contra"])
@@ -819,7 +819,7 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
         CkdDetailFactory(medhistory=ckd, stage=2)
         ultaid = UltAidFactory()
         ultaid.medhistorys.add(ckd)
-        ultaid.update()
+        ultaid.update_aid()
         ultaid.refresh_from_db()
         aid_dict = ultaid.aid_dict
         self.assertFalse(aid_dict[Treatments.PROBENECID]["contra"])

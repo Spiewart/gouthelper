@@ -184,7 +184,7 @@ class Ppx(
                 if lab.date and lab.date > timezone.now() - timedelta(days=180)
             ]
 
-    def update(self, decisionaid: PpxDecisionAid | None = None, qs: Union["Ppx", None] = None) -> "Ppx":
+    def update_aid(self, decisionaid: PpxDecisionAid | None = None, qs: Union["Ppx", None] = None) -> "Ppx":
         """Updates the Ppx indication field.
 
         Args:

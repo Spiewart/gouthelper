@@ -1,7 +1,6 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
-from django.apps import apps  # type: ignore
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -12,11 +11,9 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
-from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import labs_eGFR_calculator, labs_stage_calculator
-from .managers import CreatinineManager, UrateManager
 
 if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
@@ -72,9 +69,6 @@ class BaselineLab(LabBase):
 
     medhistory = models.OneToOneField("medhistorys.MedHistory", on_delete=models.CASCADE)
 
-    def __str__(self):
-        return f"{self.labtype}: {self.value} {self.units}"
-
 
 class Lab(LabBase):
     class Meta:
@@ -95,27 +89,6 @@ class Lab(LabBase):
     )
     history = HistoricalRecords(inherit=True)
     objects = models.Manager()
-
-    def __str__(self):
-        return apps.get_model("labs", self.labtype).__str__(self)
-
-    def get_medhistorytype(
-        self,
-    ) -> MedHistoryTypes:
-        """Method that returns the medhistorytype that is specific for this lab and
-        its associated abnormality (HIGH or LOW).
-
-        Returns:
-            Literal[MedHistoryTypes]
-        """
-        model: Any = apps.get_model(f"labs.{self.labtype}")
-        method = model.get_medhistorytype
-        return method(self)
-
-    def medhistorytypes(self) -> list[MedHistoryTypes]:
-        model: Any = apps.get_model("labs", self.labtype)
-        method = model.medhistorytypes
-        return method(self)
 
     def var_x_high(
         self,
@@ -180,7 +153,6 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
     )
 
     history = HistoricalRecords()
-    objects = CreatinineManager()
 
     @cached_property
     def value_str(self) -> str:
@@ -197,10 +169,9 @@ class Urate(Lab):
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_ppx_exclusive",
                 check=(
-                    (models.Q(user__isnull=False) & models.Q(ppx__isnull=True))
-                    | models.Q(
-                        user__isnull=True,
-                    ),
+                    models.Q(user__isnull=False, ppx__isnull=True)
+                    | models.Q(user__isnull=True, ppx__isnull=False)
+                    | models.Q(user__isnull=True, ppx__isnull=True)
                 ),
             ),
             models.CheckConstraint(
@@ -230,8 +201,6 @@ class Urate(Lab):
         max_digits=3,
         decimal_places=1,
     )
-
-    objects = UrateManager()
 
     def __str__(self):
         return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"

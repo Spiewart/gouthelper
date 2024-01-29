@@ -249,6 +249,6 @@ class TestUltAid(TestCase):
     def test__update(self):
         ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
         self.assertEqual(ult.indication, Indications.NOTINDICATED)
-        ult.update()
+        ult.update_aid()
         ult.refresh_from_db()
         self.assertEqual(ult.indication, Indications.INDICATED)

@@ -5,7 +5,6 @@ from factory import Faker  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
 from ...medhistorys.tests.factories import CkdFactory
-from ..choices import LabTypes, LowerLimits, Units, UpperLimits
 from ..models import BaselineCreatinine, Hlab5801, Lab, Urate
 
 pytestmark = pytest.mark.django_db
@@ -37,10 +36,6 @@ class CreatinineBase(DjangoModelFactory):
         min_value=1,
         max_value=30,
     )
-    labtype = LabTypes.CREATININE
-    lower_limit = LowerLimits.CREATININEMGDL
-    units = Units.MGDL
-    upper_limit = UpperLimits.CREATININEMGDL
 
 
 class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
@@ -74,10 +69,6 @@ class UrateFactory(LabFactory):
         min_value=1,
         max_value=30,
     )
-    labtype = LabTypes.URATE
-    lower_limit = Urate.LowerLimits.URATEMGDL
-    units = Urate.Units.MGDL
-    upper_limit = Urate.UpperLimits.URATEMGDL
 
     class Meta:
         model = Urate

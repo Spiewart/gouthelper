@@ -197,14 +197,14 @@ class TestUltAidDecisionAid(TestCase):
     def test__process_allopurinol_hlab5801_returns_absolute_contraindication(self):
         hlab5801 = Hlab5801Factory()
         ultaid = UltAidFactory(hlab5801=hlab5801)
-        ultaid.update()
+        ultaid.update_aid()
         trt_dict = ultaid.aid_dict
         self.assertTrue(trt_dict[Treatments.ALLOPURINOL]["contra"])
 
     def test__process_febuxostat_with_ckd(self):
         self.userless_febuxostathypersensitivity.delete()
         self.userless_xoiinteraction.delete()
-        self.ultaid_userless.update()
+        self.ultaid_userless.update_aid()
         self.assertEqual(
             self.ultaid_userless.options[Treatments.FEBUXOSTAT]["dose"],
             FebuxostatDoses.TWENTY,
@@ -257,14 +257,14 @@ class TestUltAidDecisionAid(TestCase):
     def test__process_probenecid_with_ckd_2(self):
         self.userless_ckddetail.stage = Stages.TWO
         self.userless_ckddetail.save()
-        self.ultaid_userless.update()
+        self.ultaid_userless.update_aid()
         self.assertFalse(self.ultaid_userless.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__process_probenecid_with_ckd_3(self):
-        self.ultaid_userless.update()
+        self.ultaid_userless.update_aid()
         self.assertTrue(self.ultaid_userless.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__process_probenecid_with_ckd_no_stage(self):
         self.userless_ckddetail.delete()
-        self.ultaid_userless.update()
+        self.ultaid_userless.update_aid()
         self.assertTrue(self.ultaid_userless.aid_dict[Treatments.PROBENECID]["contra"])

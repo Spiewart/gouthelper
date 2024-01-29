@@ -66,7 +66,7 @@ class TestUltAid(TestCase):
 
     def test__aid_dict(self):
         self.assertFalse(self.ultaid.decisionaid)
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         self.assertTrue(self.ultaid.decisionaid)
         self.assertIn(
@@ -200,7 +200,7 @@ class TestUltAid(TestCase):
             (Treatments.ALLOPURINOL, self.ultaid.options[Treatments.ALLOPURINOL]),
         )
         self.ultaid.medhistorys.add(AllopurinolhypersensitivityFactory())
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
         self.assertEqual(
@@ -208,7 +208,7 @@ class TestUltAid(TestCase):
             (Treatments.FEBUXOSTAT, self.ultaid.options[Treatments.FEBUXOSTAT]),
         )
         self.ultaid.medhistorys.add(FebuxostathypersensitivityFactory())
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
         self.assertEqual(
@@ -218,7 +218,7 @@ class TestUltAid(TestCase):
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
         self.ultaid.medhistorys.add(ckd)
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
         self.assertIsNone(self.ultaid.recommendation)
@@ -234,7 +234,7 @@ class TestUltAid(TestCase):
 
     def test__update(self):
         self.assertFalse(self.ultaid.decisionaid)
-        self.assertTrue(isinstance(self.ultaid.update(), UltAid))
+        self.assertTrue(isinstance(self.ultaid.update_aid(), UltAid))
         self.ultaid.refresh_from_db()
         self.assertTrue(self.ultaid.decisionaid)
         self.assertIn(
@@ -260,7 +260,7 @@ class TestUltAidUpdate(TestCase):
     def test__allopurinolhypersensitivity_recommends_febuxostat(self):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
         self.ultaid.medhistorys.add(allopurinolhypersensitivity)
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])
         self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertEqual(Treatments.FEBUXOSTAT, self.ultaid.recommendation[0])
@@ -269,7 +269,7 @@ class TestUltAidUpdate(TestCase):
         allopurinolhypersensitivity = AllopurinolhypersensitivityFactory()
         febuxostathypersensitivity = FebuxostathypersensitivityFactory()
         self.ultaid.medhistorys.add(allopurinolhypersensitivity, febuxostathypersensitivity)
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])
         self.assertNotIn(Treatments.FEBUXOSTAT, self.ultaid.options)
@@ -280,7 +280,7 @@ class TestUltAidUpdate(TestCase):
         ckd = CkdFactory()
         CkdDetailFactory(stage=Stages.FOUR, dialysis=False, medhistory=ckd)
         self.ultaid.medhistorys.add(ckd)
-        self.ultaid.update()
+        self.ultaid.update_aid()
         self.assertIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertEqual(AllopurinolDoses.FIFTY, self.ultaid.options[Treatments.ALLOPURINOL]["dose"])
         self.assertEqual(AllopurinolDoses.FIFTY, self.ultaid.options[Treatments.ALLOPURINOL]["dose_adj"])

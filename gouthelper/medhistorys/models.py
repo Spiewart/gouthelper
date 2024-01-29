@@ -7,6 +7,15 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..medhistorys.lists import (
+    FLARE_MEDHISTORYS,
+    FLAREAID_MEDHISTORYS,
+    GOALURATE_MEDHISTORYS,
+    PPX_MEDHISTORYS,
+    PPXAID_MEDHISTORYS,
+    ULT_MEDHISTORYS,
+    ULTAID_MEDHISTORYS,
+)
 from ..utils.models import DecisionAidRelation, GoutHelperModel, TreatmentAidRelation
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
@@ -62,19 +71,29 @@ class MedHistory(
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_aid_exclusive",
                 check=(
-                    (
-                        models.Q(user__isnull=False)
-                        & models.Q(flare__isnull=True)
-                        & models.Q(flareaid__isnull=True)
-                        & models.Q(goalurate__isnull=True)
-                        & models.Q(ppxaid__isnull=True)
-                        & models.Q(ppx__isnull=True)
-                        & models.Q(ultaid__isnull=True)
-                        & models.Q(ult__isnull=True)
+                    models.Q(
+                        user__isnull=False,
+                        flare__isnull=True,
+                        flareaid__isnull=True,
+                        goalurate__isnull=True,
+                        ppxaid__isnull=True,
+                        ppx__isnull=True,
+                        ultaid__isnull=True,
+                        ult__isnull=True,
                     )
                     | models.Q(
                         user__isnull=True,
-                    ),
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        flare__isnull=True,
+                        flareaid__isnull=True,
+                        goalurate__isnull=True,
+                        ppxaid__isnull=True,
+                        ppx__isnull=True,
+                        ultaid__isnull=True,
+                        ult__isnull=True,
+                    )
                 ),
             ),
             models.CheckConstraint(
@@ -92,6 +111,92 @@ class MedHistory(
             models.UniqueConstraint(
                 fields=["user", "medhistorytype"],
                 name="%(app_label)s_%(class)s_unique_user",
+            ),
+            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
+            # MedHistory objects with medhistorytypes that are in their respective lists
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_flare_mhtype",
+                check=(
+                    models.Q(
+                        flare__isnull=False,
+                        medhistorytype__in=FLARE_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        flare__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_flareaid_mhtype",
+                check=(
+                    models.Q(
+                        flareaid__isnull=False,
+                        medhistorytype__in=FLAREAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        flareaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_goalurate_mhtype",
+                check=(
+                    models.Q(
+                        goalurate__isnull=False,
+                        medhistorytype__in=GOALURATE_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        goalurate__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ppx_mhtype",
+                check=(
+                    models.Q(
+                        ppx__isnull=False,
+                        medhistorytype__in=PPX_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ppx__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ppxaid_mhtype",
+                check=(
+                    models.Q(
+                        ppxaid__isnull=False,
+                        medhistorytype__in=PPXAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ppxaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ult_mhtype",
+                check=(
+                    models.Q(
+                        ult__isnull=False,
+                        medhistorytype__in=ULT_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ult__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ultaid_mhtype",
+                check=(
+                    models.Q(
+                        ultaid__isnull=False,
+                        medhistorytype__in=ULTAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ultaid__isnull=True,
+                    )
+                ),
             ),
             # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
             # one of each type of MedHistory

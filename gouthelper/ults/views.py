@@ -109,7 +109,7 @@ class UltCreate(UltBaseView, MedHistorysModelCreateView, SuccessMessageMixin):
             **kwargs,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         return HttpResponseRedirect(self.get_success_url())
 
     def post(self, request, *args, **kwargs):
@@ -160,7 +160,7 @@ class UltDetail(DetailView):
         ult: Ult = super().get_object(*args, **kwargs)  # type: ignore
         # Check if Ult is up to date and update if not update
         if not self.request.GET.get("updated", None):
-            ult.update(qs=ult)
+            ult.update_aid(qs=ult)
         return ult
 
     @property
@@ -201,7 +201,7 @@ class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):
             labs_to_remove=labs_to_remove,
         )
         # Update the object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 

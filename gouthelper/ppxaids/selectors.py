@@ -17,15 +17,7 @@ def medallergys_qs() -> "QuerySet":
     return apps.get_model("medallergys.MedAllergy").objects.filter(treatment__in=FlarePpxChoices.values).all()
 
 
-def medallergys_userless_prefetch() -> Prefetch:
-    return Prefetch(
-        "medallergys",
-        queryset=medallergys_qs(),
-        to_attr="medallergys_qs",
-    )
-
-
-def medallergys_user_prefetch() -> Prefetch:
+def medallergys_prefetch() -> Prefetch:
     return Prefetch(
         "medallergy_set",
         queryset=medallergys_qs(),
@@ -41,15 +33,7 @@ def medhistorys_qs() -> "QuerySet":
     ).all()
 
 
-def medhistorys_userless_prefetch() -> Prefetch:
-    return Prefetch(
-        "medhistorys",
-        queryset=medhistorys_qs(),
-        to_attr="medhistorys_qs",
-    )
-
-
-def medhistorys_user_prefetch() -> Prefetch:
+def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=medhistorys_qs(),
@@ -63,8 +47,8 @@ def ppxaid_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = queryset.select_related("user")
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistorys_userless_prefetch())
-    queryset = queryset.prefetch_related(medallergys_userless_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_prefetch())
+    queryset = queryset.prefetch_related(medallergys_prefetch())
     return queryset
 
 
@@ -74,6 +58,6 @@ def ppxaid_user_qs(username: str) -> "QuerySet":
     queryset = queryset.select_related("gender")
     queryset = queryset.select_related("ppxaid")
     queryset = queryset.select_related("defaultppxtrtsettings")
-    queryset = queryset.prefetch_related(medhistorys_user_prefetch())
-    queryset = queryset.prefetch_related(medallergys_user_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_prefetch())
+    queryset = queryset.prefetch_related(medallergys_prefetch())
     return queryset

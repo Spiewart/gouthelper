@@ -106,7 +106,7 @@ class TestFlareMethods(TestCase):
     def test__remove_medhistorys_removes_medhistory(self):
         ckd = CkdFactory()
         self.flare.medhistorys.add(ckd)
-        self.flare.update()
+        self.flare.update_aid()
         self.flare.refresh_from_db()
         self.flare.remove_medhistorys([ckd])
         self.assertNotIn(ckd, self.flare.medhistorys.all())
@@ -261,7 +261,7 @@ than treat the gout!",
     def test__update(self):
         self.assertIsNone(self.flare.prevalence)
         self.assertIsNone(self.flare.likelihood)
-        self.flare.update()
+        self.flare.update_aid()
         self.flare.refresh_from_db()
         self.assertIsNotNone(self.flare.prevalence)
         self.assertIsNotNone(self.flare.likelihood)
@@ -269,7 +269,7 @@ than treat the gout!",
     def test__update_with_kwarg(self):
         self.assertIsNone(self.flare.prevalence)
         self.assertIsNone(self.flare.likelihood)
-        self.assertEqual(self.flare, self.flare.update(qs=flare_userless_qs(pk=self.flare.pk)))
+        self.assertEqual(self.flare, self.flare.update_aid(qs=flare_userless_qs(pk=self.flare.pk)))
         self.flare.refresh_from_db()
         self.assertIsNotNone(self.flare.prevalence)
         self.assertIsNotNone(self.flare.likelihood)

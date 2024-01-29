@@ -3,22 +3,21 @@ from django.test import TestCase  # type: ignore
 
 from ...defaults.models import DefaultPpxTrtSettings
 from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
-from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
 from ...utils.helpers.aid_helpers import aids_json_to_trt_dict
 from ..models import PpxAid
-from .factories import PpxAidFactory, PpxAidUserFactory
+from .factories import create_ppxaid
 
 pytestmark = pytest.mark.django_db
 
 
 class TestPpxAidMethods(TestCase):
     def setUp(self):
-        self.ppxaid = PpxAidFactory()
-        self.empty_ppxaid = PpxAidFactory(medallergys=[], medhistorys=[])
-        self.user_ppxaid = PpxAidUserFactory()
+        self.ppxaid = create_ppxaid()
+        self.empty_ppxaid = create_ppxaid(medallergys=[], medhistorys=[])
+        self.user_ppxaid = create_ppxaid(user=True)
 
     def test__aid_dict(self):
         # Test when decisionaid is empty
@@ -63,63 +62,11 @@ class TestPpxAidMethods(TestCase):
         delattr(self.user_ppxaid, "defaulttrtsettings")
         self.assertEqual(self.user_ppxaid.defaulttrtsettings, user_defaults)
 
-    def test__add_medallergys(self):
-        """Test that adding a medallergy works."""
-        # Create a PpxAid without any medallergys
-        ppxaid = PpxAidFactory(medallergys=[])
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=ppxaid.medallergys.all())
-        ppxaid.refresh_from_db()
-        self.assertIn(colch_allergy, ppxaid.medallergys.all())
-
-    def test__add_multiple_medallergys(self):
-        """Test that adding multiple medallergys works."""
-        # Create a PpxAid without any medallergys
-        ppxaid = PpxAidFactory(medallergys=[])
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        ppxaid.add_medallergys(medallergys=[colch_allergy, pred_allergy], medallergys_qs=ppxaid.medallergys.all())
-        ppxaid.refresh_from_db()
-        self.assertIn(colch_allergy, ppxaid.medallergys.all())
-        self.assertIn(pred_allergy, ppxaid.medallergys.all())
-
-    def test__add_medallergys_duplicates_raises_TypeError(self):
-        """Test that adding duplicate medallergys raises TypeError"""
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid = PpxAidFactory(medallergys=[colch_allergy])
-        with self.assertRaises(TypeError):
-            ppxaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=ppxaid.medallergys.all())
-
-    def test__remove_medallergys(self):
-        """Test that removing a medallergy works."""
-        # Create a PpxAid with a colchicine allergy
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ppxaid = PpxAidFactory(medallergys=[colch_allergy])
-        ppxaid.remove_medallergys([colch_allergy])
-        ppxaid.refresh_from_db()
-        self.assertFalse(ppxaid.medallergys.all())
-
-    def test__remove_multiple_medallergys(self):
-        """Test that removing multiple medallergys works."""
-        # Create a PpxAid with a colchicine allergy and a prednisone allergy
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        ppxaid = PpxAidFactory(
-            medallergys=[
-                colch_allergy,
-                pred_allergy,
-            ]
-        )
-        self.ppxaid.remove_medallergys([colch_allergy, pred_allergy])
-        self.ppxaid.refresh_from_db()
-        self.assertNotIn(colch_allergy, ppxaid.medallergys.all())
-        self.assertNotIn(pred_allergy, ppxaid.medallergys.all())
-
     def test__options(self):
         """Test options includes all the standard prophylactic treatments for a
         PpxAid without any medhistorys or medallergys."""
         # Create a PpxAid with no medhistorys or medallergys
-        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
         self.assertTrue(ppxaid.options)
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
@@ -133,7 +80,7 @@ class TestPpxAidMethods(TestCase):
         self.assertIn(Treatments.NAPROXEN, self.empty_ppxaid.recommendation)
 
     def test__less_simple_recommendation(self):
-        self.empty_ppxaid.medhistorys.add(CkdFactory())
+        CkdFactory(ppxaid=self.empty_ppxaid)
         self.assertTrue(self.empty_ppxaid.recommendation)
         self.assertNotIn(Treatments.NAPROXEN, self.empty_ppxaid.recommendation)
         self.assertIn(Treatments.PREDNISONE, self.empty_ppxaid.recommendation)
@@ -142,7 +89,7 @@ class TestPpxAidMethods(TestCase):
 
     def test__update(self):
         self.assertFalse(self.ppxaid.decisionaid)
-        self.assertIsInstance(self.ppxaid.update(), PpxAid)
+        self.assertIsInstance(self.ppxaid.update_aid(), PpxAid)
         self.ppxaid.refresh_from_db()
         self.assertTrue(self.ppxaid.decisionaid)
 
@@ -151,3 +98,16 @@ class TestPpxAidMethods(TestCase):
 
         self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
         self.assertEqual(str(self.user_ppxaid), f"{self.user_ppxaid.user.username.capitalize()}'s PpxAid")
+
+    def test__test(self):
+        ppxaid = create_ppxaid()
+        print(ppxaid)
+        print(ppxaid.user)
+        print(ppxaid.medhistorys_qs)
+        print(ppxaid.medhistory_set.all())
+        print(ppxaid.medallergys_qs)
+        print(ppxaid.medallergy_set.all())
+        print(ppxaid.dateofbirth)
+        print(ppxaid.gender)
+        print(ppxaid.ckddetail)
+        assert 1 == 2

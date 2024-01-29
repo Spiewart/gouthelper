@@ -1,16 +1,21 @@
 import random
 from typing import TYPE_CHECKING, Any, Union
 
+from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...ethnicitys.choices import Ethnicitys
 from ...genders.choices import Genders
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
+from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+from ...medhistorydetails.tests.factories import create_ckddetail
 from ...medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import OTHER_NSAID_CONTRAS
+from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import NsaidChoices, Treatments
+from ...users.tests.factories import create_psp
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
@@ -129,10 +134,6 @@ def update_ckddetail_data(ckddetail: "CkdDetail", data: dict) -> None:
             "stage": ckddetail.stage,
         }
     )
-    print(ckddetail.dialysis)
-    print(ckddetail.dialysis_duration)
-    print(DialysisDurations)
-    print(data)
 
 
 class DataMixin:
@@ -276,7 +277,7 @@ class MedAllergyDataMixin(DataMixin):
             try:
                 ma_qs = self.aid_obj.medallergy_qs
             except AttributeError:
-                ma_qs = self.aid_obj.medallergys.filter(treatment__in=self.medallergys).all()
+                ma_qs = self.aid_obj.medallergy_set.filter(treatment__in=self.medallergys).all()
         else:
             ma_qs = None
         if ma_qs:
@@ -307,6 +308,108 @@ class OneToOneDataMixin(DataMixin):
 
     def create(self):
         return self.create_oto_data()
+
+
+class CreateAidMixin:
+    def __init__(
+        self,
+        # If the medallergys list is not specified, then it will be the Default list
+        medallergys: list[Treatments] = None,
+        # If the medhistorys list is not specified, then it will be the Default list
+        medhistorys: list[MedHistoryTypes] = None,
+        mh_details: list[MedHistoryTypes] = None,
+        onetoones: list[tuple[str, DjangoModelFactory]] = None,
+        req_onetoones: list[str] = None,
+        user: Union["User", bool] = None,
+    ):
+        self.medallergys = medallergys
+        self.medhistorys = medhistorys
+        self.mh_details = mh_details
+        self.onetoones = onetoones
+        self.req_onetoones = req_onetoones
+        # Check for equality, not Truthiness, because a User object could be Truthy
+        if user is True:
+            self.user = create_psp()
+        else:
+            self.user = user
+        print(self.user)
+
+
+class MedAllergyCreatorMixin(CreateAidMixin):
+    """Mixin for creating MedAllergy objects to add to an Aid object."""
+
+    def create_mas(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
+        # Check if the medallergy list is the Default list or a specified list
+        specified = self.medallergys != aid_obj.aid_treatments()
+        # Set the medallergys_qs on the Aid object
+        aid_obj.medallergys_qs = []
+        if self.medallergys:
+            for treatment in self.medallergys:
+                if specified or fake.boolean():
+                    aid_obj.medallergys_qs.append(
+                        MedAllergyFactory(
+                            treatment=treatment, user=self.user, **{aid_obj_attr: aid_obj} if not self.user else {}
+                        )
+                    )
+
+
+class MedHistoryCreatorMixin(CreateAidMixin):
+    """Mixin for creating MedHistory and MedHistoryDetail objects to
+    add to an Aid object."""
+
+    def create_mhs(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+        """Method that creates MedHistory objects with a ForeignKey to the Aid object."""
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
+        # Check if the medhistory list is the Default list or a specified list
+        specified = self.medhistorys != aid_obj.aid_medhistorys()
+        # Set the medhistorys_qs on the Aid object
+        aid_obj.medhistorys_qs = []
+        if self.medhistorys:
+            for medhistory in self.medhistorys:
+                # If the medhistory is specified or 50/50 chance, create the MedHistory object
+                if specified or fake.boolean():
+                    new_mh = MedHistoryFactory(
+                        medhistorytype=medhistory, user=self.user, **{aid_obj_attr: aid_obj} if not self.user else {}
+                    )
+                    # Add the MedHistory object to the Aid object's medhistorys_qs
+                    aid_obj.medhistorys_qs.append(new_mh)
+                    if medhistory == MedHistoryTypes.CKD and MedHistoryTypes.CKD in self.mh_details:
+                        if self.user:
+                            create_ckddetail(
+                                medhistory=new_mh,
+                                dateofbirth=self.user.dateofbirth.value
+                                if getattr(self.user, "dateofbirth", None)
+                                else None,
+                                gender=self.user.gender.value if getattr(self.user, "gender", None) else None,
+                            )
+                        else:
+                            create_ckddetail(
+                                medhistory=new_mh,
+                                dateofbirth=aid_obj.dateofbirth.value
+                                if getattr(aid_obj, "dateofbirth", None)
+                                else None,
+                                gender=aid_obj.gender.value if getattr(aid_obj, "gender", None) else None,
+                            )
+
+
+class OneToOneCreatorMixin(CreateAidMixin):
+    """Method that creates related OneToOne objects for an Aid object."""
+
+    def create_otos(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
+        if self.user:
+            # If there's a user, assign that user to the Aid object
+            aid_obj.user = self.user
+            for onetoone, factory in self.onetoones:
+                if onetoone in self.req_onetoones or fake.boolean():
+                    if not getattr(self.user, onetoone, None):
+                        setattr(self.user, onetoone, factory(user=self.user))
+        else:
+            for onetoone, factory in self.onetoones:
+                if onetoone in self.req_onetoones or fake.boolean():
+                    if not getattr(aid_obj, onetoone, None):
+                        setattr(aid_obj, onetoone, factory(**{aid_obj_attr: aid_obj}))
 
 
 def form_data_colchicine_contra(data: dict, user: "User") -> Contraindications | None:

@@ -94,7 +94,7 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
             **kwargs,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         # If request is an htmx request, return HttpResponseClientRefresh
         # Will reload related model DetailPage
         if self.request.htmx:
@@ -186,7 +186,7 @@ class GoalUrateDetail(GoalUrateDetailBase):
         else:
             # Check if FlareAid is up to date and update if not update
             if not request.GET.get("updated", None):
-                self.object.update(qs=self.object)
+                self.object.update_aid(qs=self.object)
                 return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -236,7 +236,7 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
         # Update the DecisionAidModel by calling the update method with the QuerySet
         # of the object, which will hopefully have been annotated by the view to
         # include the related models
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         if self.request.htmx:
             return HttpResponseClientRefresh()
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
@@ -373,7 +373,7 @@ class GoalUratePseudopatientCreate(
         # can be used as the QuerySet for the update method
         self.user.goalurate = goalurate
         # Update object / form instance
-        goalurate.update(qs=self.user)
+        goalurate.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(goalurate.get_absolute_url() + "?updated=True")
 
@@ -451,7 +451,7 @@ class GoalUratePseudopatientDetail(AutoPermissionRequiredMixin, GoalUrateDetailB
         """Updates the objet prior to rendering the view."""
         # Check if GoalUrate is up to date and update if not update
         if not request.GET.get("updated", None):
-            self.object.update(qs=self.object)
+            self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
@@ -527,7 +527,7 @@ class GoalUratePseudopatientUpdate(
         # can be used as the QuerySet for the update method
         self.user.goalurate = goalurate
         # Update object / form instance
-        goalurate.update(qs=self.user)
+        goalurate.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(goalurate.get_absolute_url() + "?updated=True")
 

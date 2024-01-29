@@ -171,7 +171,7 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
             **kwargs,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         return HttpResponseRedirect(self.get_success_url())
 
     def post(self, request, *args, **kwargs):
@@ -249,7 +249,7 @@ class FlareDetail(FlareDetailBase):
         else:
             # Check if Flare is up to date and update if not update
             if not request.GET.get("updated", None):
-                self.object.update(qs=self.object)
+                self.object.update_aid(qs=self.object)
             return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -383,7 +383,7 @@ class FlarePseudopatientCreate(
         flare = form.save()
         self.user.flare_qs = flare
         # Update object / form instance
-        flare.update(qs=self.user)
+        flare.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(flare.get_absolute_url() + "?updated=True")
 
@@ -588,7 +588,7 @@ class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
     def get(self, request, *args, **kwargs):
         # Check if Flare is up to date and update if not update
         if not request.GET.get("updated", None):
-            self.object.update(qs=self.object)
+            self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
@@ -704,7 +704,7 @@ class FlarePseudopatientUpdate(
             flare = form.instance
         self.user.flare_qs = flare
         # Update object / form instance
-        flare.update(qs=self.user)
+        flare.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(flare.get_absolute_url() + "?updated=True")
 
@@ -920,7 +920,7 @@ class FlareUpdate(FlareBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             labs_to_remove=labs_to_remove,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 

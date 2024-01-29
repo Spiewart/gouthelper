@@ -1318,7 +1318,7 @@ class TestFlarePseudopatientDetail(TestCase):
             date_ended=timezone.now().date() - timedelta(days=5),
             diagnosed=False,
         )
-        flare.update(qs=flare_user_qs(psp.username, flare.pk))
+        flare.update_aid(qs=flare_user_qs(psp.username, flare.pk))
         flare.refresh_from_db()
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
         self.assertEqual(flare.prevalence, Prevalences.LOW)
@@ -2395,7 +2395,7 @@ class TestFlareUpdate(TestCase):
             urate=UrateFactory(value=Decimal("5.0")),
             diagnosed=False,
         )
-        flare.update()
+        flare.update_aid()
         flare.refresh_from_db()
         self.assertEqual(flare.prevalence, Prevalences.LOW)
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
@@ -2428,7 +2428,7 @@ class TestFlareUpdate(TestCase):
             diagnosed=False,
         )
         flare.medhistorys.add(MenopauseFactory())
-        flare.update()
+        flare.update_aid()
         flare.refresh_from_db()
         self.assertEqual(flare.prevalence, Prevalences.LOW)
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)

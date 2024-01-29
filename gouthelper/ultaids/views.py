@@ -143,7 +143,7 @@ class UltAidCreate(UltAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
             **kwargs,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         return HttpResponseRedirect(self.get_success_url())
 
     def post(self, request, *args, **kwargs):
@@ -196,10 +196,10 @@ class UltAidDetail(DetailView):
         if hasattr(ultaid, "goalurate"):
             ultaid.goalurate.medhistorys_qs = ultaid.goalurate.medhistorys.all()
             if not self.request.GET.get("goalurate_updated", None):
-                ultaid.goalurate.update(qs=ultaid.goalurate)
+                ultaid.goalurate.update_aid(qs=ultaid.goalurate)
         # Check if UltAid is up to date and update if not update
         if not self.request.GET.get("updated", None):
-            ultaid.update(qs=ultaid)
+            ultaid.update_aid(qs=ultaid)
         return ultaid
 
     @property
@@ -240,7 +240,7 @@ class UltAidUpdate(UltAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             labs_to_remove=labs_to_remove,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 

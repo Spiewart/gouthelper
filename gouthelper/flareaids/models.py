@@ -89,7 +89,7 @@ class FlareAid(
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
         if not self.decisionaid:
-            self.decisionaid = self.update().decisionaid
+            self.decisionaid = self.update_aid().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
 
     @classmethod
@@ -153,7 +153,7 @@ class FlareAid(
                         except KeyError:
                             return None
 
-    def update(self, qs: Union["FlareAid", "User", None] = None) -> "FlareAid":
+    def update_aid(self, qs: Union["FlareAid", "User", None] = None) -> "FlareAid":
         """Updates FlareAid decisionaid JSON field field.
 
         Args:

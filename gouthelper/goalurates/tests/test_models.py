@@ -72,7 +72,7 @@ class TestGoalUrateMethods(TestCase):
         goal_urate = GoalUrateFactory()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
         goal_urate.medhistorys.add(tophi)
-        goal_urate.update()
+        goal_urate.update_aid()
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
@@ -82,7 +82,7 @@ class TestGoalUrateMethods(TestCase):
         goal_urate.refresh_from_db()
         goal_urate.medhistorys.filter(medhistorytype=MedHistoryTypes.TOPHI).delete()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
-        goal_urate.update()
+        goal_urate.update_aid()
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
@@ -91,14 +91,14 @@ class TestGoalUrateMethods(TestCase):
         goal_urate = GoalUrateFactory()
         goal_urate.medhistorys.add(tophi)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
-        goal_urate.update()
+        goal_urate.update_aid()
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
     def test__update_without_user_raises_goal_urate(self):
         goal_urate = GoalUrateFactory(goal_urate=GoalUrates.FIVE, tophi=False, erosions=False)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
-        goal_urate.update()
+        goal_urate.update_aid()
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
@@ -109,7 +109,7 @@ class TestGoalUrateMethods(TestCase):
         goal_urate.medhistorys.add(tophi)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
         qs = goalurate_userless_qs(goal_urate.pk)
-        goal_urate.update(qs=qs.get())
+        goal_urate.update_aid(qs=qs.get())
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
@@ -119,11 +119,11 @@ class TestGoalUrateMethods(TestCase):
         goal_urate.remove_medhistorys(medhistorys=[goal_urate.tophi])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
         qs = goalurate_userless_qs(goal_urate.pk)
-        goal_urate.update(qs=qs.get())
+        goal_urate.update_aid(qs=qs.get())
         goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__update_with_qs_5_queries(self):
         goal_urate = GoalUrateFactory(tophi=True, erosions=False)
         with self.assertNumQueries(6):
-            goal_urate.update(qs=goalurate_userless_qs(goal_urate.pk).get())
+            goal_urate.update_aid(qs=goalurate_userless_qs(goal_urate.pk).get())

@@ -167,7 +167,7 @@ class TestPpx(TestCase):
         self.ppx.medhistorys.add(self.gout)
         self.ppx.starting_ult = True
         self.ppx.save()
-        self.assertTrue(isinstance(self.ppx.update(), Ppx))
+        self.assertTrue(isinstance(self.ppx.update_aid(), Ppx))
         self.ppx.refresh_from_db()
         self.assertEqual(self.ppx.indication, self.ppx.Indications.INDICATED)
 

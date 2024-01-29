@@ -144,7 +144,7 @@ class FlareAidCreate(FlareAidBase, MedHistorysModelCreateView, SuccessMessageMix
             **kwargs,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         return HttpResponseRedirect(self.get_success_url())
 
     def post(self, request, *args, **kwargs):
@@ -246,7 +246,7 @@ class FlareAidPseudopatientCreate(
         # can be used as the QuerySet for the update method
         self.user.flareaid = flareaid
         # Update object / form instance
-        flareaid.update(qs=self.user)
+        flareaid.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
 
@@ -352,7 +352,7 @@ class FlareAidPseudopatientUpdate(
         # can be used as the QuerySet for the update method
         self.user.flareaid = flareaid
         # Update object / form instance
-        flareaid.update(qs=self.user)
+        flareaid.update_aid(qs=self.user)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
 
@@ -436,7 +436,7 @@ class FlareAidDetail(FlareAidDetailBase):
         else:
             # Check if FlareAid is up to date and update if not update
             if not request.GET.get("updated", None):
-                self.object.update(qs=self.object)
+                self.object.update_aid(qs=self.object)
             return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -479,7 +479,7 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
         """Updates the objet prior to rendering the view."""
         # Check if FlareAid is up to date and update if not update
         if not request.GET.get("updated", None):
-            self.object.update(qs=self.object)
+            self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
@@ -539,7 +539,7 @@ class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMix
             labs_to_remove=labs_to_remove,
         )
         # Update object / form instance
-        self.object.update(qs=self.object)
+        self.object.update_aid(qs=self.object)
         # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
         return HttpResponseRedirect(self.get_success_url() + "?updated=True")
 

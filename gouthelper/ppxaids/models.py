@@ -90,7 +90,7 @@ class PpxAid(
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
         if not self.decisionaid:
-            self.decisionaid = self.update().decisionaid
+            self.decisionaid = self.update_aid().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
 
     @classmethod
@@ -148,7 +148,7 @@ class PpxAid(
                         except KeyError:
                             return None
 
-    def update(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
+    def update_aid(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
         """Updates PpxAid decisionaid JSON field field.
 
         Args:

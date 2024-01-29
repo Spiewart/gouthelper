@@ -95,7 +95,7 @@ class UltAid(
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
         if not self.decisionaid:
-            self.decisionaid = self.update().decisionaid
+            self.decisionaid = self.update_aid().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
 
     def get_absolute_url(self):
@@ -166,7 +166,7 @@ class UltAid(
         except AttributeError:
             return False
 
-    def update(self, decisionaid: UltAidDecisionAid | None = None, qs: Union["UltAid", None] = None) -> "UltAid":
+    def update_aid(self, decisionaid: UltAidDecisionAid | None = None, qs: Union["UltAid", None] = None) -> "UltAid":
         """Updates UltAid decisionaid JSON  field.
 
         Args:

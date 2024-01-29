@@ -6,7 +6,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import Treatments
+from ..treatments.choices import FlarePpxChoices, Treatments, UltChoices
 from ..utils.models import GoutHelperModel, TreatmentAidRelation
 
 
@@ -34,15 +34,57 @@ class MedAllergy(
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_aid_exclusive",
                 check=(
-                    (
-                        models.Q(user__isnull=False)
-                        & models.Q(flareaid__isnull=True)
-                        & models.Q(ppxaid__isnull=True)
-                        & models.Q(ultaid__isnull=True)
+                    models.Q(
+                        user__isnull=False,
+                        flareaid__isnull=True,
+                        ppxaid__isnull=True,
+                        ultaid__isnull=True,
                     )
                     | models.Q(
                         user__isnull=True,
-                    ),
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        flareaid__isnull=True,
+                        ppxaid__isnull=True,
+                        ultaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_flareaid_treatment",
+                check=(
+                    models.Q(
+                        flareaid__isnull=False,
+                        treatment__in=FlarePpxChoices.values,
+                    )
+                    | models.Q(
+                        flareaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ppxaid_treatment",
+                check=(
+                    models.Q(
+                        ppxaid__isnull=False,
+                        treatment__in=FlarePpxChoices.values,
+                    )
+                    | models.Q(
+                        ppxaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ultaid_treatment",
+                check=(
+                    models.Q(
+                        ultaid__isnull=False,
+                        treatment__in=UltChoices.values,
+                    )
+                    | models.Q(
+                        ultaid__isnull=True,
+                    )
                 ),
             ),
             # Each user can only have one allergy for each treatment

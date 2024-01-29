@@ -246,7 +246,7 @@ class TestPpxAidMethods(TestCase):
         ppxaid.add_medhistorys([ckd], [])
 
         # Update the PpxAid
-        ppxaid.update()
+        ppxaid.update_aid()
 
         # Refresh the ppxaid from the database in order to update the decisionaid field
         ppxaid.refresh_from_db()
@@ -285,7 +285,7 @@ class TestPpxAidMethods(TestCase):
         default_ppx_trt_settings.save()
 
         # Update the PpxAid
-        ppxaid.update()
+        ppxaid.update_aid()
 
         # Refresh the ppxaid from the database in order to update the decisionaid field
         ppxaid.refresh_from_db()
@@ -308,7 +308,7 @@ class TestPpxAidMethods(TestCase):
         self.assertEqual({}, ppxaid.decisionaid)
 
         # Update the PpxAid and refresh from the database
-        ppxaid.update()
+        ppxaid.update_aid()
         ppxaid.refresh_from_db()
 
         # Assert that the decisionaid field is not empty, should be a str because it's a JSONField

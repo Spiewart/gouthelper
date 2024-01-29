@@ -97,7 +97,7 @@ class TestFlareAidCreate(TestCase):
         # Count the MedHistorys
         mh_count = MedHistory.objects.count()
 
-        self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
+        self.flareaid_data.update_aid({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
@@ -113,8 +113,8 @@ class TestFlareAidCreate(TestCase):
     def test__post_creates_medhistorys(self):
         # Count the number of MedHistorys before the post
         mh_count = MedHistory.objects.count()
-        self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
-        self.flareaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
+        self.flareaid_data.update_aid({f"{MedHistoryTypes.STROKE}-value": True})
+        self.flareaid_data.update_aid({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         tests_print_response_form_errors(response)
         self.assertTrue(FlareAid.objects.get())
@@ -132,7 +132,7 @@ class TestFlareAidCreate(TestCase):
     def test__post_creates_ckddetail(self):
         # Count the number of CkdDetails
         ckddetail_count = CkdDetail.objects.count()
-        self.flareaid_data.update(
+        self.flareaid_data.update_aid(
             {
                 f"{MedHistoryTypes.CKD}-value": True,
                 "dialysis": True,

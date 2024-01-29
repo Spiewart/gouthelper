@@ -122,7 +122,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_allopurinolhypersensitivity(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY).all()
                     )
                 else:
                     return medhistorys_get_allopurinolhypersensitivity(
@@ -145,7 +145,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.ANGINA).all(), MedHistoryTypes.ANGINA
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).all(), MedHistoryTypes.ANGINA
                     )
                 else:
                     return medhistorys_get(
@@ -167,7 +167,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_anticoagulation(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.ANTICOAGULATION).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANTICOAGULATION).all()
                     )
                 else:
                     return medhistorys_get_anticoagulation(
@@ -199,7 +199,9 @@ class DecisionAidModel(models.Model):
         except AttributeError:
             if hasattr(self, "user"):
                 if not self.user:
-                    return medhistorys_get_bleed(self.medhistorys.filter(medhistorytype=MedHistoryTypes.BLEED).all())
+                    return medhistorys_get_bleed(
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.BLEED).all()
+                    )
                 else:
                     return medhistorys_get_bleed(
                         self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.BLEED).all()
@@ -217,7 +219,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.CAD).all(), MedHistoryTypes.CAD
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).all(), MedHistoryTypes.CAD
                     )
                 else:
                     return medhistorys_get(
@@ -238,7 +240,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.CHF).all(), MedHistoryTypes.CHF
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CHF).all(), MedHistoryTypes.CHF
                     )
                 else:
                     return medhistorys_get(
@@ -259,7 +261,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_ckd(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.CKD)
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD)
                         .select_related("ckddetail", "baselinecreatinine")
                         .all()
                     )
@@ -327,7 +329,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_colchicineinteraction(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).all()
                     )
                 else:
                     return medhistorys_get_colchicineinteraction(
@@ -384,7 +386,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_diabetes(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.DIABETES).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.DIABETES).all()
                     )
                 else:
                     return medhistorys_get_diabetes(
@@ -428,7 +430,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_erosions(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.EROSIONS).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).all()
                     )
                 else:
                     return medhistorys_get_erosions(
@@ -476,7 +478,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_febuxostathypersensitivity(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY).all()
                     )
                 else:
                     return medhistorys_get_febuxostathypersensitivity(
@@ -499,7 +501,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_gastricbypass(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS).all()
                     )
                 else:
                     return medhistorys_get_gastricbypass(
@@ -519,7 +521,7 @@ class DecisionAidModel(models.Model):
         except AttributeError:
             if hasattr(self, "user"):
                 if not self.user:
-                    return medhistorys_get_gout(self.medhistorys.filter(medhistorytype=MedHistoryTypes.GOUT).all())
+                    return medhistorys_get_gout(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).all())
                 else:
                     return medhistorys_get_gout(
                         self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).all()
@@ -548,7 +550,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.HEARTATTACK).all(),
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HEARTATTACK).all(),
                         MedHistoryTypes.HEARTATTACK,
                     )
                 else:
@@ -582,7 +584,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.HYPERTENSION).all(),
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERTENSION).all(),
                         MedHistoryTypes.HYPERTENSION,
                     )
                 else:
@@ -606,7 +608,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_hyperuricemia(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.HYPERURICEMIA).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERURICEMIA).all()
                     )
                 else:
                     return medhistorys_get_hyperuricemia(
@@ -626,7 +628,7 @@ class DecisionAidModel(models.Model):
         except AttributeError:
             if hasattr(self, "user"):
                 if not self.user:
-                    return medhistorys_get_ibd(self.medhistorys.filter(medhistorytype=MedHistoryTypes.IBD).all())
+                    return medhistorys_get_ibd(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).all())
                 else:
                     return medhistorys_get_ibd(
                         self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).all()
@@ -644,7 +646,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_menopause(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all()
                     )
                 else:
                     return medhistorys_get_menopause(
@@ -722,7 +724,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_organtransplant(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT).all()
                     )
                 else:
                     return medhistorys_get_organtransplant(
@@ -743,7 +745,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_other_nsaid_contras(
-                        self.medhistorys.filter(medhistorytype__in=OTHER_NSAID_CONTRAS).all()
+                        self.medhistory_set.filter(medhistorytype__in=OTHER_NSAID_CONTRAS).all()
                     )
                 else:
                     return medhistorys_get_other_nsaid_contras(
@@ -809,7 +811,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.PVD).all(), MedHistoryTypes.PVD
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.PVD).all(), MedHistoryTypes.PVD
                     )
                 else:
                     return medhistorys_get(
@@ -855,7 +857,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.STROKE).all(), MedHistoryTypes.STROKE
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.STROKE).all(), MedHistoryTypes.STROKE
                     )
                 else:
                     return medhistorys_get(
@@ -876,7 +878,9 @@ class DecisionAidModel(models.Model):
         except AttributeError:
             if hasattr(self, "user"):
                 if not self.user:
-                    return medhistorys_get_tophi(self.medhistorys.filter(medhistorytype=MedHistoryTypes.TOPHI).all())
+                    return medhistorys_get_tophi(
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).all()
+                    )
                 else:
                     return medhistorys_get_tophi(
                         self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).all()
@@ -894,7 +898,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_uratestones(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.URATESTONES).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.URATESTONES).all()
                     )
                 else:
                     return medhistorys_get_uratestones(
@@ -915,7 +919,7 @@ class DecisionAidModel(models.Model):
             if hasattr(self, "user"):
                 if not self.user:
                     return medhistorys_get_xoiinteraction(
-                        self.medhistorys.filter(medhistorytype=MedHistoryTypes.XOIINTERACTION).all()
+                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.XOIINTERACTION).all()
                     )
                 else:
                     return medhistorys_get_xoiinteraction(
@@ -946,31 +950,27 @@ class DecisionAidRelation(models.Model):
     class Meta:
         abstract = True
 
-    flare = models.OneToOneField(
+    flare = models.ForeignKey(
         "flares.Flare",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
-    goalurate = models.OneToOneField(
+    goalurate = models.ForeignKey(
         "goalurates.GoalUrate",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
-    ppx = models.OneToOneField(
+    ppx = models.ForeignKey(
         "ppxs.Ppx",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
-    ult = models.OneToOneField(
+    ult = models.ForeignKey(
         "ults.Ult",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
@@ -982,24 +982,21 @@ class TreatmentAidRelation(models.Model):
     class Meta:
         abstract = True
 
-    flareaid = models.OneToOneField(
+    flareaid = models.ForeignKey(
         "flareaids.FlareAid",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
-    ppxaid = models.OneToOneField(
+    ppxaid = models.ForeignKey(
         "ppxaids.PpxAid",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )
-    ultaid = models.OneToOneField(
+    ultaid = models.ForeignKey(
         "ultaids.UltAid",
         on_delete=models.SET_NULL,
-        related_name="%(class)s",
         null=True,
         blank=True,
     )

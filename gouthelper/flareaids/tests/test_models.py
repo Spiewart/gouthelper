@@ -123,11 +123,11 @@ class TestFlareAid(TestCase):
         self.flareaid.medhistorys.add(heartattack)
         # Need to delete flareaid cached_properties to get new recommendation
         # Would not happen in the view as the cache would be reset
-        self.flareaid = self.flareaid.update()
+        self.flareaid = self.flareaid.update_aid()
         self.assertIn(heartattack, self.flareaid.medhistorys.all())
         self.assertEqual(self.flareaid.recommendation[0], Treatments.COLCHICINE)
         self.flareaid.medhistorys.add(ColchicineinteractionFactory())
-        self.flareaid = self.flareaid.update()
+        self.flareaid = self.flareaid.update_aid()
         self.assertEqual(self.flareaid.recommendation[0], Treatments.PREDNISONE)
 
     def test__remove_medallergys_single(self):
@@ -147,6 +147,6 @@ class TestFlareAid(TestCase):
 
     def test__update(self):
         self.assertFalse(self.flareaid.decisionaid)
-        self.flareaid.update()
+        self.flareaid.update_aid()
         self.flareaid.refresh_from_db()
         self.assertTrue(self.flareaid.decisionaid)
