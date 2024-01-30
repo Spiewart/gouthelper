@@ -114,13 +114,13 @@ class UltAid(
         """Returns True if patient has a contraindication to any ULT Treatments."""
         return (
             self.allopurinolhypersensitivity
-            or self.allopurinol_allergys
+            or self.allopurinol_allergy
             or self.xoiinteraction
             or self.hlab5801_contra
             or self.febuxostathypersensitivity
-            or self.febuxostat_allergys
+            or self.febuxostat_allergy
             or self.probenecid_ckd_contra
-            or self.probenecid_allergys
+            or self.probenecid_allergy
         )
 
     @cached_property

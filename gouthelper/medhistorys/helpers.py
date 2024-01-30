@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
 from .choices import CVDiseases, MedHistoryTypes
-from .lists import OTHER_NSAID_CONTRAS
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
@@ -21,7 +20,7 @@ def medhistorys_get(
         return next(
             iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]), False
         )
-    if isinstance(medhistorytype, list):
+    elif isinstance(medhistorytype, list):
         return [medhistory for medhistory in medhistorys if medhistory.medhistorytype in medhistorytype]
     else:
         return False
@@ -115,19 +114,3 @@ def medhistorys_get_default_medhistorytype(medhistory: "MedHistory") -> MedHisto
         raise (
             ValueError(f"MedHistoryType for {medhistory._meta.model.__name__.upper()} not found in MedHistoryTypes.")
         ) from e
-
-
-def medhistorys_get_nsaid_contras(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
-) -> bool | list["MedHistory"]:
-    NSAID_CONTRAS = CVDiseases.values + OTHER_NSAID_CONTRAS
-    contras = [medhistory for medhistory in medhistorys if medhistory.medhistorytype in NSAID_CONTRAS]
-    if contras:
-        return contras
-    return False
-
-
-def medhistorys_get_other_nsaid_contras(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
-) -> list["MedHistory"]:
-    return [medhistory for medhistory in medhistorys if medhistory.medhistorytype in OTHER_NSAID_CONTRAS]

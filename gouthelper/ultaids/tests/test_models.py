@@ -95,7 +95,7 @@ class TestUltAid(TestCase):
         self.assertFalse(
             self.ultaid.contraindications,
         )
-        del self.ultaid.allopurinol_allergys
+        del self.ultaid.allopurinol_allergy
         del self.ultaid.contraindications
         self.ultaid.add_medallergys(
             [MedAllergyFactory(treatment=Treatments.ALLOPURINOL)], medallergys_qs=self.ultaid.medallergys.all()
@@ -134,7 +134,7 @@ class TestUltAid(TestCase):
         self.assertFalse(
             self.ultaid.contraindications,
         )
-        del self.ultaid.febuxostat_allergys
+        del self.ultaid.febuxostat_allergy
         del self.ultaid.contraindications
         self.ultaid.add_medallergys(
             [MedAllergyFactory(treatment=Treatments.FEBUXOSTAT)], medallergys_qs=self.ultaid.medallergys.all()
@@ -157,7 +157,7 @@ class TestUltAid(TestCase):
         self.assertFalse(
             self.ultaid.contraindications,
         )
-        del self.ultaid.probenecid_allergys
+        del self.ultaid.probenecid_allergy
         del self.ultaid.contraindications
         self.ultaid.add_medallergys(
             [MedAllergyFactory(treatment=Treatments.PROBENECID)], medallergys_qs=self.ultaid.medallergys.all()

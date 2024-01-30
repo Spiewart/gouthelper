@@ -14,13 +14,13 @@
   {% endif %}
 {% elif id == "medallergys" %}
   {% if aidtype == "UltAid" %}
-    {% if object.allopurinol_allergys or object.febuxostat_allergys or object.probenecid_allergys %}
+    {% if object.allopurinol_allergy or object.febuxostat_allergy or object.probenecid_allergy %}
       (+)
     {% else %}
       (-)
     {% endif %}
   {% elif aidtype == "PpxAid" or aidtype == "FlareAid" %}
-    {% if object.nsaid_allergys or object.colchicine_allergys or object.steroid_allergys %}
+    {% if object.nsaid_allergy or object.colchicine_allergy or object.steroid_allergy %}
       (+)
     {% else %}
       (-)

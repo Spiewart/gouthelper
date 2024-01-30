@@ -12,35 +12,43 @@ if TYPE_CHECKING:
 def medallergys_get(
     medallergys: Union[list["MedAllergy"], "QuerySet[MedAllergy]"],
     treatment: Treatments | list[Treatments],
-) -> list["MedAllergy"] | None:
+) -> Union["MedAllergy", list["MedAllergy"]] | None:
     if isinstance(treatment, Treatments):
-        return [medallergy for medallergy in medallergys if medallergy.treatment == treatment]
+        return next(iter(medallergy for medallergy in medallergys if medallergy.treatment == treatment), None)
     elif isinstance(treatment, list):
         return [medallergy for medallergy in medallergys if medallergy.treatment in treatment]
     return None
 
 
 def medallergy_attr(
-    medallergy: Treatments,
+    medallergy: Treatments | list[Treatments],
     da_obj: "DecisionAidModel",
-) -> Union[bool, "MedAllergy"]:
+) -> Union[bool, "MedAllergy", list["MedAllergy"]]:
     """Method that consolidates the Try / Except logic for getting a MedAllergy."""
     try:
         return medallergys_get(da_obj.medallergys_qs, medallergy)
-    except AttributeError:
-        if hasattr(da_obj, "user"):
-            if not da_obj.user:
-                return medallergys_get(
-                    da_obj.medallergys.filter(treatment=medallergy).all(),
-                    medallergy,
-                )
-            else:
+    except AttributeError as exc:
+        if isinstance(medallergy, Treatments):
+            if hasattr(da_obj, "user") and da_obj.user:
                 return medallergys_get(
                     da_obj.user.medallergy_set.filter(treatment=medallergy).all(),
                     medallergy,
                 )
+            else:
+                return medallergys_get(
+                    da_obj.medallergy_set.filter(treatment=medallergy).all(),
+                    medallergy,
+                )
+        elif isinstance(medallergy, list):
+            if hasattr(da_obj, "user") and da_obj.user:
+                return medallergys_get(
+                    da_obj.user.medallergy_set.filter(treatment__in=medallergy).all(),
+                    medallergy,
+                )
+            else:
+                return medallergys_get(
+                    da_obj.medallergy_set.filter(treatment__in=medallergy).all(),
+                    medallergy,
+                )
         else:
-            return medallergys_get(
-                da_obj.medallergy_set.filter(treatment=medallergy).all(),
-                medallergy,
-            )
+            raise TypeError("medallergy must be a Treatments or list of Treatments") from exc

@@ -63,7 +63,7 @@ class DecisionAidModel(models.Model):
         return None
 
     @cached_property
-    def allopurinol_allergys(self) -> list["MedAllergy"] | None:
+    def allopurinol_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Allopurinol MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(Treatments.ALLOPURINOL, self)
@@ -132,7 +132,7 @@ class DecisionAidModel(models.Model):
             return None
 
     @cached_property
-    def colchicine_allergys(self) -> list["MedAllergy"] | None:
+    def colchicine_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Colchicine MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(Treatments.COLCHICINE, self)
@@ -223,7 +223,7 @@ class DecisionAidModel(models.Model):
         return ethnicitys_hlab5801_risk(ethnicity=self.ethnicity)
 
     @cached_property
-    def febuxostat_allergys(self) -> list["MedAllergy"] | None:
+    def febuxostat_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Febuxostat MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         medallergy_attr(Treatments.FEBUXOSTAT, self)
@@ -314,7 +314,7 @@ class DecisionAidModel(models.Model):
         return False
 
     @cached_property
-    def nsaid_allergys(self) -> list["MedAllergy"] | None:
+    def nsaid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(NsaidChoices.values, self)
@@ -327,7 +327,7 @@ class DecisionAidModel(models.Model):
         Returns:
             bool: True if NSAIDs are contraindicated, False if not
         """
-        if self.nsaid_age_contra or self.nsaid_allergys or self.other_nsaid_contras or self.cvdiseases or self.ckd:
+        if self.nsaid_age_contra or self.nsaid_allergy or self.other_nsaid_contras or self.cvdiseases or self.ckd:
             return True
         return False
 
@@ -354,7 +354,7 @@ class DecisionAidModel(models.Model):
         return medhistory_attr(OTHER_NSAID_CONTRAS, self)
 
     @cached_property
-    def probenecid_allergys(self) -> list["MedAllergy"] | None:
+    def probenecid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Probenecid MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(Treatments.PROBENECID, self)
@@ -398,7 +398,7 @@ class DecisionAidModel(models.Model):
         return None
 
     @cached_property
-    def steroid_allergys(self) -> list["MedAllergy"] | None:
+    def steroid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(SteroidChoices.values, self)

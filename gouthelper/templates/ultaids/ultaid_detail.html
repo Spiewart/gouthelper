@@ -57,7 +57,7 @@
             </div>
           </div>
           <div class="row">
-            {% if object.allopurinolhypersensitivity or object.allopurinol_allergys or object.xoiinteraction or object.hlab5801_contra %}
+            {% if object.allopurinolhypersensitivity or object.allopurinol_allergy or object.xoiinteraction or object.hlab5801_contra %}
               <div class="col">
                 <div class="card card-body spacious-cards"
                      id="allopurinol-contraindications">
@@ -66,8 +66,8 @@
                     {% if object.allopurinolhypersensitivity %}
                       {% include '_contra.html' with id="allopurinolhypersensitivity" %}
                     {% endif %}
-                    {% if object.allopurinol_allergys %}
-                      {% include '_contra.html' with id="medallergys" allergy="allopurinol_allergys" %}
+                    {% if object.allopurinol_allergy %}
+                      {% include '_contra.html' with id="medallergys" allergy="allopurinol_allergy" %}
                     {% endif %}
                     {% if object.xoiinteraction %}
                       {% include '_contra.html' with id="xoiinteraction" %}
@@ -79,7 +79,7 @@
                 </div>
               </div>
             {% endif %}
-            {% if object.febuxostathypersensitivity or object.febuxostat_allergys or object.xoiinteraction %}
+            {% if object.febuxostathypersensitivity or object.febuxostat_allergy or object.xoiinteraction %}
               <div class="col">
                 <div class="card card-body spacious-cards"
                      id="febuxostat-contraindications">
@@ -88,8 +88,8 @@
                     {% if object.febuxostathypersensitivity %}
                       {% include '_contra.html' with id="febuxostathypersensitivity" %}
                     {% endif %}
-                    {% if object.febuxostat_allergys %}
-                      {% include '_contra.html' with id="medallergys" allergy="febuxostat_allergys" %}
+                    {% if object.febuxostat_allergy %}
+                      {% include '_contra.html' with id="medallergys" allergy="febuxostat_allergy" %}
                     {% endif %}
                     {% if object.xoiinteraction %}
                       {% include '_contra.html' with id="xoiinteraction" %}
@@ -98,7 +98,7 @@
                 </div>
               </div>
             {% endif %}
-            {% if object.probenecid_ckd_contra or object.probenecid_allergys %}
+            {% if object.probenecid_ckd_contra or object.probenecid_allergy %}
               <div class="col">
                 <div class="card card-body spacious-cards"
                      id="probenecid-contraindications">
@@ -107,8 +107,8 @@
                     {% if object.probenecid_ckd_contra %}
                       {% include '_contra.html' with id="ckd" aidtype="UltAid" %}
                     {% endif %}
-                    {% if object.probenecid_allergys %}
-                      {% include '_contra.html' with id="medallergys" allergy="probenecid_allergys" %}
+                    {% if object.probenecid_allergy %}
+                      {% include '_contra.html' with id="medallergys" allergy="probenecid_allergy" %}
                     {% endif %}
                   </ul>
                 </div>

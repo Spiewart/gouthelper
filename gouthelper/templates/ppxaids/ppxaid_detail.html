@@ -43,7 +43,7 @@
               <u>Contraindications</u>
             </h3>
             <div class="row">
-              {% if object.other_nsaid_contras or object.ckd or object.cvdiseases or object.nsaid_allergys %}
+              {% if object.other_nsaid_contras or object.ckd or object.cvdiseases or object.nsaid_allergy %}
                 <div class="col-auto">
                   <div class="card card-body spacious-cards" id="nsaid-contras">
                     <h4 class="card-title">NSAIDs</h4>
@@ -61,8 +61,8 @@
                       {% if object.cvdiseases %}
                         {% include "medhistorys/partials/cvdiseases.html" with aidtype="PpxAid" %}
                       {% endif %}
-                      {% if object.nsaid_allergys %}
-                        {% include '_contra.html' with id="medallergys" allergy="nsaid_allergys" %}
+                      {% if object.nsaid_allergy %}
+                        {% include '_contra.html' with id="medallergys" allergy="nsaid_allergy" %}
                       {% endif %}
                       {% if object.nsaid_age_contra %}
                         {% include "_contra.html" with id="age" aidtype="PpxAid" %}
@@ -71,7 +71,7 @@
                   </div>
                 </div>
               {% endif %}
-              {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergys %}
+              {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergy %}
                 <div class="col-auto">
                   <div class="card card-body spacious-cards" id="colchicine-contras">
                     <h4 class="card-title">Colchicine</h4>
@@ -82,20 +82,20 @@
                       {% if object.colchicineinteraction %}
                         {% include '_contra.html' with id="colchicineinteraction" aidtype="PpxAid" %}
                       {% endif %}
-                      {% if object.colchicine_allergys %}
-                        {% include '_contra.html' with id="medallergys" allergy="colchicine_allergys" %}
+                      {% if object.colchicine_allergy %}
+                        {% include '_contra.html' with id="medallergys" allergy="colchicine_allergy" %}
                       {% endif %}
                     </ul>
                   </div>
                 </div>
               {% endif %}
-              {% if object.steroid_allergys %}
+              {% if object.steroid_allergy %}
                 <div class="col-auto">
                   <div class="card card-body spacious-cards" id="steroid-contras">
                     <h4>Steroids</h4>
                     <ul>
-                      {% if object.steroid_allergys %}
-                        {% include '_contra.html' with id="medallergys" allergy="steroid_allergys" %}
+                      {% if object.steroid_allergy %}
+                        {% include '_contra.html' with id="medallergys" allergy="steroid_allergy" %}
                       {% endif %}
                     </ul>
                   </div>

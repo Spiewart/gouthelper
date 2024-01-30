@@ -11,7 +11,8 @@ from ...flares.tests.factories import FlareFactory
 from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
-from ...medhistorys.helpers import medhistorys_get_ckd, medhistorys_get_menopause
+from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.helpers import medhistorys_get
 from ...medhistorys.tests.factories import ChfFactory, CkdFactory, GoutFactory, MenopauseFactory
 from ...utils.helpers.helpers import calculate_duration
 from ..choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
@@ -49,9 +50,13 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
         duration=calculate_duration(flare.date_started, flare.date_ended),
         gender=flare.gender,
         joints=flare.joints,
-        menopause=medhistorys_get_menopause(flare.medhistorys.all()),
+        menopause=medhistorys_get(
+            flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all(), MedHistoryTypes.MENOPAUSE
+        ),
         crystal_analysis=flare.crystal_analysis,
-        ckd=medhistorys_get_ckd(flare.medhistorys.all()),
+        ckd=medhistorys_get(
+            flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).all(), MedHistoryTypes.CKD
+        ),
     )
     likelihood = flares_calculate_likelihood(
         less_likelys=less_likelys,
