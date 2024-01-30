@@ -7,9 +7,9 @@ from django.utils import timezone  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
-from ..choices import Abnormalitys, LabTypes, LowerLimits, Units, UpperLimits
+from ..choices import Abnormalitys, Units
 from ..helpers import labs_eGFR_calculator, labs_stage_calculator
-from ..models import BaselineCreatinine, Lab, Urate
+from ..models import BaselineCreatinine, Urate
 from .factories import BaselineCreatinineFactory, Hlab5801Factory, UrateFactory
 
 pytestmark = pytest.mark.django_db
@@ -72,32 +72,6 @@ class TestLabBase(TestCase):
     def test__units_returns_correct_labtype(self):
         self.assertEqual(self.urate.units, Units.MGDL)
 
-    def test__set_fields_baselinecreatinine(self):
-        baselinecreatinine = BaselineCreatinine()
-        baselinecreatinine._state.adding = False  # pylint: disable=protected-access
-        self.assertFalse(baselinecreatinine.labtype)
-        self.assertFalse(baselinecreatinine.lower_limit)
-        self.assertFalse(baselinecreatinine.upper_limit)
-        self.assertFalse(baselinecreatinine.units)
-        baselinecreatinine.set_fields()
-        self.assertEqual(baselinecreatinine.labtype, Lab.LabTypes.CREATININE)
-        self.assertEqual(baselinecreatinine.lower_limit, LowerLimits.CREATININEMGDL)
-        self.assertEqual(baselinecreatinine.upper_limit, UpperLimits.CREATININEMGDL)
-        self.assertEqual(baselinecreatinine.units, Units.MGDL)
-
-    def tests__set_fields_urate(self):
-        urate = Urate()
-        urate._state.adding = False  # pylint: disable=protected-access
-        self.assertFalse(urate.labtype)
-        self.assertFalse(urate.lower_limit)
-        self.assertFalse(urate.upper_limit)
-        self.assertFalse(urate.units)
-        urate.set_fields()
-        self.assertEqual(urate.labtype, Lab.LabTypes.URATE)
-        self.assertEqual(urate.lower_limit, LowerLimits.URATEMGDL)
-        self.assertEqual(urate.upper_limit, UpperLimits.URATEMGDL)
-        self.assertEqual(urate.units, Units.MGDL)
-
 
 class TestBaselineLab(TestCase):
     def setUp(self):
@@ -106,7 +80,7 @@ class TestBaselineLab(TestCase):
     def test__str__without_user(self):
         assert (
             self.baselinecreatinine.__str__()
-            == f"Baseline {getattr(LabTypes, self.baselinecreatinine.labtype).label}: "
+            == "Baseline Creatinine"
             + str(self.baselinecreatinine.value)
             + f" {getattr(Units, self.baselinecreatinine.units).label}"
         )
@@ -130,7 +104,7 @@ class TestLab(TestCase):
     def setUp(self):
         self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("3"))
         self.urate = UrateFactory(value=Decimal("10"))
-        self.urate_lab = Lab.objects.filter(labtype=Lab.LabTypes.URATE).get()
+        self.urate_lab = Urate.objects.get()
 
     def test__date_drawn_not_in_future_constraint(self):
         urate = UrateFactory()
@@ -140,34 +114,20 @@ class TestLab(TestCase):
         self.assertTrue("date_drawn_not_in_future" in str(context.exception))
 
     def test__delete_creates_lab_history(self):
-        self.assertTrue(Lab.history.filter(labtype=LabTypes.URATE).exists())
-        self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 1)
+        self.assertTrue(Urate.history.exists())
+        self.assertEqual(Urate.history.count(), 1)
         self.urate.delete()
-        self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 2)
-
-    def test__save_sets_fields(self):
-        urate = Urate(value=Decimal("10"))
-        # Assert that the fields set by set_fields are False (not set)
-        self.assertFalse(urate.labtype)
-        self.assertFalse(urate.lower_limit)
-        self.assertFalse(urate.upper_limit)
-        self.assertFalse(urate.units)
-        urate.save()
-        # Assert that the fields set by set_fields are True (set)
-        self.assertEqual(urate.labtype, Lab.LabTypes.URATE)
-        self.assertEqual(urate.lower_limit, LowerLimits.URATEMGDL)
-        self.assertEqual(urate.upper_limit, UpperLimits.URATEMGDL)
-        self.assertEqual(urate.units, Units.MGDL)
+        self.assertEqual(Urate.history.count(), 2)
 
     def test__save_creates_lab_history(self):
-        self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 1)
+        self.assertEqual(Urate.history.count(), 1)
         self.urate.save()
-        self.assertEqual(Lab.history.filter(labtype=LabTypes.URATE).count(), 2)
+        self.assertEqual(Urate.history.count(), 2)
 
     def test__str__(self):
         self.assertEqual(
             self.urate.__str__(),
-            f"{self.urate.labtype.label}: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
+            f"Urate: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
         )
 
     def test__str__parent_returns_correct_method(self):

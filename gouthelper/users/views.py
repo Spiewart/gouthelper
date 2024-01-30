@@ -151,7 +151,6 @@ class PseudopatientCreateView(PermissionRequiredMixin, PatientModelCreateView, S
         (
             errors,
             form,
-            _,  # object_data
             onetoone_forms,
             medallergys_forms,
             medhistorys_forms,

@@ -8,40 +8,11 @@ from django.utils.functional import cached_property  # type: ignore
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
-from ..medallergys.helpers import (
-    medallergys_allopurinol_allergys,
-    medallergys_colchicine_allergys,
-    medallergys_febuxostat_allergys,
-    medallergys_nsaid_allergys,
-    medallergys_probenecid_allergys,
-    medallergys_steroid_allergys,
-)
-from ..medhistorys.choices import Contraindications, MedHistoryTypes
-from ..medhistorys.helpers import (
-    medhistorys_get,
-    medhistorys_get_allopurinolhypersensitivity,
-    medhistorys_get_anticoagulation,
-    medhistorys_get_bleed,
-    medhistorys_get_ckd,
-    medhistorys_get_colchicineinteraction,
-    medhistorys_get_cvdiseases,
-    medhistorys_get_cvdiseases_str,
-    medhistorys_get_diabetes,
-    medhistorys_get_erosions,
-    medhistorys_get_febuxostathypersensitivity,
-    medhistorys_get_gastricbypass,
-    medhistorys_get_gout,
-    medhistorys_get_hyperuricemia,
-    medhistorys_get_ibd,
-    medhistorys_get_menopause,
-    medhistorys_get_organtransplant,
-    medhistorys_get_other_nsaid_contras,
-    medhistorys_get_tophi,
-    medhistorys_get_uratestones,
-    medhistorys_get_xoiinteraction,
-)
+from ..medallergys.helpers import medallergy_attr
+from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_get_cvdiseases_str
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
-from ..treatments.choices import NsaidChoices, Treatments
+from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments
 from ..treatments.helpers import treatments_stringify_trt_tuple
 from .helpers.aid_helpers import (
     aids_colchicine_ckd_contra,
@@ -95,193 +66,66 @@ class DecisionAidModel(models.Model):
     def allopurinol_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns Allopurinol MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_allopurinol_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_allopurinol_allergys(
-                        self.medallergys.filter(treatment=Treatments.ALLOPURINOL).all()
-                    )
-                else:
-                    return medallergys_allopurinol_allergys(
-                        self.user.medallergy_set.filter(treatment=Treatments.ALLOPURINOL).all()
-                    )
-            else:
-                return medallergys_allopurinol_allergys(
-                    self.medallergy_set.filter(treatment=Treatments.ALLOPURINOL).all()
-                )
+        return medallergy_attr(Treatments.ALLOPURINOL, self)
 
     @cached_property
     def allopurinolhypersensitivity(self) -> Union["MedHistory", None]:
         """Method that returns AllopurinolHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_allopurinolhypersensitivity(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_allopurinolhypersensitivity(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY).all()
-                    )
-                else:
-                    return medhistorys_get_allopurinolhypersensitivity(
-                        self.user.medhistory_set.filter(
-                            medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
-                        ).all()
-                    )
-            else:
-                return medhistorys_get_allopurinolhypersensitivity(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY).all()
-                )
+        return medhistory_attr(MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY, self)
 
     @cached_property
     def angina(self) -> Union["MedHistory", None]:
         """Method that returns Angina object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.ANGINA)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).all(), MedHistoryTypes.ANGINA
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).all(),
-                        MedHistoryTypes.ANGINA,
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).all(), MedHistoryTypes.ANGINA
-                )
+        return medhistory_attr(MedHistoryTypes.ANGINA, self)
 
     @cached_property
     def anticoagulation(self) -> Union["MedHistory", None]:
         """Method that returns Anticoagulation object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_anticoagulation(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_anticoagulation(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANTICOAGULATION).all()
-                    )
-                else:
-                    return medhistorys_get_anticoagulation(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANTICOAGULATION).all()
-                    )
-            else:
-                return medhistorys_get_anticoagulation(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANTICOAGULATION).all()
-                )
+        return medhistory_attr(MedHistoryTypes.ANTICOAGULATION, self)
 
     @cached_property
     def baselinecreatinine(self) -> Union["BaselineCreatinine", False]:
         """Method  that returns BaselineCreatinine object from ckd attribute/property
         or None if either doesn't exist.
         """
-        if self.ckd:
-            try:
-                return self.ckd.baselinecreatinine
-            except AttributeError:
-                pass
-        return False
+
+        try:
+            return self.ckd.baselinecreatinine if self.ckd else None
+        except AttributeError:
+            pass
 
     @cached_property
     def bleed(self) -> Union["MedHistory", False]:
         """Method that returns Bleed object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_bleed(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_bleed(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.BLEED).all()
-                    )
-                else:
-                    return medhistorys_get_bleed(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.BLEED).all()
-                    )
-            else:
-                return medhistorys_get_bleed(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.BLEED).all())
+        return medhistory_attr(MedHistoryTypes.BLEED, self)
 
     @cached_property
     def cad(self) -> Union["MedHistory", None]:
         """Method that returns CAD object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.CAD)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).all(), MedHistoryTypes.CAD
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).all(), MedHistoryTypes.CAD
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).all(), MedHistoryTypes.CAD
-                )
+        return medhistory_attr(MedHistoryTypes.CAD, self)
 
     @cached_property
     def chf(self) -> Union["MedHistory", None]:
         """Method that returns CHF object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.CHF)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CHF).all(), MedHistoryTypes.CHF
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CHF).all(), MedHistoryTypes.CHF
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CHF).all(), MedHistoryTypes.CHF
-                )
+        medhistory_attr(MedHistoryTypes.CHF, self)
 
     @cached_property
     def ckd(self) -> Union["Ckd", None]:
         """Method that returns Ckd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_ckd(self.medhistorys_qs)  # type: ignore
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_ckd(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD)
-                        .select_related("ckddetail", "baselinecreatinine")
-                        .all()
-                    )
-                else:
-                    return medhistorys_get_ckd(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD)
-                        .select_related("ckddetail", "baselinecreatinine")
-                        .all()
-                    )
-            else:
-                return medhistorys_get_ckd(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD)
-                    .select_related("ckddetail", "baselinecreatinine")
-                    .all()
-                )
+        return medhistory_attr(MedHistoryTypes.CKD, self, ["ckddetail", "baselinecreatinine"])
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
         """Method that returns CkdDetail object from the objects ckd attribute/property
         or None if either doesn't exist."""
+
         try:
             return self.ckd.ckddetail if self.ckd else None
         except AttributeError:
@@ -291,22 +135,7 @@ class DecisionAidModel(models.Model):
     def colchicine_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns Colchicine MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_colchicine_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_colchicine_allergys(
-                        self.medallergys.filter(treatment=Treatments.COLCHICINE).all()
-                    )
-                else:
-                    return medallergys_colchicine_allergys(
-                        self.user.medallergy_set.filter(treatment=Treatments.COLCHICINE).all()
-                    )
-            else:
-                return medallergys_colchicine_allergys(
-                    self.medallergy_set.filter(treatment=Treatments.COLCHICINE).all()
-                )
+        return medallergy_attr(Treatments.COLCHICINE, self)
 
     @cached_property
     def colchicine_ckd_contra(self) -> bool:
@@ -323,37 +152,13 @@ class DecisionAidModel(models.Model):
     def colchicineinteraction(self) -> Union["MedHistory", None]:
         """Method that returns Colchicineinteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_colchicineinteraction(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_colchicineinteraction(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).all()
-                    )
-                else:
-                    return medhistorys_get_colchicineinteraction(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).all()
-                    )
-            else:
-                return medhistorys_get_colchicineinteraction(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).all()
-                )
+        return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
         """Method that returns a list of cardiovascular disease MedHistory objects
         from self.medhistorys_qs or or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_cvdiseases(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_cvdiseases(self.medhistorys.all())
-                else:
-                    return medhistorys_get_cvdiseases(self.user.medhistory_set.all())
-            else:
-                return medhistorys_get_cvdiseases(self.medhistory_set.all())
+        return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
 
     @cached_property
     def cvdiseases_str(self) -> str:
@@ -364,7 +169,7 @@ class DecisionAidModel(models.Model):
         except AttributeError:
             if hasattr(self, "user"):
                 if not self.user:
-                    return medhistorys_get_cvdiseases_str(self.medhistorys.all())
+                    return medhistorys_get_cvdiseases_str(self.medhistory_set.all())
                 else:
                     return medhistorys_get_cvdiseases_str(self.user.medhistory_set.all())
             else:
@@ -380,22 +185,7 @@ class DecisionAidModel(models.Model):
     def diabetes(self) -> Union["MedHistory", None]:
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_diabetes(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_diabetes(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.DIABETES).all()
-                    )
-                else:
-                    return medhistorys_get_diabetes(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.DIABETES).all()
-                    )
-            else:
-                return medhistorys_get_diabetes(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.DIABETES).all()
-                )
+        return medhistory_attr(MedHistoryTypes.DIABETES, self)
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -424,22 +214,7 @@ class DecisionAidModel(models.Model):
     def erosions(self) -> Union["MedHistory", None]:
         """Method that returns Erosions object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_erosions(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_erosions(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).all()
-                    )
-                else:
-                    return medhistorys_get_erosions(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).all()
-                    )
-            else:
-                return medhistorys_get_erosions(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).all()
-                )
+        return medhistory_attr(MedHistoryTypes.EROSIONS, self)
 
     @cached_property
     def ethnicity_hlab5801_risk(self) -> bool:
@@ -451,118 +226,40 @@ class DecisionAidModel(models.Model):
     def febuxostat_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns Febuxostat MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_febuxostat_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_febuxostat_allergys(
-                        self.medallergys.filter(treatment=Treatments.FEBUXOSTAT).all()
-                    )
-                else:
-                    return medallergys_febuxostat_allergys(
-                        self.user.medallergy_set.filter(treatment=Treatments.FEBUXOSTAT).all()
-                    )
-            else:
-                return medallergys_febuxostat_allergys(
-                    self.medallergy_set.filter(treatment=Treatments.FEBUXOSTAT).all()
-                )
+        medallergy_attr(Treatments.FEBUXOSTAT, self)
 
     @cached_property
     def febuxostathypersensitivity(self) -> Union["MedHistory", None]:
         """Method that returns FebuxostatHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_febuxostathypersensitivity(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_febuxostathypersensitivity(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY).all()
-                    )
-                else:
-                    return medhistorys_get_febuxostathypersensitivity(
-                        self.user.medhistory_set.filter(
-                            medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
-                        ).all()
-                    )
-            else:
-                return medhistorys_get_febuxostathypersensitivity(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY).all()
-                )
+        return medhistory_attr(MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY, self)
 
     @cached_property
     def gastricbypass(self) -> Union["MedHistory", None]:
         """Method that returns Gastricbypass object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_gastricbypass(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_gastricbypass(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS).all()
-                    )
-                else:
-                    return medhistorys_get_gastricbypass(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS).all()
-                    )
-            else:
-                return medhistorys_get_gastricbypass(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS).all()
-                )
+        return medhistory_attr(MedHistoryTypes.GASTRICBYPASS, self)
 
     @cached_property
     def gout(self) -> Union["MedHistory", None]:
         """Method that returns Gout object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_gout(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_gout(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).all())
-                else:
-                    return medhistorys_get_gout(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).all()
-                    )
-            else:
-                return medhistorys_get_gout(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).all())
+        return medhistory_attr(MedHistoryTypes.GOUT, self, ["goutdetail"])
 
     @cached_property
     def goutdetail(self) -> Union["GoutDetail", None]:
         """Method that returns GoutDetail object from the objects gout attribute/property
         or None if either doesn't exist."""
-        if self.gout:
-            try:
-                return self.gout.goutdetail
-            except AttributeError:
-                pass
-        return None
+        try:
+            return self.gout.goutdetail if self.gout else None
+        except AttributeError:
+            pass
 
     @cached_property
     def heartattack(self) -> Union["MedHistory", None]:
         """Method that returns Heartattack object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.HEARTATTACK)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HEARTATTACK).all(),
-                        MedHistoryTypes.HEARTATTACK,
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.HEARTATTACK).all(),
-                        MedHistoryTypes.HEARTATTACK,
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HEARTATTACK).all(),
-                    MedHistoryTypes.HEARTATTACK,
-                )
+        return medhistory_attr(MedHistoryTypes.HEARTATTACK, self)
 
     @cached_property
     def hlab5801_contra(self) -> bool:
@@ -578,84 +275,25 @@ class DecisionAidModel(models.Model):
     def hypertension(self) -> Union["MedHistory", None]:
         """Method that returns Hypertension object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.HYPERTENSION)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERTENSION).all(),
-                        MedHistoryTypes.HYPERTENSION,
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERTENSION).all(),
-                        MedHistoryTypes.HYPERTENSION,
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERTENSION).all(),
-                    MedHistoryTypes.HYPERTENSION,
-                )
+        return medhistory_attr(MedHistoryTypes.HYPERTENSION, self)
 
     @cached_property
     def hyperuricemia(self) -> Union["MedHistory", None]:
         """Property that returns Hyperuricemia object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_hyperuricemia(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_hyperuricemia(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERURICEMIA).all()
-                    )
-                else:
-                    return medhistorys_get_hyperuricemia(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERURICEMIA).all()
-                    )
-            else:
-                return medhistorys_get_hyperuricemia(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.HYPERURICEMIA).all()
-                )
+        return medhistory_attr(MedHistoryTypes.HYPERURICEMIA, self)
 
     @cached_property
     def ibd(self) -> Union["MedHistory", None]:
         """Method that returns Ibd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_ibd(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_ibd(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).all())
-                else:
-                    return medhistorys_get_ibd(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).all()
-                    )
-            else:
-                return medhistorys_get_ibd(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).all())
+        return medhistory_attr(MedHistoryTypes.IBD, self)
 
     @cached_property
     def menopause(self) -> Union["MedHistory", None]:
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_menopause(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_menopause(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all()
-                    )
-                else:
-                    return medhistorys_get_menopause(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all()
-                    )
-            else:
-                return medhistorys_get_menopause(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.MENOPAUSE).all()
-                )
+        return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
 
     @cached_property
     def nsaid_age_contra(self) -> bool | None:
@@ -679,18 +317,7 @@ class DecisionAidModel(models.Model):
     def nsaid_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_nsaid_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_nsaid_allergys(self.medallergys.filter(treatment__in=NsaidChoices.values).all())
-                else:
-                    return medallergys_nsaid_allergys(
-                        self.user.medallergy_set.filter(treatment__in=NsaidChoices.values).all()
-                    )
-            else:
-                return medallergys_nsaid_allergys(self.medallergy_set.filter(treatment__in=NsaidChoices.values).all())
+        return medallergy_attr(NsaidChoices.values, self)
 
     @cached_property
     def nsaids_contraindicated(self) -> bool:
@@ -718,64 +345,19 @@ class DecisionAidModel(models.Model):
     def organtransplant(self) -> Union["MedHistory", None]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_organtransplant(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_organtransplant(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT).all()
-                    )
-                else:
-                    return medhistorys_get_organtransplant(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT).all()
-                    )
-            else:
-                return medhistorys_get_organtransplant(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT).all()
-                )
+        return medhistory_attr(MedHistoryTypes.ORGANTRANSPLANT, self)
 
     @cached_property
     def other_nsaid_contras(self) -> list["MedHistory"]:
         """Method that returns MedHistory object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_other_nsaid_contras(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_other_nsaid_contras(
-                        self.medhistory_set.filter(medhistorytype__in=OTHER_NSAID_CONTRAS).all()
-                    )
-                else:
-                    return medhistorys_get_other_nsaid_contras(
-                        self.user.medhistory_set.filter(medhistorytype__in=OTHER_NSAID_CONTRAS).all()
-                    )
-            else:
-                return medhistorys_get_other_nsaid_contras(
-                    self.medhistory_set.filter(medhistorytype__in=OTHER_NSAID_CONTRAS).all()
-                )
+        return medhistory_attr(OTHER_NSAID_CONTRAS, self)
 
     @cached_property
     def probenecid_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns Probenecid MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_probenecid_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_probenecid_allergys(
-                        self.medallergys.filter(treatment=Treatments.PROBENECID).all()
-                    )
-                else:
-                    return medallergys_probenecid_allergys(
-                        self.user.medallergy_set.filter(treatment=Treatments.PROBENECID).all()
-                    )
-            else:
-                return medallergys_probenecid_allergys(
-                    self.medallergy_set.filter(treatment=Treatments.PROBENECID).all()
-                )
+        return medallergy_attr(Treatments.PROBENECID, self)
 
     @cached_property
     def probenecid_ckd_contra(self) -> bool:
@@ -789,15 +371,13 @@ class DecisionAidModel(models.Model):
         ckd = self.ckd
         if ckd:
             try:
-                ckddetail = ckd.ckddetail
-            except AttributeError:
-                ckddetail = None
-            if ckddetail:
                 return aids_probenecid_ckd_contra(
                     ckd=ckd,
-                    ckddetail=ckddetail,
+                    ckddetail=ckd.ckddetail,
                     defaulttrtsettings=self.defaultulttrtsettings,
                 )
+            except AttributeError:
+                pass
             return True
         return False
 
@@ -805,22 +385,7 @@ class DecisionAidModel(models.Model):
     def pvd(self) -> Union["MedHistory", None]:
         """Method that returns Pvd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.PVD)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.PVD).all(), MedHistoryTypes.PVD
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.PVD).all(), MedHistoryTypes.PVD
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.PVD).all(), MedHistoryTypes.PVD
-                )
+        return medhistory_attr(MedHistoryTypes.PVD, self)
 
     @cached_property
     def recommendation_str(self) -> tuple[str, dict] | None:
@@ -836,99 +401,31 @@ class DecisionAidModel(models.Model):
     def steroid_allergys(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_steroid_allergys(self.medallergys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medallergys_steroid_allergys(self.medallergys.all())
-                else:
-                    return medallergys_steroid_allergys(self.user.medallergy_set.all())
-            else:
-                return medallergys_steroid_allergys(self.medallergy_set.all())
+        return medallergy_attr(SteroidChoices.values, self)
 
     @cached_property
     def stroke(self) -> Union["MedHistory", None]:
         """Method that returns Stroke object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get(self.medhistorys_qs, MedHistoryTypes.STROKE)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.STROKE).all(), MedHistoryTypes.STROKE
-                    )
-                else:
-                    return medhistorys_get(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.STROKE).all(),
-                        MedHistoryTypes.STROKE,
-                    )
-            else:
-                return medhistorys_get(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.STROKE).all(), MedHistoryTypes.STROKE
-                )
+        return medhistory_attr(MedHistoryTypes.STROKE, self)
 
     @cached_property
     def tophi(self) -> Union["MedHistory", None]:
         """Method that returns Tophi object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_tophi(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_tophi(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).all()
-                    )
-                else:
-                    return medhistorys_get_tophi(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).all()
-                    )
-            else:
-                return medhistorys_get_tophi(self.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).all())
+        return medhistory_attr(MedHistoryTypes.TOPHI, self)
 
     @cached_property
     def uratestones(self) -> Union["MedHistory", None]:
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_uratestones(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_uratestones(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.URATESTONES).all()
-                    )
-                else:
-                    return medhistorys_get_uratestones(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.URATESTONES).all()
-                    )
-            else:
-                return medhistorys_get_uratestones(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.URATESTONES).all()
-                )
+        return medhistory_attr(MedHistoryTypes.URATESTONES, self)
 
     @cached_property
     def xoiinteraction(self) -> Union["MedHistory", None]:
         """Method that returns XoiInteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_xoiinteraction(self.medhistorys_qs)
-        except AttributeError:
-            if hasattr(self, "user"):
-                if not self.user:
-                    return medhistorys_get_xoiinteraction(
-                        self.medhistory_set.filter(medhistorytype=MedHistoryTypes.XOIINTERACTION).all()
-                    )
-                else:
-                    return medhistorys_get_xoiinteraction(
-                        self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.XOIINTERACTION).all()
-                    )
-            else:
-                return medhistorys_get_xoiinteraction(
-                    self.medhistory_set.filter(medhistorytype=MedHistoryTypes.XOIINTERACTION).all()
-                )
+        return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)
 
 
 class GoutHelperModel(models.Model):

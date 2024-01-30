@@ -1,7 +1,7 @@
 from django.test import TestCase
 
 from ...medhistorys.tests.factories import CkdFactory
-from ..choices import LabTypes, LowerLimits, Units, UpperLimits
+from ..choices import LowerLimits, Units, UpperLimits
 from ..models import BaselineCreatinine, Urate
 
 
@@ -34,7 +34,6 @@ class CreatinineManagerTestCase(TestCase):
         # Assert that the created object has the right attrs
         creatinine = BaselineCreatinine.objects.get()
         self.assertEqual(creatinine.value, 1.5)
-        self.assertEqual(creatinine.labtype, LabTypes.CREATININE)
         self.assertEqual(creatinine.lower_limit, LowerLimits.CREATININEMGDL)
         self.assertEqual(creatinine.units, Units.MGDL)
         self.assertEqual(creatinine.upper_limit, UpperLimits.CREATININEMGDL)
@@ -63,7 +62,6 @@ class UrateManagerTestCase(TestCase):
         # Assert that the created object has the right attrs
         urate = Urate.objects.get()
         self.assertEqual(urate.value, 5.5)
-        self.assertEqual(urate.labtype, LabTypes.URATE)
         self.assertEqual(urate.lower_limit, LowerLimits.URATEMGDL)
         self.assertEqual(urate.units, Units.MGDL)
         self.assertEqual(urate.upper_limit, UpperLimits.URATEMGDL)

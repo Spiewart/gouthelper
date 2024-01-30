@@ -14,8 +14,8 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
 from ..defaults.helpers import defaults_get_goalurate
-from ..labs.choices import LabTypes
 from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal, labs_urates_recent_urate
+from ..labs.models import Urate
 from ..labs.selectors import dated_urates
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
@@ -71,7 +71,7 @@ class Ppx(
 
     @classmethod
     def aid_labs(cls) -> list[str]:
-        return [LabTypes.URATE]
+        return [Urate]
 
     @cached_property
     def at_goal(self) -> bool:

@@ -9,13 +9,6 @@ class Abnormalitys(IntegerChoices):
     HIGH = 1, _("High")
 
 
-class LabTypes(TextChoices):
-    """TextChoices to describe different LabTypes in choices."""
-
-    CREATININE = "CREATININE", _("Creatinine")
-    URATE = "URATE", _("Urate")
-
-
 class LowerLimits(Decimal, Choices):
     CREATININEMGDL = Decimal("0.74"), _("0.74 mg/dL")
     URATEMGDL = Decimal("3.5"), _("3.5 mg/dL")

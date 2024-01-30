@@ -5,7 +5,6 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...labs.choices import LabTypes
 from ...labs.models import Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorydetails.tests.factories import GoutDetailFactory
@@ -35,7 +34,7 @@ class TestPpx(TestCase):
         self.assertEqual(self.ppx.aid_medhistorys(), PPX_MEDHISTORYS)
 
     def test__aid_labs(self):
-        self.assertEqual(self.ppx.aid_labs(), [LabTypes.URATE])
+        self.assertEqual(self.ppx.aid_labs(), [Urate])
         self.assertTrue(isinstance(self.ppx.aid_labs(), list))
 
     def test__at_goal(self):

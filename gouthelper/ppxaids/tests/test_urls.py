@@ -1,14 +1,14 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
-from .factories import PpxAidFactory
+from .factories import create_ppxaid
 
 
 class TestPpxAidUrls(TestCase):
     """Test urls.py for ppxaids app."""
 
     def setUp(self):
-        self.ppxaid = PpxAidFactory()
+        self.ppxaid = create_ppxaid()
 
     def test_about_url(self):
         """Test about url."""

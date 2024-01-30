@@ -330,9 +330,12 @@ class CreateAidMixin:
         # Check for equality, not Truthiness, because a User object could be Truthy
         if user is True:
             self.user = create_psp()
-        else:
+        elif user:
+            self.medallergys = []
+            self.medhistorys = []
             self.user = user
-        print(self.user)
+        else:
+            self.user = None
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):

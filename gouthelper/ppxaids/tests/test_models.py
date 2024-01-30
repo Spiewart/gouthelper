@@ -98,16 +98,3 @@ class TestPpxAidMethods(TestCase):
 
         self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
         self.assertEqual(str(self.user_ppxaid), f"{self.user_ppxaid.user.username.capitalize()}'s PpxAid")
-
-    def test__test(self):
-        ppxaid = create_ppxaid()
-        print(ppxaid)
-        print(ppxaid.user)
-        print(ppxaid.medhistorys_qs)
-        print(ppxaid.medhistory_set.all())
-        print(ppxaid.medallergys_qs)
-        print(ppxaid.medallergy_set.all())
-        print(ppxaid.dateofbirth)
-        print(ppxaid.gender)
-        print(ppxaid.ckddetail)
-        assert 1 == 2

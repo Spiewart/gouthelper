@@ -11,14 +11,9 @@ from ...labs.models import Urate
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.tests.factories import GoutFactory
-from ..choices import LabTypes, LowerLimits, Units, UpperLimits
 from ..helpers import (
     labs_baselinecreatinine_max_value,
     labs_eGFR_calculator,
-    labs_get_default_labtype,
-    labs_get_default_lower_limit,
-    labs_get_default_units,
-    labs_get_default_upper_limit,
     labs_round_decimal,
     labs_stage_calculator,
     labs_urates_chronological_dates,
@@ -163,39 +158,6 @@ class TestStageCalculator(TestCase):
 
     def test__stage5(self):
         self.assertEqual(labs_stage_calculator(Decimal("5")), 5)
-
-
-class TestLabsGetDefaultLabType(TestCase):
-    def test__returns_creatinine(self):
-        self.assertEqual(labs_get_default_labtype("CREATININE"), LabTypes.CREATININE)
-
-    def test__returns_urate(self):
-        self.assertEqual(labs_get_default_labtype("URATE"), LabTypes.URATE)
-
-    def test__raises_ValueError(self):
-        with self.assertRaises(ValueError) as error:
-            labs_get_default_labtype("LAB")
-        self.assertEqual(
-            error.exception.args[0], f"labs_get_default_labtype() was called on a non-Lab object: {'LAB'}"
-        )
-
-
-class TestLabsGetDefaultLowerLimit(TestCase):
-    def test__correct_lower_limit_returned(self):
-        self.assertEqual(labs_get_default_lower_limit(LabTypes.CREATININE), LowerLimits.CREATININEMGDL)
-        self.assertEqual(labs_get_default_lower_limit(LabTypes.URATE), LowerLimits.URATEMGDL)
-
-
-class TestLabsGetDefaultUnit(TestCase):
-    def test__correct_unit_returned(self):
-        self.assertEqual(labs_get_default_units(LabTypes.CREATININE), Units.MGDL)
-        self.assertEqual(labs_get_default_units(LabTypes.URATE), Units.MGDL)
-
-
-class TestLabsGetDefaultUpperLimit(TestCase):
-    def test__correct_upper_limit_returned(self):
-        self.assertEqual(labs_get_default_upper_limit(LabTypes.CREATININE), UpperLimits.CREATININEMGDL)
-        self.assertEqual(labs_get_default_upper_limit(LabTypes.URATE), UpperLimits.URATEMGDL)
 
 
 class TestLabsUratesChronologicalDates(TestCase):

@@ -7,7 +7,6 @@ from django.views.generic import CreateView, UpdateView  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
 from ..flares.models import Flare
-from ..genders.choices import Genders
 from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
 from ..labs.selectors import dated_urates
@@ -171,33 +170,32 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
         if self.onetoones:
             for onetoone in onetoones_to_save:
                 onetoone.save()
+                setattr(form.instance, f"{onetoone.__class__.__name__.lower()}", onetoone)
+        aid_obj = form.save()
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
         if self.medallergys:
             for medallergy in medallergys_to_save:
+                setattr(medallergy, aid_obj_attr, aid_obj)
                 medallergy.save()
         if self.medhistorys:
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
+                    setattr(medhistory, aid_obj_attr, aid_obj)
                     medhistory.save()
             for medhistorydetail in medhistorydetails_to_save:
                 medhistorydetail.save()
         if self.labs:
             for lab in labs_to_save:
+                setattr(lab, aid_obj_attr, aid_obj)
                 lab.save()
-        saved_object = form.save()
-        if self.medallergys:
-            saved_object.add_medallergys(medallergys=medallergys_to_save, medallergys_qs=[], commit=False)
-        if self.medhistorys:
-            saved_object.add_medhistorys(medhistorys=medhistorys_to_save, medhistorys_qs=[], commit=False)
-        if self.labs:
-            saved_object.add_labs(labs=labs_to_save, commit=False)
         # Create and populate the medallergy_qs attribute on the object
-        self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+        self.update_or_create_medallergy_qs(aid_obj=aid_obj, medallergys=medallergys_to_save)
         # Create and populate the medhistory_qs attribute on the object
-        self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+        self.update_or_create_medhistory_qs(aid_obj=aid_obj, medhistorys=medhistorys_to_save)
         # Create and populate the labs_qs attribute on the object
-        self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
+        self.update_or_create_labs_qs(aid_obj=aid_obj, labs=labs_to_save)
         # Return object for the child view to use
-        return self.object
+        return aid_obj
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         for onetoone, onetoone_dict in self.onetoones.items():
@@ -347,7 +345,6 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 onetoone_data.check_for_value()
                 onetoone = onetoone_data.save(commit=False)
                 onetoones_to_save.append(onetoone)
-                setattr(model_obj, onetoone_form_str.split("_")[0], onetoone)
             # If EmptyRelatedModel exception is raised by the related model's form save() method, pass
             except EmptyRelatedModel:
                 pass
@@ -462,8 +459,10 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             and (lab_formset.is_valid() if lab_formset else True)
         ):
             errors_bool = False
-            object_data: "MedAllergyAidHistoryModel" = form.save(commit=False)
-            onetoones_to_save = self.post_process_onetoone_forms(onetoone_forms=onetoone_forms, model_obj=object_data)
+            form.save(commit=False)
+            onetoones_to_save = self.post_process_onetoone_forms(
+                onetoone_forms=onetoone_forms, model_obj=form.instance
+            )
             # Iterate through the MedAllergyTreatmentForms and mark those with value for save()
             medallergys_to_save: list[MedAllergy] = self.post_process_medallergys_forms(
                 medallergys_forms=medallergys_forms
@@ -476,7 +475,6 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             )
             # Process the lab formset forms if it exists
             labs_to_save = self.post_process_lab_formset(lab_formset=lab_formset)
-            self.object = object_data
             errors = (
                 self.render_errors(
                     form=form,
@@ -493,7 +491,6 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             return (
                 errors,
                 form,
-                object_data,
                 onetoone_forms,
                 medallergys_forms,
                 medhistorys_forms,
@@ -520,7 +517,6 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             return (
                 errors,
                 form,
-                None,
                 onetoone_forms,
                 medallergys_forms,
                 medhistorys_forms,
@@ -1414,9 +1410,14 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         labs_to_remove: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
+        aid_obj = form.save()
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
         # Save the OneToOne related models
         if self.onetoones:
             for onetoone in onetoones_to_save:
+                if not getattr(aid_obj, onetoone.__class__.__name__.lower()):
+                    setattr(aid_obj, onetoone.__class__.__name__.lower(), onetoone)
+                    onetoone.save()
                 onetoone.save()
             for onetoone in onetoones_to_delete:
                 onetoone.delete()
@@ -1424,22 +1425,26 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             if medallergys_to_save:
                 # Modify and remove medallergys from the object
                 for medallergy in medallergys_to_save:
+                    if not getattr(medallergy, aid_obj_attr):
+                        setattr(medallergy, aid_obj_attr, aid_obj)
                     medallergy.save()
             if medallergys_to_remove:
                 for medallergy in medallergys_to_remove:
-                    self.object.medallergys_qs.remove(medallergy)
+                    medallergy.delete()
         if self.medhistorys:
             # Modify and remove medhistorydetails from the object
             # Add and remove medhistorys from the object
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
+                    if not getattr(medhistory, aid_obj_attr):
+                        setattr(medhistory, aid_obj_attr, aid_obj)
                     medhistory.save()
             if medhistorydetails_to_save:
                 for medhistorydetail in medhistorydetails_to_save:
                     medhistorydetail.save()
             if medhistorys_to_remove:
                 for medhistory in medhistorys_to_remove:
-                    self.object.medhistorys_qs.remove(medhistory)
+                    medhistory.delete()
             if medhistorydetails_to_remove:
                 for medhistorydetail in medhistorydetails_to_remove:
                     medhistorydetail.instance.delete()
@@ -1447,33 +1452,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             # Modify and remove labs from the object
             for lab in labs_to_save:
                 lab.save()
-        self.saved_object = form.save()
-        if self.medallergys:
-            self.saved_object.add_medallergys(
-                medallergys=medallergys_to_save, medallergys_qs=self.object.medallergys_qs, commit=False
-            )
-            self.saved_object.remove_medallergys(
-                medallergys=medallergys_to_remove,
-                commit=False,
-            )
-        if self.medhistorys:
-            self.saved_object.add_medhistorys(
-                medhistorys=medhistorys_to_save, medhistorys_qs=self.object.medhistorys_qs, commit=False
-            )
-            self.saved_object.remove_medhistorys(
-                medhistorys=medhistorys_to_remove,
-                commit=False,
-            )
-        if self.labs:
-            self.saved_object.add_labs(labs=labs_to_save, commit=False)
-            self.saved_object.remove_labs(labs=labs_to_remove, commit=False)
         # Create and populate the medallergy_qs attribute on the object
-        self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+        self.update_or_create_medallergy_qs(aid_obj=aid_obj, medallergys=medallergys_to_save)
         # Create and populate the medhistory_qs attribute on the object
-        self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+        self.update_or_create_medhistory_qs(aid_obj=aid_obj, medhistorys=medhistorys_to_save)
         # Create and populate the labs_qs attribute on the object
-        self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
-        return self.object
+        self.update_or_create_labs_qs(aid_obj=aid_obj, labs=labs_to_save)
+        return aid_obj
 
     def context_onetoones(
         self, onetoones: dict[str, "FormModelDict"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
@@ -1496,15 +1481,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         for treatment in medallergys:
             form_str = f"medallergy_{treatment}_form"
             if form_str not in kwargs:
-                qs_medallergy = [
-                    qs_medallergy for qs_medallergy in con_obj.medallergys_qs if qs_medallergy.treatment == treatment
-                ]
-                if qs_medallergy:
-                    kwargs[form_str] = MedAllergyTreatmentForm(
-                        treatment=treatment, instance=qs_medallergy[0], initial={f"medallergy_{treatment}": True}
-                    )
-                else:
-                    kwargs[form_str] = MedAllergyTreatmentForm(treatment=treatment)
+                qs_ma = next(iter([ma for ma in con_obj.medallergys_qs if ma.treatment == treatment]), None)
+                kwargs[form_str] = MedAllergyTreatmentForm(
+                    treatment=treatment, instance=qs_ma, initial={f"medallergy_{treatment}": True if qs_ma else None}
+                )
 
     def context_medhistorys(
         self, medhistorys: dict[MedHistoryTypes, "FormModelDict"], kwargs: dict, con_obj: "MedAllergyAidHistoryModel"
@@ -1513,86 +1493,39 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         for medhistory in medhistorys:
             form_str = f"{medhistory}_form"
             if form_str not in kwargs:
-                qs_medhistory = [
-                    qs_medhistory
-                    for qs_medhistory in con_obj.medhistorys_qs
-                    if qs_medhistory.medhistorytype == medhistory
-                ]
-                if qs_medhistory:
-                    if medhistory == MedHistoryTypes.CKD:
-                        ckd = qs_medhistory[0]
-                        kwargs[form_str] = medhistorys[medhistory]["form"](
-                            instance=ckd,
-                            initial={f"{medhistory}-value": True},
-                            ckddetail=self.ckddetail,
-                        )
-                        if self.ckddetail:
-                            if hasattr(ckd, "ckddetail") and ckd.ckddetail:
-                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory](instance=ckd.ckddetail)
-                                if hasattr(ckd, "baselinecreatinine") and ckd.baselinecreatinine:
-                                    kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
-                                        instance=ckd.baselinecreatinine
-                                    )
-                            else:
-                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
-                            if "baselinecreatinine_form" not in kwargs:
-                                kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
-                    elif medhistory == MedHistoryTypes.GOUT:
-                        gout = qs_medhistory[0]
-                        kwargs[form_str] = medhistorys[medhistory]["form"](
-                            instance=gout,
-                            initial={f"{medhistory}-value": True},
-                            goutdetail=self.goutdetail,
-                        )
-                        if self.goutdetail:
-                            if hasattr(gout, "goutdetail") and gout.goutdetail:
-                                kwargs["goutdetail_form"] = self.medhistory_details[medhistory](
-                                    instance=gout.goutdetail
+                qs_mh = next(iter([mh for mh in con_obj.medhistorys_qs if mh.medhistorytype == medhistory]), None)
+                if medhistory == MedHistoryTypes.CKD:
+                    kwargs[form_str] = medhistorys[medhistory]["form"](
+                        instance=qs_mh,
+                        initial={f"{medhistory}-value": True if qs_mh else False},
+                        ckddetail=self.ckddetail,
+                    )
+                    if self.ckddetail:
+                        if hasattr(qs_mh, "ckddetail") and qs_mh.ckddetail:
+                            kwargs["ckddetail_form"] = self.medhistory_details[medhistory](instance=qs_mh.ckddetail)
+                            if hasattr(qs_mh, "baselinecreatinine") and qs_mh.baselinecreatinine:
+                                kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
+                                    instance=qs_mh.baselinecreatinine
                                 )
-                            elif "goutdetail_form" not in kwargs:
-                                kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
-                    else:
-                        kwargs[form_str] = self.medhistorys[medhistory]["form"](
-                            instance=qs_medhistory[0], initial={f"{medhistory}-value": True}
-                        )
-                else:
-                    if medhistory == MedHistoryTypes.CKD:
-                        if self.ckddetail:
-                            kwargs[form_str] = medhistorys[medhistory]["form"](
-                                ckddetail=self.ckddetail, initial={f"{medhistory}-value": False}
-                            )
-                            if "ckddetail_form" not in kwargs:
-                                kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
-                            if "baselinecreatinine_form" not in kwargs:
-                                kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
                         else:
-                            kwargs[form_str] = medhistorys[medhistory]["form"](
-                                ckddetail=None, initial={f"{medhistory}-value": False}
-                            )
-                    elif medhistory == MedHistoryTypes.GOUT:
-                        kwargs[form_str] = medhistorys[medhistory]["form"](
-                            goutdetail=self.goutdetail, initial={f"{medhistory}-value": False}
-                        )
-                        if self.goutdetail and "goutdetail_form" not in kwargs:
+                            kwargs["ckddetail_form"] = self.medhistory_details[medhistory]()
+                        if "baselinecreatinine_form" not in kwargs:
+                            kwargs["baselinecreatinine_form"] = BaselineCreatinineForm()
+                elif medhistory == MedHistoryTypes.GOUT:
+                    kwargs[form_str] = medhistorys[medhistory]["form"](
+                        instance=qs_mh,
+                        initial={f"{medhistory}-value": True if qs_mh else False},
+                        goutdetail=self.goutdetail,
+                    )
+                    if self.goutdetail:
+                        if hasattr(qs_mh, "goutdetail") and qs_mh.goutdetail:
+                            kwargs["goutdetail_form"] = self.medhistory_details[medhistory](instance=qs_mh.goutdetail)
+                        elif "goutdetail_form" not in kwargs:
                             kwargs["goutdetail_form"] = self.medhistory_details[medhistory]()
-                    # Check if the medhistory is Menopause
-                    elif medhistory == MedHistoryTypes.MENOPAUSE:
-                        if con_obj.gender.value == Genders.FEMALE and hasattr(con_obj, "dateofbirth"):
-                            # Check if the Flare to be updated's gender is Female
-                            age = age_calc(con_obj.dateofbirth.value)
-                            if age >= 40 and age < 60:
-                                initial = False
-                            elif age > 60:
-                                initial = True
-                            else:
-                                initial = None
-                            kwargs[form_str] = medhistorys[medhistory]["form"](
-                                initial={f"{medhistory}-value": initial}
-                            )
-                        else:
-                            kwargs[form_str] = medhistorys[medhistory]["form"](initial={f"{medhistory}-value": None})
-                    else:
-                        kwargs[form_str] = medhistorys[medhistory]["form"](initial={f"{medhistory}-value": False})
+                else:
+                    kwargs[form_str] = self.medhistorys[medhistory]["form"](
+                        instance=qs_mh, initial={f"{medhistory}-value": True if qs_mh else False}
+                    )
 
     def context_labs(
         self,
@@ -1837,15 +1770,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         for medallergy_form_str in medallergys_forms:
             treatment = medallergy_form_str.split("_")[1]
             if f"medallergy_{treatment}" in medallergys_forms[medallergy_form_str].cleaned_data:
-                medallergy_list = [
-                    qs_medallergy
-                    for qs_medallergy in post_object.medallergys_qs
-                    if qs_medallergy.treatment == treatment
-                ]
-                if medallergy_list:
-                    medallergy = medallergy_list[0]
+                qs_ma = next(iter([ma for ma in post_object.medallergys_qs if ma.treatment == treatment]), None)
+                if qs_ma:
                     if not medallergys_forms[medallergy_form_str].cleaned_data[f"medallergy_{treatment}"]:
-                        medallergys_to_remove.append(medallergy)
+                        medallergys_to_remove.append(qs_ma)
                 else:
                     if medallergys_forms[medallergy_form_str].cleaned_data[f"medallergy_{treatment}"]:
                         medallergy = medallergys_forms[medallergy_form_str].save(commit=False)
@@ -1879,13 +1807,10 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             # It is prefixed by the MedHistoryType, e.g. "ANGINA-value".
             if f"{medhistorytype}-value" in medhistorys_forms[medhistory_form_str].cleaned_data:
                 # Check if the Object has a medhistory that no longer has a value in the form data
-                medhistory_list = [
-                    qs_medhistory
-                    for qs_medhistory in post_object.medhistorys_qs
-                    if qs_medhistory.medhistorytype == medhistorytype
-                ]
-                if medhistory_list:
-                    medhistory = medhistory_list[0]
+                qs_mh = next(
+                    iter([mh for mh in post_object.medhistorys_qs if mh.medhistorytype == medhistorytype]), None
+                )
+                if qs_mh:
                     if not medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]:
                         # Mark it for deletion if so
                         medhistorys_to_remove.append(medhistorys_forms[medhistory_form_str].instance)
@@ -1896,7 +1821,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                             medhistorydetails_forms["baselinecreatinine_form"],
                             ckddetail_errors,
                         ) = CkdDetailFormProcessor(
-                            ckd=medhistory,
+                            ckd=qs_mh,
                             ckddetail_form=medhistorydetails_forms["ckddetail_form"],  # type: ignore
                             baselinecreatinine_form=medhistorydetails_forms["baselinecreatinine_form"],  # type: ignore
                             dateofbirth=onetoone_forms["dateofbirth_form"],  # type: ignore
@@ -1929,7 +1854,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                             # Check if the form instance has a medhistory attr
                             if getattr(goutdetail_form.instance, "medhistory", None):
                                 # If not, set it to the medhistory instance
-                                goutdetail_form.instance.medhistory = medhistory
+                                goutdetail_form.instance.medhistory = qs_mh
                 # Otherwise add medhistorys that are checked in the form data
                 else:
                     if medhistorys_forms[medhistory_form_str].cleaned_data[f"{medhistorytype}-value"]:

@@ -3,7 +3,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from ..genders.choices import Genders
-from ..medhistorys.helpers import medhistorys_get_cvdiseases, medhistorys_get_gout
+from ..medhistorys.choices import CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistorys_get
 from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
 from .lists import COMMON_GOUT_JOINTS
 
@@ -61,7 +62,7 @@ def flares_calculate_prevalence_points(
     points = 0.0
     if gender.value == Genders.MALE:
         points += 2.0
-    gout = medhistorys_get_gout(medhistorys)
+    gout = medhistorys_get(medhistorys, medhistorytype=MedHistoryTypes.GOUT)
     if gout:
         points += 2.0
     if onset is True:
@@ -70,7 +71,7 @@ def flares_calculate_prevalence_points(
         points += 1.0
     if LimitedJointChoices.MTP1L in joints or LimitedJointChoices.MTP1R in joints:
         points += 2.5
-    cvdiseases = medhistorys_get_cvdiseases(medhistorys, hypertension=True)
+    cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + MedHistoryTypes.HYPERTENSION)
     if cvdiseases:
         points += 1.5
     if urate and urate.value > Decimal("5.88"):

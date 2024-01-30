@@ -9,7 +9,6 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..genders.choices import Genders
 from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
-from .choices import LabTypes
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
@@ -47,20 +46,17 @@ def labs_eGFR_calculator(
     returns: eGFR (decimal) rounded to 0 decimal points
     """
     # Check if creatinine is a Creatinine object or a Decimal
-    if (
-        hasattr(creatinine, "labtype")
-        and not isinstance(creatinine, Decimal)
-        and creatinine.labtype == LabTypes.CREATININE
-    ):
-        # If a Creatinine or BaselineCreatinine, set value to the creatinine.value attr
-        value = creatinine.value
-    # Check if creatinine is a Decimal
-    elif isinstance(creatinine, Decimal):
+    if isinstance(creatinine, Decimal):
         # If so, set value to the creatinine
         value = creatinine
     # If neither, raise a TypeError
     else:
-        raise TypeError(f"labs_eGFR_calculator() was called on a non-lab, non-Decimal object: {creatinine}")
+        try:
+            value = creatinine.value
+        except AttributeError as exc:
+            raise TypeError(
+                f"labs_eGFR_calculator() was called on a non-lab, non-Decimal object: {creatinine}"
+            ) from exc
     # Set gender-based variables for CKD-EPI Creatinine Equation
     if gender == Genders.MALE:
         sex_modifier = Decimal(1.000)

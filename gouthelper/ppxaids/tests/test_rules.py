@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from ...users.choices import Roles
 from ...users.tests.factories import UserFactory, create_psp
-from .factories import PpxAidFactory, PpxAidUserFactory
+from .factories import create_ppxaid
 
 pytestmark = pytest.mark.django_db
 
@@ -13,17 +13,13 @@ pytestmark = pytest.mark.django_db
 class TestCanChangePpxAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.provider_ppxaid = PpxAidUserFactory(user=self.provider_pseudopatient)
+        self.provider_pseudopatient = create_psp(provider=self.provider)
+        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.admin_ppxaid = PpxAidUserFactory(user=self.admin_pseudopatient)
+        self.admin_pseudopatient = create_psp(provider=self.admin)
+        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
         self.anon = AnonymousUser()
-        self.anon_ppxaid = PpxAidFactory()
+        self.anon_ppxaid = create_ppxaid()
 
     def test__change_anonymous_object(self):
         """Test that any user can change an anonymous object."""
@@ -51,14 +47,14 @@ class TestCanDeletePpxAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppxaid = PpxAidUserFactory(user=self.provider_pseudopatient)
+        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppxaid = PpxAidUserFactory(user=self.admin_pseudopatient)
+        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
         self.anon = AnonymousUser()
-        self.anon_ppxaid = PpxAidFactory()
+        self.anon_ppxaid = create_ppxaid()
 
     def test__delete_anonymous_object(self):
         """Test that no one can delete an anonymous object."""
@@ -86,14 +82,14 @@ class TestCanViewPpxAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppxaid = PpxAidUserFactory(user=self.provider_pseudopatient)
+        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppxaid = PpxAidUserFactory(user=self.admin_pseudopatient)
+        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
         self.anon = AnonymousUser()
-        self.anon_ppxaid = PpxAidFactory()
+        self.anon_ppxaid = create_ppxaid()
 
     def test__view_anonymous_object(self):
         """Test that any user can view an anonymous object."""

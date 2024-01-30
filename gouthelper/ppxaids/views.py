@@ -148,7 +148,6 @@ class PpxAidCreate(PpxAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
         (
             errors,
             form,
-            _,  # object_data
             _,  # onetoone_forms
             _,  # medallergys_forms
             _,  # medhistorys_forms

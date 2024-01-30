@@ -5,8 +5,9 @@ from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
-from ...genders.choices import Genders
+from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.models import Gender
+from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import CVDiseases, MedHistoryTypes
@@ -143,10 +144,68 @@ def test__create_ppxaid():
                 assert medallergy.ppxaid == ppxaid
 
 
-def test__create_ppxaid_with_gender():
+def test__create_ppxaid_with_onetoones():
     for _ in range(5):
-        gender = Genders.MALE
-        ppxaid = create_ppxaid(gender=gender)
+        gender = GenderFactory()
+        dateofbirth = DateOfBirthFactory()
+        ppxaid = create_ppxaid(gender=gender, dateofbirth=dateofbirth)
         assert getattr(ppxaid, "gender", None)
         assert isinstance(ppxaid.gender, Gender)
-        assert ppxaid.gender.value == gender
+        assert ppxaid.gender == gender
+        assert getattr(ppxaid, "dateofbirth", None)
+        assert isinstance(ppxaid.dateofbirth, DateOfBirth)
+        assert ppxaid.dateofbirth == dateofbirth
+
+
+def test__create_ppxaid_with_medallergys():
+    ppxaid = create_ppxaid(medallergys=[FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE])
+    assert hasattr(ppxaid, "medallergys_qs")
+    assert len(ppxaid.medallergys_qs) == 2
+    for ma in ppxaid.medallergys_qs:
+        assert ma.treatment in [FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE]
+        assert ma.user is None
+        assert ma.ppxaid == ppxaid
+    for ma in ppxaid.medallergy_set.all():
+        assert ma.treatment in [FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE]
+        assert ma.user is None
+        assert ma.ppxaid == ppxaid
+
+
+def test__create_ppxaid_with_medhistorys():
+    ppxaid = create_ppxaid(medhistorys=[MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION])
+    assert hasattr(ppxaid, "medhistorys_qs")
+    assert len(ppxaid.medhistorys_qs) == 2
+    for mh in ppxaid.medhistorys_qs:
+        assert mh.medhistorytype in [MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION]
+        assert mh.user is None
+        assert mh.ppxaid == ppxaid
+    for mh in ppxaid.medhistory_set.all():
+        assert mh.medhistorytype in [MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION]
+        assert mh.user is None
+        assert mh.ppxaid == ppxaid
+
+
+def test__create_ppxaid_with_ckd_and_ckddetail():
+    ppxaid = create_ppxaid(medhistorys=[MedHistoryTypes.CKD])
+    assert hasattr(ppxaid, "ckd")
+    assert hasattr(ppxaid, "ckddetail")
+    assert hasattr(ppxaid, "gender")
+
+
+def test__create_ppxaid_with_user():
+    ppxaid = create_ppxaid(user=True)
+    assert hasattr(ppxaid, "user")
+    assert not getattr(ppxaid, "dateofbirth", None)
+    assert hasattr(ppxaid.user, "dateofbirth")
+    assert not getattr(ppxaid, "gender", None)
+    assert hasattr(ppxaid.user, "gender")
+    assert hasattr(ppxaid, "medallergys_qs")
+    user_mas = ppxaid.user.medallergy_set.all()
+    for ma in ppxaid.medallergys_qs:
+        assert ma.user == ppxaid.user
+        assert ma in user_mas
+    assert hasattr(ppxaid, "medhistorys_qs")
+    user_mhs = ppxaid.user.medhistory_set.all()
+    for mh in ppxaid.medhistorys_qs:
+        assert mh.user == ppxaid.user
+        assert mh in user_mhs

@@ -1,67 +1,50 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
+from django.utils import timezone  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
+from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...defaults.models import DefaultPpxTrtSettings
 from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
-from ...medallergys.tests.factories import MedAllergyFactory
+from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import OTHER_NSAID_CONTRAS, PPXAID_MEDHISTORYS
-from ...medhistorys.tests.factories import (
-    AnginaFactory,
-    AnticoagulationFactory,
-    BleedFactory,
-    ChfFactory,
-    CkdFactory,
-    ColchicineinteractionFactory,
-    DiabetesFactory,
-    GastricbypassFactory,
-    HeartattackFactory,
-)
+from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices, Freqs, NsaidChoices, Treatments, TrtTypes
-from ...users.tests.factories import PseudopatientFactory
+from ...users.tests.factories import create_psp
 from ..models import PpxAid
 from ..selectors import ppxaid_user_qs, ppxaid_userless_qs
 from ..services import PpxAidDecisionAid
-from .factories import PpxAidFactory, PpxAidUserFactory
+from .factories import create_ppxaid
 
 pytestmark = pytest.mark.django_db
 
 
 class TestPpxAidMethods(TestCase):
     def setUp(self):
-        angina = AnginaFactory()
-        anticoagulation = AnticoagulationFactory()
-        bleed = BleedFactory()
-        chf = ChfFactory()
-        colchicineinteraction = ColchicineinteractionFactory()
-        diabetes = DiabetesFactory()
-        gastricbypass = GastricbypassFactory()
-        heartattack = HeartattackFactory()
-        allopurinolallergy = MedAllergyFactory(treatment=Treatments.ALLOPURINOL)
-        colchicineallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        ckd = CkdFactory()
-        CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
         medhistorys = [
-            angina,
-            anticoagulation,
-            bleed,
-            chf,
-            colchicineinteraction,
-            diabetes,
-            gastricbypass,
-            heartattack,
-            ckd,
+            MedHistoryTypes.ANGINA,
+            MedHistoryTypes.ANTICOAGULATION,
+            MedHistoryTypes.BLEED,
+            MedHistoryTypes.CHF,
+            MedHistoryTypes.COLCHICINEINTERACTION,
+            MedHistoryTypes.DIABETES,
+            MedHistoryTypes.GASTRICBYPASS,
+            MedHistoryTypes.HEARTATTACK,
+            MedHistoryTypes.CKD,
         ]
-        self.ppxaid = PpxAidFactory(medhistorys=medhistorys, medallergys=[allopurinolallergy, colchicineallergy])
+        self.ppxaid = create_ppxaid(medhistorys=medhistorys, medallergys=[Treatments.COLCHICINE])
+        if not self.ppxaid.baselinecreatinine:
+            self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("2.20"), medhistory=self.ppxaid.ckd)
         self.decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
-        self.empty_ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        self.empty_ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
         self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
 
     def test__init_without_user(self):
@@ -96,7 +79,12 @@ class TestPpxAidMethods(TestCase):
         """Test that __init__() assigns the correct attrs when the QuerySet is a user
         with related models."""
 
-        ppxaid = PpxAidUserFactory()
+        ppxaid = create_ppxaid(user=True)
+        if not ppxaid.user.ckd:
+            del ppxaid.user.ckd
+            CkdFactory(user=ppxaid.user)
+        if not hasattr(ppxaid.user.ckd, "baselinecreatinine"):
+            BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
         defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=ppxaid.user)
         qs = ppxaid_user_qs(username=ppxaid.user.username)
         with CaptureQueriesContext(connection) as context:
@@ -121,6 +109,13 @@ class TestPpxAidMethods(TestCase):
             self.assertTrue(hasattr(decisionaid, "medhistorys"))
             self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
             self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
+            print(ppxaid.ckd)
+            print(ppxaid.ckddetail)
+            print(ppxaid.baselinecreatinine)
+            print(ppxaid.user)
+            print(ppxaid.user.ckd)
+            print(ppxaid.user.ckddetail)
+            print(ppxaid.user.baselinecreatinine)
             self.assertEqual(decisionaid.baselinecreatinine, ppxaid.baselinecreatinine)
             self.assertTrue(hasattr(decisionaid, "ckddetail"))
             self.assertEqual(decisionaid.ckddetail, ppxaid.ckddetail)
@@ -162,9 +157,11 @@ class TestPpxAidMethods(TestCase):
     def test__baseline_methods_work_with_user(self):
         """Test that a PpxAid's options and recommendation work and are correct
         when the PpxAid has a user."""
+        psp = create_psp(medhistorys=[], medallergys=[])
         # Create a PpxAid with a user that doesn't have any medhistorys or medallergys
-        ppxaid = PpxAidUserFactory(user=PseudopatientFactory())
-
+        ppxaid = create_ppxaid(user=psp)
+        print(psp.medhistory_set.all())
+        print(psp.medallergy_set.all())
         # Test that the options and recommendation are correct
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
@@ -175,7 +172,11 @@ class TestPpxAidMethods(TestCase):
         """Test that a basically empty PpxAid's options and recommendation work and are correct
         when it doesn't have a user."""
         # Create a PpxAid without any medhistorys or medallergys
-        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(
+            medhistorys=[],
+            medallergys=[],
+            dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
+        )
 
         # Test that the options and recommendation are correct
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
@@ -214,8 +215,8 @@ class TestPpxAidMethods(TestCase):
         """Test that a PpxAid that has a medhistory or medallergy that is a contraindication to NSAIDs
         does not include NSAIDs in the options or recommendation."""
         # Create a PpxAid with a medhistory that is a contraindication to NSAIDs
-        ppxaid = PpxAidFactory(
-            medhistorys=[HeartattackFactory()],
+        ppxaid = create_ppxaid(
+            medhistorys=[MedHistoryTypes.HEARTATTACK],
             medallergys=[],
         )
 
@@ -228,7 +229,7 @@ class TestPpxAidMethods(TestCase):
         """Test that a PpxAid that has colchicine as an option alters the dose
         when indicated by the CKD stage."""
         # Create a PpxAid for which colchicine is an option
-        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
 
         # Assert that colchicine is in the options dict
 
@@ -241,9 +242,8 @@ class TestPpxAidMethods(TestCase):
         self.assertEqual(Freqs.QDAY, colch_dict["freq"])
 
         # Add a CKD medhistory with a CkdDetail stage <= 3 to the PpxAid
-        ckd = CkdFactory()
+        ckd = CkdFactory(ppxaid=ppxaid)
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ppxaid.add_medhistorys([ckd], [])
 
         # Update the PpxAid
         ppxaid.update_aid()
@@ -264,7 +264,7 @@ class TestPpxAidMethods(TestCase):
         of dosing when indicated by the CKD stage and custom DefaultPpxTrtSettings."""
         # Create a PpxAid for which colchicine is an option
 
-        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
 
         # Assert that colchicine is in the options dict
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
@@ -274,9 +274,8 @@ class TestPpxAidMethods(TestCase):
         self.assertEqual(Freqs.QDAY, colch_dict["freq"])
 
         # Add a CKD medhistory with a CkdDetail stage <= 3 to the PpxAid
-        ckd = CkdFactory()
+        ckd = CkdFactory(ppxaid=ppxaid)
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ppxaid.add_medhistorys([ckd], [])
 
         # Modify the GoutHelper default DefaultPpxTrtSettings to have colchicine
         # frequency be adjusted for CKD, not the dose

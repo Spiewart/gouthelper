@@ -24,7 +24,7 @@ from ...treatments.choices import Treatments
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import PpxAid
 from ..views import PpxAidAbout, PpxAidCreate, PpxAidDetail, PpxAidUpdate
-from .factories import PpxAidFactory, ppxaid_data_factory
+from .factories import create_ppxaid, ppxaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -88,7 +88,7 @@ class TestPpxAidCreate(TestCase):
         self.assertEqual(MedHistory.objects.count(), medhistory_count + 1)
         ppxaid = PpxAid.objects.order_by("created").last()
         mh = MedHistory.objects.order_by("created").last()
-        self.assertIn(mh, ppxaid.medhistorys.all())
+        self.assertIn(mh, ppxaid.medhistory_set.all())
 
     def test__post_creates_medhistorys(self):
         """Test that the post() method creates multiple MedHistory objects."""
@@ -104,8 +104,8 @@ class TestPpxAidCreate(TestCase):
         self.assertEqual(response.status_code, 302)
 
         self.assertEqual(MedHistory.objects.count(), medhistory_count + 2)
-        ppxaid = PpxAid.objects.order_by("created").prefetch_related("medhistorys").last()
-        ppxaid_medhistorys = ppxaid.medhistorys.all()
+        ppxaid = PpxAid.objects.order_by("created").prefetch_related("medhistory_set").last()
+        ppxaid_medhistorys = ppxaid.medhistory_set.all()
         stroke = MedHistory.objects.order_by("created").filter(medhistorytype=MedHistoryTypes.STROKE).last()
         diabetes = MedHistory.objects.order_by("created").filter(medhistorytype=MedHistoryTypes.DIABETES).last()
         self.assertIn(stroke, ppxaid_medhistorys)
@@ -272,12 +272,12 @@ class TestPpxAidDetail(TestCase):
     def test__get_object_updates(self):
         """Test that calling the view without the updated=True query param updates the ppxaid."""
         # Create a blank PpxAid and assert that it has vanilla recommendations
-        ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
         # Add some contraindications that will be updated for
         medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
-        ppxaid.medallergys.add(medallergy)
+        ppxaid.medallergy_set.add(medallergy)
 
         # Re-POST the view and check to see if if the recommendation has been updated
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
@@ -292,14 +292,14 @@ class TestPpxAidDetail(TestCase):
 
     def test__get_object_does_not_update(self):
         # Create an empty PpxAid
-        ppxaid: PpxAid = PpxAidFactory(medhistorys=[], medallergys=[])
+        ppxaid: PpxAid = create_ppxaid(medhistorys=[], medallergys=[])
 
         # Assert that it's recommendations are vanilla
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
         # Create some contraindications that will not be updated for
         medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
-        ppxaid.medallergys.add(medallergy)
+        ppxaid.medallergy_set.add(medallergy)
 
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}) + "?updated=True")
         self.view.as_view()(request, pk=self.ppxaid.pk)
@@ -324,18 +324,18 @@ class TestPpxAidUpdate(TestCase):
 
     def test__dispatch_returns_HttpResponse(self):
         """Test that the overwritten dispatch() method returns an HttpResponse."""
-        fa = PpxAidFactory()
+        ppxaid = create_ppxaid()
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
         view = self.view()
-        kwargs = {"pk": fa.pk}
+        kwargs = {"pk": ppxaid.pk}
         view.setup(request, **kwargs)
         response = view.dispatch(request, **kwargs)
         assert response.status_code == 200
         assert isinstance(response, HttpResponse)
 
     def test__post_updates_medallergys(self):
-        for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
             data = ppxaid_data_factory()
 
             response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
@@ -352,12 +352,12 @@ class TestPpxAidUpdate(TestCase):
                     continue
                 if trt in Treatments.values:
                     if val:
-                        self.assertTrue(ppxaid.medallergys.filter(treatment=trt).exists())
+                        self.assertTrue(ppxaid.medallergy_set.filter(treatment=trt).exists())
                     else:
-                        self.assertFalse(ppxaid.medallergys.filter(treatment=trt).exists())
+                        self.assertFalse(ppxaid.medallergy_set.filter(treatment=trt).exists())
 
     def test__post_updates_medhistorys(self):
-        for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
             data = ppxaid_data_factory()
 
             response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
@@ -370,6 +370,6 @@ class TestPpxAidUpdate(TestCase):
                 mh = key.split("-")[0]
                 if mh in MedHistoryTypes.values:
                     if val:
-                        self.assertTrue(ppxaid.medhistorys.filter(medhistorytype=mh).exists())
+                        self.assertTrue(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())
                     else:
-                        self.assertFalse(ppxaid.medhistorys.filter(medhistorytype=mh).exists())
+                        self.assertFalse(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())

@@ -5,12 +5,8 @@ from django.contrib.auth import get_user_model
 from django.db.models.query import QuerySet
 
 from ..dateofbirths.helpers import age_calc
-from ..medhistorys.helpers import (
-    medhistorys_get_ckd,
-    medhistorys_get_cvdiseases,
-    medhistorys_get_gout,
-    medhistorys_get_menopause,
-)
+from ..medhistorys.choices import CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistorys_get
 from ..utils.helpers.aid_helpers import aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .helpers import (
     flares_calculate_likelihood,
@@ -73,10 +69,10 @@ class FlareDecisionAid:
         self.urate = qs.urate if isinstance(qs, Flare) else self.flare.urate
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
-        self.ckd = medhistorys_get_ckd(medhistorys=self.medhistorys)
-        self.cvdiseases = medhistorys_get_cvdiseases(medhistorys=self.medhistorys)
-        self.gout = medhistorys_get_gout(medhistorys=self.medhistorys)
-        self.menopause = medhistorys_get_menopause(medhistorys=self.medhistorys)
+        self.ckd = medhistorys_get(self.medhistorys, MedHistoryTypes.CKD)
+        self.cvdiseases = medhistorys_get(self.medhistorys, CVDiseases.values)
+        self.gout = medhistorys_get(self.medhistorys, MedHistoryTypes.GOUT)
+        self.menopause = medhistorys_get(self.medhistorys, MedHistoryTypes.MENOPAUSE)
 
     def _update(self, commit=True) -> "Flare":
         """Updates the Flare likelihood and prevalence fields.

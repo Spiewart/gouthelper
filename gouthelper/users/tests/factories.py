@@ -86,69 +86,6 @@ class PseudopatientPlusFactory(PseudopatientFactory):
     but also creates a random number of MedHistory objects, with their associated MedHistoryDetails,
     as well as a random number of MedAllergy objects."""
 
-    @post_generation
-    def create_medhistorys(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            medhistorytypes = MedHistoryTypes.values
-            gout = MedHistoryFactory(
-                user=self,
-                medhistorytype=MedHistoryTypes.GOUT,
-            )
-            medhistorytypes.remove(MedHistoryTypes.GOUT)
-            GoutDetailFactory(medhistory=gout)
-            # Remove MENOPAUSE from the medhistorytypes, needs to be handled in the context of user gender
-            medhistorytypes.remove(MedHistoryTypes.MENOPAUSE)
-            for _ in range(0, extracted if extracted else random.randint(0, 10)):
-                # Create a random MedHistoryType, popping the value from the list
-                medhistory = MedHistoryFactory(
-                    user=self, medhistorytype=medhistorytypes.pop(random.randint(0, len(medhistorytypes) - 1))
-                )
-                if medhistory.medhistorytype == MedHistoryTypes.CKD:
-                    # 50/50 chance of having a CKD detail
-                    dialysis = fake.boolean()
-                    if dialysis:
-                        CkdDetailFactory(medhistory=medhistory, on_dialysis=True)
-                    # Check if the CkdDetail has a dialysis value, and if not,
-                    # 50/50 chance of having a baselinecreatinine associated with
-                    # the stage
-                    else:
-                        if fake.boolean():
-                            baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
-                            CkdDetailFactory(
-                                medhistory=medhistory,
-                                stage=labs_stage_calculator(
-                                    eGFR=labs_eGFR_calculator(
-                                        creatinine=baselinecreatinine.value,
-                                        age=age_calc(self.dateofbirth.value),
-                                        gender=self.gender.value,
-                                    )
-                                ),
-                            )
-                        else:
-                            CkdDetailFactory(medhistory=medhistory)
-
-    @post_generation
-    def create_medallergys(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            treatments = Treatments.values
-            for _ in range(0, extracted if extracted else random.randint(0, 2)):
-                MedAllergyFactory(user=self, treatment=treatments.pop(random.randint(0, len(treatments) - 1)))
-
-    @post_generation
-    def menopausal(self, create: bool, extracted: Sequence[Any], **kwargs):
-        if create:
-            if self.gender.value == Genders.FEMALE:
-                if extracted is True:
-                    MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
-                else:
-                    age = age_calc(self.dateofbirth.value)
-                    if age < 40:
-                        MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
-                    elif age >= 40 and age < 60 and fake.boolean():
-                        MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
-                    else:
-                        MedHistoryFactory(user=self, medhistorytype=MedHistoryTypes.MENOPAUSE)
-
 
 def create_psp(
     dateofbirth: Union["date", None] = None,
