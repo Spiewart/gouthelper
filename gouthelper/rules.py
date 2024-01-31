@@ -73,7 +73,7 @@ def is_anon_obj(_, obj):
     field that is None.
 
     Expects an object with an optional user field."""
-    return obj.user.profile.provider is None if obj.user else True
+    return hasattr(obj.user, "profile") and obj.user.profile.provider is None if obj.user else True
 
 
 @rules.predicate

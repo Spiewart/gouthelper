@@ -241,7 +241,7 @@ class TestPpxAidDetail(TestCase):
         self.content_qs = Content.objects.filter(
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.PPXAID, slug__isnull=False
         ).all()
-        self.ppxaid = PpxAid.objects.filter(user__isnull=True).first()
+        self.ppxaid = create_ppxaid()
 
     def test__contents(self):
         self.assertTrue(self.view().contents)

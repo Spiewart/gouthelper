@@ -157,6 +157,12 @@ def test__create_ppxaid_with_onetoones():
         assert ppxaid.dateofbirth == dateofbirth
 
 
+def test__create_ppxaid_without_onetoones():
+    ppxaid = create_ppxaid(gender=False)
+    assert not getattr(ppxaid, "ethnicity", None)
+    assert not getattr(ppxaid, "gender", None)
+
+
 def test__create_ppxaid_with_medallergys():
     ppxaid = create_ppxaid(medallergys=[FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE])
     assert hasattr(ppxaid, "medallergys_qs")

@@ -38,7 +38,20 @@ class MedHistoryForm(forms.ModelForm):
     class Meta:
         abstract = True
         model = MedHistory
-        exclude = ["last_modified", "setter", "set_date", "user", "visit"]
+        exclude = [
+            "flareaid",
+            "flare",
+            "goalurate",
+            "last_modified",
+            "ppxaid",
+            "ppx",
+            "setter",
+            "set_date",
+            "ultaid",
+            "ult",
+            "user",
+            "visit",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

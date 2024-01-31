@@ -11,6 +11,7 @@ from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...defaults.models import DefaultPpxTrtSettings
 from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
+from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
@@ -109,14 +110,9 @@ class TestPpxAidMethods(TestCase):
             self.assertTrue(hasattr(decisionaid, "medhistorys"))
             self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
             self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
-            print(ppxaid.ckd)
-            print(ppxaid.ckddetail)
-            print(ppxaid.baselinecreatinine)
-            print(ppxaid.user)
-            print(ppxaid.user.ckd)
-            print(ppxaid.user.ckddetail)
-            print(ppxaid.user.baselinecreatinine)
-            self.assertEqual(decisionaid.baselinecreatinine, ppxaid.baselinecreatinine)
+            self.assertEqual(
+                decisionaid.baselinecreatinine, BaselineCreatinine.objects.get(medhistory=ppxaid.user.ckd)
+            )
             self.assertTrue(hasattr(decisionaid, "ckddetail"))
             self.assertEqual(decisionaid.ckddetail, ppxaid.ckddetail)
             self.assertTrue(hasattr(decisionaid, "sideeffects"))

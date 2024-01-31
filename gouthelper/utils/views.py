@@ -90,19 +90,25 @@ class MedHistoryModelBaseMixin:
             )
         )
 
-    def update_or_create_labs_qs(self, aid_obj: "MedAllergyAidHistoryModel", labs: list["Lab"] | None) -> None:
+    def update_or_create_labs_qs(
+        self,
+        aid_obj: "MedAllergyAidHistoryModel",
+        labs_include: list["Lab"] | None,
+        labs_remove: list["Lab"] | None,
+    ) -> None:
         """Method that first checks if there is a labs_qs attribute
         to the aid_obj, creates it if not, and adds the labs to the labs_qs attribute.
 
         Args:
             aid_obj: MedAllergyAidHistoryModel object to add to the labs_qs attribute
-            labs: Lab object to add to the labs_qs attribute
+            labs_include: Lab objects to include in the qs
+            labs_remove: Lab objects to remove from the qs
 
         Returns: None"""
         if hasattr(aid_obj, "labs_qs") is False:
             aid_obj.labs_qs = []
-        if labs:
-            for lab in labs:
+        if labs_include:
+            for lab in labs_include:
                 if lab not in aid_obj.labs_qs:
                     aid_obj.labs_qs.append(lab)
                 # Check if the lab has a date attr and set it if not
@@ -115,42 +121,62 @@ class MedHistoryModelBaseMixin:
                         lab.date = lab.flare.date_started
             # Sort the labs by date
             aid_obj.labs_qs.sort(key=lambda x: x.date, reverse=True)
+        if labs_remove:
+            for lab in labs_remove:
+                if lab in aid_obj.labs_qs:
+                    aid_obj.labs_qs.remove(lab)
 
     def update_or_create_medallergy_qs(
-        self, aid_obj: "MedAllergyAidHistoryModel", medallergys: list["MedAllergy"] | None
+        self,
+        aid_obj: "MedAllergyAidHistoryModel",
+        ma_include: list["MedAllergy"] | None,
+        ma_remove: list["MedAllergy"] | None,
     ) -> None:
         """Method that first checks if there is a medallegy_qs attribute
         to the aid_obj, creates it if not, and adds the medallergys to the medallegy_qs attribute.
 
         Args:
             aid_obj: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
-            medallegy: MedAllegy object to add to the medallegy_qs attribute
+            ma_include: MedAllegy objects to include in the qs
+            ma_remove: MedAllergy objects to remove from the qs
 
         Returns: None"""
         if hasattr(aid_obj, "medallergys_qs") is False:
             aid_obj.medallergys_qs = []
-        if medallergys:
-            for medallergy in medallergys:
-                if medallergy not in aid_obj.medallergys_qs:
-                    aid_obj.medallergys_qs.append(medallergy)
+        if ma_include:
+            for ma in ma_include:
+                if ma not in aid_obj.medallergys_qs:
+                    aid_obj.medallergys_qs.append(ma)
+        if ma_remove:
+            for ma in ma_remove:
+                if ma in aid_obj.medallergys_qs:
+                    aid_obj.medallergys_qs.remove(ma)
 
     def update_or_create_medhistory_qs(
-        self, aid_obj: "MedAllergyAidHistoryModel", medhistorys: list["MedHistory"] | None
+        self,
+        aid_obj: "MedAllergyAidHistoryModel",
+        mh_include: list["MedHistory"] | None,
+        mh_remove: list["MedHistory"] | None,
     ) -> None:
         """Method that first checks if there is a medhistory_qs attribute
         to the aid_obj, creates it if not, and adds the medhistorys to the medhistory_qs attribute.
 
         Args:
             aid_obj: MedAllergyAidHistoryModel object to add to the medhistory_qs attribute
-            medhistorys: MedHistory object to add to the medhistory_qs attribute
+            mh_include: MedHistory object to add to the queryset
+            mh_remove: MedHistory object to remove from the queryset
 
         Returns: None"""
         if hasattr(aid_obj, "medhistorys_qs") is False:
             aid_obj.medhistorys_qs = []
-        if medhistorys:
-            for medhistory in medhistorys:
-                if medhistory not in aid_obj.medhistorys_qs:
-                    aid_obj.medhistorys_qs.append(medhistory)
+        if mh_include:
+            for mh in mh_include:
+                if mh not in aid_obj.medhistorys_qs:
+                    aid_obj.medhistorys_qs.append(mh)
+        if mh_remove:
+            for mh in mh_remove:
+                if mh in aid_obj.medhistorys_qs:
+                    aid_obj.medhistorys_qs.remove(mh)
 
 
 class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
@@ -189,11 +215,15 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 setattr(lab, aid_obj_attr, aid_obj)
                 lab.save()
         # Create and populate the medallergy_qs attribute on the object
-        self.update_or_create_medallergy_qs(aid_obj=aid_obj, medallergys=medallergys_to_save)
+        self.update_or_create_medallergy_qs(aid_obj=aid_obj, ma_include=medallergys_to_save, ma_remove=None)
         # Create and populate the medhistory_qs attribute on the object
-        self.update_or_create_medhistory_qs(aid_obj=aid_obj, medhistorys=medhistorys_to_save)
+        self.update_or_create_medhistory_qs(
+            aid_obj=aid_obj,
+            mh_include=medhistorys_to_save,
+            mh_remove=None,
+        )
         # Create and populate the labs_qs attribute on the object
-        self.update_or_create_labs_qs(aid_obj=aid_obj, labs=labs_to_save)
+        self.update_or_create_labs_qs(aid_obj=aid_obj, labs_include=labs_to_save, labs_remove=None)
         # Return object for the child view to use
         return aid_obj
 
@@ -1453,11 +1483,15 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             for lab in labs_to_save:
                 lab.save()
         # Create and populate the medallergy_qs attribute on the object
-        self.update_or_create_medallergy_qs(aid_obj=aid_obj, medallergys=medallergys_to_save)
+        self.update_or_create_medallergy_qs(
+            aid_obj=aid_obj, ma_include=medallergys_to_save, ma_remove=medallergys_to_remove
+        )
         # Create and populate the medhistory_qs attribute on the object
-        self.update_or_create_medhistory_qs(aid_obj=aid_obj, medhistorys=medhistorys_to_save)
+        self.update_or_create_medhistory_qs(
+            aid_obj=aid_obj, mh_include=medhistorys_to_save, mh_remove=medhistorys_to_remove
+        )
         # Create and populate the labs_qs attribute on the object
-        self.update_or_create_labs_qs(aid_obj=aid_obj, labs=labs_to_save)
+        self.update_or_create_labs_qs(aid_obj=aid_obj, labs_include=labs_to_save, labs_remove=labs_to_remove)
         return aid_obj
 
     def context_onetoones(

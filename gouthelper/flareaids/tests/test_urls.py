@@ -1,13 +1,13 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
-from .factories import FlareAidFactory, FlareAidUserFactory
+from .factories import create_flareaid
 
 
 class TestFlareAidUrls(TestCase):
     def setUp(self):
-        self.flareaid = FlareAidFactory()
-        self.user_flareaid = FlareAidUserFactory()
+        self.flareaid = create_flareaid()
+        self.user_flareaid = create_flareaid(user=True)
 
     def test_detail(self):
         assert reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}) == f"/flareaids/{self.flareaid.pk}/"

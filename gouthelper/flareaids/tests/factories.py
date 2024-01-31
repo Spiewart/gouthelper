@@ -1,34 +1,27 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
-import factory  # type: ignore
 import pytest  # type: ignore
-from django.db import IntegrityError, transaction  # type: ignore
-from factory import post_generation  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker
 
-from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
-from ...labs.tests.factories import BaselineCreatinineFactory
-from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.models import CkdDetail
-from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
-from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import FlarePpxChoices
-from ...users.tests.factories import PseudopatientPlusFactory
-from ...utils.helpers.test_helpers import MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin
+from ...utils.helpers.test_helpers import (
+    MedAllergyCreatorMixin,
+    MedAllergyDataMixin,
+    MedHistoryCreatorMixin,
+    MedHistoryDataMixin,
+    OneToOneCreatorMixin,
+    OneToOneDataMixin,
+)
 from ..models import FlareAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
-
-    from ...medallergys.models import MedAllergy  # type: ignore
-    from ...medhistorys.models import MedHistory  # type: ignore
-    from ...treatments.choices import Treatments
 
     User = get_user_model()
 
@@ -70,96 +63,50 @@ def flareaid_data_factory(
     ).create()
 
 
+class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreatorMixin):
+    """Inherits from Mixins to create OneToOne fields and related ForeignKeys."""
+
+    def create(self, **kwargs):
+        kwargs = super().create(**kwargs)
+        # Create the FlareAid
+        flareaid = FlareAid(**kwargs)
+        # Create the OneToOne fields and add them to the FlareAid
+        self.create_otos(flareaid)
+        # Save the FlareAid
+        flareaid.save()
+        # Create the MedAllergys related to the FlareAid
+        self.create_mas(flareaid)
+        # Create the MedHistorys related to the FlareAid
+        self.create_mhs(flareaid)
+        # Return the FlareAid
+        return flareaid
+
+
+def create_flareaid(
+    user: Union["User", None] = None,
+    medallergys: list[FlarePpxChoices.values] | None = None,
+    medhistorys: list[FLAREAID_MEDHISTORYS] | None = None,
+    **kwargs,
+) -> FlareAid:
+    """Method to create a FlareAid with or without a User as well as all its related
+    objects, which can be pre-assigned through medallergys or medhistorys or, for
+    onetoones, through kwargs."""
+
+    if medallergys is None:
+        medallergys = FlarePpxChoices.values
+    if medhistorys is None:
+        medhistorys = FLAREAID_MEDHISTORYS
+    # Call the constructor Class Method
+    return CreateFlareAid(
+        medallergys=medallergys,
+        medhistorys=medhistorys,
+        mh_details=[MedHistoryTypes.CKD],
+        onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
+        req_onetoones=["dateofbirth"],
+        user=user,
+    ).create(**kwargs)
+
+
 class FlareAidFactory(DjangoModelFactory):
     class Meta:
         model = FlareAid
-
-    dateofbirth = factory.SubFactory(DateOfBirthFactory)
-
-    @classmethod
-    def _after_postgeneration(cls, instance, create, results=None):
-        """Save again the instance if creating and at least one hook ran."""
-        if create and results and not cls._meta.skip_postgeneration_save:
-            # Some post-generation hooks ran, and may have modified us.
-            instance.save()
-
-    @post_generation
-    def medhistorys(self, create, extracted: list["MedHistory"] = None, **kwargs):
-        if extracted is not None:
-            self.add_medhistorys(extracted, [])
-        elif create:
-            for medhistory in FLAREAID_MEDHISTORYS:
-                mhs_to_add = []
-                if fake.boolean():
-                    mh = MedHistoryFactory(medhistorytype=medhistory)
-                    mhs_to_add.append(mh)
-                    if medhistory == MedHistoryTypes.CKD:
-                        dialysis = fake.boolean()
-                        if dialysis:
-                            CkdDetailFactory(medhistory=mh, on_dialysis=True)
-                        # Check if the CkdDetail has a dialysis value, and if not,
-                        # 50/50 chance of having a baselinecreatinine associated with
-                        # the stage
-                        else:
-                            if fake.boolean():
-                                baselinecreatinine = BaselineCreatinineFactory(medhistory=mh)
-                                # Check if there is a gender value, and if not, need to create a new one
-                                self.gender = GenderFactory()
-                                CkdDetailFactory(
-                                    medhistory=mh,
-                                    stage=labs_stage_calculator(
-                                        eGFR=labs_eGFR_calculator(
-                                            creatinine=baselinecreatinine.value,
-                                            age=age_calc(self.dateofbirth.value),
-                                            gender=self.gender.value,
-                                        )
-                                    ),
-                                )
-                            else:
-                                CkdDetailFactory(medhistory=mh)
-                self.add_medhistorys(mhs_to_add, [])
-        else:
-            return
-
-    @post_generation
-    def medallergys(self, create, extracted: list["MedAllergy"] = None, **kwargs):
-        if extracted is not None:
-            self.add_medallergys(extracted, [])
-        elif create:
-            mas_to_add = []
-            for medallergy in FlarePpxChoices.values:
-                if fake.boolean():
-                    mas_to_add.append(MedAllergyFactory(treatment=medallergy))
-            self.add_medallergys(mas_to_add, [])
-        else:
-            return
-
-
-class FlareAidUserFactory(DjangoModelFactory):
-    class Meta:
-        model = FlareAid
-
-    user = factory.SubFactory(PseudopatientPlusFactory)
-    dateofbirth = None
-
-    @post_generation
-    def medhistorys(self, create, extracted: list["MedHistoryTypes"] = None, **kwargs):
-        if extracted is not None:
-            for mh in extracted:
-                try:
-                    # https://stackoverflow.com/questions/32205220/cant-execute-queries-until-end-of-atomic-block-in-my-data-migration-on-django-1
-                    with transaction.atomic():
-                        self.user.medhistory_set.add(MedHistoryFactory(medhistorytype=mh, user=self.user))
-                except IntegrityError:
-                    pass
-
-    @post_generation
-    def medallergys(self, create, extracted: list["Treatments"] = None, **kwargs):
-        if extracted is not None:
-            for ma in extracted:
-                try:
-                    # https://stackoverflow.com/questions/32205220/cant-execute-queries-until-end-of-atomic-block-in-my-data-migration-on-django-1
-                    with transaction.atomic():
-                        self.user.medallergy_set.add(MedAllergyFactory(treatment=ma, user=self.user))
-                except IntegrityError:
-                    pass

@@ -17,6 +17,7 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import (
     AnginaFactory,
@@ -34,7 +35,7 @@ from ...users.tests.factories import PseudopatientFactory
 from ...utils.helpers.aid_helpers import aids_dict_to_json
 from ..selectors import flareaid_user_qs, flareaid_userless_qs
 from ..services import FlareAidDecisionAid
-from .factories import FlareAidFactory, FlareAidUserFactory
+from .factories import create_flareaid
 
 pytestmark = pytest.mark.django_db
 
@@ -54,7 +55,7 @@ class TestFlareAidMethods(TestCase):
         self.userless_ckd = CkdFactory()
         self.userless_gender = GenderFactory()
         self.userless_ckddetail = CkdDetailFactory(medhistory=self.userless_ckd, stage=Stages.FOUR)
-        self.userless_flareaid = FlareAidFactory(gender=self.userless_gender)
+        self.userless_flareaid = create_flareaid(gender=self.userless_gender)
         for medhistory in MedHistory.objects.filter().all():
             self.userless_flareaid.medhistorys.add(medhistory)
         self.userless_flareaid.medallergys.add(self.userless_allopurinolallergy)
@@ -75,7 +76,7 @@ class TestFlareAidMethods(TestCase):
         self.user_allopurinolallergy = MedAllergyFactory(user=self.user, treatment=Treatments.ALLOPURINOL)
         self.user_ckd = CkdFactory(user=self.user)
         self.user_ckddetail = CkdDetailFactory(medhistory=self.user_ckd, stage=Stages.FOUR)
-        self.user_flareaid = FlareAidUserFactory(user=self.user)
+        self.user_flareaid = create_flareaid(user=self.user)
         self.user_qs = flareaid_user_qs(username=self.user.username)
         self.user_decisionaid = FlareAidDecisionAid(qs=self.user_qs)
 
@@ -138,7 +139,7 @@ class TestFlareAidMethods(TestCase):
         self.assertEqual(len(context.captured_queries), 1)
         self.assertEqual(age_calc(self.user.dateofbirth.value), decisionaid.age)
         self.assertEqual(self.user.gender, decisionaid.gender)
-        for medhistory in MedHistory.objects.filter(user=self.user).all():
+        for medhistory in MedHistory.objects.filter(user=self.user, medhistorytype__in=FLAREAID_MEDHISTORYS).all():
             self.assertIn(medhistory, decisionaid.medhistorys)
             if medhistory.medhistorytype == MedHistoryTypes.CKD:
                 self.assertEqual(medhistory.ckddetail, decisionaid.ckddetail)
@@ -208,7 +209,7 @@ class TestFlareAidMethods(TestCase):
             self.assertIn(trt, decisionaid_dict)
 
     def test___create_decisionaid_dict_aids_process_medhistorys(self):
-        flareaid = FlareAidFactory()
+        flareaid = create_flareaid()
         medhistorys = MedHistory.objects.all()
         flareaid.medhistorys.add(*medhistorys)
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
@@ -218,7 +219,7 @@ class TestFlareAidMethods(TestCase):
             self.assertTrue(decisionaid_dict[default.treatment]["contra"])
 
     def test___create_decisionaid_dict_aids_process_medallergys(self):
-        flareaid = FlareAidFactory()
+        flareaid = create_flareaid()
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
         flareaid.medallergys.add(medallergy)
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
@@ -227,9 +228,8 @@ class TestFlareAidMethods(TestCase):
             self.assertTrue(decisionaid_dict[medallergy.treatment]["contra"])
 
     def test__create_decisionaid_dict_aids_process_nsaids(self):
-        flareaid = FlareAidFactory()
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
-        flareaid.medallergys.add(medallergy)
+        flareaid = create_flareaid(medallergys=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()
         for nsaid in NsaidChoices:
@@ -239,9 +239,8 @@ class TestFlareAidMethods(TestCase):
         settings = DefaultFlareTrtSettings.objects.get(user=None)
         settings.nsaids_equivalent = False
         settings.save()
-        flareaid = FlareAidFactory()
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
-        flareaid.medallergys.add(medallergy)
+        flareaid = create_flareaid(medallergys=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()
         for nsaid in NsaidChoices:
@@ -252,8 +251,7 @@ class TestFlareAidMethods(TestCase):
 
     def test__create_decisionaid_dict_aids_process_steroids(self):
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
-        flareaid = FlareAidFactory()
-        flareaid.medallergys.add(medallergy)
+        flareaid = create_flareaid(medallergys=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])
@@ -264,8 +262,7 @@ class TestFlareAidMethods(TestCase):
         settings.steroids_equivalent = False
         settings.save()
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
-        flareaid = FlareAidFactory()
-        flareaid.medallergys.add(medallergy)
+        flareaid = create_flareaid(medallergys=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])

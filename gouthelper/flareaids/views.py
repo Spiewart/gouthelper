@@ -151,7 +151,6 @@ class FlareAidCreate(FlareAidBase, MedHistorysModelCreateView, SuccessMessageMix
         (
             errors,
             form,
-            _,  # object_data
             _,  # onetoone_forms
             _,  # medallergys_forms
             _,  # medhistorys_forms
@@ -488,7 +487,8 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
 
     def assign_flareaid_attrs_from_user(self, flareaid: FlareAid, user: "User") -> FlareAid:
         flareaid.dateofbirth = user.dateofbirth
-        flareaid.gender = user.gender
+        if hasattr(user, "gender"):
+            flareaid.gender = user.gender
         flareaid.medallergys_qs = user.medallergys_qs
         flareaid.medhistorys_qs = user.medhistorys_qs
         return flareaid

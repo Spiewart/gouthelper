@@ -11,7 +11,7 @@ class MedAllergyTreatmentForm(forms.ModelForm):
 
     class Meta:
         model = MedAllergy
-        exclude = ["user", "sideeffects", "treatment"]
+        exclude = ["flareaid", "ppxaid", "sideeffects", "treatment", "ultaid", "user"]
 
     def __init__(self, *args, **kwargs):
         self.treatment = kwargs.pop("treatment")

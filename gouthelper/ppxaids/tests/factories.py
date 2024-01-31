@@ -23,6 +23,9 @@ from ..models import PpxAid
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
+    from ...medallergys.models import MedAllergy
+    from ...medhistorys.models import MedHistory
+
     User = get_user_model()
 
 pytestmark = pytest.mark.django_db
@@ -64,9 +67,12 @@ def ppxaid_data_factory(
 
 
 class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreatorMixin):
-    """Inherits from Mixins to create OneToOne fields and related ForeingKeys."""
+    """Inherits from Mixins to create OneToOne fields and related ForeignKeys."""
+
+    onetoones: dict[str:DjangoModelFactory] = {"dateofbirth": DateOfBirthFactory, "gender": GenderFactory}
 
     def create(self, **kwargs):
+        kwargs = super().create(**kwargs)
         # Create the PpxAid
         ppxaid = PpxAid(**kwargs)
         # Create the OneToOne fields and add them to the PpxAid
@@ -83,8 +89,8 @@ class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 def create_ppxaid(
     user: Union["User", None] = None,
-    medallergys: list[FlarePpxChoices.values] | None = None,
-    medhistorys: list[PPXAID_MEDHISTORYS] | None = None,
+    medallergys: list[FlarePpxChoices.values, "MedAllergy"] | None = None,
+    medhistorys: list[PPXAID_MEDHISTORYS, "MedHistory"] | None = None,
     **kwargs,
 ) -> PpxAid:
     """Method to create a PpxAid with or without a User as well as all its related
@@ -100,7 +106,7 @@ def create_ppxaid(
         medallergys=medallergys,
         medhistorys=medhistorys,
         mh_details=[MedHistoryTypes.CKD],
-        onetoones=[("dateofbirth", DateOfBirthFactory), ("gender", GenderFactory)],
+        onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_onetoones=["dateofbirth"],
         user=user,
     ).create(**kwargs)
