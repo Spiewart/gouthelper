@@ -588,7 +588,7 @@ class PatientModelCreateView(MedHistorysModelCreateView):
                 for medallergy in medallergys_to_save:
                     medallergy.user = self.object
                     medallergy.save()
-            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+            self.update_or_create_medallergy_qs(aid_obj=self.object, ma_include=medallergys_to_save, ma_remove=None)
         if self.medhistorys:
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
@@ -599,14 +599,14 @@ class PatientModelCreateView(MedHistorysModelCreateView):
                     medhistorydetail.user = self.object
                     medhistorydetail.save()
             # Create and populate the medhistory_qs attribute on the object
-            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+            self.update_or_create_medhistory_qs(aid_obj=self.object, mh_include=medhistorys_to_save, mh_remove=None)
         if self.labs:
             if labs_to_save:
                 for lab in labs_to_save:
                     lab.user = self.object
                     lab.save()
             # Create and populate the labs_qs attribute on the object
-            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
+            self.update_or_create_labs_qs(aid_obj=self.object, labs_include=labs_to_save, labs_remove=None)
         # Return object for the child view to use
         return self.object
 

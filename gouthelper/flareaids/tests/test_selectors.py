@@ -14,6 +14,7 @@ from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices
 from ...users.tests.factories import create_psp
@@ -56,13 +57,16 @@ class TestFlareAidUserlessQuerySet(TestCase):
             queryset = queryset.get()
             self.assertEqual(queryset.dateofbirth, self.dateofbirth)
             self.assertEqual(queryset.gender, self.gender)
-            self.assertEqual(queryset.ckd, self.ckd)
-            self.assertEqual(queryset.ckd.ckddetail, self.ckddetail)
-        self.assertEqual(len(queries.captured_queries), 3)
-        self.assertTrue(hasattr(queryset, "medallergys_qs"))
-        self.assertTrue(hasattr(queryset, "medhistorys_qs"))
-        self.assertIn(self.medallergy, queryset.medallergys_qs)
-        self.assertIn(self.ckd, queryset.medhistorys_qs)
+            self.assertEqual(len(queries.captured_queries), 3)
+            self.assertTrue(hasattr(queryset, "medallergys_qs"))
+            self.assertTrue(hasattr(queryset, "medhistorys_qs"))
+            self.assertIn(self.medallergy, queryset.medallergys_qs)
+            print(queryset.medhistorys_qs)
+            self.assertIn(self.ckd, queryset.medhistorys_qs)
+            self.assertEqual(
+                self.ckd.pk,
+                next(iter(mh for mh in queryset.medhistorys_qs if mh.medhistorytype == MedHistoryTypes.CKD)).pk,
+            )
 
 
 class TestFlareAidUserQuerySet(TestCase):

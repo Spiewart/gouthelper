@@ -23,11 +23,15 @@ def flare_userless_qs(pk: "UUID") -> "QuerySet":
     return queryset
 
 
-def flare_user_qs(username: str, flare_pk: Union["UUID", None]) -> "QuerySet":
+def flare_user_qs(username: str, flare_pk: Union["UUID", None] = None) -> "QuerySet":
+    """QuerySet for a Pseudopatient and all the necessary related objects to
+    create or update a Flare. If a flare_pk is provided, the Flare object will
+    be fetched and added to the QuerySet."""
+
     queryset = Pseudopatient.objects.filter(username=username)
     queryset = queryset.select_related("dateofbirth")
     queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistory_set_prefetch())
+    queryset = queryset.prefetch_related(medhistorys_prefetch())
     if flare_pk:
         queryset = queryset.prefetch_related(flare_prefetch(pk=flare_pk))
     return queryset
@@ -49,14 +53,6 @@ def flares_prefetch() -> Prefetch:
     )
 
 
-def medhistorys_prefetch() -> Prefetch:
-    return Prefetch(
-        "medhistorys",
-        queryset=medhistorys_qs(),
-        to_attr="medhistorys_qs",
-    )
-
-
 def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
@@ -65,7 +61,7 @@ def medhistorys_qs() -> "QuerySet":
     )
 
 
-def medhistory_set_prefetch() -> Prefetch:
+def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=medhistorys_qs(),

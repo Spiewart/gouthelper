@@ -7,13 +7,12 @@ from django.utils import timezone  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...flares.tests.factories import FlareFactory
 from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.helpers import medhistorys_get
-from ...medhistorys.tests.factories import ChfFactory, CkdFactory, GoutFactory, MenopauseFactory
+from ...medhistorys.tests.factories import MenopauseFactory
 from ...utils.helpers.helpers import calculate_duration
 from ..choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
 from ..helpers import (
@@ -27,6 +26,7 @@ from ..helpers import (
     flares_uncommon_joints,
 )
 from ..lists import COMMON_GOUT_JOINTS
+from .factories import create_flare
 
 if TYPE_CHECKING:
     from ...flares.models import Flare
@@ -40,7 +40,7 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
         onset=flare.onset,
         redness=flare.redness,
         joints=flare.joints,
-        medhistorys=flare.medhistorys.all(),
+        medhistorys=flare.medhistory_set.all(),
         urate=flare.urate,
     )
     prevalence = flares_calculate_prevalence(prevalence_points)
@@ -69,7 +69,7 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
 
 class TestFlareHelpers(TestCase):
     def setUp(self):
-        self.flare = FlareFactory()
+        self.flare = create_flare()
 
     def test__flares_abnormal_duration_too_long(self):
         self.flare.date_started = timezone.now().date() - timedelta(days=16)
@@ -98,7 +98,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_zero_points(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -107,13 +107,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -122,7 +123,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_gender_male(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -131,13 +132,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -146,8 +148,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_gout_history(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        gout = GoutFactory()
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -156,14 +157,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[MedHistoryTypes.GOUT],
         )
-        flare.medhistorys.add(gout)
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -172,7 +173,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_onset_True(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -181,13 +182,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -196,7 +198,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_redness_True(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -205,13 +207,14 @@ class TestFlareHelpers(TestCase):
             redness=True,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -220,7 +223,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_MTP_involved(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -229,13 +232,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -244,8 +248,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_CV_risk_present(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        chf = ChfFactory()
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -254,14 +257,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[MedHistoryTypes.CHF],
         )
-        flare.medhistorys.add(chf)
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -270,9 +273,8 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_high_urate(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        chf = ChfFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -281,14 +283,14 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CHF],
         )
-        flare.medhistorys.add(chf)
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
             onset=flare.onset,
             redness=flare.redness,
             joints=flare.joints,
-            medhistorys=flare.medhistorys.all(),
+            medhistorys=flare.medhistory_set.all(),
             urate=flare.urate,
         )
         self.assertTrue(isinstance(prevalence_points, float))
@@ -302,19 +304,22 @@ class TestFlareHelpers(TestCase):
             self.assertIn(joint.value, common_joints)
 
     def test__flares_get_less_likelys_female(self):
-        self.flare.dateofbirth.value = timezone.now() - timedelta(days=365 * 30)
-        self.flare.dateofbirth.save()
-        self.flare.gender.value = Genders.FEMALE
-        self.flare.gender.save()
+        flare = create_flare(
+            crystal_analysis=None,
+            dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30)),
+            gender=Genders.FEMALE,
+            medhistorys=[],
+            menopause=False,
+        )
         less_likelys = flares_get_less_likelys(
-            age=age_calc(self.flare.dateofbirth.value),
+            age=age_calc(flare.dateofbirth.value),
             date_ended=None,
-            duration=self.flare.duration,
-            gender=self.flare.gender,
-            joints=self.flare.joints,
-            menopause=self.flare.menopause,
-            crystal_analysis=self.flare.crystal_analysis,
-            ckd=self.flare.ckd,
+            duration=flare.duration,
+            gender=flare.gender,
+            joints=flare.joints,
+            menopause=flare.menopause,
+            crystal_analysis=flare.crystal_analysis,
+            ckd=flare.ckd,
         )
         self.assertIn(LessLikelys.FEMALE, less_likelys)
 
@@ -323,7 +328,9 @@ class TestFlareHelpers(TestCase):
         self.flare.dateofbirth.save()
         self.flare.gender.value = Genders.FEMALE
         self.flare.gender.save()
-        self.flare.medhistorys.add(MenopauseFactory())
+        if not self.flare.menopause:
+            self.flare.medhistorys_qs.append(MenopauseFactory(flare=self.flare))
+        del self.flare.menopause
         less_likelys = flares_get_less_likelys(
             age=age_calc(self.flare.dateofbirth.value),
             date_ended=None,
@@ -337,20 +344,22 @@ class TestFlareHelpers(TestCase):
         self.assertNotIn(LessLikelys.FEMALE, less_likelys)
 
     def test__flares_get_less_likelys_female_with_ckd(self):
-        self.flare.dateofbirth.value = timezone.now() - timedelta(days=365 * 30)
-        self.flare.dateofbirth.save()
-        self.flare.gender.value = Genders.FEMALE
-        self.flare.gender.save()
-        self.flare.medhistorys.add(CkdFactory())
+        flare = create_flare(
+            menopause=False,
+            dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30)),
+            gender=GenderFactory(value=Genders.FEMALE),
+            medhistorys=[MedHistoryTypes.CKD],
+        )
+
         less_likelys = flares_get_less_likelys(
-            age=age_calc(self.flare.dateofbirth.value),
+            age=age_calc(flare.dateofbirth.value),
             date_ended=None,
-            duration=self.flare.duration,
-            gender=self.flare.gender,
-            joints=self.flare.joints,
-            menopause=self.flare.menopause,
-            crystal_analysis=self.flare.crystal_analysis,
-            ckd=self.flare.ckd,
+            duration=flare.duration,
+            gender=flare.gender,
+            joints=flare.joints,
+            menopause=flare.menopause,
+            crystal_analysis=flare.crystal_analysis,
+            ckd=flare.ckd,
         )
         self.assertNotIn(LessLikelys.FEMALE, less_likelys)
 
@@ -557,9 +566,8 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        chf = ChfFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -568,8 +576,10 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CHF],
+            date_started=(timezone.now() - timedelta(days=6)).date(),
+            date_ended=timezone.now().date(),
         )
-        flare.medhistorys.add(chf)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
         flare.joints = [LimitedJointChoices.SHOULDERL, LimitedJointChoices.HIPL]
@@ -582,9 +592,8 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        chf = ChfFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -593,8 +602,8 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CHF],
         )
-        flare.medhistorys.add(chf)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.EQUIVOCAL)
 
@@ -603,10 +612,8 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        chf = ChfFactory()
-        menopause = MenopauseFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -615,8 +622,11 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            menopause=True,
+            medhistorys=[MedHistoryTypes.CHF],
+            date_started=(timezone.now() - timedelta(days=6)).date(),
+            date_ended=timezone.now().date(),
         )
-        flare.medhistorys.add(chf, menopause)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
 
@@ -625,10 +635,8 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        chf = ChfFactory()
-        ckd = CkdFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
             gender=gender,
@@ -637,17 +645,18 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CKD, MedHistoryTypes.CHF],
+            date_started=(timezone.now() - timedelta(days=6)).date(),
+            date_ended=timezone.now().date(),
         )
-        flare.medhistorys.add(chf, ckd)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
 
     def test__flares_flares_likelihood_calculator_long_flare_lowers_likelihood(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        chf = ChfFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             date_ended=None,
             date_started=(timezone.now() - timedelta(days=6)).date(),
@@ -658,8 +667,8 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CHF],
         )
-        flare.medhistorys.add(chf)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
         flare.date_started = (timezone.now() - timedelta(days=35)).date()
@@ -670,9 +679,8 @@ Physician evaluation is recommended.",
     def test__flares_flares_likelihood_calculator_short_flare_lowers_likelihood(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        chf = ChfFactory()
         urate = UrateFactory(value=10.0)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             date_ended=timezone.now().date(),
             date_started=(timezone.now() - timedelta(days=6)).date(),
@@ -683,8 +691,8 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
+            medhistorys=[MedHistoryTypes.CHF],
         )
-        flare.medhistorys.add(chf)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
         flare.date_started = (timezone.now() - timedelta(days=2)).date()
@@ -697,7 +705,7 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             date_ended=timezone.now().date(),
             date_started=(timezone.now() - timedelta(days=6)).date(),
@@ -708,6 +716,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=None,
+            medhistorys=[],  # no medhistorys
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.EQUIVOCAL)
@@ -719,7 +728,7 @@ Physician evaluation is recommended.",
     def test__flares_flares_likelihood_calculator_returns_low_prevalence_unlikely(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=None,
             date_ended=timezone.now().date(),
             date_started=(timezone.now() - timedelta(days=6)).date(),
@@ -730,6 +739,7 @@ Physician evaluation is recommended.",
             redness=False,
             diagnosed=False,
             urate=None,
+            medhistorys=[],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.UNLIKELY)
@@ -737,7 +747,7 @@ Physician evaluation is recommended.",
     def test__flares_flares_likelihood_calculator_crystal_analysis_returns_likely(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        flare = FlareFactory(
+        flare = create_flare(
             crystal_analysis=True,
             date_ended=timezone.now().date(),
             date_started=(timezone.now() - timedelta(days=6)).date(),
@@ -748,6 +758,7 @@ Physician evaluation is recommended.",
             redness=False,
             diagnosed=True,
             urate=None,
+            medhistorys=[],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)

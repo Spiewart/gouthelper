@@ -397,36 +397,43 @@ class TestFlareAidPseudopatientCreate(TestCase):
                 assert f"{mhtype}_form" in response.context_data
                 if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
                     assert (
-                        response.context_data[f"{mhtype}_form"].instance._state.adding is True
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data[f"{mhtype}_form"].instance._state.adding
+                        is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                     assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
             assert "ckddetail_form" in response.context_data
             if user.ckd:
                 if getattr(user.ckd, "ckddetail", None):
                     assert response.context_data["ckddetail_form"].instance == user.ckd.ckddetail
                     assert (
-                        response.context_data["ckddetail_form"].instance._state.adding is False
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data["ckddetail_form"].instance._state.adding
+                        is False  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                 else:
                     assert (
-                        response.context_data["ckddetail_form"].instance._state.adding is True
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data["ckddetail_form"].instance._state.adding
+                        is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                 if getattr(user.ckd, "baselinecreatinine", None):
                     assert response.context_data["baselinecreatinine_form"].instance == user.ckd.baselinecreatinine
                     assert (
-                        response.context_data["baselinecreatinine_form"].instance._state.adding is False
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data["baselinecreatinine_form"].instance._state.adding
+                        is False  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                 else:
                     assert (
-                        response.context_data["baselinecreatinine_form"].instance._state.adding is True
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data["baselinecreatinine_form"].instance._state.adding
+                        is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
             else:
                 assert (
-                    response.context_data["ckddetail_form"].instance._state.adding is True
-                )  # pylint: disable=w0212, line-too-long # noqa: E501
+                    response.context_data["ckddetail_form"].instance._state.adding
+                    is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                )
                 assert (
-                    response.context_data["baselinecreatinine_form"].instance._state.adding is True
-                )  # pylint: disable=w0212, line-too-long # noqa: E501
+                    response.context_data["baselinecreatinine_form"].instance._state.adding
+                    is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                )
             assert "goutdetail_form" not in response.context_data
 
     def test__get_context_data_medallergys(self):
@@ -445,8 +452,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
                 assert f"medallergy_{ma.treatment}_form" in response.context_data
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].instance == ma
                 assert (
-                    response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding is False
-                )  # pylint: disable=w0212, line-too-long # noqa: E501
+                    response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding
+                    is False  # pylint: disable=w0212, line-too-long # noqa: E501
+                )
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
                     f"medallergy_{ma.treatment}": True
                 }
@@ -454,8 +462,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
                 assert f"medallergy_{treatment}_form" in response.context_data
                 if treatment not in user.medallergy_set.values_list("treatment", flat=True):
                     assert (
-                        response.context_data[f"medallergy_{treatment}_form"].instance._state.adding is True
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data[f"medallergy_{treatment}_form"].instance._state.adding
+                        is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
                         f"medallergy_{treatment}": None
                     }
@@ -515,7 +524,8 @@ class TestFlareAidPseudopatientCreate(TestCase):
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         assert response.status_code == 302
-        self.assertEqual(self.psp.medhistory_set.count(), mh_count + mh_diff)
+        # (+) 1 because the view also creates a Gout MedHistory for the User behind the scenes
+        self.assertEqual(self.psp.medhistory_set.count(), mh_count + mh_diff + 1)
         self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CAD).exists())
         self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CHF).exists())
 

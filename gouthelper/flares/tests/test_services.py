@@ -27,11 +27,11 @@ from ...medhistorys.tests.factories import (
     MenopauseFactory,
 )
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
+from ...users.tests.factories import UserFactory, create_psp
 from ..choices import Likelihoods, Prevalences
 from ..selectors import flare_user_qs, flare_userless_qs
 from ..services import FlareDecisionAid
-from .factories import FlareUserFactory
+from .factories import create_flare
 
 pytestmark = pytest.mark.django_db
 
@@ -40,8 +40,8 @@ class TestFlareMethods(TestCase):
     def setUp(self):
         self.provider = UserFactory()
         for _ in range(10):
-            PseudopatientPlusFactory(provider=self.provider)
-        self.anon_psp = PseudopatientPlusFactory()
+            create_psp(provider=self.provider, plus=True)
+        self.anon_psp = create_psp(plus=True)
         self.userless_dateofbirth = DateOfBirthFactory()
         self.userless_angina = AnginaFactory()
         self.userless_chf = ChfFactory()
@@ -121,7 +121,7 @@ class TestFlareMethods(TestCase):
         object when it has a user to avoid saving a Flare to the database with either of
         these fields an a user, which will raise an IntegrityError."""
         user = Pseudopatient.objects.first()
-        flare = FlareUserFactory(user=user)
+        flare = create_flare(user=user)
         self.assertIsNone(flare.dateofbirth)
         self.assertIsNone(flare.gender)
         flare.dateofbirth = flare.user.dateofbirth
@@ -136,7 +136,7 @@ class TestFlareMethods(TestCase):
         self.assertIsNone(self.flare_userless.likelihood)
         self.assertIsNone(self.flare_userless.prevalence)
         decisionaid = FlareDecisionAid(qs=flare_userless_qs(pk=self.flare_userless.pk))
-        decisionaid._update()
+        decisionaid._update()  # pylint: disable=w0212
         self.flare_userless.refresh_from_db()
         self.assertIsNotNone(self.flare_userless.likelihood)
         self.assertIn(self.flare_userless.prevalence, Prevalences.values)

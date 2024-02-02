@@ -36,7 +36,9 @@ fake = faker.Faker()
 
 
 class CreateFlareAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
-    """Overwritten to add functionality for OneToOnes and HLAb5801."""
+    """Inherits from Mixins and works out of the box when the class method is called with the
+    appropriate arguments. The create() method returns a dictionary of the data to be used to
+    populate data in a FlareAid and related model forms."""
 
     def create(self):
         ma_data = self.create_ma_data()
@@ -46,7 +48,7 @@ class CreateFlareAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataM
 
 
 def flareaid_data_factory(
-    user: "User" = None,
+    user: Union["User", None] = None,
 ) -> dict[str, str]:
     return CreateFlareAidData(
         medallergys=FlarePpxChoices.values,
@@ -69,7 +71,7 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
     def create(self, **kwargs):
         kwargs = super().create(**kwargs)
         # Create the FlareAid
-        flareaid = FlareAid(**kwargs)
+        flareaid = FlareAidFactory.build(**kwargs)
         # Create the OneToOne fields and add them to the FlareAid
         self.create_otos(flareaid)
         # Save the FlareAid

@@ -184,9 +184,8 @@ def create_psp(
             MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
         else:
             age = age_calc(psp.dateofbirth.value)
-            if age < 40:
-                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
-            elif age >= 40 and age < 60 and fake.boolean():
+            # If age < 40, there is no Menopause MedHistory
+            if age >= 40 and age < 60 and fake.boolean():
                 MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
             else:
                 MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)

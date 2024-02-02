@@ -510,12 +510,8 @@ class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
-                ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
-            ),
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_flaretrt1_valid",
                 check=models.Q(flaretrt1__in=Treatments.values),
@@ -630,12 +626,8 @@ class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
-                ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
-            ),
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_ppxtrt1_valid",
                 check=models.Q(ppxtrt1__in=Treatments.values),
@@ -748,12 +740,8 @@ class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
-                ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
-            ),
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_initial_febuxostat_dose_ckd",
                 check=(models.Q(febu_ckd_initial_dose__in=FebuxostatDoses.values)),

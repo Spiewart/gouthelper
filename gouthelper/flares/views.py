@@ -178,7 +178,6 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
         (
             errors,
             form,
-            object_data,
             onetoone_forms,
             medallergys_forms,
             medhistorys_forms,
@@ -193,7 +192,7 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
         if errors:
             return errors
         medhistorys_forms, errors_bool = self.post_process_menopause(
-            medhistorys_forms=medhistorys_forms, post_object=object_data
+            medhistorys_forms=medhistorys_forms, post_object=form.instance
         )
         form, onetoone_forms, errors_bool = self.post_process_urate_check(
             form=form, onetoone_forms=onetoone_forms, errors_bool=errors_bool

@@ -12,6 +12,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..dateofbirths.helpers import age_calc
 from ..utils.models import DecisionAidModel
 from .choices import Roles
 from .rules import change_user, delete_user, view_user
@@ -252,6 +253,13 @@ class Pseudopatient(DecisionAidModel, User):
         }
 
     # Custom methods for Pseudopatient Role go here...
+    @cached_property
+    def age(self):
+        if hasattr(self, "dateofbirth"):
+            return age_calc(self.dateofbirth.value)
+        else:
+            return None
+
     @cached_property
     def profile(self):
         return getattr(self, "pseudopatientprofile", None)

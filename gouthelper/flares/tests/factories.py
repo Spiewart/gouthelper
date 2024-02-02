@@ -1,11 +1,12 @@
 import random
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Union
 
 import factory  # type: ignore
 import factory.fuzzy  # type: ignore
 import pytest  # type: ignore
 from django.contrib.auth import get_user_model
+from django.db.utils import IntegrityError
 from django.utils import timezone
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
@@ -19,7 +20,17 @@ from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...users.tests.factories import PseudopatientFactory
+from ...medhistorys.tests.factories import MedHistoryFactory
+from ...treatments.choices import FlarePpxChoices
+from ...utils.helpers.test_helpers import (
+    MedAllergyDataMixin,
+    MedHistoryCreatorMixin,
+    MedHistoryDataMixin,
+    OneToOneCreatorMixin,
+    OneToOneDataMixin,
+    create_or_append_medhistorys_qs,
+    get_menopause_val,
+)
 from ..models import Flare
 
 if TYPE_CHECKING:
@@ -27,94 +38,74 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
+fake = faker.Faker()
 
-def create_flare_data(user: Union["User", None] = None, flare: Flare | None = None) -> dict[str, Any]:
-    """Method that returns fake data for a FlareAid object.
-    takes an optional User *arg that will pull date of birth and gender
-    from the user object."""
 
-    fake = faker.Faker()
+class CreateFlareData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
+    """Provides data for FlareAid related objects when the class method is called with the appropriate
+    arguments. However, the resulting data still needs to be populated with FlareAid-specific data for
+    fields on the FlareAid."""
 
-    def get_True_or_empty_str() -> bool | str:
-        return fake.boolean() or ""
+    def create(self):
+        oto_data = self.create_oto_data()
+        ma_data = self.create_ma_data()
+        mh_data = self.create_mh_data()
+        return {**oto_data, **ma_data, **mh_data}
 
-    flare_mhs = FLARE_MEDHISTORYS.copy()
-    flare_mhs.remove(MedHistoryTypes.MENOPAUSE)
 
-    data = {}
-    # Create OneToOneField data based on whether or not there is a user *arg
-    if not user:
-        age = age_calc(fake("date_of_birth", minimum_age=18, maximum_age=100))
-        data["dateofbirth-value"] = age
-        data["gender-value"] = factory.fuzzy.FuzzyChoice(Genders.choices, getter=lambda c: c[0])
-        # Check age and gender and adjust MENOPAUSE_form accordingly
-        gender = data.get("gender-value", user.gender.value)
-        if gender == Genders.FEMALE:
-            if age < 40:
-                data[f"{MedHistoryTypes.MENOPAUSE}-value"] = False
-            elif age >= 40 and age < 60:
-                if fake.boolean():
-                    data[f"{MedHistoryTypes.MENOPAUSE}-value"] = False
-                else:
-                    data[f"{MedHistoryTypes.MENOPAUSE}-value"] = True
-            else:
-                data[f"{MedHistoryTypes.MENOPAUSE}-value"] = True
-        else:
-            data[f"{MedHistoryTypes.MENOPAUSE}-value"] = ""
-    else:
-        flare_mhs.remove(MedHistoryTypes.GOUT)
-    # Create FlareAid data
-    for medhistory in flare_mhs:
-        if medhistory == MedHistoryTypes.CKD:
-            data[f"{medhistory}-value"] = fake.boolean()
-        else:
-            data[f"{medhistory}-value"] = get_True_or_empty_str()
+def flare_data_factory(
+    user: Union["User", None] = None,
+    flare: Flare | None = None,
+) -> dict[str, str]:
+    data = CreateFlareData(
+        medallergys=FlarePpxChoices.values,
+        medhistorys=FLARE_MEDHISTORYS,
+        bool_mhs=[
+            MedHistoryTypes.CKD,
+            MedHistoryTypes.GOUT,
+            MedHistoryTypes.MENOPAUSE,
+        ],
+        user=user,
+        onetoones=["dateofbirth", "gender", "urate"],
+    ).create()
     # Create FlareAid Data
-    data["date_started"] = fake.date_between_dates(
+    date_started = fake.date_between_dates(
         date_start=(timezone.now() - timedelta(days=180)).date(), date_end=timezone.now().date()
     )
-    if fake.boolean():
-        data["date_ended"] = fake.date_between_dates(date_start=data["date_started"], date_end=timezone.now().date())
+    data["date_started"] = str(date_started)
+    if flare and flare.date_ended is not None:
+        if fake.boolean():
+            data["date_ended"] = str(
+                fake.date_between_dates(date_start=date_started, date_end=date_started + timedelta(days=30))
+            )
+        else:
+            data["date_ended"] = ""
+    elif fake.boolean():
+        data["date_ended"] = str(
+            fake.date_between_dates(date_start=date_started, date_end=date_started + timedelta(days=30))
+        )
     data["onset"] = fake.boolean()
     data["redness"] = fake.boolean()
     data["joints"] = get_random_joints()
-    # Check if there is a flare and if it has a urate
-    if flare and flare.urate:
-        # 50/50 chance of having the value change
+    # 50/50 chance of having clinician diagnosis and 50/50 chance of having aspiration
+    if fake.boolean():
+        data["diagnosed"] = True
         if fake.boolean():
-            # If there's a change in the urate, 50/50 chance it's deleted, else it's value is changed
-            if fake.boolean():
-                data["urate_check"] = False
-                data["urate-value"] = ""
-            else:
-                data["urate_check"] = True
-                data["urate-value"] = fake.pydecimal(
-                    left_digits=2,
-                    right_digits=1,
-                    positive=True,
-                    min_value=1,
-                    max_value=30,
-                )
-        else:
-            data["urate_check"] = True
-            data["urate-value"] = flare.urate.value
-    else:
-        # 50/50 chance of having a Urate
-        data["urate_check"] = fake.boolean()
-        if data["urate_check"]:
-            data["urate-value"] = fake.pydecimal(
-                left_digits=2,
-                right_digits=1,
-                positive=True,
-                min_value=1,
-                max_value=30,
-            )
-    # 50/50 chance of having clinician diagnosis
-    data["diagnosed"] = fake.boolean()
-    if data["diagnosed"]:
-        data["aspiration"] = fake.boolean()
-        if data["aspiration"]:
+            data["aspiration"] = True
             data["crystal_analysis"] = fake.boolean()
+        else:
+            data["aspiration"] = False
+            data["crystal_analysis"] = ""
+    else:
+        data["diagnosed"] = False
+        data["crystal_analysis"] = ""
+    # Check if there is data for a Urate in the data
+    if data.get("urate-value", None):
+        # If so, mark urate-check as True
+        data["urate_check"] = True
+    else:
+        # If not, mark urate-check as False
+        data["urate_check"] = False
     return data
 
 
@@ -125,20 +116,99 @@ def get_random_joints():
     )
 
 
+class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
+    """Inherits from Mixins to create OneToOne and MedHistory objects for a Flare."""
+
+    def create(self, **kwargs):
+        # Set the kwargs from the super() method
+        kwargs = super().create(**kwargs)
+        # pop() the menopause kwarg from the kwargs
+        menopause_kwarg = kwargs.pop("menopause", None)
+        flare = FlareFactory.build(**kwargs)
+        # Create the OneToOne fields and add them to the Flare
+        self.create_otos(flare)
+        # Add Flare-specific fields to the Flare
+        if flare.diagnosed:
+            if fake.boolean():
+                flare.crystal_analysis = fake.boolean()
+
+        # If the flare does not have a date_ended, 50/50 chance of creating one
+        if not flare.date_ended and fake.boolean() and not ("date_ended" in kwargs and kwargs["date_ended"] is None):
+            # Get the difference between the date_started and the current date to avoid
+            # creating a date_ended that is in the future
+            date_diff = timezone.now().date() - flare.date_started
+            if fake.boolean():
+                if fake.boolean():
+                    flare.date_ended = fake.date_between_dates(
+                        date_start=flare.date_started + timedelta(days=1),
+                        date_end=flare.date_started
+                        + (date_diff if date_diff < timedelta(days=14) else timedelta(days=14)),
+                    )
+                else:
+                    flare.date_ended = fake.date_between_dates(
+                        date_start=flare.date_started + timedelta(days=1),
+                        date_end=flare.date_started
+                        + (date_diff if date_diff < timedelta(days=30) else timedelta(days=30)),
+                    )
+        # Save the Flare
+        flare.save()
+        # Process menopause here
+        age = age_calc(flare.dateofbirth.value if not flare.user else flare.user.dateofbirth.value)
+        gender = flare.gender.value if not flare.user else flare.user.gender.value
+        menopause = get_menopause_val(age=age, gender=gender)
+        if menopause and menopause_kwarg is not False:
+            try:
+                create_or_append_medhistorys_qs(
+                    flare,
+                    MedHistoryFactory.create(
+                        medhistorytype=MedHistoryTypes.MENOPAUSE,
+                        flare=flare if not flare.user else None,
+                        user=flare.user,
+                    ),
+                )
+            except IntegrityError:
+                pass
+        elif menopause_kwarg:
+            if gender == Genders.FEMALE:
+                create_or_append_medhistorys_qs(
+                    flare,
+                    MedHistoryFactory.create(
+                        medhistorytype=MedHistoryTypes.MENOPAUSE,
+                        flare=flare if not flare.user else None,
+                        user=flare.user,
+                    ),
+                )
+            else:
+                raise ValueError("Men cannot have a menopause MedHistory.")
+        # Create the MedHistorys related to the Flare
+        self.create_mhs(flare)
+        # Return the Flare
+        return flare
+
+
+def create_flare(
+    user: Union["User", None] = None,
+    medhistorys: list[FLARE_MEDHISTORYS] | None = None,
+    **kwargs,
+) -> Flare:
+    """Creates a Flare with the given user, onetoones, and medhistorys."""
+    if medhistorys is None:
+        medhistorys = FLARE_MEDHISTORYS
+    # Call the constructor Class Method
+    return CreateFlare(
+        medhistorys=medhistorys,
+        onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
+        req_onetoones=["dateofbirth", "gender"],
+        user=user,
+    ).create(**kwargs)
+
+
 class FlareFactory(DjangoModelFactory):
-    dateofbirth = factory.SubFactory(DateOfBirthFactory)
-    gender = factory.SubFactory(GenderFactory)
+    date_started = factory.Faker("date_this_year")
+    diagnosed = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
+    joints = factory.LazyFunction(get_random_joints)
     onset = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
     redness = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
-    joints = factory.LazyFunction(get_random_joints)
-    urate = factory.SubFactory(UrateFactory)
 
     class Meta:
         model = Flare
-
-
-class FlareUserFactory(FlareFactory):
-    user = factory.SubFactory(PseudopatientFactory)
-    dateofbirth = None
-    gender = None
-    urate = factory.SubFactory(UrateFactory, user=factory.SelfAttribute("..user"))

@@ -63,7 +63,7 @@ class FlareAidDecisionAid:
                 qs.defaultflaretrtsettings if hasattr(qs, "defaultflaretrtsettings") else None
             )
         else:
-            raise ValueError("FlareAidDecisionAid requires a FlareAid or User instance.")
+            raise TypeError("FlareAidDecisionAid requires a FlareAid or User instance.")
         self.dateofbirth = qs.dateofbirth
         self.age = age_calc(qs.dateofbirth.value)
         # Check if the QS is a FlareAid with a User, if so,

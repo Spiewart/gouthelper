@@ -71,7 +71,7 @@ def flares_calculate_prevalence_points(
         points += 1.0
     if LimitedJointChoices.MTP1L in joints or LimitedJointChoices.MTP1R in joints:
         points += 2.5
-    cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + MedHistoryTypes.HYPERTENSION)
+    cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + [MedHistoryTypes.HYPERTENSION])
     if cvdiseases:
         points += 1.5
     if urate and urate.value > Decimal("5.88"):

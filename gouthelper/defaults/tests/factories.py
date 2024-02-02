@@ -118,7 +118,7 @@ class DefaultNaproxenPpxFactory(DefaultTrtFactory):
         model = DefaultTrt
 
 
-class DefaultFlareTrtSettingsFactory(DefaultTrtFactory):
+class DefaultFlareTrtSettingsFactory(DjangoModelFactory):
     class Meta:
         model = DefaultFlareTrtSettings
 

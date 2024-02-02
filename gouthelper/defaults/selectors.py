@@ -20,7 +20,7 @@ def defaults_defaultflaretrtsettings(user: Union["User", None]) -> Any:
     return (
         apps.get_model("defaults.DefaultFlareTrtSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user")
+        .order_by("user", "modified", "created")
         .first()
     )
 
@@ -33,7 +33,7 @@ def defaults_defaultppxtrtsettings(user: Union["User", None]) -> Any:
     return (
         apps.get_model("defaults.DefaultPpxTrtSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user")
+        .order_by("user", "modified", "created")
         .first()
     )
 
@@ -46,7 +46,7 @@ def defaults_defaultulttrtsettings(user: Union["User", None]) -> Any:
     return (
         apps.get_model("defaults.DefaultUltTrtSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user")
+        .order_by("user", "modified", "created")
         .first()
     )
 

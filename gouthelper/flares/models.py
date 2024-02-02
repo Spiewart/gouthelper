@@ -236,7 +236,7 @@ monosodium urate crystals on polarized microscopy?"
             return (
                 self.gender.value == Genders.MALE
                 and self.age
-                and self.age >= 18
+                and self.age >= 18  # pylint: disable=w0143
                 or self.gender.value == Genders.FEMALE
                 and (self.post_menopausal or self.ckd)
             )
@@ -331,7 +331,7 @@ monosodium urate crystals on polarized microscopy?"
         is post-menopausal. Returns True if so, False if not."""
         # Check for age and menopause in medhistorys
         # Return True if age >= 50 or menopause
-        return self.age and self.age >= 60 or self.menopause
+        return self.menopause or (self.age and self.age >= 60)  # pylint: disable=w0143
 
     @cached_property
     def prevalence_points(self) -> float:

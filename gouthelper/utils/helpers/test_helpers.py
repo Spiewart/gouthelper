@@ -1,16 +1,20 @@
 import random
+from datetime import date
 from typing import TYPE_CHECKING, Any, Union
 
-from django.db import IntegrityError  # type: ignore
+from django.db import IntegrityError, transaction  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
+from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.models import Ethnicity
+from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
+from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import Urate
 from ...medallergys.models import MedAllergy
@@ -45,6 +49,39 @@ DialysisDurations = DialysisDurations.values
 DialysisDurations.remove("")
 Stages = Stages.values
 Stages.remove(None)
+
+
+def create_medhistory_atomic(
+    medhistory: MedHistoryTypes,
+    user: Union["User", None] = None,
+    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
+    aid_obj_attr: str | None = None,
+):
+    if not aid_obj_attr:
+        aid_obj_attr = aid_obj.__class__.__name__.lower()
+    with transaction.atomic():
+        try:
+            return MedHistoryFactory(
+                medhistorytype=medhistory,
+                user=user,
+                **{aid_obj_attr: aid_obj} if not user else {},
+            )
+        except IntegrityError as exc:
+            raise IntegrityError(
+                f"MedHistory {medhistory} already exists for {aid_obj if not user else user}."
+            ) from exc
+
+
+def create_or_append_medhistorys_qs(
+    target: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", "User"],
+    medhistory: MedHistory,
+) -> None:
+    """Method that adds a MedHistory object to the medhistorys_qs attr on a target object.
+    If the target object does not have a medhistorys_qs attr, then it is created."""
+
+    if not hasattr(target, "medhistorys_qs"):
+        target.medhistorys_qs = []
+    target.medhistorys_qs.append(medhistory)
 
 
 def get_True_or_empty_str() -> bool | str:
@@ -106,6 +143,28 @@ def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: 
     return data
 
 
+def get_menopause_val(age: int, gender: int) -> bool:
+    """Method that takes an age and gender and returns a Menopause value.
+    Can be used as data in a form or as a bool when figuring out whether or not
+    to create a MedHistory object."""
+    if gender == Genders.FEMALE:
+        if age >= 40 and age < 60:
+            return fake.boolean()
+        elif age >= 60:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+def make_menopause_data(age: int = None, gender: int = None) -> dict:
+    """Method that takes an age and gender and semi-randomly generates data
+    for a Menopause MedHistory form field."""
+    # Create and populate a data dictionary
+    return {f"{MedHistoryTypes.MENOPAUSE}-value": get_menopause_val(age, gender)}
+
+
 def medallergy_diff_obj_data(obj: Any, data: dict, medallergys: list[Treatments]) -> int:
     """Method that compares an object with a medallergys attr and fake data form a form
     and calculates the difference between the existing number of medallergys and the
@@ -118,7 +177,11 @@ def medallergy_diff_obj_data(obj: Any, data: dict, medallergys: list[Treatments]
     return ma_data_count - ma_count
 
 
-def medhistory_diff_obj_data(obj: Any, data: dict, medhistorys: list[MedHistoryTypes]) -> int:
+def medhistory_diff_obj_data(
+    obj: Any,
+    data: dict,
+    medhistorys: list[MedHistoryTypes],
+) -> int:
     """Method that compares an object with a medhistorys attr and fake data form a form
     and calculates the difference between the existing number of medhistorys and the
     number of medhistorys intended by the data. Uses a list of MedHistorys to sort through the
@@ -163,20 +226,20 @@ class DataMixin:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(user, onetoone).value))
-                else:
+                elif onetoone != "urate":
                     setattr(self, onetoone, getattr(user, onetoone).value)
         elif aid_obj and aid_obj.user:
             for onetoone in self.onetoones:
-                if onetoone != "dateofbirth":
+                if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(aid_obj.user, onetoone).value))
                 else:
-                    setattr(self, onetoone, age_calc(getattr(aid_obj.user, onetoone).value))
+                    setattr(self, onetoone, getattr(aid_obj.user, onetoone).value)
         elif aid_obj:
             for onetoone in self.onetoones:
-                if onetoone != "dateofbirth":
+                if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(aid_obj, onetoone).value))
                 else:
-                    setattr(self, onetoone, age_calc(getattr(aid_obj, onetoone).value))
+                    setattr(self, onetoone, getattr(aid_obj, onetoone).value)
         else:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
@@ -217,11 +280,16 @@ class MedHistoryDataMixin(DataMixin):
                     if medhistory in self.bool_mhs
                     else ""
                 )
+            # If the MedHistory is MENOPAUSE, then need to check whether the data indicates the
+            # GoutPatient is a Male or Female, and if the latter how old he or she is in order to
+            # correctly generate or not a Menopause MedHistory
+            elif medhistory == MedHistoryTypes.MENOPAUSE:
+                data.update(make_menopause_data(age=self.dateofbirth, gender=self.gender))
             else:
                 data[f"{medhistory}-value"] = get_mh_val(medhistory, self.bool_mhs)
             if medhistory == MedHistoryTypes.CKD:
                 ckd_value = data[f"{medhistory}-value"]
-                if ckd_value and MedHistoryTypes.CKD in self.mh_details:
+                if self.mh_details and ckd_value and MedHistoryTypes.CKD in self.mh_details:
                     if self.user:
                         if hasattr(self.user, "ckddetail"):
                             ckdetail = self.user.ckddetail
@@ -257,7 +325,6 @@ class MedHistoryDataMixin(DataMixin):
                             )
                     else:
                         data.update(**make_ckddetail_data(dateofbirth=self.dateofbirth, gender=self.gender))
-
         return data
 
     def create(self):
@@ -311,6 +378,15 @@ class OneToOneDataMixin(DataMixin):
                 data[f"{onetoone}-value"] = self.ethnicity
             elif onetoone == "gender":
                 data[f"{onetoone}-value"] = self.gender
+            elif onetoone == "urate":
+                if fake.boolean():
+                    data[f"{onetoone}-value"] = fake.pydecimal(
+                        left_digits=2,
+                        right_digits=1,
+                        positive=True,
+                        min_value=1,
+                        max_value=30,
+                    )
         return data
 
     def create(self):
@@ -336,7 +412,11 @@ class CreateAidMixin:
         self.req_onetoones = req_onetoones
         # Check for equality, not Truthiness, because a User object could be Truthy
         if user is True:
-            self.user = create_psp()
+            self.user = create_psp(
+                dateofbirth=False,
+                ethnicity=False,
+                gender=False,
+            )
             # Set just_created attr on user to be used in processing MedHistorys
             self.user.just_created = True
         elif user:
@@ -361,7 +441,10 @@ class CreateAidMixin:
 class MedAllergyCreatorMixin(CreateAidMixin):
     """Mixin for creating MedAllergy objects to add to an Aid object."""
 
-    def create_mas(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+    def create_mas(
+        self,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+    ) -> None:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
         # Check if the medallergy list is the Default list or a specified list
         specified = self.medallergys != aid_obj.aid_treatments()
@@ -413,15 +496,19 @@ class MedHistoryCreatorMixin(CreateAidMixin):
     """Mixin for creating MedHistory and MedHistoryDetail objects to
     add to an Aid object."""
 
-    def create_mhs(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+    def create_mhs(
+        self,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+    ) -> None:
         """Method that creates MedHistory objects with a ForeignKey to the Aid object."""
         aid_obj_attr = aid_obj.__class__.__name__.lower()
         # Check if the medhistory list is the Default list or a specified list
         specified = self.medhistorys != aid_obj.aid_medhistorys()
         # Set the medhistorys_qs on the Aid object
-        aid_obj.medhistorys_qs = []
+        if not hasattr(aid_obj, "medhistorys_qs"):
+            aid_obj.medhistorys_qs = []
         if self.medhistorys:
-            for medhistory in self.medhistorys:
+            for medhistory in [mh for mh in self.medhistorys if mh != MedHistoryTypes.MENOPAUSE]:
                 if isinstance(medhistory, MedHistory):
                     if self.user:
                         if medhistory.user != self.user:
@@ -435,41 +522,52 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                             medhistory.user = self.user
                             medhistory.save()
                     else:
-                        if getattr(medhistory, aid_obj_attr) is None:
+                        # Set the MedHistory's appropriate FK to the Aid object
+                        if getattr(medhistory, aid_obj_attr) != aid_obj:
+                            setattr(medhistory, aid_obj_attr, aid_obj)
                             try:
                                 medhistory.save()
                             except IntegrityError as exc:
                                 raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.") from exc
                         else:
                             raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.")
-                    setattr(medhistory, aid_obj_attr, aid_obj)
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
                 elif specified or fake.boolean():
                     if specified:
-                        try:
-                            new_mh = MedHistoryFactory(
-                                medhistorytype=medhistory,
-                                user=self.user,
-                                **{aid_obj_attr: aid_obj} if not self.user else {},
-                            )
-                        except IntegrityError as exc:
-                            raise IntegrityError(
-                                f"MedHistory {medhistory} already exists for \
-{aid_obj if not self.user else self.user}."
-                            ) from exc
-                    elif not self.user or self.user.just_created:
-                        new_mh = MedHistoryFactory(
-                            medhistorytype=medhistory,
+                        new_mh = create_medhistory_atomic(
+                            medhistory,
                             user=self.user,
-                            **{aid_obj_attr: aid_obj} if not self.user else {},
+                            aid_obj=aid_obj,
+                            aid_obj_attr=aid_obj_attr,
                         )
+                    elif not self.user or self.user.just_created:
+                        if self.user and medhistory == MedHistoryTypes.GOUT:
+                            new_mh = getattr(self.user, "gout")
+                            if not new_mh:
+                                new_mh = create_medhistory_atomic(
+                                    medhistory,
+                                    user=self.user,
+                                    aid_obj=aid_obj,
+                                    aid_obj_attr=aid_obj_attr,
+                                )
+                        else:
+                            new_mh = create_medhistory_atomic(
+                                medhistory,
+                                user=self.user,
+                                aid_obj=aid_obj,
+                                aid_obj_attr=aid_obj_attr,
+                            )
                     else:
                         new_mh = None
                     if new_mh:
                         # Add the MedHistory object to the Aid object's medhistorys_qs
                         aid_obj.medhistorys_qs.append(new_mh)
-                        if medhistory == MedHistoryTypes.CKD and MedHistoryTypes.CKD in self.mh_details:
+                        if (
+                            self.mh_details
+                            and medhistory == MedHistoryTypes.CKD
+                            and MedHistoryTypes.CKD in self.mh_details
+                        ):
                             if self.user:
                                 if not getattr(new_mh, "ckddetail", None):
                                     create_ckddetail(
@@ -493,7 +591,10 @@ class MedHistoryCreatorMixin(CreateAidMixin):
 class OneToOneCreatorMixin(CreateAidMixin):
     """Method that creates related OneToOne objects for an Aid object."""
 
-    def create_otos(self, aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"]) -> None:
+    def create_otos(
+        self,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+    ) -> None:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
         if self.user:
             # If there's a user, assign that user to the Aid object
@@ -506,27 +607,71 @@ class OneToOneCreatorMixin(CreateAidMixin):
                             factory.save()
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                elif isinstance(factory, (date, Genders, Ethnicitys)):
+                    if self.user.just_created:
+                        model_fact = (
+                            DateOfBirthFactory
+                            if isinstance(factory, date)
+                            else EthnicityFactory
+                            if isinstance(factory, Ethnicitys)
+                            else GenderFactory
+                        )
+                        try:
+                            model_fact(value=factory, user=self.user)
+                        except IntegrityError as exc:
+                            raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                    else:
+                        oto = getattr(self.user, onetoone, None)
+                        if not oto:
+                            model_fact = (
+                                DateOfBirthFactory
+                                if isinstance(factory, date)
+                                else EthnicityFactory
+                                if isinstance(factory, Ethnicitys)
+                                else GenderFactory
+                            )
+                            try:
+                                model_fact(value=factory, user=self.user)
+                            except IntegrityError as exc:
+                                raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                        else:
+                            oto.value = factory
+                            oto.save()
                 elif factory:
                     if onetoone in self.req_onetoones or fake.boolean():
-                        if not getattr(self.user, onetoone, None):
-                            setattr(self.user, onetoone, factory(user=self.user))
-                            # Will raise a TypeError if the object is not a Factory
+                        if onetoone == "urate":
+                            oto = factory(user=self.user)
+                            setattr(self, onetoone, oto)
+                        else:
+                            oto = getattr(self.user, onetoone, None)
+                            if not oto:
+                                # Will raise a TypeError if the object is not a Factory
+                                oto = factory(user=self.user)
+                                setattr(self.user, onetoone, oto)
         else:
             for onetoone, factory in self.onetoones.items():
                 if isinstance(factory, (DateOfBirth, Ethnicity, Gender, Urate)):
-                    print("here")
-                    if factory.user != aid_obj.user:
-                        try:
-                            factory.user = aid_obj.user
-                            factory.save()
-                        except IntegrityError as exc:
-                            raise IntegrityError(f"{factory} already exists for {aid_obj.user}.") from exc
                     setattr(aid_obj, onetoone, factory)
+                    setattr(self, onetoone, factory)
+                elif isinstance(factory, (date, Genders, Ethnicitys)):
+                    model_fact = (
+                        DateOfBirthFactory
+                        if isinstance(factory, date)
+                        else EthnicityFactory
+                        if isinstance(factory, Ethnicitys)
+                        else GenderFactory
+                    )
+                    factory_obj = model_fact(value=factory)
+                    setattr(self, onetoone, factory_obj)
+                    setattr(aid_obj, onetoone, factory_obj)
                 elif factory:
                     if onetoone in self.req_onetoones or fake.boolean():
-                        if not getattr(aid_obj, onetoone, None):
-                            setattr(aid_obj, onetoone, factory(**{aid_obj_attr: aid_obj}))
+                        oto = getattr(aid_obj, onetoone, None)
+                        if not oto:
                             # Will raise a TypeError if the object is not a Factory
+                            oto = factory(**{aid_obj_attr: aid_obj})
+                            setattr(aid_obj, onetoone, oto)
+                        setattr(self, onetoone, oto)
 
 
 def form_data_colchicine_contra(data: dict, user: "User") -> Contraindications | None:

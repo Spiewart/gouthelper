@@ -27,10 +27,10 @@ from ...medhistorys.tests.factories import (
     StrokeFactory,
 )
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
+from ...users.tests.factories import PseudopatientPlusFactory
 from ..models import Flare
 from ..selectors import flare_user_qs, flare_userless_qs, user_flares
-from .factories import FlareFactory, FlareUserFactory
+from .factories import create_flare
 
 pytestmark = pytest.mark.django_db
 
@@ -75,8 +75,9 @@ class TestFlareUserlessQuerySet(TestCase):
         self.urate = UrateFactory()
 
     def test__queryset_returns_correctly(self):
-        flare = FlareFactory(dateofbirth=self.dateofbirth, gender=self.gender, urate=self.urate)
-        flare.medhistorys.add(*self.medhistorys)
+        flare = create_flare(
+            medhistorys=[*self.medhistorys], dateofbirth=self.dateofbirth, gender=self.gender, urate=self.urate
+        )
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
@@ -106,7 +107,9 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertEqual(len(queries.captured_queries), 0)
 
     def test__queryset_returns_correctly_no_relateds(self):
-        flare = FlareFactory(dateofbirth=self.dateofbirth, gender=self.gender, urate=None)
+        flare = create_flare(
+            medhistorys=[], medallergys=[], dateofbirth=self.dateofbirth, gender=self.gender, urate=None
+        )
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
@@ -122,14 +125,14 @@ class TestFlareUserlessQuerySet(TestCase):
 
 class TestFlareUserQuerySet(TestCase):
     def setUp(self):
-        self.user = UserFactory()
+        self.psps = []
         for _ in range(5):
-            psp = PseudopatientPlusFactory(provider=self.user)
-            FlareUserFactory(user=psp)
+            flare = create_flare(user=True)
+            self.psps.append(flare.user)
 
     def test__queryset_returns_correctly(self):
         """Test that the flare_user_qs() returns the correct QuerySet"""
-        for psp in Pseudopatient.objects.all():
+        for psp in self.psps:
             with CaptureQueriesContext(connection) as queries:
                 qs = flare_user_qs(psp.username, psp.flare_set.last().pk).get()
             self.assertEqual(len(queries.captured_queries), 4)
@@ -148,7 +151,7 @@ class TestUserFlaresQuerySet(TestCase):
     def setUp(self):
         self.psp = PseudopatientPlusFactory()
         for _ in range(5):
-            FlareUserFactory(user=self.psp)
+            create_flare(user=self.psp)
         self.empty_psp = PseudopatientPlusFactory()
 
     def test__qs(self):
