@@ -156,8 +156,6 @@ class TestPpxAidMethods(TestCase):
         psp = create_psp(medhistorys=[], medallergys=[])
         # Create a PpxAid with a user that doesn't have any medhistorys or medallergys
         ppxaid = create_ppxaid(user=psp)
-        print(psp.medhistory_set.all())
-        print(psp.medallergy_set.all())
         # Test that the options and recommendation are correct
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)

@@ -341,7 +341,7 @@ monosodium urate crystals on polarized microscopy?"
             onset=self.onset,
             redness=self.redness,
             joints=self.joints,
-            medhistorys=self.medhistorys_qs if self.medhistorys_qs else list(self.medhistorys.all()),
+            medhistorys=self.medhistorys_qs if hasattr(self, "medhistorys_qs") else list(self.medhistory_set.all()),
             urate=self.urate,
         )
 

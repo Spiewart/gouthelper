@@ -59,7 +59,7 @@ def test__flare_data_factory():
                 assert "crystal_analysis" in data
                 assert isinstance(data["crystal_analysis"], bool)
             else:
-                assert "crystal_analysis" not in data
+                assert "crystal_analysis" not in data or data["crystal_analysis"] == ""
         else:
             assert "aspiration" not in data
 
@@ -114,7 +114,7 @@ def test__flare_data_factory():
                 assert "crystal_analysis" in data
                 assert isinstance(data["crystal_analysis"], bool)
             else:
-                assert "crystal_analysis" not in data
+                assert "crystal_analysis" not in data or data["crystal_analysis"] == ""
         else:
             assert "aspiration" not in data
 

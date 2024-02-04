@@ -47,6 +47,8 @@ from .models import Flare
 from .selectors import flare_user_qs, flare_userless_qs, user_flares
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from django.db.models import Model, QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
     from django.http import HttpRequest, HttpResponse  # type: ignore
@@ -103,29 +105,30 @@ class FlareBase:
     def post_process_menopause(
         self,
         medhistorys_forms: dict[str, "ModelForm"],
-        post_object: "MedAllergyAidHistoryModel",
+        post_object: Union["MedAllergyAidHistoryModel", None] = None,
+        gender: Genders | None = None,
+        dateofbirth: Union["date", None] = None,
         errors_bool: bool = False,
     ) -> tuple[dict[str, "ModelForm"], bool]:
-        if post_object.gender and post_object.gender.value == Genders.FEMALE and post_object.dateofbirth:
-            age = age_calc(post_object.dateofbirth.value)
-            if (
-                age >= 40
-                and age < 60
-                and (
-                    medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
-                        f"{MedHistoryTypes.MENOPAUSE}-value"
-                    )
-                    is None
+        if post_object and gender or post_object and dateofbirth:
+            raise ValueError("You must provide either a MedAllergyAidHistoryModel object or a dateofbirth and gender.")
+        gender = post_object.gender.value if post_object else gender
+        dateofbirth = post_object.dateofbirth.value if post_object else dateofbirth
+        if gender and gender == Genders.FEMALE and dateofbirth:
+            age = age_calc(dateofbirth)
+            if age >= 40 and age < 60:
+                menopause = medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
+                    f"{MedHistoryTypes.MENOPAUSE}-value", None
                 )
-            ):
-                menopause_error = ValidationError(
-                    message="For females between ages 40 and 60, we need to know the patient's \
+                if menopause is None or menopause == "":
+                    menopause_error = ValidationError(
+                        message="For females between ages 40 and 60, we need to know the patient's \
 menopause status to evaluate their flare."
-                )
-                medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
-                    f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
-                )
-                errors_bool = True
+                    )
+                    medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
+                        f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
+                    )
+                    errors_bool = True
         return medhistorys_forms, errors_bool
 
     def post_process_urate_check(
@@ -192,7 +195,9 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
         if errors:
             return errors
         medhistorys_forms, errors_bool = self.post_process_menopause(
-            medhistorys_forms=medhistorys_forms, post_object=form.instance
+            medhistorys_forms=medhistorys_forms,
+            dateofbirth=onetoone_forms["dateofbirth_form"].cleaned_data.get("value"),
+            gender=onetoone_forms["gender_form"].cleaned_data.get("value"),
         )
         form, onetoone_forms, errors_bool = self.post_process_urate_check(
             form=form, onetoone_forms=onetoone_forms, errors_bool=errors_bool
@@ -831,7 +836,9 @@ class FlarePseudopatientUpdate(
                         onetoone_form.check_for_value()
                         # Check if the value has changed or is a new object being created
                         # and mark the urate for saving if so
-                        if onetoone_form.has_changed() or onetoone_form.instance._state.adding:
+                        if (
+                            onetoone_form.has_changed() or onetoone_form.instance._state.adding
+                        ):  # pylint: disable=w0212, line-too-long # noqa: E501
                             # Declare onetoone var to assign to the user later
                             onetoone = onetoone_form.save(commit=False)
                             onetoones_to_save.append(onetoone)
@@ -845,7 +852,9 @@ class FlarePseudopatientUpdate(
                     # Check if the related model exists and delete it if it does
                     except EmptyRelatedModel:
                         # Check if the related model has already been saved to the DB and mark for deletion if so
-                        if onetoone_form.instance and not onetoone_form.instance._state.adding:
+                        if (
+                            onetoone_form.instance and not onetoone_form.instance._state.adding
+                        ):  # pylint: disable=w0212, line-too-long # noqa: E501
                             to_delete = getattr(self.object, object_attr)
                             # Iterate over the forms required_fields property and set the related model's
                             # fields to their initial values to prevent IntegrityError from Django-Simple-History
@@ -871,7 +880,9 @@ class FlarePseudopatientUpdate(
                     # Check if the related model exists and delete it if it does
                     except EmptyRelatedModel:
                         # Check if the related model has already been saved to the DB and mark for deletion if so
-                        if onetoone_form.instance and not onetoone_form.instance._state.adding:
+                        if (
+                            onetoone_form.instance and not onetoone_form.instance._state.adding
+                        ):  # pylint: disable=w0212, line-too-long # noqa: E501
                             to_delete = getattr(user, object_attr)
                             # Iterate over the forms required_fields property and set the related model's
                             # fields to their initial values to prevent IntegrityError from Django-Simple-History

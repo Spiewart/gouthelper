@@ -1,3 +1,4 @@
+import math
 from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
@@ -142,6 +143,10 @@ def flares_calculate_likelihood(
     Returns:
         Likelihoods: enum representing the likelihood of a flare being gout
     """
+    print(less_likelys)
+    print(diagnosed)
+    print(crystal_analysis)
+    print(prevalence)
     # Check if the flare was diagnosed by a clinician
     if diagnosed and crystal_analysis is True:
         # If the clinician performed and aspiration and found gout, then
@@ -182,6 +187,7 @@ def flares_calculate_prevalence(
     Returns:
         Prevalences: enum representing the prevalence of gout in a population
     """
+    prevalence_points = math.floor(prevalence_points)
     if prevalence_points >= 8:
         return Prevalences.HIGH
     elif prevalence_points >= 4 and prevalence_points < 8:

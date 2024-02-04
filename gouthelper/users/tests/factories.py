@@ -1,5 +1,6 @@
 import random
 from collections.abc import Sequence
+from datetime import date
 from typing import TYPE_CHECKING, Any, Union
 
 from django.contrib.auth import get_user_model
@@ -31,8 +32,6 @@ from ..choices import Roles
 from ..models import Pseudopatient
 
 if TYPE_CHECKING:
-    from datetime import date
-
     User = get_user_model()
 
 fake = faker.Faker()
@@ -93,7 +92,7 @@ class PseudopatientPlusFactory(PseudopatientFactory):
 
 
 def create_psp(
-    dateofbirth: Union["date", None] = None,
+    dateofbirth: date | None = None,
     ethnicity: Ethnicitys | None = None,
     gender: Genders | None = None,
     provider: Union["User", None] = None,
@@ -106,7 +105,7 @@ def create_psp(
     using FactoryBoy. Hopefully avoids IntegrityErrors."""
     psp = PseudopatientFactory()
     if dateofbirth:
-        if isinstance(dateofbirth, str):
+        if isinstance(dateofbirth, (str, date)):
             psp.dateofbirth = DateOfBirthFactory(user=psp, value=dateofbirth)
         elif isinstance(dateofbirth, DateOfBirth):
             psp.dateofbirth = dateofbirth
@@ -114,7 +113,7 @@ def create_psp(
                 dateofbirth.user = psp
                 dateofbirth.save()
         else:
-            raise TypeError(f"Expected str or DateOfBirth, got {type(dateofbirth)}")
+            raise TypeError(f"Expected str, date, or DateOfBirth, got {type(dateofbirth)}")
     elif dateofbirth is False:
         psp.dateofbirth = None
     else:
@@ -124,7 +123,7 @@ def create_psp(
             except IntegrityError:
                 pass
     if ethnicity:
-        if isinstance(ethnicity, Ethnicitys):
+        if isinstance(ethnicity, (str, Ethnicitys)):
             psp.ethnicity = EthnicityFactory(user=psp, value=ethnicity)
         elif isinstance(ethnicity, Ethnicity):
             psp.ethnicity = ethnicity
@@ -132,7 +131,7 @@ def create_psp(
                 ethnicity.user = psp
                 ethnicity.save()
         else:
-            raise TypeError(f"Expected str or Ethncity, got {type(ethnicity)}")
+            raise TypeError(f"Expected str, Ethnicitys, or Ethncity, got {type(ethnicity)}")
     elif ethnicity is False:
         psp.ethnicity = None
     else:
@@ -142,7 +141,7 @@ def create_psp(
             except IntegrityError:
                 pass
     if gender:
-        if isinstance(gender, str):
+        if isinstance(gender, (str, Genders)):
             if gender == Genders.MALE and menopause is True:
                 raise ValueError("Can't have a menopausal male.")
             psp.gender = GenderFactory(user=psp, value=gender)
@@ -154,7 +153,7 @@ def create_psp(
                 gender.user = psp
                 gender.save()
         else:
-            raise TypeError(f"Expected str or Gender, got {type(gender)}")
+            raise TypeError(f"Expected str, Genders, or Gender, got {type(gender)}")
     elif gender is False:
         psp.gender = None
     else:
@@ -167,7 +166,13 @@ def create_psp(
             except IntegrityError:
                 pass
     # Create the PseudopatientProfile with the provider *arg passed in
-    psp.pseudopatientprofile = PseudopatientProfileFactory(user=psp, provider=provider)
+    # Put in try/except block to avoid IntegrityError, which for some reason keeps happening regardless
+    # of whether this is run as a function or as a factory
+    with transaction.atomic():
+        try:
+            psp.pseudopatientprofile = PseudopatientProfileFactory(user=psp, provider=provider)
+        except IntegrityError:
+            pass
     # Next deal with required, optional, and randomly generated MedHistorys
     medhistorytypes = MedHistoryTypes.values
     # Remove GOUT and MENOPAUSE from the medhistorytypes, will be handled non-randomly

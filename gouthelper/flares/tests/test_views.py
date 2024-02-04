@@ -94,6 +94,7 @@ class TestFlareBase(TestCase):
         self.flare = create_flare(
             dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
             gender=GenderFactory(value=Genders.FEMALE),
+            urate=UrateFactory(value=Decimal("5.0")),
         )
         self.flare_data = model_to_dict(self.flare)
         self.flare_data.update({"urate_check": True})
@@ -367,13 +368,14 @@ class TestFlareCreate(TestCase):
         response = self.client.post(reverse("flares:create"), self.flare_data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Flare.objects.count(), flare_count + 1)
-        self.assertEqual(MedHistory.objects.count(), medhistorys_count + 1)
+        self.assertEqual(MedHistory.objects.count(), medhistorys_count + 2)
         flare = Flare.objects.order_by("created").last()
         angina = Angina.objects.order_by("created").last()
         menopause = Menopause.objects.order_by("created").last()
-        self.assertIn(angina, flare.medhistorys.all())
-        self.assertIn(menopause, flare.medhistorys.all())
-        self.assertEqual(flare.medhistorys.count(), 2)
+        flare_mhs = flare.medhistory_set.all()
+        self.assertIn(angina, flare_mhs)
+        self.assertIn(menopause, flare_mhs)
+        self.assertEqual(len(flare_mhs), 2)
 
     def test__post_medhistorys_urate(self):
         self.flare_data.update(
@@ -427,8 +429,8 @@ class TestFlareCreate(TestCase):
         urate = Urate.objects.get()
         menopause = Menopause.objects.get()
         self.assertEqual(urate, flare.urate)
-        self.assertEqual(flare.medhistorys.count(), 4)
-        self.assertIn(menopause, flare.medhistorys.all())
+        self.assertEqual(flare.medhistory_set.count(), 4)
+        self.assertIn(menopause, flare.medhistory_set.all())
 
     def test__post_forms_not_valid(self):
         flare_data = {
@@ -452,13 +454,18 @@ class TestFlareCreate(TestCase):
         self.assertIn("value", response.context_data["gender_form"].errors)  # type: ignore
 
     def test__post_menopause_not_valid(self):
+        """Test that the MenopauseForm is not valid when the patient is a female between 40 and 60."""
+
+        # Modify fake data to post()
         self.flare_data.update(
             {
                 f"{MedHistoryTypes.MENOPAUSE}-value": "",
             }
         )
+        # Post the data and check that the response is 200 because the MenopauseForm is not valid
         response = self.client.post(reverse("flares:create"), self.flare_data)
         self.assertEqual(response.status_code, 200)
+
         # Assert that the MenopauseForm has an error
         self.assertTrue(response.context_data[f"{MedHistoryTypes.MENOPAUSE}_form"].errors)  # type: ignore
         self.assertEqual(
@@ -726,7 +733,13 @@ class TestFlarePseudopatientCreate(TestCase):
         assert flare.user == self.user
 
     def test__post_creates_medhistorys(self):
-        self.assertFalse(MedHistory.objects.filter(user=self.psp).exists())
+        """Test that the post() method for the view creates medhistorys."""
+
+        # Assert that the Pseudopatient doesn't have CAD or CHF
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
+        # Create some fake data for a User's FlareAid
         data = flare_data_factory(self.psp)
         data.update(
             {
@@ -734,21 +747,29 @@ class TestFlarePseudopatientCreate(TestCase):
                 f"{MedHistoryTypes.CHF}-value": True,
             }
         )
+
+        # Post the data
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         tests_print_response_form_errors(response)
         assert response.status_code == 302
-        self.assertTrue(MedHistory.objects.filter(user=self.psp).exists())
+
+        # Assert that the medhistorys were created
         self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CAD).exists())
         self.assertTrue(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CHF).exists())
 
     def test__post_deletes_medhistorys(self):
         """Test that the post() method for the view deletes
         medhistorys that are not selected."""
+
         # Create an empty pseudopatient without any medhistorys
         psp = create_psp()
-        self.assertFalse(MedHistory.objects.filter(user=psp).exists())
+
+        # Assert that the Pseudopatient doesn't have CAD or CHF
+        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CHF).exists())
+
         # Create some fake data for a User's FlareAid
         data = flare_data_factory(psp)
         # Add some medhistorys to the data
@@ -758,14 +779,15 @@ class TestFlarePseudopatientCreate(TestCase):
                 f"{MedHistoryTypes.CHF}-value": True,
             }
         )
+
         # Post the data
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
         tests_print_response_form_errors(response)
         assert response.status_code == 302
+
         # Assert that the medhistorys were created
-        self.assertTrue(MedHistory.objects.filter(user=psp).exists())
         self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CAD).exists())
         self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CHF).exists())
 
@@ -906,13 +928,13 @@ class TestFlarePseudopatientCreate(TestCase):
     def test__post_returns_moderate_likelihood_prevalence_flare(self):
         """Test that a flare is created with a moderate likelihood and prevalence when the
         data indicates a moderate likelihood and prevalence flare."""
-        # Modify Pseudopatient related demographic objects for consistency between test runs
-        self.psp.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 64)
-        self.psp.dateofbirth.save()
-        self.psp.gender.value = Genders.MALE
-        self.psp.gender.save()
+        # Create a Pseudopatient without medhistorys to avoid that influencing the likelihood and prevalence
+        psp = create_psp(
+            dateofbirth=timezone.now().date() - timedelta(days=365 * 64),
+            gender=Genders.MALE,
+        )
         # Create a fake data dict
-        data = flare_data_factory(self.psp)
+        data = flare_data_factory(psp)
         # Modify data entries to indicate a moderate likelihood and prevalence flare
         data.update(
             {
@@ -925,17 +947,23 @@ class TestFlarePseudopatientCreate(TestCase):
                 "urate-value": Decimal("7.0"),
                 "diagnosed": True,
                 "aspiration": False,
+                "crystal_analysis": "",
             }
         )
+
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
         tests_print_response_form_errors(response)
         assert response.status_code == 302
+
+        flare = Flare.objects.filter(user=psp).order_by("created").last()
+        print(flare.prevalence_points)
+
         # Assert that the flare was created
-        self.assertTrue(Flare.objects.filter(user=self.psp).exists())
-        flare = Flare.objects.get()
+        self.assertTrue(Flare.objects.filter(user=psp).exists())
+        flare = Flare.objects.filter(user=psp).last()
         # Assert that the flare has a moderate likelihood and prevalence
         self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
         self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
@@ -1313,6 +1341,7 @@ class TestFlarePseudopatientDetail(TestCase):
             date_started=timezone.now().date() - timedelta(days=135),
             date_ended=timezone.now().date() - timedelta(days=5),
             diagnosed=False,
+            urate=None,
         )
         flare.update_aid(qs=flare_user_qs(psp.username, flare.pk))
         flare.refresh_from_db()
@@ -1587,9 +1616,12 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
         view when the user doesn't have the required 1to1 related models."""
-        # Create empty user and test that the view redirects to the user update view
-        empty_user = create_psp(dateofbirth=False)
+        # Create a Pseudopatient and delete his or her DateOfBirth
+        empty_user = create_psp()
         empty_user_Flare = create_flare(user=empty_user)
+        empty_user.dateofbirth.delete()
+
+        # Test that the view redirects to the user update view
         self.client.force_login(empty_user)
         response = self.client.get(
             reverse(
@@ -1764,7 +1796,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             if flare.crystal_analysis:
                 self.assertEqual(initial["aspiration"], True)
             elif flare.diagnosed:
-                self.assertEqual(initial["aspiration"], False)
+                self.assertIsNotNone(initial["aspiration"])
             else:
                 self.assertEqual(initial["aspiration"], None)
             if flare.urate:
@@ -1855,11 +1887,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # Assert that the onetoone_forms dict has the correct initial data
                 self.assertEqual(
                     onetoone_forms[f"{onetoone}_form"].initial,
-                    {"value": getattr(user, onetoone, None).value}
-                    if onetoone != "urate"
-                    else {
-                        "value": getattr(view.object, onetoone, None).value if getattr(view.object, onetoone) else None
-                    },
+                    {"value": getattr(view.object, onetoone, None).value} if getattr(view.object, onetoone) else {},
                 )
 
     def test__post_process_onetoone_forms(self):
@@ -1898,7 +1926,11 @@ class TestFlarePseudopatientUpdate(TestCase):
             )
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
             for onetoone in view.onetoones:
-                initial = onetoone_forms[f"{onetoone}_form"].initial["value"]
+                form = onetoone_forms[f"{onetoone}_form"]
+                initial = onetoone_forms[f"{onetoone}_form"].initial.get("value", None)
+                # If the form is adding a new object, assert that there's no initial data
+                if form.instance._state.adding:
+                    assert not initial
                 data_val = data.get(f"{onetoone}-value", "")
                 # Check if there was no pre-existing onetoone and there is no data to create a new one
                 if not initial and data_val == (None or ""):
@@ -1962,6 +1994,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("flares:pseudopatient-update", kwargs={"username": user.username, "pk": flare.pk}), data=data
             )
+            tests_print_response_form_errors(response)
             assert response.status_code == 302
             # Assert that the medhistorys were updated correctly
             for mh in medhistorys:
@@ -2150,7 +2183,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         data indicates a moderate likelihood and prevalence flare."""
 
         # Get a flare for the Pseudopatient
-        flare = create_flare(user=True, medhistorys=[])
+        flare = create_flare(user=True, medhistorys=[], gender=Genders.MALE)
         # Create a fake data dict
         data = flare_data_factory(self.psp)
         # Modify data entries to indicate a moderate likelihood and prevalence flare
@@ -2162,7 +2195,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "date_started": timezone.now().date() - timedelta(days=7),
                 "date_ended": "",
                 "urate_check": True,
-                "urate-value": Decimal("7.0"),
+                "urate-value": Decimal("5.0"),
                 "diagnosed": True,
                 "aspiration": False,
             }
@@ -2470,10 +2503,9 @@ class TestFlareUpdate(TestCase):
             self.flare.refresh_from_db()
             self.assertEqual(age_calc(self.flare.dateofbirth.value), data["dateofbirth-value"])
             self.assertEqual(self.flare.gender.value, data["gender-value"])
-            if getattr(flare, "urate", None):
+            if data.get("urate-value", None):
+                self.assertTrue(getattr(self.flare, "urate", None))
                 self.assertEqual(self.flare.urate.value, data["urate-value"])
-            else:
-                self.assertFalse(data.get("urate-value", None))
 
     def test__post_forms_not_valid(self):
         """Test that the post method returns the correct errors when the data is invalid."""

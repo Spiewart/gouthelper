@@ -637,6 +637,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         """Method to be called if all forms are valid."""
         # Save the OneToOne related models
         if self.onetoones:
+            print(onetoones_to_delete)
             for onetoone in onetoones_to_save:
                 onetoone_str = f"{onetoone.__class__.__name__.lower()}"
                 if onetoone.user is None:
@@ -1261,7 +1262,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 except EmptyRelatedModel:
                     # Check if the related model has already been saved to the DB and mark for deletion if so
                     if onetoone_form.instance and not onetoone_form.instance._state.adding:
-                        to_delete = getattr(user, object_attr)
+                        to_delete = onetoone_form.instance
                         # Iterate over the forms required_fields property and set the related model's
                         # fields to their initial values to prevent IntegrityError from Django-Simple-History
                         # historical model on delete().
@@ -1269,7 +1270,8 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                             for field in onetoone_form.required_fields:
                                 setattr(to_delete, field, onetoone_form.initial[field])
                         # Set the object attr to None so it is reflected in the QuerySet fed to update in form_valid()
-                        setattr(user, object_attr, None)
+                        if object_attr != "urate":
+                            setattr(user, object_attr, None)
                         onetoones_to_delete.append(to_delete)
         return onetoones_to_save, onetoones_to_delete
 

@@ -1,8 +1,9 @@
 import random
 from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Union
 
-from django.db import IntegrityError, transaction  # type: ignore
+from django.db import IntegrityError  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
@@ -17,6 +18,7 @@ from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import Urate
+from ...labs.tests.factories import UrateFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
@@ -59,17 +61,12 @@ def create_medhistory_atomic(
 ):
     if not aid_obj_attr:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
-    with transaction.atomic():
-        try:
-            return MedHistoryFactory(
-                medhistorytype=medhistory,
-                user=user,
-                **{aid_obj_attr: aid_obj} if not user else {},
-            )
-        except IntegrityError as exc:
-            raise IntegrityError(
-                f"MedHistory {medhistory} already exists for {aid_obj if not user else user}."
-            ) from exc
+
+    return MedHistoryFactory(
+        medhistorytype=medhistory,
+        user=user,
+        **{aid_obj_attr: aid_obj} if not user else {},
+    )
 
 
 def create_or_append_medhistorys_qs(
@@ -534,6 +531,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
                 elif specified or fake.boolean():
+                    print(aid_obj.medhistory_set.all())
                     if specified:
                         new_mh = create_medhistory_atomic(
                             medhistory,
@@ -607,17 +605,31 @@ class OneToOneCreatorMixin(CreateAidMixin):
                             factory.save()
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
-                elif isinstance(factory, (date, Genders, Ethnicitys)):
+                    if onetoone == "urate":
+                        aid_obj_oto = getattr(aid_obj, onetoone, None)
+                        if aid_obj_oto and aid_obj_oto != factory:
+                            raise IntegrityError(f"{factory} already exists for {aid_obj}.")
+                        else:
+                            setattr(aid_obj, onetoone, factory)
+                elif isinstance(factory, (date, Genders, Ethnicitys, Decimal)):
                     if self.user.just_created:
                         model_fact = (
                             DateOfBirthFactory
                             if isinstance(factory, date)
                             else EthnicityFactory
                             if isinstance(factory, Ethnicitys)
+                            else UrateFactory
+                            if isinstance(factory, Decimal)
                             else GenderFactory
                         )
                         try:
                             model_fact(value=factory, user=self.user)
+                            if aid_obj_attr == "urate":
+                                aid_obj_oto = getattr(aid_obj, onetoone, None)
+                                if aid_obj_oto and aid_obj_oto != model_fact:
+                                    raise IntegrityError(f"{factory} already exists for {aid_obj}.")
+                                else:
+                                    setattr(aid_obj, onetoone, model_fact)
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
                     else:
@@ -628,19 +640,27 @@ class OneToOneCreatorMixin(CreateAidMixin):
                                 if isinstance(factory, date)
                                 else EthnicityFactory
                                 if isinstance(factory, Ethnicitys)
+                                else UrateFactory
+                                if isinstance(factory, Decimal)
                                 else GenderFactory
                             )
                             try:
                                 model_fact(value=factory, user=self.user)
                             except IntegrityError as exc:
                                 raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                            if aid_obj_attr == "urate":
+                                aid_obj_oto = getattr(aid_obj, onetoone, None)
+                                if aid_obj_oto and aid_obj_oto != model_fact:
+                                    raise IntegrityError(f"{factory} already exists for {aid_obj}.")
+                                else:
+                                    setattr(aid_obj, onetoone, model_fact)
                         else:
                             oto.value = factory
                             oto.save()
                 elif factory:
                     if onetoone in self.req_onetoones or fake.boolean():
                         if onetoone == "urate":
-                            oto = factory(user=self.user)
+                            oto = factory(user=self.user, **{aid_obj_attr: aid_obj})
                             setattr(self, onetoone, oto)
                         else:
                             oto = getattr(self.user, onetoone, None)
@@ -653,12 +673,14 @@ class OneToOneCreatorMixin(CreateAidMixin):
                 if isinstance(factory, (DateOfBirth, Ethnicity, Gender, Urate)):
                     setattr(aid_obj, onetoone, factory)
                     setattr(self, onetoone, factory)
-                elif isinstance(factory, (date, Genders, Ethnicitys)):
+                elif isinstance(factory, (date, Genders, Ethnicitys, Decimal)):
                     model_fact = (
                         DateOfBirthFactory
                         if isinstance(factory, date)
                         else EthnicityFactory
                         if isinstance(factory, Ethnicitys)
+                        else UrateFactory
+                        if isinstance(factory, Decimal)
                         else GenderFactory
                     )
                     factory_obj = model_fact(value=factory)

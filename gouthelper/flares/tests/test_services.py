@@ -8,24 +8,14 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...flares.tests.factories import FlareFactory
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.helpers import medhistorys_get
 from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...medhistorys.models import MedHistory
-from ...medhistorys.tests.factories import (
-    AnginaFactory,
-    ChfFactory,
-    CkdFactory,
-    ColchicineinteractionFactory,
-    DiabetesFactory,
-    GastricbypassFactory,
-    GoutFactory,
-    HeartattackFactory,
-    MenopauseFactory,
-)
+from ...medhistorys.tests.factories import CkdFactory
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
 from ..choices import Likelihoods, Prevalences
@@ -43,16 +33,10 @@ class TestFlareMethods(TestCase):
             create_psp(provider=self.provider, plus=True)
         self.anon_psp = create_psp(plus=True)
         self.userless_dateofbirth = DateOfBirthFactory()
-        self.userless_angina = AnginaFactory()
-        self.userless_chf = ChfFactory()
-        self.userless_colchicineinteraction = ColchicineinteractionFactory()
-        self.userless_diabetes = DiabetesFactory()
-        self.userless_gastricbypass = GastricbypassFactory()
-        self.userless_heartattack = HeartattackFactory()
-        self.userless_ckd = CkdFactory()
-        self.userless_gout = GoutFactory()
-        self.userless_menopause = MenopauseFactory()
         self.userless_gender = GenderFactory()
+
+        self.userless_urate = UrateFactory()
+        self.userless_ckd = CkdFactory()
         self.userless_baselinecreatinine = BaselineCreatinineFactory(
             medhistory=self.userless_ckd, value=Decimal("2.2")
         )
@@ -66,12 +50,19 @@ class TestFlareMethods(TestCase):
                 )
             ),
         )
-        self.userless_urate = UrateFactory()
-        self.flare_userless = FlareFactory(
-            dateofbirth=self.userless_dateofbirth, gender=self.userless_gender, urate=self.userless_urate
+        self.flare_userless = create_flare(
+            dateofbirth=self.userless_dateofbirth,
+            gender=self.userless_gender,
+            urate=self.userless_urate,
+            medhistorys=[
+                MedHistoryTypes.ANGINA,
+                MedHistoryTypes.CHF,
+                MedHistoryTypes.HEARTATTACK,
+                self.userless_ckd,
+                MedHistoryTypes.GOUT,
+                MedHistoryTypes.MENOPAUSE,
+            ],
         )
-        for medhistory in MedHistory.objects.filter(Q(user__isnull=True)).all():
-            self.flare_userless.medhistorys.add(medhistory)
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
@@ -81,17 +72,15 @@ class TestFlareMethods(TestCase):
         self.assertEqual(decisionaid.dateofbirth, self.flare_userless.dateofbirth)
         self.assertEqual(age_calc(self.flare_userless.dateofbirth.value), decisionaid.age)
         self.assertEqual(self.userless_gender, decisionaid.gender)
-        for medhistory in MedHistory.objects.filter(Q(user__isnull=True)).all():
-            if medhistory.medhistorytype in FLARE_MEDHISTORYS:
-                self.assertIn(medhistory, decisionaid.medhistorys)
-            else:
-                self.assertNotIn(medhistory, decisionaid.medhistorys)
+        flare_mhs = self.flare_userless.medhistory_set.all()
+        for medhistory in flare_mhs:
+            self.assertIn(medhistory, decisionaid.medhistorys)
         self.assertEqual(self.userless_urate, decisionaid.urate)
         self.assertEqual(self.userless_baselinecreatinine, decisionaid.baselinecreatinine)
         self.assertEqual(self.userless_ckd.ckddetail, decisionaid.ckddetail)
         self.assertEqual(decisionaid.ckd, self.userless_ckd)
-        self.assertEqual(decisionaid.gout, self.userless_gout)
-        self.assertEqual(decisionaid.menopause, self.userless_menopause)
+        self.assertEqual(decisionaid.gout, medhistorys_get(flare_mhs, MedHistoryTypes.GOUT))
+        self.assertEqual(decisionaid.menopause, medhistorys_get(flare_mhs, MedHistoryTypes.MENOPAUSE))
 
     def test__init__with_user(self):
         for psp in Pseudopatient.objects.filter(Q(flare__isnull=False)):

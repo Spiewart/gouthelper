@@ -8,6 +8,7 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
@@ -76,7 +77,11 @@ class TestFlareUserlessQuerySet(TestCase):
 
     def test__queryset_returns_correctly(self):
         flare = create_flare(
-            medhistorys=[*self.medhistorys], dateofbirth=self.dateofbirth, gender=self.gender, urate=self.urate
+            medhistorys=[*self.medhistorys],
+            dateofbirth=self.dateofbirth,
+            gender=self.gender,
+            urate=self.urate,
+            menopause=False,
         )
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
@@ -107,15 +112,13 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertEqual(len(queries.captured_queries), 0)
 
     def test__queryset_returns_correctly_no_relateds(self):
-        flare = create_flare(
-            medhistorys=[], medallergys=[], dateofbirth=self.dateofbirth, gender=self.gender, urate=None
-        )
+        flare = create_flare(medhistorys=[], dateofbirth=self.dateofbirth, gender=Genders.MALE, urate=None)
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first(), flare)
         self.assertEqual(queryset.first().dateofbirth, self.dateofbirth)
-        self.assertEqual(queryset.first().gender, self.gender)
+        self.assertEqual(queryset.first().gender, flare.gender)
         with CaptureQueriesContext(connection) as queries:
             queryset = queryset.get()
         self.assertEqual(len(queries.captured_queries), 2)
@@ -139,7 +142,8 @@ class TestFlareUserQuerySet(TestCase):
             self.assertEqual(qs.flare_set.get(), psp.flare_set.last())
             self.assertEqual(qs.dateofbirth, psp.dateofbirth)
             self.assertEqual(qs.gender, psp.gender)
-            self.assertEqual(qs.flare_set.get().urate, psp.lab_set.get())
+            if qs.flare_qs[0].urate:
+                self.assertEqual(qs.flare_qs[0].urate, psp.urate_set.get())
             for mh in psp.medhistory_set.all():
                 if mh in FLARE_MEDHISTORYS:
                     self.assertIn(mh, qs.medhistorys_qs)

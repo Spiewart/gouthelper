@@ -61,7 +61,6 @@ class TestFlareAidUserlessQuerySet(TestCase):
             self.assertTrue(hasattr(queryset, "medallergys_qs"))
             self.assertTrue(hasattr(queryset, "medhistorys_qs"))
             self.assertIn(self.medallergy, queryset.medallergys_qs)
-            print(queryset.medhistorys_qs)
             self.assertIn(self.ckd, queryset.medhistorys_qs)
             self.assertEqual(
                 self.ckd.pk,

@@ -36,7 +36,7 @@ class FlaresURLsTest(TestCase):
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientCreate)
 
     def test_pseudopatient_delete_url_resolves(self):
-        flare = create_flare()
+        flare = create_flare(user=True)
         url = reverse("flares:pseudopatient-delete", kwargs={"username": flare.user.username, "pk": flare.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientDelete)
 

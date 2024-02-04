@@ -6,6 +6,7 @@ import factory  # type: ignore
 import factory.fuzzy  # type: ignore
 import pytest  # type: ignore
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from factory.django import DjangoModelFactory  # type: ignore
@@ -74,15 +75,23 @@ def flare_data_factory(
     )
     data["date_started"] = str(date_started)
     if flare and flare.date_ended is not None:
+        date_diff = timezone.now().date() - date_started
         if fake.boolean():
             data["date_ended"] = str(
-                fake.date_between_dates(date_start=date_started, date_end=date_started + timedelta(days=30))
+                fake.date_between_dates(
+                    date_start=date_started,
+                    date_end=date_started + date_diff if date_diff < timedelta(days=30) else timedelta(days=30),
+                )
             )
         else:
             data["date_ended"] = ""
     elif fake.boolean():
+        date_diff = timezone.now().date() - date_started
         data["date_ended"] = str(
-            fake.date_between_dates(date_start=date_started, date_end=date_started + timedelta(days=30))
+            fake.date_between_dates(
+                date_start=date_started,
+                date_end=date_started + date_diff if date_diff < timedelta(days=30) else timedelta(days=30),
+            )
         )
     data["onset"] = fake.boolean()
     data["redness"] = fake.boolean()
@@ -129,7 +138,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         self.create_otos(flare)
         # Add Flare-specific fields to the Flare
         if flare.diagnosed:
-            if fake.boolean():
+            if flare.crystal_analysis is None and fake.boolean():
                 flare.crystal_analysis = fake.boolean()
 
         # If the flare does not have a date_ended, 50/50 chance of creating one
@@ -157,17 +166,18 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         gender = flare.gender.value if not flare.user else flare.user.gender.value
         menopause = get_menopause_val(age=age, gender=gender)
         if menopause and menopause_kwarg is not False:
-            try:
-                create_or_append_medhistorys_qs(
-                    flare,
-                    MedHistoryFactory.create(
-                        medhistorytype=MedHistoryTypes.MENOPAUSE,
-                        flare=flare if not flare.user else None,
-                        user=flare.user,
-                    ),
-                )
-            except IntegrityError:
-                pass
+            with transaction.atomic():
+                try:
+                    create_or_append_medhistorys_qs(
+                        flare,
+                        MedHistoryFactory.create(
+                            medhistorytype=MedHistoryTypes.MENOPAUSE,
+                            flare=flare if not flare.user else None,
+                            user=flare.user,
+                        ),
+                    )
+                except IntegrityError:
+                    pass
         elif menopause_kwarg:
             if gender == Genders.FEMALE:
                 create_or_append_medhistorys_qs(

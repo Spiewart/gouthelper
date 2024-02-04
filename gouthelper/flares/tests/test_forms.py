@@ -6,8 +6,9 @@ from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone
 
+from ...genders.choices import Genders
 from ...medhistorys.lists import CV_DISEASES, MedHistoryTypes
-from ...users.tests.factories import PseudopatientPlusFactory
+from ...users.tests.factories import create_psp
 from ..choices import LimitedJointChoices
 from ..forms import FlareForm
 
@@ -55,7 +56,7 @@ class TestFlareForm(TestCase):
     def test__menopause_form_inserted(self):
         """Test that the MENOPAUSE_form is inserted when patient is False and
         that it isn't when patient is True."""
-        user = PseudopatientPlusFactory()
+        user = create_psp(gender=Genders.FEMALE, dateofbirth=timezone.now() - timedelta(days=365 * 50))
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
         response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
@@ -64,7 +65,7 @@ class TestFlareForm(TestCase):
     def test__gout_form_inserted(self):
         """Test that the GOUT_form is inserted when patient is False and
         that it isn't when patient is True."""
-        user = PseudopatientPlusFactory()
+        user = create_psp()
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
         response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
