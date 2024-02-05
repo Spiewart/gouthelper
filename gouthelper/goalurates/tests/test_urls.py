@@ -1,13 +1,13 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
-from .factories import GoalUrateFactory, GoalUrateUserFactory
+from .factories import create_goalurate
 
 
 class TestGoalUrateUrls(TestCase):
     def setUp(self):
-        self.goalurate = GoalUrateFactory()
-        self.goalurateuser = GoalUrateUserFactory()
+        self.goalurate = create_goalurate()
+        self.goalurateuser = create_goalurate(user=True)
 
     def test_goalurate_about_url(self):
         path = reverse("goalurates:about")

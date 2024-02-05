@@ -72,7 +72,11 @@ class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
     onetoones: dict[str:DjangoModelFactory] = {"dateofbirth": DateOfBirthFactory, "gender": GenderFactory}
 
     def create(self, **kwargs):
+        # Call the super() create method to generate modify the onetoones via kwargs
         kwargs = super().create(**kwargs)
+        # Pop the mas_specified and mhs_specified from the kwargs so they don't get passed to the GoalUrate constructor
+        mas_specified = kwargs.pop("mas_specified", False)
+        mhs_specified = kwargs.pop("mhs_specified", False)
         # Create the PpxAid
         ppxaid = PpxAid(**kwargs)
         # Create the OneToOne fields and add them to the PpxAid
@@ -80,9 +84,9 @@ class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
         # Save the PpxAid
         ppxaid.save()
         # Create the MedAllergys related to the PpxAid
-        self.create_mas(ppxaid)
+        self.create_mas(ppxaid, specified=mas_specified)
         # Create the MedHistorys related to the PpxAid
-        self.create_mhs(ppxaid)
+        self.create_mhs(ppxaid, specified=mhs_specified)
         # Return the PpxAid
         return ppxaid
 
@@ -99,8 +103,14 @@ def create_ppxaid(
 
     if medallergys is None:
         medallergys = FlarePpxChoices.values
+        mas_specified = False
+    else:
+        mas_specified = True
     if medhistorys is None:
         medhistorys = PPXAID_MEDHISTORYS
+        mhs_specified = False
+    else:
+        mhs_specified = True
     # Call the constructor Class Method
     return CreatePpxAid(
         medallergys=medallergys,
@@ -109,7 +119,7 @@ def create_ppxaid(
         onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_onetoones=["dateofbirth"],
         user=user,
-    ).create(**kwargs)
+    ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 
 class PpxAidFactory(DjangoModelFactory):

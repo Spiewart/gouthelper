@@ -130,7 +130,6 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
         (
             errors,
             form,
-            _,  # object_data
             _,  # onetoone_forms
             _,  # medallergys_forms
             _,  # medhistorys_forms

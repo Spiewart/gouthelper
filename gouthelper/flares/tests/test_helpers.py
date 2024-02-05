@@ -43,13 +43,7 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
         medhistorys=flare.medhistory_set.all(),
         urate=flare.urate,
     )
-    print(flare.gender)
-    print(flare.onset)
-    print(flare.redness)
-    print(flare.crystal_analysis)
-    print(prevalence_points)
     prevalence = flares_calculate_prevalence(prevalence_points)
-    print(prevalence)
     less_likelys = flares_get_less_likelys(
         age=age_calc(flare.dateofbirth.value),
         date_ended=flare.date_ended,
@@ -64,7 +58,6 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
             flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).all(), MedHistoryTypes.CKD
         ),
     )
-    print(less_likelys)
     likelihood = flares_calculate_likelihood(
         less_likelys=less_likelys,
         diagnosed=flare.diagnosed,
@@ -767,8 +760,6 @@ Physician evaluation is recommended.",
             urate=None,
             medhistorys=[],
         )
-        print("in test")
-        print(flare.crystal_analysis)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
 

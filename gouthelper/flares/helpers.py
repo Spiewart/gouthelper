@@ -143,10 +143,6 @@ def flares_calculate_likelihood(
     Returns:
         Likelihoods: enum representing the likelihood of a flare being gout
     """
-    print(less_likelys)
-    print(diagnosed)
-    print(crystal_analysis)
-    print(prevalence)
     # Check if the flare was diagnosed by a clinician
     if diagnosed and crystal_analysis is True:
         # If the clinician performed and aspiration and found gout, then

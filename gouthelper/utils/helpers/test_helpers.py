@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Union
 
-from django.db import IntegrityError  # type: ignore
+from django.db import IntegrityError, transaction  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
@@ -62,11 +62,19 @@ def create_medhistory_atomic(
     if not aid_obj_attr:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
 
-    return MedHistoryFactory(
-        medhistorytype=medhistory,
-        user=user,
-        **{aid_obj_attr: aid_obj} if not user else {},
-    )
+    with transaction.atomic():
+        try:
+            return MedHistoryFactory(
+                medhistorytype=medhistory,
+                user=user,
+                **{aid_obj_attr: aid_obj} if not user else {},
+            )
+        except IntegrityError as exc:
+            # Check if duplicate key error is due to the MedHistory already existing
+            if "already exists" in str(exc):
+                pass
+            else:
+                raise exc
 
 
 def create_or_append_medhistorys_qs(
@@ -219,25 +227,25 @@ class DataMixin:
         self.bool_mhs = bool_mhs
         self.mh_details = mh_details
         self.onetoones = onetoones
-        if user:
+        if user and self.onetoones:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(user, onetoone).value))
                 elif onetoone != "urate":
                     setattr(self, onetoone, getattr(user, onetoone).value)
-        elif aid_obj and aid_obj.user:
+        elif aid_obj and aid_obj.user and self.onetoones:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(aid_obj.user, onetoone).value))
                 else:
                     setattr(self, onetoone, getattr(aid_obj.user, onetoone).value)
-        elif aid_obj:
+        elif aid_obj and self.onetoones:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(aid_obj, onetoone).value))
                 else:
                     setattr(self, onetoone, getattr(aid_obj, onetoone).value)
-        else:
+        elif self.onetoones:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     self.dateofbirth = age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
@@ -441,10 +449,9 @@ class MedAllergyCreatorMixin(CreateAidMixin):
     def create_mas(
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+        specified: bool = False,
     ) -> None:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
-        # Check if the medallergy list is the Default list or a specified list
-        specified = self.medallergys != aid_obj.aid_treatments()
         # Set the medallergys_qs on the Aid object
         aid_obj.medallergys_qs = []
         if self.medallergys:
@@ -496,11 +503,10 @@ class MedHistoryCreatorMixin(CreateAidMixin):
     def create_mhs(
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+        specified: bool = False,
     ) -> None:
         """Method that creates MedHistory objects with a ForeignKey to the Aid object."""
         aid_obj_attr = aid_obj.__class__.__name__.lower()
-        # Check if the medhistory list is the Default list or a specified list
-        specified = self.medhistorys != aid_obj.aid_medhistorys()
         # Set the medhistorys_qs on the Aid object
         if not hasattr(aid_obj, "medhistorys_qs"):
             aid_obj.medhistorys_qs = []
@@ -531,7 +537,6 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
                 elif specified or fake.boolean():
-                    print(aid_obj.medhistory_set.all())
                     if specified:
                         new_mh = create_medhistory_atomic(
                             medhistory,

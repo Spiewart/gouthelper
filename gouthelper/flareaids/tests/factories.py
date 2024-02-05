@@ -69,7 +69,11 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
     """Inherits from Mixins to create OneToOne fields and related ForeignKeys."""
 
     def create(self, **kwargs):
+        # Call the super() create method to generate modify the onetoones via kwargs
         kwargs = super().create(**kwargs)
+        # Pop the mas_specified and mhs_specified from the kwargs so they don't get passed to the GoalUrate constructor
+        mas_specified = kwargs.pop("mas_specified", False)
+        mhs_specified = kwargs.pop("mhs_specified", False)
         # Create the FlareAid
         flareaid = FlareAidFactory.build(**kwargs)
         # Create the OneToOne fields and add them to the FlareAid
@@ -77,9 +81,9 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
         # Save the FlareAid
         flareaid.save()
         # Create the MedAllergys related to the FlareAid
-        self.create_mas(flareaid)
+        self.create_mas(flareaid, specified=mas_specified)
         # Create the MedHistorys related to the FlareAid
-        self.create_mhs(flareaid)
+        self.create_mhs(flareaid, specified=mhs_specified)
         # Return the FlareAid
         return flareaid
 
@@ -96,8 +100,14 @@ def create_flareaid(
 
     if medallergys is None:
         medallergys = FlarePpxChoices.values
+        mas_specified = False
+    else:
+        mas_specified = True
     if medhistorys is None:
         medhistorys = FLAREAID_MEDHISTORYS
+        mhs_specified = False
+    else:
+        mhs_specified = True
     # Call the constructor Class Method
     return CreateFlareAid(
         medallergys=medallergys,
@@ -106,7 +116,7 @@ def create_flareaid(
         onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_onetoones=["dateofbirth"],
         user=user,
-    ).create(**kwargs)
+    ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 
 class FlareAidFactory(DjangoModelFactory):

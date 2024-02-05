@@ -637,7 +637,6 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         """Method to be called if all forms are valid."""
         # Save the OneToOne related models
         if self.onetoones:
-            print(onetoones_to_delete)
             for onetoone in onetoones_to_save:
                 onetoone_str = f"{onetoone.__class__.__name__.lower()}"
                 if onetoone.user is None:

@@ -22,9 +22,7 @@ from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...treatments.choices import FlarePpxChoices
 from ...utils.helpers.test_helpers import (
-    MedAllergyDataMixin,
     MedHistoryCreatorMixin,
     MedHistoryDataMixin,
     OneToOneCreatorMixin,
@@ -42,16 +40,15 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-class CreateFlareData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
+class CreateFlareData(MedHistoryDataMixin, OneToOneDataMixin):
     """Provides data for FlareAid related objects when the class method is called with the appropriate
     arguments. However, the resulting data still needs to be populated with FlareAid-specific data for
     fields on the FlareAid."""
 
     def create(self):
         oto_data = self.create_oto_data()
-        ma_data = self.create_ma_data()
         mh_data = self.create_mh_data()
-        return {**oto_data, **ma_data, **mh_data}
+        return {**oto_data, **mh_data}
 
 
 def flare_data_factory(
@@ -59,7 +56,7 @@ def flare_data_factory(
     flare: Flare | None = None,
 ) -> dict[str, str]:
     data = CreateFlareData(
-        medallergys=FlarePpxChoices.values,
+        medallergys=None,
         medhistorys=FLARE_MEDHISTORYS,
         bool_mhs=[
             MedHistoryTypes.CKD,
@@ -133,6 +130,8 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         kwargs = super().create(**kwargs)
         # pop() the menopause kwarg from the kwargs
         menopause_kwarg = kwargs.pop("menopause", None)
+        # Pop the mhs_specified from the kwargs so it don't get passed to the GoalUrate constructor
+        mhs_specified = kwargs.pop("mhs_specified", False)
         flare = FlareFactory.build(**kwargs)
         # Create the OneToOne fields and add them to the Flare
         self.create_otos(flare)
@@ -191,7 +190,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
             else:
                 raise ValueError("Men cannot have a menopause MedHistory.")
         # Create the MedHistorys related to the Flare
-        self.create_mhs(flare)
+        self.create_mhs(flare, specified=mhs_specified)
         # Return the Flare
         return flare
 
@@ -204,13 +203,16 @@ def create_flare(
     """Creates a Flare with the given user, onetoones, and medhistorys."""
     if medhistorys is None:
         medhistorys = FLARE_MEDHISTORYS
+        specified = False
+    else:
+        specified = True
     # Call the constructor Class Method
     return CreateFlare(
         medhistorys=medhistorys,
         onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
         req_onetoones=["dateofbirth", "gender"],
         user=user,
-    ).create(**kwargs)
+    ).create(mhs_specified=specified, **kwargs)
 
 
 class FlareFactory(DjangoModelFactory):

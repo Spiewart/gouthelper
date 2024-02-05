@@ -76,7 +76,7 @@ class FlareAidDecisionAid:
         # This is in attempt to save a query to the database
         if not getattr(self, "defaultflaretrtsettings", None):
             self.defaultflaretrtsettings = defaults_defaultflaretrtsettings(user=self.user)
-        self.gender = qs.gender
+        self.gender = qs.gender if hasattr(qs, "gender") else None
         # Check if the QS is a FlareAid with a User, if so,
         # then sets its gender attr to None to avoid saving a
         # FlareAid with a User and a gender, which will raise and IntegrityError

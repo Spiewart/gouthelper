@@ -71,7 +71,10 @@ class TestFlareAidMethods(TestCase):
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
             self.assertEqual(len(context.captured_queries), 3)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
-            self.assertEqual(fa.user.gender, decisionaid.gender)
+            if hasattr(fa.user, "gender"):
+                self.assertEqual(fa.user.gender, decisionaid.gender)
+            else:
+                self.assertIsNone(decisionaid.gender)
             for mh in fa.user.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all():
                 self.assertIn(mh, decisionaid.medhistorys)
                 if mh.medhistorytype == MedHistoryTypes.CKD:
@@ -90,12 +93,15 @@ class TestFlareAidMethods(TestCase):
             fa_user = flareaid_user_qs(username=fa.user.username).get()
             fa = fa_user.flareaid
             fa.dateofbirth = fa.user.dateofbirth
-            fa.gender = fa.user.gender
+            fa.gender = fa.user.gender if hasattr(fa.user, "gender") else None
             fa.medallergys_qs = fa_user.medallergys_qs
             fa.medhistorys_qs = fa_user.medhistorys_qs
             decisionaid = FlareAidDecisionAid(qs=fa)
             self.assertEqual(decisionaid.dateofbirth, fa.user.dateofbirth)
-            self.assertEqual(decisionaid.gender, fa.user.gender)
+            if hasattr(fa.user, "gender"):
+                self.assertEqual(decisionaid.gender, fa.user.gender)
+            else:
+                self.assertIsNone(decisionaid.gender)
             self.assertIsNone(decisionaid.flareaid.dateofbirth)
             self.assertIsNone(decisionaid.flareaid.gender)
 
@@ -108,7 +114,10 @@ class TestFlareAidMethods(TestCase):
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username).get())
             self.assertEqual(len(context.captured_queries), 3)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
-            self.assertEqual(fa.user.gender, decisionaid.gender)
+            if hasattr(fa.user, "gender"):
+                self.assertEqual(fa.user.gender, decisionaid.gender)
+            else:
+                self.assertIsNone(decisionaid.gender)
             for mh in fa.user.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all():
                 self.assertIn(mh, decisionaid.medhistorys)
                 if mh.medhistorytype == MedHistoryTypes.CKD:

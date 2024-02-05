@@ -15,11 +15,10 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import ErosionsForm, TophiForm
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
-from ...medhistorys.tests.factories import ErosionsFactory, TophiFactory
 from ...ultaids.tests.factories import UltAidFactory
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientPlusFactory, UserFactory
+from ...users.tests.factories import UserFactory, create_psp
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..choices import GoalUrates
 from ..models import GoalUrate
@@ -33,7 +32,7 @@ from ..views import (
     GoalUratePseudopatientUpdate,
     GoalUrateUpdate,
 )
-from .factories import GoalUrateFactory, GoalUrateUserFactory, create_goalurate_data
+from .factories import create_goalurate, goalurate_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -130,7 +129,7 @@ class TestGoalUrateCreate(TestCase):
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}))
         self.assertEqual(goal_urate.ultaid, None)
-        self.assertFalse(goal_urate.medhistorys.all())
+        self.assertFalse(goal_urate.medhistory_set.all())
 
     def test__post_creates_medhistorys(self):
         data = {
@@ -143,8 +142,8 @@ class TestGoalUrateCreate(TestCase):
         goal_urate = GoalUrate.objects.first()
         erosions = Erosions.objects.first()
         tophi = Tophi.objects.first()
-        self.assertIn(erosions.pk, goal_urate.medhistorys.values_list("pk", flat=True))
-        self.assertIn(tophi.pk, goal_urate.medhistorys.values_list("pk", flat=True))
+        self.assertIn(erosions.pk, goal_urate.medhistory_set.values_list("pk", flat=True))
+        self.assertIn(tophi.pk, goal_urate.medhistory_set.values_list("pk", flat=True))
 
     def test__post_creates_goalurate_with_ultaid(self):
         data = {
@@ -173,7 +172,7 @@ class TestGoalUrateCreate(TestCase):
 
 class TestGoalUrateDetail(TestCase):
     def setUp(self):
-        self.goalurate = GoalUrateFactory()
+        self.goalurate = create_goalurate()
         self.view: GoalUrateDetail = GoalUrateDetail
         self.request = RequestFactory().get(reverse("goalurates:detail", kwargs={"pk": self.goalurate.id}))
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
@@ -191,7 +190,7 @@ class TestGoalUrateDetail(TestCase):
     def test__dispatch_redirects_if_goalurate_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
         GoalUrate has a user."""
-        user_gu = GoalUrateUserFactory()
+        user_gu = create_goalurate(user=True)
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_gu.pk)
@@ -213,7 +212,7 @@ class TestGoalUrateDetail(TestCase):
 
 class TestGoalUrateUpdate(TestCase):
     def setUp(self):
-        self.goalurate = GoalUrateFactory(erosions=True, tophi=True)
+        self.goalurate = create_goalurate(medhistorys=[*GOALURATE_MEDHISTORYS])
         self.view: GoalUrateUpdate = GoalUrateUpdate
         self.request = RequestFactory().get(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}))
         self.request.htmx = False
@@ -222,22 +221,26 @@ class TestGoalUrateUpdate(TestCase):
         self.factory = RequestFactory()
 
     def test__get_context_data(self):
-        gu_medhistorys = self.goalurate.medhistorys.all()
+        gu_medhistorys = self.goalurate.medhistory_set.all()
         for medhistory in GOALURATE_MEDHISTORYS:
             self.assertIn(f"{medhistory}_form", self.response.context_data)  # type: ignore
             self.assertIsInstance(
                 self.response.context_data[f"{medhistory}_form"],
                 self.view.medhistorys[medhistory]["form"],  # type: ignore
             )
-            self.assertEqual(
-                self.response.context_data[f"{medhistory}_form"].instance,  # type: ignore
-                [mh for mh in gu_medhistorys if mh.medhistorytype == medhistory][0].value,
-            )
+            gu_mh = next(iter([mh for mh in gu_medhistorys if mh.medhistorytype == medhistory]), None)
+            if gu_mh:
+                self.assertEqual(
+                    self.response.context_data[f"{medhistory}_form"].instance,  # type: ignore
+                    gu_mh,
+                )
+            else:
+                self.assertIsNone(self.response.context_data[f"{medhistory}_form"].instance)
 
     def test__dispatch_redirects_if_goalurate_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
         GoalUrate has a user."""
-        user_gu = GoalUrateUserFactory()
+        user_gu = create_goalurate(user=True)
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_gu.pk)
@@ -280,13 +283,13 @@ class TestGoalUrateUpdate(TestCase):
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
         self.assertIsNone(goal_urate.ultaid)
-        self.assertFalse(goal_urate.medhistorys.all())
+        self.assertFalse(goal_urate.medhistory_set.all())
         self.assertFalse(goal_urate.tophi)
         self.assertFalse(goal_urate.erosions)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__post_adds_medhistorys(self):
-        goalurate = GoalUrateFactory()
+        goalurate = create_goalurate()
         self.assertEqual(goalurate.goal_urate, GoalUrates.SIX)
         data = {
             f"{MedHistoryTypes.EROSIONS}-value": True,
@@ -295,9 +298,9 @@ class TestGoalUrateUpdate(TestCase):
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(goalurate.medhistorys.all())
-        self.assertTrue(goalurate.medhistorys.get(medhistorytype=MedHistoryTypes.EROSIONS))
-        self.assertTrue(goalurate.medhistorys.get(medhistorytype=MedHistoryTypes.TOPHI))
+        self.assertTrue(goalurate.medhistory_set.all())
+        self.assertTrue(goalurate.medhistory_set.get(medhistorytype=MedHistoryTypes.EROSIONS))
+        self.assertTrue(goalurate.medhistory_set.get(medhistorytype=MedHistoryTypes.TOPHI))
         goalurate.refresh_from_db()
         self.assertEqual(goalurate.goal_urate, GoalUrates.FIVE)
 
@@ -306,16 +309,16 @@ class TestGoalUratePseudopatientCreate(TestCase):
     """Tests for the GoalUratePseudopatientCreate view."""
 
     def setUp(self):
-        self.anon_psp = PseudopatientPlusFactory()
+        self.anon_psp = create_psp(plus=True)
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.prov_psp = PseudopatientPlusFactory(provider=self.provider)
-        self.admin_psp = PseudopatientPlusFactory(provider=self.admin)
+        self.prov_psp = create_psp(plus=True, provider=self.provider)
+        self.admin_psp = create_psp(plus=True, provider=self.admin)
         self.anon = AnonymousUser()
         self.view = GoalUratePseudopatientCreate
         self.factory = RequestFactory()
         for _ in range(5):
-            PseudopatientPlusFactory()
+            create_psp(plus=True)
 
     def dummy_get_response(self, request: HttpRequest):
         return None
@@ -332,7 +335,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         """Test that the dispatch method sets the object to the GoalUrate model and
         redirects to the DetailView if a User already has a GoalUrate."""
         # Create a GoalUrate for the User
-        GoalUrateFactory(user=self.anon_psp)
+        create_goalurate(user=self.anon_psp)
         # Create a request and set the user to the provider
         request = self.factory.get(
             reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username})
@@ -422,7 +425,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
     def test__post_sets_object_user(self):
         """Test that the post() method for the view sets the user on the object."""
         # Create some fake data for a User's FlareAid
-        data = create_goalurate_data()
+        data = goalurate_data_factory()
         response = self.client.post(
             reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username}), data=data
         )
@@ -437,7 +440,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         """Test that the post() method correctly creates and deletes MedHistorys."""
         for psp in Pseudopatient.objects.select_related("pseudopatientprofile").all():
             medhistorys = list(psp.medhistory_set.all()).copy()
-            data = create_goalurate_data()
+            data = goalurate_data_factory()
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
@@ -458,7 +461,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
     def test__post_creates_goalurates_with_correct_recommendations(self):
         """Test that the post() method correctly creates GoalUrates with the correct recommendations."""
         for psp in Pseudopatient.objects.select_related("pseudopatientprofile").all():
-            data = create_goalurate_data()
+            data = goalurate_data_factory()
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
@@ -472,7 +475,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
 
     def test__post_returns_errors(self):
         """Test that the post() method returns errors if the form is invalid."""
-        data = create_goalurate_data()
+        data = goalurate_data_factory()
         # Set the required fields to empty strings to trigger errors (True or False required)
         for mh in GOALURATE_MEDHISTORYS:
             data[f"{mh}-value"] = ""
@@ -545,19 +548,19 @@ class TestGoalUratePseudopatientDetail(TestCase):
     """Tests for the GoalUratePseudopatientDetail view."""
 
     def setUp(self):
-        self.anon_psp = PseudopatientPlusFactory()
+        self.anon_psp = create_psp(plus=True)
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.prov_psp = PseudopatientPlusFactory(provider=self.provider)
-        self.admin_psp = PseudopatientPlusFactory(provider=self.admin)
+        self.prov_psp = create_psp(plus=True, provider=self.provider)
+        self.admin_psp = create_psp(plus=True, provider=self.admin)
         self.anon = AnonymousUser()
         self.view = GoalUratePseudopatientDetail
         self.factory = RequestFactory()
         for _ in range(5):
-            PseudopatientPlusFactory()
+            create_psp(plus=True)
         for psp in Pseudopatient.objects.all():
-            GoalUrateUserFactory(user=psp)
-        self.empty_psp = PseudopatientPlusFactory()
+            create_goalurate(user=psp)
+        self.empty_psp = create_psp(plus=True)
 
     def test__assign_goalurate_attrs_from_user(self):
         """Test that the assign_goalurate_attrs_from_user() method for the view
@@ -644,20 +647,24 @@ class TestGoalUratePseudopatientDetail(TestCase):
 
     def test__get_updates_GoalUrate(self):
         """Test that the get() method for the view updates the GoalUrate."""
-        # Create a GoalUrate for the User who doesn't have one and such that the
-        # goal urate is 6
-        gu = GoalUrateUserFactory(user=self.empty_psp, erosions=False, tophi=False, goal_urate=GoalUrates.SIX)
-        # Test that this is the case and then create the medhistorys that should make the goal urate
-        # 5 when the GoalUrate is updated
-        self.assertFalse(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
-        ErosionsFactory(user=self.empty_psp)
-        TophiFactory(user=self.empty_psp)
-        self.assertTrue(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
+        # Create a GoalUrate for the User who doesn't have one and such that the goal urate is 6
+        # but with medhistorys that should update the value to 5
+        gu = create_goalurate(
+            user=self.empty_psp,
+            medhistorys=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
+            goal_urate=GoalUrates.SIX,
+        )
+        # Test that the goal_urate is six and that the correct medhistorys are created
         self.assertEqual(gu.goal_urate, GoalUrates.SIX)
+        self.assertTrue(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
+
+        # Create the request and set up the view
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, username=self.empty_psp.username)
         view.object = view.get_object()
+
+        # Call get() and assert that the goal_urate is 5 after calling get()
         view.get(request)
         gu.refresh_from_db()
         self.assertEqual(gu.goal_urate, GoalUrates.FIVE)
@@ -666,18 +673,22 @@ class TestGoalUratePseudopatientDetail(TestCase):
         """Same as above, except the url includes the url parameter ?updated=True."""
         # Create a GoalUrate for the User who doesn't have one and such that the
         # goal urate is 6
-        gu = GoalUrateUserFactory(user=self.empty_psp, erosions=False, tophi=False, goal_urate=GoalUrates.SIX)
-        # Test that this is the case and then create the medhistorys that should make the goal urate
-        # 5 when the GoalUrate is updated
-        self.assertFalse(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
-        ErosionsFactory(user=self.empty_psp)
-        TophiFactory(user=self.empty_psp)
-        self.assertTrue(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
+        gu = create_goalurate(
+            user=self.empty_psp,
+            medhistorys=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
+            goal_urate=GoalUrates.SIX,
+        )
+        # Test that the goal_urate is six and that the correct medhistorys are created
         self.assertEqual(gu.goal_urate, GoalUrates.SIX)
+        self.assertTrue(self.empty_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists())
+
+        # Create the request and set up the view
         request = self.factory.get("/fake-url/?updated=True")
         view = self.view()
         view.setup(request, username=self.empty_psp.username)
         view.object = view.get_object()
+
+        # Call get() and assert that the goal_urate is still six
         view.get(request)
         gu.refresh_from_db()
         self.assertEqual(gu.goal_urate, GoalUrates.SIX)
@@ -687,19 +698,19 @@ class TestGoalUratePseudopatientUpdate(TestCase):
     """Tests for the GoalUratePseudopatientUpdate view."""
 
     def setUp(self):
-        self.anon_psp = PseudopatientPlusFactory()
+        self.anon_psp = create_psp(plus=True)
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.prov_psp = PseudopatientPlusFactory(provider=self.provider)
-        self.admin_psp = PseudopatientPlusFactory(provider=self.admin)
+        self.prov_psp = create_psp(plus=True, provider=self.provider)
+        self.admin_psp = create_psp(plus=True, provider=self.admin)
         self.anon = AnonymousUser()
         self.view = GoalUratePseudopatientUpdate
         self.factory = RequestFactory()
         for _ in range(5):
-            PseudopatientPlusFactory()
+            create_psp(plus=True)
         for psp in Pseudopatient.objects.all():
-            GoalUrateUserFactory(user=psp)
-        self.empty_psp = PseudopatientPlusFactory()
+            create_goalurate(user=psp)
+        self.empty_psp = create_psp(plus=True)
 
     def dummy_get_response(self, request: HttpRequest):
         return None
@@ -851,7 +862,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         """Test that the post() method correctly creates and deletes MedHistorys."""
         for psp in Pseudopatient.objects.select_related("pseudopatientprofile", "goalurate").all():
             medhistorys = list(psp.medhistory_set.all()).copy()
-            data = create_goalurate_data()
+            data = goalurate_data_factory()
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
@@ -875,7 +886,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
     def test__post_updates_goalurates_to_correct_recommendations(self):
         """Test that the post() method correctly creates GoalUrates with the correct recommendations."""
         for psp in Pseudopatient.objects.select_related("pseudopatientprofile", "goalurate").all():
-            data = create_goalurate_data()
+            data = goalurate_data_factory()
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
@@ -893,7 +904,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
 
     def test__post_returns_errors(self):
         """Test that the post() method returns errors if the form is invalid."""
-        data = create_goalurate_data()
+        data = goalurate_data_factory()
         # Set the required fields to empty strings to trigger errors (True or False required)
         for mh in GOALURATE_MEDHISTORYS:
             data[f"{mh}-value"] = ""

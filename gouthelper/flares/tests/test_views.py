@@ -959,8 +959,6 @@ class TestFlarePseudopatientCreate(TestCase):
         assert response.status_code == 302
 
         flare = Flare.objects.filter(user=psp).order_by("created").last()
-        print(flare.prevalence_points)
-
         # Assert that the flare was created
         self.assertTrue(Flare.objects.filter(user=psp).exists())
         flare = Flare.objects.filter(user=psp).last()
