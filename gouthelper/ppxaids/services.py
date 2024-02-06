@@ -54,7 +54,7 @@ class PpxAidDecisionAid:
             # If the queryset is a User instance, try to assign defaultppxtrtsettings from it
             self.defaultppxtrtsettings = qs.defaultppxtrtsettings if hasattr(qs, "defaultppxtrtsettings") else None
         else:
-            raise ValueError("PpxAidDecisionAid requires a PpxAid or User instance.")
+            raise TypeError("PpxAidDecisionAid requires a PpxAid or User instance.")
         self.dateofbirth = qs.dateofbirth
         self.age = age_calc(qs.dateofbirth.value)
         # Check if the QS is a PpxAid with a User, if so,
@@ -67,7 +67,7 @@ class PpxAidDecisionAid:
         # This is in attempt to save a query to the database
         if not getattr(self, "defaultppxtrtsettings", None):
             self.defaultppxtrtsettings = defaults_defaultppxtrtsettings(user=self.user)
-        self.gender = qs.gender
+        self.gender = qs.gender if hasattr(qs, "gender") else None
         # Check if the QS is a FlareAid with a User, if so,
         # then sets its gender attr to None to avoid saving a
         # FlareAid with a User and a gender, which will raise and IntegrityError

@@ -1,17 +1,17 @@
 from datetime import timedelta
 from decimal import Decimal
 
-import pytest  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from django.contrib.auth.models import AnonymousUser  # type: ignore
-from django.contrib.messages.middleware import MessageMiddleware
-from django.contrib.sessions.middleware import SessionMiddleware
-from django.core.exceptions import ObjectDoesNotExist  # type: ignore
-from django.db.models import Q, QuerySet  # type: ignore
-from django.http import HttpRequest, HttpResponse  # type: ignore
-from django.test import RequestFactory, TestCase  # type: ignore
-from django.urls import reverse  # type: ignore
-from django.utils import timezone  # type: ignore
+import pytest  # pylint: disable=e0401 # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
+from django.contrib.auth.models import AnonymousUser  # pylint: disable=e0401 # type: ignore
+from django.contrib.messages.middleware import MessageMiddleware  # pylint: disable=e0401 # type: ignore
+from django.contrib.sessions.middleware import SessionMiddleware  # pylint: disable=e0401 # type: ignore
+from django.core.exceptions import ObjectDoesNotExist  # pylint: disable=e0401 # type: ignore
+from django.db.models import Q, QuerySet  # pylint: disable=e0401 # type: ignore
+from django.http import HttpRequest, HttpResponse  # pylint: disable=e0401 # type: ignore
+from django.test import RequestFactory, TestCase  # pylint: disable=e0401 # type: ignore
+from django.urls import reverse  # pylint: disable=e0401 # type: ignore
+from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 
 from ...contents.models import Content, Tags
 from ...dateofbirths.helpers import age_calc

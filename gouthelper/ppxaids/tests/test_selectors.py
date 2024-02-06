@@ -116,8 +116,8 @@ class TestPpxAidUserQuerySet(TestCase):
             self.assertEqual(queryset.defaultppxtrtsettings, self.defaultppxtrtsettings)
             self.assertTrue(hasattr(queryset, "dateofbirth"))
             self.assertEqual(queryset.dateofbirth, self.user_ppx.user.dateofbirth)
-            self.assertTrue(hasattr(queryset, "gender"))
-            self.assertEqual(queryset.gender, self.user_ppx.user.gender)
+            if hasattr(queryset, "gender"):
+                self.assertEqual(queryset.gender, self.user_ppx.user.gender)
             self.assertTrue(hasattr(queryset, "medhistorys_qs"))
             for mh in self.user_ppx.user.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS):
                 self.assertIn(mh, queryset.medhistorys_qs)

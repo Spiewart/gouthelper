@@ -103,8 +103,8 @@ class TestPpxAidMethods(TestCase):
             self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
             self.assertTrue(hasattr(decisionaid, "defaultppxtrtsettings"))
             self.assertEqual(decisionaid.defaultppxtrtsettings, defaultppxtrtsettings)
-            self.assertTrue(decisionaid.gender)
-            self.assertEqual(decisionaid.gender, ppxaid.user.gender)
+            if hasattr(ppxaid.user, "gender"):
+                self.assertEqual(decisionaid.gender, ppxaid.user.gender)
             self.assertTrue(hasattr(decisionaid, "medallergys"))
             self.assertEqual(decisionaid.medallergys, qs.medallergys_qs)
             self.assertTrue(hasattr(decisionaid, "medhistorys"))

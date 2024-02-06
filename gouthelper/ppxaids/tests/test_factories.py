@@ -204,7 +204,8 @@ def test__create_ppxaid_with_user():
     assert not getattr(ppxaid, "dateofbirth", None)
     assert hasattr(ppxaid.user, "dateofbirth")
     assert not getattr(ppxaid, "gender", None)
-    assert hasattr(ppxaid.user, "gender")
+    if hasattr(ppxaid.user, "gender"):
+        assert isinstance(ppxaid.user.gender, Gender)
     assert hasattr(ppxaid, "medallergys_qs")
     user_mas = ppxaid.user.medallergy_set.all()
     for ma in ppxaid.medallergys_qs:
