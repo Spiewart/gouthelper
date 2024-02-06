@@ -31,6 +31,9 @@
     <a class="btn btn-primary"
        href="{% url 'goalurates:pseudopatient-detail' object.username %}"
        role="button">GoalUrate</a>
+    <a class="btn btn-primary"
+       href="{% url 'ppxaids:pseudopatient-detail' object.username %}"
+       role="button">PpxAid</a>
     <div class="row">
       <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>
       <div class="col-sm-6">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>

@@ -12,29 +12,57 @@
   PpxAid
 {% endblock title %}
 {% block heading %}
-  <h1>Gout PpxAid</h1>
+  {% if form.instance.created %}
+    <h1>Edit PpxAid</h1>
+  {% else %}
+    <h1>New PpxAid</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Determine what prophylactic (preventative) treatment is best for a patient during the intitiation phase of ULT.
+  {% if form.instance.created %}
+    Edit this PpxAid for updated recommendations.
+  {% else %}
+    Get a gout flare prophylaxis (prevention) recommendation.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ppxaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:pseudopatient-update' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ppxaids:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:pseudopatient-create' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}

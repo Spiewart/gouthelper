@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Union
 from django.apps import apps  # type: ignore
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
-from django.contrib.auth.mixins import LoginRequiredMixin  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.http import Http404, HttpResponseRedirect  # type: ignore
@@ -286,7 +285,7 @@ class FlarePatientBase(FlareBase):
         return flare_user_qs(username=username, flare_pk=self.kwargs.get("pk"))
 
 
-class FlarePseudopatientList(PermissionRequiredMixin, LoginRequiredMixin, ListView):
+class FlarePseudopatientList(PermissionRequiredMixin, ListView):
     context_object_name = "flares"
     model = Flare
     permission_required = "flares.can_view_pseudopatient_flare_list"

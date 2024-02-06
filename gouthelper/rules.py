@@ -21,11 +21,7 @@ def anon_user(_, obj):
     # Check if the permission object is a User
     if isinstance(obj, User):
         # If so, check if the User has a profile and if the profile has a provider
-        return (
-            True
-            if getattr(obj, "profile") and hasattr(obj.profile, "provider") and obj.profile.provider is None
-            else False
-        )
+        return True if getattr(obj, "profile") and not getattr(obj.profile, "provider", None) else False
     # If not, check if the permission object is None
     else:
         return True if obj is None else False

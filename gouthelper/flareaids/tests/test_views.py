@@ -1134,8 +1134,10 @@ class TestFlareAidPseudopatientUpdate(TestCase):
                     assert f"{mh.medhistorytype}_form" in response.context_data
                     assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
                     assert (
-                        response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding
-                        is False  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data[
+                            f"{mh.medhistorytype}_form"
+                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        is False
                     )
                     assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
                         f"{mh.medhistorytype}-value": True
@@ -1146,8 +1148,9 @@ class TestFlareAidPseudopatientUpdate(TestCase):
                 assert f"{mhtype}_form" in response.context_data
                 if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
                     assert (
-                        response.context_data[f"{mhtype}_form"].instance._state.adding is True
-                    )  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data[f"{mhtype}_form"].instance._state.adding
+                        is True  # pylint: disable=w0212, line-too-long # noqa: E501
+                    )
                     assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
             assert "ckddetail_form" in response.context_data
             if user.ckd:
