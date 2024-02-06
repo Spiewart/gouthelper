@@ -29,7 +29,7 @@ def dated_urates(queryset: "QuerySet") -> "QuerySet":
     return queryset
 
 
-def urate_userless_qs() -> "QuerySet":
+def urates_dated_qs() -> "QuerySet":
     """Custom urate_prefetch_qs for ppx_userless_qs.
     Annotates Urate.date_drawn with Flare.date_started if Urate.date_drawn is null.
     This is because Flare objects don't require reporting a date_drawn for the Urate,

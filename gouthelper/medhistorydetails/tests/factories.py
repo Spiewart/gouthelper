@@ -1,12 +1,14 @@
-import random  # type: ignore
+import random  # pylint: disable=e0401 # type: ignore
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
-import pytest  # type: ignore
-from factory import SubFactory, Trait, fuzzy  # type: ignore
-from factory.django import DjangoModelFactory  # type: ignore
-from factory.faker import faker  # type: ignore
+import factory  # pylint: disable=e0401 # type: ignore
+import pytest  # pylint: disable=e0401 # type: ignore
+from factory import SubFactory, Trait, fuzzy  # pylint: disable=e0401 # type: ignore
+from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
+from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
+from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
@@ -109,3 +111,7 @@ class GoutDetailFactory(DjangoModelFactory):
         model = GoutDetail
 
     medhistory = SubFactory(GoutFactory)
+    flaring = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
+    hyperuricemic = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
+    on_ppx = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
+    on_ult = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])

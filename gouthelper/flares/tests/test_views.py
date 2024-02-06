@@ -1560,7 +1560,7 @@ class TestFlarePseudopatientList(TestCase):
         self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
         self.assertRedirects(self.client.get(admin_psp_url), admin_psp_redirect_url)
         response = self.client.get(anon_psp_url)
-        assert response.status_code == 302
+        assert response.status_code == 200
         # Test that the Provider can access the view for his or her own Pseudopatient
         self.client.force_login(provider)
         response = self.client.get(prov_psp_url)

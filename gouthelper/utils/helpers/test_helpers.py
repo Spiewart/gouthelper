@@ -17,12 +17,12 @@ from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
-from ...labs.models import Urate
+from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
-from ...medhistorydetails.tests.factories import create_ckddetail
+from ...medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
 from ...medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import OTHER_NSAID_CONTRAS
 from ...medhistorys.models import MedHistory
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from ...flareaids.models import FlareAid
     from ...flares.models import Flare
     from ...goalurates.models import GoalUrate
-    from ...medhistorydetails.models import CkdDetail
+    from ...medhistorydetails.models import CkdDetail, GoutDetail
     from ...ppxaids.models import PpxAid
     from ...ppxs.models import Ppx
     from ...ultaids.models import UltAid
@@ -148,6 +148,18 @@ def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: 
     return data
 
 
+def make_goutdetail_data() -> dict:
+    """Method that creates data for a GoutDetail object."""
+    # Create a GoutDetail stub object with attrs populated by the factory
+    stub = GoutDetailFactory.stub()
+
+    # Iterate over the stub's attributes and add them to a dict
+    data = {attr: getattr(stub, attr) for attr in dir(stub) if not attr.startswith("_")}
+
+    # Return the data
+    return data
+
+
 def get_menopause_val(age: int, gender: int) -> bool:
     """Method that takes an age and gender and returns a Menopause value.
     Can be used as data in a form or as a bool when figuring out whether or not
@@ -211,6 +223,86 @@ def update_ckddetail_data(ckddetail: "CkdDetail", data: dict) -> None:
     )
 
 
+def update_goutdetail_data(goutdetail: "GoutDetail", data: dict) -> None:
+    """Updates a data dictionary with GoutDetail values from a GoutDetail object."""
+    data.update(
+        {
+            "starting_ult": goutdetail.starting_ult.value if goutdetail.starting_ult else "",
+        }
+    )
+
+
+def update_or_create_ckddetail_data(
+    data: dict,
+    user: Union["User", None] = None,
+    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
+    mh_details: list[MedHistoryTypes] | None = None,
+    dateofbirth: DateOfBirth | None = None,
+    gender: Gender | None = None,
+) -> None:
+    ckd_value = data[f"{MedHistoryTypes.CKD}-value"]
+    if mh_details and ckd_value and MedHistoryTypes.CKD in mh_details:
+        if user:
+            if hasattr(user, "ckddetail"):
+                ckdetail = user.ckddetail
+                update_ckddetail_data(ckdetail, data)
+                data["baselinecreatinine-value"] = (
+                    user.baselinecreatinine.value if getattr(user, "baselinecreatinine") else ""
+                )
+            else:
+                data.update(**make_ckddetail_data(user=user))
+        elif aid_obj and aid_obj.user:
+            if hasattr(aid_obj.user, "ckddetail"):
+                ckdetail = aid_obj.user.ckddetail
+                update_ckddetail_data(ckdetail, data)
+                data["baselinecreatinine-value"] = (
+                    user.baselinecreatinine.value if getattr(aid_obj.user, "baselinecreatinine") else ""
+                )
+            else:
+                data.update(**make_ckddetail_data(user=aid_obj.user))
+        elif aid_obj:
+            if hasattr(aid_obj, "ckddetail"):
+                ckdetail = aid_obj.ckddetail
+                update_ckddetail_data(ckdetail, data)
+                data["baselinecreatinine-value"] = (
+                    aid_obj.baselinecreatinine.value if getattr(aid_obj, "baselinecreatinine") else ""
+                )
+            else:
+                data.update(**make_ckddetail_data(dateofbirth=aid_obj.dateofbirth, gender=aid_obj.gender))
+        else:
+            data.update(**make_ckddetail_data(dateofbirth=dateofbirth, gender=gender))
+
+
+def update_or_create_goutdetail_data(
+    data: dict,
+    user: Union["User", None] = None,
+    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
+    mh_details: list[MedHistoryTypes] | None = None,
+) -> None:
+    gout_value = data[f"{MedHistoryTypes.GOUT}-value"]
+    if mh_details and gout_value and MedHistoryTypes.GOUT in mh_details:
+        if user:
+            if hasattr(user, "goutdetail"):
+                goutdetail = user.goutdetail
+                update_goutdetail_data(goutdetail, data)
+            else:
+                data.update(**make_goutdetail_data())
+        elif aid_obj and aid_obj.user:
+            if hasattr(aid_obj.user, "goutdetail"):
+                goutdetail = aid_obj.user.goutdetail
+                update_goutdetail_data(goutdetail, data)
+            else:
+                data.update(**make_goutdetail_data())
+        elif aid_obj:
+            if hasattr(aid_obj, "goutdetail"):
+                goutdetail = aid_obj.goutdetail
+                update_goutdetail_data(goutdetail, data)
+            else:
+                data.update(**make_goutdetail_data())
+        else:
+            data.update(**make_goutdetail_data())
+
+
 class DataMixin:
     def __init__(
         self,
@@ -261,7 +353,7 @@ class MedHistoryDataMixin(DataMixin):
     """Mixin for creating data for MedHistorys and MedHistoryDetails to
     populate forms for testing."""
 
-    def create_mh_data(self):
+    def create_mh_data(self, required: list[MedHistoryTypes] | None = None):
         data = {}
         # Create MedHistory data
         for medhistory in self.medhistorys:
@@ -290,46 +382,16 @@ class MedHistoryDataMixin(DataMixin):
             # correctly generate or not a Menopause MedHistory
             elif medhistory == MedHistoryTypes.MENOPAUSE:
                 data.update(make_menopause_data(age=self.dateofbirth, gender=self.gender))
+            elif medhistory in required:
+                data[f"{medhistory}-value"] = True
             else:
                 data[f"{medhistory}-value"] = get_mh_val(medhistory, self.bool_mhs)
             if medhistory == MedHistoryTypes.CKD:
-                ckd_value = data[f"{medhistory}-value"]
-                if self.mh_details and ckd_value and MedHistoryTypes.CKD in self.mh_details:
-                    if self.user:
-                        if hasattr(self.user, "ckddetail"):
-                            ckdetail = self.user.ckddetail
-                            update_ckddetail_data(ckdetail, data)
-                            data["baselinecreatinine-value"] = (
-                                self.user.baselinecreatinine.value if getattr(self.user, "baselinecreatinine") else ""
-                            )
-                        else:
-                            data.update(**make_ckddetail_data(user=self.user))
-                    elif self.aid_obj and self.aid_obj.user:
-                        if hasattr(self.aid_obj.user, "ckddetail"):
-                            ckdetail = self.aid_obj.user.ckddetail
-                            update_ckddetail_data(ckdetail, data)
-                            data["baselinecreatinine-value"] = (
-                                self.user.baselinecreatinine.value
-                                if getattr(self.aid_obj.user, "baselinecreatinine")
-                                else ""
-                            )
-                        else:
-                            data.update(**make_ckddetail_data(user=self.aid_obj.user))
-                    elif self.aid_obj:
-                        if hasattr(self.aid_obj, "ckddetail"):
-                            ckdetail = self.aid_obj.ckddetail
-                            update_ckddetail_data(ckdetail, data)
-                            data["baselinecreatinine-value"] = (
-                                self.aid_obj.baselinecreatinine.value
-                                if getattr(self.aid_obj, "baselinecreatinine")
-                                else ""
-                            )
-                        else:
-                            data.update(
-                                **make_ckddetail_data(dateofbirth=self.aid_obj.dateofbirth, gender=self.aid_obj.gender)
-                            )
-                    else:
-                        data.update(**make_ckddetail_data(dateofbirth=self.dateofbirth, gender=self.gender))
+                update_or_create_ckddetail_data(
+                    data, self.user, self.aid_obj, self.mh_details, self.dateofbirth, self.gender
+                )
+            elif medhistory == MedHistoryTypes.GOUT:
+                update_or_create_goutdetail_data(data, self.user, self.aid_obj, self.mh_details)
         return data
 
     def create(self):
@@ -401,6 +463,8 @@ class OneToOneDataMixin(DataMixin):
 class CreateAidMixin:
     def __init__(
         self,
+        # What to do with an empty list or None for labs will be specified in child classes
+        labs: dict[UrateFactory, list[Lab, Decimal] | None] | None = None,
         # If the medallergys list is not specified, then it will be the Default list
         medallergys: list[Treatments, MedAllergy] = None,
         # If the medhistorys list is not specified, then it will be the Default list
@@ -410,6 +474,7 @@ class CreateAidMixin:
         req_onetoones: list[str] = None,
         user: Union["User", bool] = None,
     ):
+        self.labs = labs
         self.medallergys = medallergys
         self.medhistorys = medhistorys
         self.mh_details = mh_details
@@ -432,15 +497,47 @@ class CreateAidMixin:
             self.user = None
 
     def create(self, **kwargs):
-        # Unpack and pop() **kwargs items when the key is in the onetoones list
-        oto_kwargs = {}
-        for key, val in kwargs.items():
-            if next(iter([oto_key for oto_key in self.onetoones.keys() if oto_key == key]), False):
-                oto_kwargs.update({key: val})
-        for key, val in oto_kwargs.items():
-            kwargs.pop(key)
-            self.onetoones.update({key: val})
+        # If there are onetoones, then unpack and pop() them from the kwargs
+        if self.onetoones:
+            oto_kwargs = {}
+            for key, val in kwargs.items():
+                if next(iter([oto_key for oto_key in self.onetoones.keys() if oto_key == key]), False):
+                    oto_kwargs.update({key: val})
+            # pop() the onetoones from the kwargs
+            for key, val in oto_kwargs.items():
+                kwargs.pop(key)
+                self.onetoones.update({key: val})
         return kwargs
+
+
+class LabCreatorMixin(CreateAidMixin):
+    """Mixin for creating Lab objects to add to an Aid object."""
+
+    def create_labs(
+        self,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+    ):
+        # Check if there are labs
+        if self.labs:
+            aid_obj_attr = aid_obj.__class__.__name__.lower()
+            # Iterate over the dict's items
+            for lab_factory, lab_list in self.labs.items():
+                lab_name = lab_factory._meta.model.__name__.lower()
+                if not hasattr(aid_obj, f"{lab_name}s_qs"):
+                    setattr(aid_obj, f"{lab_name}s_qs", [])
+                for lab in lab_list:
+                    if isinstance(lab, Lab):
+                        if self.user:
+                            if lab.user is None:
+                                lab.user = self.user
+                                lab.save()
+                        else:
+                            if getattr(lab, aid_obj_attr) is None:
+                                setattr(lab, aid_obj_attr, aid_obj)
+                                lab.save()
+                    elif isinstance(lab, Decimal):
+                        lab = lab_factory(user=self.user, value=lab, **{aid_obj_attr: aid_obj})
+                    getattr(aid_obj, f"{lab_name}s_qs").append(lab)
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):
@@ -566,28 +663,36 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     if new_mh:
                         # Add the MedHistory object to the Aid object's medhistorys_qs
                         aid_obj.medhistorys_qs.append(new_mh)
-                        if (
-                            self.mh_details
-                            and medhistory == MedHistoryTypes.CKD
-                            and MedHistoryTypes.CKD in self.mh_details
-                        ):
-                            if self.user:
-                                if not getattr(new_mh, "ckddetail", None):
-                                    create_ckddetail(
+                        if self.mh_details and medhistory in self.mh_details:
+                            if medhistory == MedHistoryTypes.CKD:
+                                if self.user:
+                                    if not getattr(new_mh, "ckddetail", None):
+                                        create_ckddetail(
+                                            medhistory=new_mh,
+                                            dateofbirth=self.user.dateofbirth.value
+                                            if getattr(self.user, "dateofbirth", None)
+                                            else None,
+                                            gender=self.user.gender.value
+                                            if getattr(self.user, "gender", None)
+                                            else None,
+                                        )
+                                else:
+                                    if not getattr(new_mh, "ckddetail", None):
+                                        create_ckddetail(
+                                            medhistory=new_mh,
+                                            dateofbirth=aid_obj.dateofbirth.value
+                                            if getattr(aid_obj, "dateofbirth", None)
+                                            else None,
+                                            gender=aid_obj.gender.value if getattr(aid_obj, "gender", None) else None,
+                                        )
+                            elif medhistory == MedHistoryTypes.GOUT and not getattr(new_mh, "goutdetail", None):
+                                if specified:
+                                    GoutDetailFactory(
                                         medhistory=new_mh,
-                                        dateofbirth=self.user.dateofbirth.value
-                                        if getattr(self.user, "dateofbirth", None)
-                                        else None,
-                                        gender=self.user.gender.value if getattr(self.user, "gender", None) else None,
                                     )
-                            else:
-                                if not getattr(new_mh, "ckddetail", None):
-                                    create_ckddetail(
+                                elif fake.boolean():
+                                    GoutDetailFactory(
                                         medhistory=new_mh,
-                                        dateofbirth=aid_obj.dateofbirth.value
-                                        if getattr(aid_obj, "dateofbirth", None)
-                                        else None,
-                                        gender=aid_obj.gender.value if getattr(aid_obj, "gender", None) else None,
                                     )
 
 

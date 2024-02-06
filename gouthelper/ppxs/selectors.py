@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
-from ..labs.selectors import urate_userless_qs
+from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 
 if TYPE_CHECKING:
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def medhistory_userless_qs() -> "QuerySet":
+def medhistory_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(Q(medhistorytype__in=PPX_MEDHISTORYS))
@@ -20,24 +20,24 @@ def medhistory_userless_qs() -> "QuerySet":
     ).all()
 
 
-def medhistory_userless_prefetch() -> Prefetch:
+def medhistory_prefetch() -> Prefetch:
     return Prefetch(
-        "medhistorys",
-        queryset=medhistory_userless_qs(),
+        "medhistory_set",
+        queryset=medhistory_qs(),
         to_attr="medhistorys_qs",
     )
 
 
-def urates_userless_prefetch() -> Prefetch:
+def urates_prefetch() -> Prefetch:
     return Prefetch(
-        "labs",
-        queryset=urate_userless_qs(),
-        to_attr="labs_qs",
+        "urate_set",
+        queryset=urates_dated_qs(),
+        to_attr="urates_qs",
     )
 
 
 def ppx_userless_qs(pk: "UUID") -> "QuerySet":
     queryset = apps.get_model("ppxs.Ppx").objects.filter(pk=pk)
-    queryset = queryset.prefetch_related(medhistory_userless_prefetch())
-    queryset = queryset.prefetch_related(urates_userless_prefetch())
+    queryset = queryset.prefetch_related(medhistory_prefetch())
+    queryset = queryset.prefetch_related(urates_prefetch())
     return queryset
