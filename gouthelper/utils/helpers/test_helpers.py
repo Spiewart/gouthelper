@@ -29,6 +29,7 @@ from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import NsaidChoices, Treatments
 from ...users.tests.factories import create_psp
+from .helpers import get_or_create_attr, get_or_create_qs_attr
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
@@ -87,6 +88,37 @@ def create_or_append_medhistorys_qs(
     if not hasattr(target, "medhistorys_qs"):
         target.medhistorys_qs = []
     target.medhistorys_qs.append(medhistory)
+
+
+def count_data_deleted(data: dict[str, str], selector: str = None) -> int:
+    """Count the number of keys in a data dict that are marekd for
+    deletion with "DELETE" as part of a formset. Takes optional selector to
+    narrow the choices of keys in the dict.
+
+    Args:
+        data (dict[str, str]): The data dict to be checked for keys marked for deletion.
+        selector (str, optional): A string to narrow the choices of keys in the dict.
+
+    Returns:
+        int: The number of keys marked for deletion in the data dict."""
+
+    if selector:
+        data = {key: val for key, val in data.items() if selector in key}
+    return sum(1 for key in data if "DELETE" in key)
+
+
+def fake_date_drawn(years: int = 2) -> date:
+    return fake.date_between(start_date=f"-{years}y", end_date="today")
+
+
+def fake_urate_decimal() -> Decimal:
+    return fake.pydecimal(
+        left_digits=2,
+        right_digits=1,
+        positive=True,
+        min_value=1,
+        max_value=30,
+    )
 
 
 def get_True_or_empty_str() -> bool | str:
@@ -154,8 +186,7 @@ def make_goutdetail_data() -> dict:
     stub = GoutDetailFactory.stub()
 
     # Iterate over the stub's attributes and add them to a dict
-    data = {attr: getattr(stub, attr) for attr in dir(stub) if not attr.startswith("_")}
-
+    data = {attr: getattr(stub, attr) for attr in dir(stub) if not attr.startswith("_") and not attr == "medhistory"}
     # Return the data
     return data
 
@@ -227,7 +258,10 @@ def update_goutdetail_data(goutdetail: "GoutDetail", data: dict) -> None:
     """Updates a data dictionary with GoutDetail values from a GoutDetail object."""
     data.update(
         {
-            "starting_ult": goutdetail.starting_ult.value if goutdetail.starting_ult else "",
+            "flaring": goutdetail.flaring if goutdetail.flaring else "",
+            "hyperuricemic": goutdetail.hyperuricemic if goutdetail.hyperuricemic else "",
+            "on_ppx": goutdetail.on_ppx if goutdetail.on_ppx else fake.boolean(),
+            "on_ult": goutdetail.on_ult if goutdetail.on_ult else fake.boolean(),
         }
     )
 
@@ -364,25 +398,21 @@ class MedHistoryDataMixin(DataMixin):
             elif self.aid_obj and self.aid_obj.user:
                 data[f"{medhistory}-value"] = (
                     True
-                    if getattr(self.aid_obj.user, medhistory.lower()).value
+                    if getattr(self.aid_obj.user, medhistory.lower())
                     else False
                     if medhistory in self.bool_mhs
                     else ""
                 )
             elif self.aid_obj:
                 data[f"{medhistory}-value"] = (
-                    True
-                    if getattr(self.aid_obj, medhistory.lower()).value
-                    else False
-                    if medhistory in self.bool_mhs
-                    else ""
+                    True if getattr(self.aid_obj, medhistory.lower()) else False if medhistory in self.bool_mhs else ""
                 )
             # If the MedHistory is MENOPAUSE, then need to check whether the data indicates the
             # GoutPatient is a Male or Female, and if the latter how old he or she is in order to
             # correctly generate or not a Menopause MedHistory
             elif medhistory == MedHistoryTypes.MENOPAUSE:
                 data.update(make_menopause_data(age=self.dateofbirth, gender=self.gender))
-            elif medhistory in required:
+            elif required and medhistory in required:
                 data[f"{medhistory}-value"] = True
             else:
                 data[f"{medhistory}-value"] = get_mh_val(medhistory, self.bool_mhs)
@@ -447,13 +477,7 @@ class OneToOneDataMixin(DataMixin):
                 data[f"{onetoone}-value"] = self.gender
             elif onetoone == "urate":
                 if fake.boolean():
-                    data[f"{onetoone}-value"] = fake.pydecimal(
-                        left_digits=2,
-                        right_digits=1,
-                        positive=True,
-                        min_value=1,
-                        max_value=30,
-                    )
+                    data[f"{onetoone}-value"] = fake_urate_decimal()
         return data
 
     def create(self):
@@ -517,27 +541,20 @@ class LabCreatorMixin(CreateAidMixin):
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
     ):
-        # Check if there are labs
         if self.labs:
             aid_obj_attr = aid_obj.__class__.__name__.lower()
-            # Iterate over the dict's items
             for lab_factory, lab_list in self.labs.items():
                 lab_name = lab_factory._meta.model.__name__.lower()
-                if not hasattr(aid_obj, f"{lab_name}s_qs"):
-                    setattr(aid_obj, f"{lab_name}s_qs", [])
+                qs_attr = get_or_create_qs_attr(aid_obj, lab_name)
                 for lab in lab_list:
                     if isinstance(lab, Lab):
                         if self.user:
-                            if lab.user is None:
-                                lab.user = self.user
-                                lab.save()
+                            get_or_create_attr(lab, "user", self.user, commit=True)
                         else:
-                            if getattr(lab, aid_obj_attr) is None:
-                                setattr(lab, aid_obj_attr, aid_obj)
-                                lab.save()
+                            get_or_create_attr(lab, aid_obj_attr, aid_obj, commit=True)
                     elif isinstance(lab, Decimal):
-                        lab = lab_factory(user=self.user, value=lab, **{aid_obj_attr: aid_obj})
-                    getattr(aid_obj, f"{lab_name}s_qs").append(lab)
+                        lab = lab_factory(user=self.user, value=lab, **{aid_obj_attr: aid_obj}, dated=True)
+                    qs_attr.append(lab)
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):
@@ -870,4 +887,7 @@ def tests_print_response_form_errors(response: Union["HttpResponse", None] = Non
                     for form in val.forms:
                         if getattr(form, "errors", None):
                             print("printing formset form errors")
+                            print(form.instance.pk)
+                            print(form.instance.date_drawn)
+                            print(form.instance.value)
                             print(key, form.errors)

@@ -46,7 +46,7 @@
           <div class="col">{% include "ppxs/_details.html" %}</div>
         </div>
       </div>
-      {% if object.labs_qs %}
+      {% if object.urates_qs %}
         <div id="urates">
           <hr size="3" color="dark" />
           <div class="row">
@@ -56,7 +56,7 @@
                   <u>Urates</u>
                 </h3>
                 <ol>
-                  {% for lab in object.labs_qs %}<li>{{ lab }} - {{ lab.date.date }}</li>{% endfor %}
+                  {% for urate in object.urates_qs %}<li>{{ urate }} - {{ urate.date.date }}</li>{% endfor %}
                 </ol>
               </div>
             </div>

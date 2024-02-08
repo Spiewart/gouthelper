@@ -69,19 +69,19 @@ class DecisionAidModel(models.Model):
         return medallergy_attr(Treatments.ALLOPURINOL, self)
 
     @cached_property
-    def allopurinolhypersensitivity(self) -> Union["MedHistory", None]:
+    def allopurinolhypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns AllopurinolHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY, self)
 
     @cached_property
-    def angina(self) -> Union["MedHistory", None]:
+    def angina(self) -> Union["MedHistory", bool]:
         """Method that returns Angina object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.ANGINA, self)
 
     @cached_property
-    def anticoagulation(self) -> Union["MedHistory", None]:
+    def anticoagulation(self) -> Union["MedHistory", bool]:
         """Method that returns Anticoagulation object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.ANTICOAGULATION, self)
@@ -104,13 +104,13 @@ class DecisionAidModel(models.Model):
         return medhistory_attr(MedHistoryTypes.BLEED, self)
 
     @cached_property
-    def cad(self) -> Union["MedHistory", None]:
+    def cad(self) -> Union["MedHistory", bool]:
         """Method that returns CAD object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.CAD, self)
 
     @cached_property
-    def chf(self) -> Union["MedHistory", None]:
+    def chf(self) -> Union["MedHistory", bool]:
         """Method that returns CHF object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         medhistory_attr(MedHistoryTypes.CHF, self)
@@ -149,7 +149,7 @@ class DecisionAidModel(models.Model):
         return contra == Contraindications.ABSOLUTE or contra == Contraindications.RELATIVE
 
     @cached_property
-    def colchicineinteraction(self) -> Union["MedHistory", None]:
+    def colchicineinteraction(self) -> Union["MedHistory", bool]:
         """Method that returns Colchicineinteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
@@ -182,7 +182,7 @@ class DecisionAidModel(models.Model):
         return defaults_defaultulttrtsettings(user=self.user if hasattr(self, "user") else None)
 
     @cached_property
-    def diabetes(self) -> Union["MedHistory", None]:
+    def diabetes(self) -> Union["MedHistory", bool]:
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.DIABETES, self)
@@ -211,7 +211,7 @@ class DecisionAidModel(models.Model):
         )
 
     @cached_property
-    def erosions(self) -> Union["MedHistory", None]:
+    def erosions(self) -> Union["MedHistory", bool]:
         """Method that returns Erosions object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.EROSIONS, self)
@@ -229,19 +229,19 @@ class DecisionAidModel(models.Model):
         medallergy_attr(Treatments.FEBUXOSTAT, self)
 
     @cached_property
-    def febuxostathypersensitivity(self) -> Union["MedHistory", None]:
+    def febuxostathypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns FebuxostatHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY, self)
 
     @cached_property
-    def gastricbypass(self) -> Union["MedHistory", None]:
+    def gastricbypass(self) -> Union["MedHistory", bool]:
         """Method that returns Gastricbypass object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.GASTRICBYPASS, self)
 
     @cached_property
-    def gout(self) -> Union["MedHistory", None]:
+    def gout(self) -> Union["MedHistory", bool]:
         """Method that returns Gout object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.GOUT, self, ["goutdetail"])
@@ -253,10 +253,10 @@ class DecisionAidModel(models.Model):
         try:
             return self.gout.goutdetail if self.gout else None
         except AttributeError:
-            pass
+            return None
 
     @cached_property
-    def heartattack(self) -> Union["MedHistory", None]:
+    def heartattack(self) -> Union["MedHistory", bool]:
         """Method that returns Heartattack object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.HEARTATTACK, self)
@@ -272,25 +272,25 @@ class DecisionAidModel(models.Model):
         )
 
     @cached_property
-    def hypertension(self) -> Union["MedHistory", None]:
+    def hypertension(self) -> Union["MedHistory", bool]:
         """Method that returns Hypertension object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.HYPERTENSION, self)
 
     @cached_property
-    def hyperuricemia(self) -> Union["MedHistory", None]:
+    def hyperuricemia(self) -> Union["MedHistory", bool]:
         """Property that returns Hyperuricemia object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.HYPERURICEMIA, self)
 
     @cached_property
-    def ibd(self) -> Union["MedHistory", None]:
+    def ibd(self) -> Union["MedHistory", bool]:
         """Method that returns Ibd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.IBD, self)
 
     @cached_property
-    def menopause(self) -> Union["MedHistory", None]:
+    def menopause(self) -> Union["MedHistory", bool]:
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
@@ -342,7 +342,7 @@ class DecisionAidModel(models.Model):
             ]
 
     @cached_property
-    def organtransplant(self) -> Union["MedHistory", None]:
+    def organtransplant(self) -> Union["MedHistory", bool]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.ORGANTRANSPLANT, self)
@@ -382,7 +382,7 @@ class DecisionAidModel(models.Model):
         return False
 
     @cached_property
-    def pvd(self) -> Union["MedHistory", None]:
+    def pvd(self) -> Union["MedHistory", bool]:
         """Method that returns Pvd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.PVD, self)
@@ -404,25 +404,25 @@ class DecisionAidModel(models.Model):
         return medallergy_attr(SteroidChoices.values, self)
 
     @cached_property
-    def stroke(self) -> Union["MedHistory", None]:
+    def stroke(self) -> Union["MedHistory", bool]:
         """Method that returns Stroke object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.STROKE, self)
 
     @cached_property
-    def tophi(self) -> Union["MedHistory", None]:
+    def tophi(self) -> Union["MedHistory", bool]:
         """Method that returns Tophi object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.TOPHI, self)
 
     @cached_property
-    def uratestones(self) -> Union["MedHistory", None]:
+    def uratestones(self) -> Union["MedHistory", bool]:
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.URATESTONES, self)
 
     @cached_property
-    def xoiinteraction(self) -> Union["MedHistory", None]:
+    def xoiinteraction(self) -> Union["MedHistory", bool]:
         """Method that returns XoiInteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)

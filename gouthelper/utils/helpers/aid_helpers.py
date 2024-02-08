@@ -9,6 +9,7 @@ from ...ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ...medhistorydetails.choices import DialysisChoices, Stages
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.dicts import CVD_CONTRAS
+from ...medhistorys.helpers import medhistorys_get
 from ...treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
@@ -43,9 +44,9 @@ def aids_assign_baselinecreatinine(
     Returns:
         Union[BaselineCreatinine, None]: BaselineCreatinine object or None.
     """
-    ckd = [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.CKD]
-    if ckd and hasattr(ckd[0], "baselinecreatinine"):
-        return ckd[0].baselinecreatinine
+    ckd = medhistorys_get(medhistorys, MedHistoryTypes.CKD)
+    if ckd and hasattr(ckd, "baselinecreatinine"):
+        return ckd.baselinecreatinine
     return None
 
 
@@ -60,13 +61,13 @@ def aids_assign_ckddetail(
     Returns:
         Union[CkdDetail, None]: CkdDetail object or None.
     """
-    ckd = [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.CKD]
-    if ckd and hasattr(ckd[0], "ckddetail"):
-        return ckd[0].ckddetail
+    ckd = medhistorys_get(medhistorys, MedHistoryTypes.CKD)
+    if ckd and hasattr(ckd, "ckddetail"):
+        return ckd.ckddetail
     return None
 
 
-def aids_assign_userless_goutdetail(
+def aids_assign_goutdetail(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
 ) -> Union["GoutDetail", None]:
     """Method that takes a list of userless medhistorys and tries to find one with a GoutDetail.
@@ -77,9 +78,9 @@ def aids_assign_userless_goutdetail(
     Returns:
         Union[GoutDetail, None]: GoutDetail object or None.
     """
-    gout = [medhistory for medhistory in medhistorys if medhistory.medhistorytype == MedHistoryTypes.GOUT]
-    if gout and hasattr(gout[0], "goutdetail"):
-        return gout[0].goutdetail
+    gout = medhistorys_get(medhistorys, MedHistoryTypes.GOUT)
+    if gout and hasattr(gout, "goutdetail"):
+        return gout.goutdetail
     return None
 
 

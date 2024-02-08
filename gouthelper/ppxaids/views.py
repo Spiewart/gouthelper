@@ -318,7 +318,7 @@ class PpxAidPseudopatientCreate(PermissionRequiredMixin, PpxAidPatientBase, Pati
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
-            _,  # lab_formset
+            _,  # lab_formsets
             medallergys_to_save,
             medallergys_to_remove,
             onetoones_to_delete,

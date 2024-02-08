@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
@@ -9,7 +9,6 @@ from ..dateofbirths.helpers import age_calc
 from ..flares.models import Flare
 from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
-from ..labs.selectors import dated_urates
 from ..medallergys.forms import MedAllergyTreatmentForm
 from ..medallergys.models import MedAllergy
 from ..medhistorydetails.models import CkdDetail, GoutDetail
@@ -18,6 +17,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..users.choices import Roles
 from ..users.selectors import pseudopatient_qs_plus
 from ..utils.exceptions import EmptyRelatedModel
+from ..utils.helpers.helpers import get_or_create_qs_attr, set_to_delete, set_to_save
 
 if TYPE_CHECKING:
     from crispy_forms.helper import FormHelper  # type: ignore
@@ -49,12 +49,27 @@ def validate_form_list(form_list: list["ModelForm"]) -> bool:
     return forms_valid
 
 
+def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
+    """Method to validate a list of formsets.
+
+    Args:
+        formset_list: A list of BaseModelFormSets to validate.
+
+    Returns:
+        True if all formsets are valid, False otherwise."""
+    formsets_valid = True
+    for formset in formset_list:
+        if not formset.is_valid():
+            formsets_valid = False
+    return formsets_valid
+
+
 class MedHistoryModelBaseMixin:
     onetoones: dict[str, "FormModelDict"] = {}
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
     medhistorys: dict[MedHistoryTypes, "FormModelDict"] = {}
     medhistory_details: dict[MedHistoryTypes, "ModelForm"] = {}
-    labs: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str] | None = None
+    labs: dict[Literal["urate"], tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet"]] | None = None
 
     @cached_property
     def ckddetail(self) -> bool:
@@ -73,8 +88,8 @@ class MedHistoryModelBaseMixin:
         medallergys_forms: dict,
         medhistorys_forms: dict,
         medhistorydetails_forms: dict,
-        lab_formset: "BaseModelFormSet",
-        labs: tuple["BaseModelFormSet", "FormHelper", "QuerySet", str] | None,
+        lab_formsets: dict[str, "BaseModelFormSet"] | None,
+        labs: dict[Literal["urate"], tuple["BaseModelFormSet", "FormHelper", "QuerySet"]] | None,
     ) -> "HttpResponse":
         """To shorten code for rendering forms with errors in multiple
         locations in post()."""
@@ -85,8 +100,8 @@ class MedHistoryModelBaseMixin:
                 **medallergys_forms,
                 **medhistorys_forms,
                 **medhistorydetails_forms,
-                lab_formset=lab_formset,
-                lab_formset_helper=labs[1] if labs else None,
+                **lab_formsets if lab_formsets else {},
+                **{f"{lab}_formset_helper": lab_tup[1] for lab, lab_tup in labs.items()} if labs else {},
             )
         )
 
@@ -105,12 +120,12 @@ class MedHistoryModelBaseMixin:
             labs_remove: Lab objects to remove from the qs
 
         Returns: None"""
-        if hasattr(aid_obj, "labs_qs") is False:
-            aid_obj.labs_qs = []
         if labs_include:
             for lab in labs_include:
-                if lab not in aid_obj.labs_qs:
-                    aid_obj.labs_qs.append(lab)
+                lab_name = lab.__class__.__name__.lower()
+                lab_qs_attr = get_or_create_qs_attr(obj=aid_obj, name=lab_name)
+                if lab not in lab_qs_attr:
+                    lab_qs_attr.append(lab)
                 # Check if the lab has a date attr and set it if not
                 if hasattr(lab, "date") is False:
                     # Check if the lab has a date drawn and set date to that if so
@@ -120,11 +135,13 @@ class MedHistoryModelBaseMixin:
                     elif hasattr(lab, "flare"):
                         lab.date = lab.flare.date_started
             # Sort the labs by date
-            aid_obj.labs_qs.sort(key=lambda x: x.date, reverse=True)
+            lab_qs_attr.sort(key=lambda x: x.date, reverse=True)
         if labs_remove:
             for lab in labs_remove:
-                if lab in aid_obj.labs_qs:
-                    aid_obj.labs_qs.remove(lab)
+                lab_name = lab.__class__.__name__.lower()
+                lab_qs_attr = get_or_create_qs_attr(obj=aid_obj, name=lab_name)
+                if lab in lab_qs_attr:
+                    lab_qs_attr.remove(lab)
 
     def update_or_create_medallergy_qs(
         self,
@@ -222,8 +239,11 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             mh_include=medhistorys_to_save,
             mh_remove=None,
         )
-        # Create and populate the labs_qs attribute on the object
-        self.update_or_create_labs_qs(aid_obj=aid_obj, labs_include=labs_to_save, labs_remove=None)
+        if self.labs:
+            for lab in self.labs.keys():
+                get_or_create_qs_attr(obj=aid_obj, name=lab)
+            # Create and populate the labs_qs attribute on the object
+            self.update_or_create_labs_qs(aid_obj=aid_obj, labs_include=labs_to_save, labs_remove=None)
         # Return object for the child view to use
         return aid_obj
 
@@ -255,11 +275,12 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 else:
                     kwargs[form_str] = self.medhistorys[medhistory]["form"]()
         if self.labs:
-            if "lab_formset" not in kwargs:
-                kwargs["lab_formset"] = self.labs[0](  # pylint: disable=unsubscriptable-object
-                    queryset=self.labs[2], prefix=self.labs[3]  # pylint: disable=unsubscriptable-object
-                )
-                kwargs["lab_formset_helper"] = self.labs[1]  # pylint: disable=unsubscriptable-object
+            for lab, lab_tup in self.labs.items():
+                if f"{lab}_formset" not in kwargs:
+                    kwargs[f"{lab}_formset"] = lab_tup[0](  # pylint: disable=unsubscriptable-object
+                        queryset=lab_tup[2], prefix=lab  # pylint: disable=unsubscriptable-object
+                    )
+                    kwargs[f"{lab}_formset_helper"] = lab_tup[1]  # pylint: disable=unsubscriptable-object
         return super().get_context_data(**kwargs)
 
     def get_form_kwargs(self) -> dict[str, Any]:
@@ -268,14 +289,16 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             kwargs["medallergys"] = self.medallergys
         return kwargs
 
-    def post_populate_labformset(
+    def post_populate_labformsets(
         self,
         request: "HttpRequest",
-    ) -> Union["BaseModelFormSet", None]:
-        """Method to populate a dict of lab forms with POST data
-        in the post() method."""
+    ) -> dict[str, "BaseModelFormSet"] | None:
+        """Method to populate a dicts of lab forms with POST data in the post() method."""
         if self.labs:
-            return self.labs[0](request.POST, queryset=self.labs[2], prefix=self.labs[3])
+            lab_formsets = {}
+            for lab, lab_tup in self.labs.items():
+                lab_formsets.update({f"{lab}_formset": lab_tup[0](request.POST, queryset=lab_tup[2], prefix=lab)})
+            return lab_formsets
         else:
             return None
 
@@ -380,20 +403,21 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 pass
         return onetoones_to_save
 
-    def post_process_lab_formset(
+    def post_process_lab_formsets(
         self,
-        lab_formset: dict["BaseModelFormSet"],
+        lab_formsets: dict[str, "BaseModelFormSet"],
     ) -> list["Lab"]:
         """Method that processes LabForms for the post() method."""
         # Create empty list of labs to add
         labs_to_save = []
         # Iterate over the lab_forms dict to create cleaned_data checks for each form
         if self.labs:
-            for lab_form in lab_formset:
-                # Check if the lab_form has cleaned_data and if the lab_form has a value
-                if lab_form.cleaned_data and lab_form.cleaned_data["value"]:
-                    # Save the lab_form to the labs_to_save list
-                    labs_to_save.append(lab_form.save(commit=False))
+            for lab_formset in lab_formsets.values():
+                for lab_form in lab_formset:
+                    # Check if the lab_form has cleaned_data and if the lab_form has a value
+                    if lab_form.cleaned_data and lab_form.cleaned_data["value"]:
+                        # Save the lab_form to the labs_to_save list
+                        labs_to_save.append(lab_form.save(commit=False))
         return labs_to_save
 
     def post_process_medallergys_forms(
@@ -478,7 +502,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             medhistorys=self.medhistorys, request=request
         )
         # Populate the lab formset
-        lab_formset = self.post_populate_labformset(request=request)
+        lab_formsets = self.post_populate_labformsets(request=request)
         # Call is_valid() on all forms, using validate_form_list() for dicts of related model forms
         if (
             form.is_valid()
@@ -486,7 +510,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
             and validate_form_list(form_list=list(medallergys_forms.values()))
             and validate_form_list(form_list=list(medhistorys_forms.values()))
             and validate_form_list(form_list=list(medhistorydetails_forms.values()))
-            and (lab_formset.is_valid() if lab_formset else True)
+            and (validate_formset_list(formset_list=lab_formsets.values()) if lab_formsets else True)
         ):
             errors_bool = False
             form.save(commit=False)
@@ -504,7 +528,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 errors_bool=errors_bool,
             )
             # Process the lab formset forms if it exists
-            labs_to_save = self.post_process_lab_formset(lab_formset=lab_formset)
+            labs_to_save = self.post_process_lab_formsets(lab_formsets=lab_formsets)
             errors = (
                 self.render_errors(
                     form=form,
@@ -512,7 +536,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                     medallergys_forms=medallergys_forms,
                     medhistorys_forms=medhistorys_forms,
                     medhistorydetails_forms=medhistorydetails_forms,
-                    lab_formset=lab_formset,
+                    lab_formsets=lab_formsets,
                     labs=self.labs if hasattr(self, "labs") else None,
                 )
                 if errors_bool
@@ -525,7 +549,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                lab_formset,
+                lab_formsets,
                 onetoones_to_save,
                 medallergys_to_save,
                 medhistorys_to_save,
@@ -541,7 +565,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 medallergys_forms=medallergys_forms,
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                lab_formset=lab_formset,
+                lab_formsets=lab_formsets,
                 labs=self.labs if hasattr(self, "labs") else None,
             )
             return (
@@ -551,7 +575,7 @@ class MedHistorysModelCreateView(MedHistoryModelBaseMixin, CreateView):
                 medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                lab_formset if self.labs else None,
+                lab_formsets if self.labs else None,
                 None,
                 None,
                 None,
@@ -776,16 +800,17 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
 
     def context_labs(
         self,
-        labs_tuple: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str],
+        labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet"]],
         user: "User",
         kwargs: dict,
     ) -> None:
         """Method adds a formset of labs to the context. Uses a QuerySet that takes a user
         as an arg to populate existing Lab objects."""
-        if "lab_formset" not in kwargs:
-            # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
-            kwargs["lab_formset"] = labs_tuple[0](queryset=labs_tuple[2](user=user), prefix=labs_tuple[3])
-            kwargs["lab_formset_helper"] = labs_tuple[1]
+        for lab, lab_tup in labs.items():
+            if f"{lab}_formset" not in kwargs:
+                kwargs[f"{lab}_formset"] = lab_tup[0](queryset=lab_tup[2](user=user), prefix=lab)
+                kwargs[f"{lab}_formset_helper"] = lab_tup[1]
+        # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
 
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
@@ -819,7 +844,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             user=self.user,
             ckddetail=self.ckddetail,
         )
-        lab_formset = self.post_populate_labformset(request=request, labs=self.labs)
+        lab_formsets = self.post_populate_labformsets(request=request, labs=self.labs)
         # Call is_valid() on all forms, using validate_form_list() for dicts of related model forms
         if (
             form.is_valid()
@@ -827,7 +852,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             and validate_form_list(form_list=medallergys_forms.values())
             and validate_form_list(form_list=medhistorys_forms.values())
             and validate_form_list(form_list=medhistorydetails_forms.values())
-            and (not lab_formset or lab_formset.is_valid())
+            and (validate_formset_list(formset_list=lab_formsets.values()) if lab_formsets else True)
         ):
             errors_bool = False
             form.save(commit=False)
@@ -857,7 +882,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
             (
                 labs_to_save,
                 labs_to_remove,
-            ) = self.post_process_lab_formset(lab_formset=lab_formset, user=self.user)
+            ) = self.post_process_lab_formsets(lab_formsets=lab_formsets, user=self.user)
             # If there are errors picked up after the initial validation step
             # render the errors as errors and include in the return tuple
             errors = (
@@ -867,7 +892,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                     medallergys_forms=medallergys_forms,
                     medhistorys_forms=medhistorys_forms,
                     medhistorydetails_forms=medhistorydetails_forms,
-                    lab_formset=lab_formset,
+                    lab_formsets=lab_formsets,
                     labs=self.labs if hasattr(self, "labs") else None,
                 )
                 if errors_bool
@@ -880,7 +905,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 medhistorys_forms,
                 medhistorydetails_forms,
                 medallergys_forms,
-                lab_formset,
+                lab_formsets,
                 medallergys_to_save,
                 medallergys_to_remove,
                 onetoones_to_save,
@@ -901,7 +926,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 medallergys_forms=medallergys_forms,
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                lab_formset=lab_formset,
+                lab_formsets=lab_formsets,
                 labs=self.labs if hasattr(self, "labs") else None,
             )
             return (
@@ -911,7 +936,7 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 medhistorys_forms,
                 medhistorydetails_forms,
                 medallergys_forms,
-                lab_formset if self.labs else None,
+                lab_formsets if self.labs else None,
                 None,
                 None,
                 None,
@@ -924,16 +949,17 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 None,
             )
 
-    def post_populate_labformset(
+    def post_populate_labformsets(
         self,
         request: "HttpRequest",
-        labs: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str],
-    ) -> Union["BaseModelFormSet", None]:
-        """Method to populate a dict of lab forms with POST data
-        in the post() method."""
+        labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str]] | None,
+    ) -> dict[str, "BaseModelFormSet"] | None:
+        """Method to populate a dict of lab forms with POST data in the post() method."""
         if labs:
-            # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
-            return labs[0](request.POST, queryset=labs[2], prefix=labs[3])
+            lab_formsets = {}
+            for lab, lab_tup in labs.items():
+                lab_formsets.update({lab: lab_tup[0](request.POST, queryset=lab_tup[2], prefix=lab)})
+            return lab_formsets
         else:
             return None
 
@@ -1034,9 +1060,9 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
                 )
         return onetoone_forms
 
-    def post_process_lab_formset(
+    def post_process_lab_formsets(
         self,
-        lab_formset: "BaseModelFormSet",
+        lab_formsets: dict[str, "BaseModelFormSet"],
         user: "User",
     ) -> tuple[list["Lab"], list["Lab"]]:
         """Method to process the forms in a Lab formset for the post() method.
@@ -1052,45 +1078,49 @@ class PatientAidBaseView(MedHistoryModelBaseMixin):
         # Assign lists to return
         labs_to_save: list["Lab"] = []
         labs_to_remove: list["Lab"] = []
-        if not hasattr(user, "labs_qs"):
-            user.labs_qs = []
-        if lab_formset:
-            # Iterate over the object's existing labs
-            for lab in user.labs_qs:
-                cleaned_data = lab_formset.cleaned_data
-                # Check if the lab is not in the formset's cleaned_data list by id key
-                for lab_form in cleaned_data:
-                    try:
-                        if lab_form["id"] == lab:
-                            # Check if the form is not marked for deletion
-                            if not lab_form["DELETE"]:
-                                # If the lab is in the formset and not marked for deletion,
-                                # append it to the form instance's labs_qs if it's not already there
-                                if lab not in user.labs_qs:
-                                    user.labs_qs.append(lab)
-                                # If so, break out of the loop
-                                break
-                            # If it is marked for deletion, it will be removed by the formset loop below
-                    except KeyError:
-                        pass
-                else:
-                    # If not, add the lab to the labs_to_remove list
-                    labs_to_remove.append(lab)
-                    user.labs_qs.remove(lab)
-            # Iterate over the forms in the formset
-            for form in lab_formset:
-                # Check if the form has a value in the "value" field
-                if "value" in form.cleaned_data:
-                    # Check if the form has an instance and the form has changed
-                    if form.instance and form.has_changed() and not form.cleaned_data["DELETE"]:
-                        # Add the form's instance to the labs_to_save list
-                        labs_to_save.append(form.instance)
-                    # If there's a value but no instance, add the form's instance to the labs_to_save list
-                    elif form.instance is None:
-                        labs_to_save.append(form.instance)
-                    # Add the lab to the form instance's labs_qs if it's not already there
-                    if form.instance not in form.instance.labs_qs:
-                        user.labs_qs.append(form.instance)
+
+        if lab_formsets:
+            for lab_name, lab_formset in lab_formsets.items():
+                qs_name = f"{lab_name}_qs"
+                if not hasattr(user, qs_name):
+                    setattr(user, qs_name, [])
+                # Iterate over the object's existing labs
+                qs_attr = getattr(user, qs_name)
+                for lab in qs_attr:
+                    cleaned_data = lab_formset.cleaned_data
+                    # Check if the lab is not in the formset's cleaned_data list by id key
+                    for lab_form in cleaned_data:
+                        try:
+                            if lab_form["id"] == lab:
+                                # Check if the form is not marked for deletion
+                                if not lab_form["DELETE"]:
+                                    # If the lab is in the formset and not marked for deletion,
+                                    # append it to the form instance's labs_qs if it's not already there
+                                    if lab not in qs_attr:
+                                        qs_attr.append(lab)
+                                    # If so, break out of the loop
+                                    break
+                                # If it is marked for deletion, it will be removed by the formset loop below
+                        except KeyError:
+                            pass
+                    else:
+                        # If not, add the lab to the labs_to_remove list
+                        labs_to_remove.append(lab)
+                        qs_attr.remove(lab)
+                # Iterate over the forms in the formset
+                for form in lab_formset:
+                    # Check if the form has a value in the "value" field
+                    if "value" in form.cleaned_data:
+                        # Check if the form has an instance and the form has changed
+                        if form.instance and form.has_changed() and not form.cleaned_data["DELETE"]:
+                            # Add the form's instance to the labs_to_save list
+                            labs_to_save.append(form.instance)
+                        # If there's a value but no instance, add the form's instance to the labs_to_save list
+                        elif form.instance is None:
+                            labs_to_save.append(form.instance)
+                        # Add the lab to the form instance's labs_qs if it's not already there
+                        if form.instance not in qs_attr:
+                            qs_attr.append(form.instance)
         return labs_to_save, labs_to_remove
 
     def post_process_medallergys_forms(
@@ -1299,7 +1329,7 @@ class PatientAidCreateView(PatientAidBaseView, CreateView):
             )
         if self.labs:
             self.context_labs(
-                labs_tuple=self.labs,
+                labs=self.labs,
                 user=self.user,
                 kwargs=kwargs,
             )
@@ -1379,7 +1409,7 @@ class PatientAidUpdateView(PatientAidBaseView, UpdateView):
             )
         if self.labs:
             self.context_labs(
-                labs_tuple=self.labs,
+                labs=self.labs,
                 user=self.user,
                 kwargs=kwargs,
             )
@@ -1482,7 +1512,13 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         if self.labs:
             # Modify and remove labs from the object
             for lab in labs_to_save:
-                lab.save()
+                if not getattr(lab, aid_obj_attr):
+                    setattr(lab, aid_obj_attr, aid_obj)
+                    set_to_save(lab)
+                if hasattr(lab, "to_save"):
+                    lab.save()
+            for lab in labs_to_remove:
+                lab.delete()
         # Create and populate the medallergy_qs attribute on the object
         self.update_or_create_medallergy_qs(
             aid_obj=aid_obj, ma_include=medallergys_to_save, ma_remove=medallergys_to_remove
@@ -1564,17 +1600,17 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
 
     def context_labs(
         self,
-        labs_tuple: tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str],
+        labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str]] | None,
         con_obj: "MedAllergyAidHistoryModel",
         kwargs: dict,
     ) -> None:
         """Method that iterates over the labs list and adds the forms to the context."""
-        if "lab_formset" not in kwargs:
-            # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
-            kwargs["lab_formset"] = labs_tuple[0](
-                queryset=dated_urates(con_obj.labs).all().reverse(), prefix=labs_tuple[3]
-            )
-            kwargs["lab_formset_helper"] = labs_tuple[1]
+        if labs:
+            for lab, lab_tup in labs.items():
+                formset_name = f"{lab}_formset"
+                if formset_name not in kwargs:
+                    kwargs[formset_name] = lab_tup[0](queryset=lab_tup[2].filter(ppx=con_obj), prefix=lab)
+                    kwargs[f"{lab}_formset_helper"] = lab_tup[1]
 
     def get(self, request: "HttpRequest", *args: Any, **kwargs: Any) -> "HttpResponse":
         """Overwritten to not fetch the object a second time."""
@@ -1588,7 +1624,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         if self.medhistorys:
             self.context_medhistorys(medhistorys=self.medhistorys, kwargs=kwargs, con_obj=self.object)
         if self.labs:
-            self.context_labs(labs_tuple=self.labs, con_obj=self.object, kwargs=kwargs)
+            self.context_labs(labs=self.labs, con_obj=self.object, kwargs=kwargs)
         return super().get_context_data(**kwargs)
 
     def get_form_kwargs(self) -> dict[str, Any]:
@@ -1598,15 +1634,23 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             kwargs["medallergys"] = self.medallergys
         return kwargs
 
-    def post_populate_labformset(
+    def post_populate_labformsets(
         self,
         request: "HttpRequest",
-    ) -> Union["BaseModelFormSet", None]:
+    ) -> dict[str, "BaseModelFormSet"] | None:
         """Method to populate a dict of lab forms with POST data
         in the post() method."""
         if self.labs:
-            # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
-            return self.labs[0](request.POST, queryset=dated_urates(self.object.labs).all(), prefix=self.labs[3])
+            formsets = {}
+            for lab, lab_tup in self.labs.items():
+                formsets.update(
+                    {
+                        f"{lab}_formset": lab_tup[0](
+                            request.POST, queryset=lab_tup[2].filter(ppx=self.object), prefix=lab
+                        )
+                    }
+                )
+            return formsets
         else:
             return None
 
@@ -1961,46 +2005,30 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                     onetoones_to_delete.append(to_delete)
         return onetoones_to_save, onetoones_to_delete
 
-    def post_process_lab_formset(
+    def post_process_lab_formsets(
         self,
-        lab_formset: "BaseModelFormSet",
-    ) -> tuple[list["Lab"], list["Lab"], list["Lab"]]:
+        lab_formsets: dict[str, "BaseModelFormSet"],
+    ) -> tuple[list["Lab"], list["Lab"]]:
         """Method to process the forms in a Lab formset for the MedHistorysModelUpdateView post() method.
         Requires a list of existing labs (can be empty) to iterate over and compare to the forms in the
         formset to identify labs that need to be removed."""
         # Assign lists to return
         labs_to_save: list["Lab"] = []
         labs_to_remove: list["Lab"] = []
-        labs_to_save: list["Lab"] = []
-        if lab_formset:
-            # Iterate over the object's existing labs
-            for lab in self.object.labs_qs:
-                cleaned_data = lab_formset.cleaned_data
-                # Check if the lab is not in the formset's cleaned_data list by id key
-                for lab_form in cleaned_data:
-                    try:
-                        if lab_form["id"] == lab:
-                            # Check if the form is not marked for deletion
-                            if not lab_form["DELETE"]:
-                                # If so, break out of the loop
-                                break
-                            # If it is marked for deletion, it will be removed by the formset loop below
-                    except KeyError:
-                        pass
-                else:
-                    # If not, add the lab to the labs_to_remove list
-                    labs_to_remove.append(lab)
-            # Iterate over the forms in the formset
-            for form in lab_formset:
-                # Check if the form has a value in the "value" field
-                if "value" in form.cleaned_data:
-                    # Check if the form has an instance and the form has changed
-                    if form.instance and form.has_changed() and not form.cleaned_data["DELETE"]:
-                        # Add the form's instance to the labs_to_save list
-                        labs_to_save.append(form.instance)
-                    # If there's a value but no instance, add the form's instance to the labs_to_save list
-                    elif form.instance is None:
-                        labs_to_save.append(form.instance)
+        if lab_formsets:
+            for lab_formset in lab_formsets.values():
+                for form in lab_formset:
+                    if form.cleaned_data.get("DELETE", None):
+                        labs_to_remove.append(form.instance)
+                        set_to_delete(form.instance)
+                    else:
+                        if "value" in form.cleaned_data:
+                            labs_to_save.append(form.instance)
+                            if form.instance and form.has_changed():
+                                set_to_save(form.instance)
+                            elif form.instance is None:
+                                set_to_save(form.instance)
+
         return labs_to_save, labs_to_remove
 
     def post(self, request, *args, **kwargs):
@@ -2021,7 +2049,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
         medhistorys_forms, medhistorydetails_forms = self.post_populate_medhistorys_details_forms(
             medhistorys=self.medhistorys, post_object=self.object, request=request
         )
-        lab_formset = self.post_populate_labformset(request=request)
+        lab_formsets = self.post_populate_labformsets(request=request)
         # Call is_valid() on all forms, using validate_form_list() for dicts of related model forms
         if (
             form.is_valid()
@@ -2029,7 +2057,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             and validate_form_list(form_list=medallergys_forms.values())
             and validate_form_list(form_list=medhistorys_forms.values())
             and validate_form_list(form_list=medhistorydetails_forms.values())
-            and (not lab_formset or lab_formset.is_valid())
+            and (validate_formset_list(formset_list=lab_formsets.values()) if lab_formsets else True)
         ):
             errors_bool = False
             form.save(commit=False)
@@ -2056,7 +2084,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
             (
                 labs_to_save,
                 labs_to_remove,
-            ) = self.post_process_lab_formset(lab_formset=lab_formset)
+            ) = self.post_process_lab_formsets(lab_formsets=lab_formsets)
             # If there are errors picked up after the initial validation step
             # render the errors as errors and include in the return tuple
             errors = (
@@ -2066,7 +2094,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                     medallergys_forms=medallergys_forms,
                     medhistorys_forms=medhistorys_forms,
                     medhistorydetails_forms=medhistorydetails_forms,
-                    lab_formset=lab_formset,
+                    lab_formsets=lab_formsets,
                     labs=self.labs if hasattr(self, "labs") else None,
                 )
                 if errors_bool
@@ -2079,7 +2107,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                 medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                lab_formset,
+                lab_formsets,
                 onetoones_to_save,
                 onetoones_to_delete,
                 medallergys_to_save,
@@ -2100,7 +2128,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                 medallergys_forms=medallergys_forms,
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
-                lab_formset=lab_formset,
+                lab_formsets=lab_formsets,
                 labs=self.labs if hasattr(self, "labs") else None,
             )
             return (
@@ -2110,7 +2138,7 @@ class MedHistorysModelUpdateView(MedHistoryModelBaseMixin, UpdateView):
                 medallergys_forms,
                 medhistorys_forms,
                 medhistorydetails_forms,
-                lab_formset if self.labs else None,
+                lab_formsets if self.labs else None,
                 None,
                 None,
                 None,
@@ -2185,7 +2213,9 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
             if medallergys_to_remove:
                 for medallergy in medallergys_to_remove:
                     medallergy.delete()
-            self.update_or_create_medallergy_qs(aid_obj=self.object, medallergys=medallergys_to_save)
+            self.update_or_create_medallergy_qs(
+                aid_obj=self.object, ma_include=medallergys_to_save, ma_remove=medallergys_to_remove
+            )
         if self.medhistorys:
             if medhistorys_to_save:
                 for medhistory in medhistorys_to_save:
@@ -2202,7 +2232,9 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
                 for medhistorydetail in medhistorydetails_to_remove:
                     medhistorydetail.delete()
             # Create and populate the medhistory_qs attribute on the object
-            self.update_or_create_medhistory_qs(aid_obj=self.object, medhistorys=medhistorys_to_save)
+            self.update_or_create_medhistory_qs(
+                aid_obj=self.object, mh_include=medhistorys_to_save, mh_remove=medhistorys_to_remove
+            )
         if self.labs:
             if labs_to_save:
                 for lab in labs_to_save:
@@ -2213,7 +2245,7 @@ class PatientModelUpdateView(MedHistorysModelUpdateView):
                 for lab in labs_to_remove:
                     lab.delete()
             # Create and populate the labs_qs attribute on the object
-            self.update_or_create_labs_qs(aid_obj=self.object, labs=labs_to_save)
+            self.update_or_create_labs_qs(aid_obj=self.object, labs_include=labs_to_save, labs_remove=labs_to_remove)
         # Return object for the child view to use
         return self.object
 

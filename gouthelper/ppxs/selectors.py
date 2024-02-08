@@ -5,6 +5,7 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -34,6 +35,14 @@ def urates_prefetch() -> Prefetch:
         queryset=urates_dated_qs(),
         to_attr="urates_qs",
     )
+
+
+def ppx_user_qs(username: str) -> "QuerySet":
+    queryset = Pseudopatient.objects.filter(username=username)
+    queryset = queryset.select_related("ppx")
+    queryset = queryset.prefetch_related(medhistory_prefetch())
+    queryset = queryset.prefetch_related(urates_prefetch())
+    return queryset
 
 
 def ppx_userless_qs(pk: "UUID") -> "QuerySet":

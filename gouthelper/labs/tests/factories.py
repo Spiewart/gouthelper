@@ -18,6 +18,11 @@ class LabFactory(DjangoModelFactory):
     class Meta:
         model = Lab
 
+    class Params:
+        dated = factory.Trait(
+            date_drawn=Faker("date_between", start_date="-3y", end_date="today"),
+        )
+
 
 class BaselineLabFactory(DjangoModelFactory):
     class Meta:

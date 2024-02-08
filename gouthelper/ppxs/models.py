@@ -16,12 +16,13 @@ from ..choices import BOOL_CHOICES
 from ..defaults.helpers import defaults_get_goalurate
 from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal, labs_urates_recent_urate
 from ..labs.models import Urate
-from ..labs.selectors import dated_urates
+from ..labs.selectors import dated_urates, urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
 from ..utils.models import DecisionAidModel, GoutHelperModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
+from .selectors import ppx_user_qs, ppx_userless_qs
 from .services import PpxDecisionAid
 
 if TYPE_CHECKING:
@@ -79,15 +80,15 @@ class Ppx(
         indicating whether the patient is at goal."""
         if hasattr(self, "labs_qs"):
             return labs_urates_months_at_goal(
-                urates=self.labs_qs,
-                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
+                urates=self.urates_qs,
+                goutdetail=self.goutdetail if self.goutdetail else None,
                 goal_urate=self.goalurate,
                 commit=False,
             )
         else:
             return labs_urates_months_at_goal(
-                urates=dated_urates(self.labs).all(),
-                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,  # type: ignore
+                urates=dated_urates(self.urate_set).all(),
+                goutdetail=self.goutdetail if self.goutdetail else None,  # type: ignore
                 goal_urate=self.goalurate,
                 commit=False,
             )
@@ -102,7 +103,13 @@ class Ppx(
     def flaring(self) -> bool | None:
         """Method that returns Gout MedHistory object's GoutDetail object's flaring
         attribute."""
-        return self.gout.goutdetail.flaring if self.gout and self.gout.goutdetail else None
+        return self.goutdetail.flaring if self.goutdetail else None
+
+    def get_absolute_url(self):
+        return reverse("ppxs:detail", kwargs={"pk": self.pk})
+
+    def get_dated_urates(self):
+        return urates_dated_qs().filter(ppx=self)
 
     @cached_property
     def goalurate(self) -> "GoalUrates":
@@ -110,14 +117,11 @@ class Ppx(
         returns the GoutHelper default GoalUrates.SIX enum object"""
         return defaults_get_goalurate(self)
 
-    def get_absolute_url(self):
-        return reverse("ppxs:detail", kwargs={"pk": self.pk})
-
-    @cached_property
+    @property
     def hyperuricemic(self) -> bool | None:
         """Method that returns Gout MedHistory object's GoutDetail object's hyperuricemic
         attribute."""
-        return self.gout.goutdetail.hyperuricemic if self.gout and self.gout.goutdetail else None
+        return self.goutdetail.hyperuricemic if self.goutdetail else None
 
     @cached_property
     def indicated(self) -> bool:
@@ -127,17 +131,17 @@ class Ppx(
     @cached_property
     def last_urate_at_goal(self) -> bool:
         """Method that determines if the last urate in the Ppx's labs was at goal."""
-        if hasattr(self, "labs_qs"):
+        if hasattr(self, "urates_qs"):
             return labs_urates_last_at_goal(
-                urates=self.labs_qs,
-                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
+                urates=self.urates_qs,
+                goutdetail=self.goutdetail if self.goutdetail else None,
                 goal_urate=self.goalurate,
                 commit=False,
             )
         else:
             return labs_urates_last_at_goal(
-                urates=dated_urates(self.labs).all(),
-                goutdetail=self.gout.goutdetail if self.gout and self.gout.goutdetail else None,
+                urates=dated_urates(self.urate_set).all(),
+                goutdetail=self.goutdetail if self.goutdetail else None,
                 goal_urate=self.goalurate,
                 commit=False,
             )
@@ -146,13 +150,13 @@ class Ppx(
     def on_ppx(self) -> bool:
         """Method that returns Gout MedHistory object's GoutDetail object's on_ppx
         attribute."""
-        return self.gout.goutdetail.on_ppx if self.gout and self.gout.goutdetail else False
+        return self.goutdetail.on_ppx if self.goutdetail else False
 
     @cached_property
     def on_ult(self) -> bool:
         """Method that returns Gout MedHistory object's GoutDetail object's on_ult
         attribute."""
-        return self.gout.goutdetail.on_ult if self.gout and self.gout.goutdetail else False
+        return self.goutdetail.on_ult if self.goutdetail else False
 
     @cached_property
     def recent_urate(self) -> bool:
@@ -160,12 +164,12 @@ class Ppx(
         in the last 3 months, False if not."""
         if hasattr(self, "labs_qs"):
             return labs_urates_recent_urate(
-                urates=self.labs_qs,
+                urates=self.urates_qs,
                 sorted_by_date=True,
             )
         else:
             return labs_urates_recent_urate(
-                urates=dated_urates(self.labs).all(),
+                urates=self.get_dated_urates(),
                 sorted_by_date=True,
             )
 
@@ -173,18 +177,32 @@ class Ppx(
     def semi_recent_urate(self) -> bool:
         """Method that returns True if the patient has had his or her uric acid checked
         in the last 6 months, False if not."""
-        if hasattr(self, "labs_qs"):
-            return [
-                lab for lab in self.labs_qs if lab.date_drawn and lab.date_drawn > timezone.now() - timedelta(days=180)
-            ]
+        if hasattr(self, "urates_qs"):
+            return (
+                True
+                if next(
+                    iter(
+                        [
+                            urate
+                            for urate in self.urates_qs
+                            if urate.date_drawn and urate.date_drawn > timezone.now() - timedelta(days=180)
+                        ]
+                    ),
+                    None,
+                )
+                else False
+            )
         else:
-            return [
-                lab
-                for lab in dated_urates(self.labs).all()
-                if lab.date and lab.date > timezone.now() - timedelta(days=180)
-            ]
+            return (
+                self.get_dated_urates()
+                .filter(
+                    date__gte=timezone.now() - timedelta(days=180),
+                    date__lte=timezone.now(),
+                )
+                .exists()
+            )
 
-    def update_aid(self, decisionaid: PpxDecisionAid | None = None, qs: Union["Ppx", None] = None) -> "Ppx":
+    def update_aid(self, qs: Union["Ppx", None] = None) -> "Ppx":
         """Updates the Ppx indication field.
 
         Args:
@@ -193,8 +211,12 @@ class Ppx(
 
         Returns:
             Ppx: Ppx object."""
-        if decisionaid is None:
-            decisionaid = PpxDecisionAid(pk=self.pk, qs=qs)
+        if qs is None:
+            if self.user:
+                qs = ppx_user_qs(username=self.user.username)
+            else:
+                qs = ppx_userless_qs(pk=self.pk)
+        decisionaid = PpxDecisionAid(qs=qs)
         return decisionaid._update()
 
     @cached_property
@@ -208,19 +230,22 @@ class Ppx(
             discrepant (i.e. hyperuricemic is True but the last urate was at goal),
             False if not.
         """
-        return (
-            ppxs_check_urate_hyperuricemic_discrepant(
-                urate=(
-                    self.labs_qs[0]
-                    if hasattr(self, "labs_qs") and self.labs_qs
-                    else self.labs.order_by("-date_drawn").first()
-                ),
-                goutdetail=self.goutdetail,  # type: ignore
-                goalurate=self.goalurate,
-            )
-            if (hasattr(self, "labs_qs") and self.labs_qs or self.labs.exists()) and self.goutdetail
-            else False
-        )
+        if self.goutdetail:  # type: ignore
+            if hasattr(self, "urates_qs"):
+                if self.urates_qs:
+                    return ppxs_check_urate_hyperuricemic_discrepant(
+                        urate=self.urates_qs[0],
+                        goutdetail=self.goutdetail,  # type: ignore
+                        goalurate=self.goalurate,
+                    )
+            elif self.urate_set.exists():
+                latest_urate = self.get_dated_urates().first()
+                return ppxs_check_urate_hyperuricemic_discrepant(
+                    urate=latest_urate,
+                    goutdetail=self.goutdetail,  # type: ignore
+                    goalurate=self.goalurate,
+                )
+        return False
 
     @property
     def urates_discrepant_str(self) -> str | None:
@@ -231,16 +256,20 @@ class Ppx(
         returns:
             str: A string indicating the discrepant status of the labs (Urates) and the
             goutdetail hyperuricemic field."""
-        return (
-            ppxs_urate_hyperuricemic_discrepancy_str(
-                urate=(
-                    self.labs_qs[0]
-                    if hasattr(self, "labs_qs") and self.labs_qs
-                    else self.labs.order_by("-date_drawn").first()
-                ),
+        if hasattr(self, "urates_qs"):
+            if self.urates_qs:
+                return ppxs_urate_hyperuricemic_discrepancy_str(
+                    urate=self.urates_qs[0],
+                    goutdetail=self.goutdetail,  # type: ignore
+                    goalurate=self.goalurate,
+                )
+            else:
+                return None
+        elif self.get_dated_urates().exists():
+            return ppxs_urate_hyperuricemic_discrepancy_str(
+                urate=self.get_dated_urates().first(),
                 goutdetail=self.goutdetail,  # type: ignore
                 goalurate=self.goalurate,
             )
-            if (hasattr(self, "labs_qs") and self.labs_qs or self.labs.exists()) and self.goutdetail
-            else None
-        )
+        else:
+            return None

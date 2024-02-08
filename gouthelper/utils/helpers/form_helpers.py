@@ -310,14 +310,14 @@ def forms_helper_insert_urates_formset(layout: "Layout") -> "Layout":
             Div(
                 Div(
                     HTML(
-                        f"""
+                        f"""  # noqa: E501, F541  # pylint: disable=W1309
                         <hr size="3" color="dark">
                         <legend>Urates</legend>
                         <div class="form-text">Has the patient had his or her uric acid level checked \
 in the past 12-24 months? Enter as many as you like, in any order.</div>
                         {{% load crispy_forms_tags %}}
-                        {{% crispy lab_formset lab_formset_helper %}}
-                        """,  # noqa: F541
+                        {{% crispy urate_formset urate_formset_helper %}}
+                        """,
                     ),
                     css_class="col",
                 ),

@@ -45,7 +45,7 @@ from ....ultaids.tests.factories import UltAidFactory
 from ..aid_helpers import (
     aids_assign_baselinecreatinine,
     aids_assign_ckddetail,
-    aids_assign_userless_goutdetail,
+    aids_assign_goutdetail,
     aids_colchicine_ckd_contra,
     aids_create_trts_dosing_dict,
     aids_dict_to_json,
@@ -114,17 +114,17 @@ class TestAidsAssignUserlessGoutDetail(TestCase):
 
     def test__no_gout_returns_None(self):
         medhistorys = MedHistory.objects.filter().none()
-        self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_goutdetail(medhistorys=medhistorys))
 
     def test__gout_but_not_goutdetail_returns_None(self):
         medhistorys = [GoutFactory()]
-        self.assertIsNone(aids_assign_userless_goutdetail(medhistorys=medhistorys))
+        self.assertIsNone(aids_assign_goutdetail(medhistorys=medhistorys))
 
     def test__gout_with_goutdetail_returns_goutdetail(self):
         gout = GoutFactory()
         goutdetail = GoutDetailFactory(medhistory=gout)
         medhistorys = [gout]
-        self.assertEqual(aids_assign_userless_goutdetail(medhistorys=medhistorys), goutdetail)
+        self.assertEqual(aids_assign_goutdetail(medhistorys=medhistorys), goutdetail)
 
 
 class TestAidsColchicineCkdContra(TestCase):

@@ -1,21 +1,24 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model
+from django.db.models.query import QuerySet
 from django.utils.functional import cached_property  # type: ignore
 
 from ..defaults.helpers import defaults_get_goalurate
+from ..goalurates.choices import GoalUrates
 from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal, labs_urates_recent_urate
-from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
-from ..utils.helpers.aid_helpers import aids_assign_userless_goutdetail
-from .selectors import ppx_userless_qs
+from ..utils.helpers.aid_helpers import aids_assign_goutdetail
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
-    from ..goalurates.choices import GoalUrates
     from ..medhistorydetails.models import GoutDetail
     from ..medhistorys.models import MedHistory
     from ..ppxs.models import Ppx
+
+User = get_user_model()
 
 
 class PpxDecisionAid:
@@ -23,19 +26,24 @@ class PpxDecisionAid:
 
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["Ppx", None] = None,
+        qs: Union["Ppx", User, QuerySet] = None,
     ):
-        if qs is not None:
+        Ppx = apps.get_model("ppxs.Ppx")
+        if isinstance(qs, QuerySet):
+            qs = qs.get()
+        if isinstance(qs, Ppx):
             self.ppx = qs
+            self.user = qs.user
+        elif isinstance(qs, User):
+            self.flare = qs.ppx
+            self.user = qs
         else:
-            self.ppx = ppx_userless_qs(pk=pk).get()
-        self.medhistorys = self.ppx.medhistorys_qs
-        self.goutdetail = aids_assign_userless_goutdetail(medhistorys=self.medhistorys)
-        self.urates = self.ppx.labs_qs
-        # Break here if introducing a User to the class method
-        self._assign_medhistorys()
+            raise ValueError("PpxDecisionAid requires a Ppx or User instance.")
+        self.medhistorys = qs.medhistorys_qs
+        self.gout = medhistorys_get(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
+        self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None
         self._check_for_gout_and_detail()
+        self.urates = qs.urates_qs
         # Process the urates to figure out if the Urates indicate that the patient
         # has been at goal uric acid for the past 6 months or longer
         if labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
@@ -49,17 +57,6 @@ class PpxDecisionAid:
     goutdetail: Union["GoutDetail", None]
 
     Indications = Indications
-
-    def _assign_medhistorys(self) -> None:
-        """Iterates over PPX_MEDHISTORYS and assigns attributes to the class method
-        for each medhistory in PPX_MEDHISTORYS. Assign the attribute to the matching
-        medhistory in self.medhistorys if it exists, None if not."""
-        for medhistorytype in PPX_MEDHISTORYS:
-            medhistory = [medhistory for medhistory in self.medhistorys if medhistory.medhistorytype == medhistorytype]
-            if medhistory:
-                setattr(self, medhistorytype.lower(), medhistory[0])
-            else:
-                setattr(self, medhistorytype.lower(), None)
 
     def _check_for_gout_and_detail(self) -> None:
         """This class method requires a Gout MedHistory and GoutDetail MedHistoryDetail.
@@ -75,7 +72,7 @@ class PpxDecisionAid:
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
-        return defaults_get_goalurate(self.ppx)
+        return defaults_get_goalurate(self.user) if self.user else GoalUrates.SIX
 
     @property
     def flaring(self) -> bool:
@@ -119,12 +116,10 @@ class PpxDecisionAid:
             return Indications.NOTINDICATED
 
     @property
-    def hyperuricemic(self) -> bool:
+    def hyperuricemic(self) -> bool | None:
         """Returns True if the Gout MedHistory hyperuricemic attr is True,
         False if not or there is no Gout."""
-        if self.goutdetail:
-            return self.goutdetail.hyperuricemic if self.goutdetail.hyperuricemic else False
-        return False
+        return self.goutdetail.hyperuricemic
 
     def _update(self, commit=True) -> "Ppx":
         """Updates Ppx indication fields.

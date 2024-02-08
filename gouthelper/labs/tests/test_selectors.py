@@ -6,7 +6,7 @@ from django.utils import timezone  # type: ignore
 
 from ...flares.tests.factories import FlareFactory
 from ..models import Urate
-from ..selectors import dated_urates, urate_userless_qs
+from ..selectors import dated_urates, urates_dated_qs
 from .factories import UrateFactory
 
 pytestmark = pytest.mark.django_db
@@ -22,11 +22,11 @@ class TestUrateUserlessQuerySet(TestCase):
         self.urate5 = self.flare.urate
 
     def test__all_urates_fetched(self):
-        qs = urate_userless_qs().all()
+        qs = urates_dated_qs().all()
         self.assertEqual(qs.count(), 5)
 
     def test__urates_in_order_by_reverse_date(self):
-        qs = urate_userless_qs().all()
+        qs = urates_dated_qs().all()
         self.assertEqual(qs[0], self.urate1)
         self.assertEqual(qs[1], self.urate2)
         self.assertEqual(qs[2], self.urate5)
@@ -34,7 +34,7 @@ class TestUrateUserlessQuerySet(TestCase):
         self.assertEqual(qs[4], self.urate4)
 
     def test__urates_annotated_with_date(self):
-        qs = urate_userless_qs().all()
+        qs = urates_dated_qs().all()
         for urate in qs:
             self.assertTrue(hasattr(urate, "date"))
             self.assertTrue(urate.date)

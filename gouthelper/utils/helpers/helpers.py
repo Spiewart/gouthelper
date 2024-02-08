@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from django.utils import timezone  # type: ignore
 
@@ -50,6 +50,56 @@ def duration_decimal_parser(json_dict):
     return json_dict
 
 
+def get_or_create_attr(obj: Any, attr: str, attr_obj: Any, commit: bool = False) -> Any:
+    """Method that takes any object, a string, and an object and creates an
+    attr on the object if it doesn't already exist. If the attr is already
+    set, it returns the attr. If commit is True, it saves the object.
+
+    Args:
+        obj: Any
+        attr: str
+        attr_obj: Any
+        commit: bool
+
+    Returns:
+        Any: attr on obj
+
+    Raises:
+        ValueError: If the attr already exists on the object and is not equal to attr_obj.
+    """
+
+    if not getattr(obj, attr, None):
+        setattr(obj, attr, attr_obj)
+        if commit:
+            obj.save()
+        return getattr(obj, attr)
+    else:
+        obj_attr = getattr(obj, attr)
+        if obj_attr and obj_attr != attr_obj:
+            raise ValueError(f"{attr} already exists ({obj_attr}) on {obj} and is not equal to {attr_obj}.")
+        return obj_attr
+
+
+def get_or_create_qs_attr(obj: Any, name: str) -> list:
+    """Method that takes any object and a string and creates an empty list
+    attr on the object if it doesn't already exist. Adds an "s" to the end
+    of the name str if it doesn't end with one already. Returns the list attr,
+    whether or not it is new or empty.
+
+    Args:
+        obj: Any
+        name: str
+
+    Returns:
+        list: list attr on obj
+    """
+
+    qs_name = f"{name}s_qs" if not name.endswith("s") else f"{name}_qs"
+    if not hasattr(obj, qs_name):
+        setattr(obj, qs_name, [])
+    return getattr(obj, qs_name)
+
+
 def normalize_fraction(d):
     # https://stackoverflow.com/questions/11227620/drop-trailing-zeros-from-decimal
     normalized = d.normalize()
@@ -63,3 +113,17 @@ def now_date() -> "date":
 
 def now_datetime() -> "datetime":
     return timezone.now()
+
+
+def set_to_delete(obj: Any) -> None:
+    """Method that sets a to_delete attr to True on an object."""
+
+    if not hasattr(obj, "to_delete"):
+        obj.to_delete = True
+
+
+def set_to_save(obj: Any) -> None:
+    """Method that sets a to_save attr to False on an object."""
+
+    if not hasattr(obj, "to_save"):
+        obj.to_save = False

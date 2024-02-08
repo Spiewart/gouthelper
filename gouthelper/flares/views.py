@@ -208,8 +208,8 @@ class FlareCreate(FlareBase, MedHistorysModelCreateView, SuccessMessageMixin):
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
                 medallergys_forms=medallergys_forms,
-                lab_formset=lab_formset,
-                labs=self.labs if hasattr(self, "labs") else None,
+                lab_formsets=None,
+                labs=None,
             )
         else:
             return self.form_valid(
@@ -425,8 +425,8 @@ class FlarePseudopatientCreate(
                 medhistorys_forms=medhistorys_forms,
                 medhistorydetails_forms=medhistorydetails_forms,
                 medallergys_forms=medallergys_forms,
-                lab_formset=lab_formset,
-                labs=self.labs if hasattr(self, "labs") else None,
+                lab_formsets=None,
+                labs=None,
             )
         return self.form_valid(
             form=form,  # type: ignore

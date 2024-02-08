@@ -8,6 +8,7 @@ from django.views.generic import DetailView, TemplateView, View  # type: ignore
 from ..contents.choices import Contexts
 from ..labs.forms import LabFormHelper, PpxUrateFormSet
 from ..labs.models import Urate
+from ..labs.selectors import dated_urates
 from ..medhistorydetails.forms import GoutDetailPpxForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
@@ -55,7 +56,7 @@ class PpxBase(View):
         MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailPpxForm}
-    labs = (PpxUrateFormSet, LabFormHelper, Urate.objects.none(), "labs")
+    labs = {"urate": (PpxUrateFormSet, LabFormHelper, Urate.objects.none())}
 
 
 class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
@@ -75,7 +76,7 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
         # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
+        aid_object = super().form_valid(
             form=form,
             onetoones_to_save=onetoones_to_save,
             medhistorydetails_to_save=medhistorydetails_to_save,
@@ -85,8 +86,8 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
             **kwargs,
         )
         # Update object / form instance
-        self.object.update_aid(qs=self.object)
-        return HttpResponseRedirect(self.get_success_url())
+        aid_object.update_aid(qs=aid_object)
+        return HttpResponseRedirect(aid_object.get_absolute_url())
 
     def post(self, request, *args, **kwargs):
         (
@@ -96,7 +97,7 @@ class PpxCreate(PpxBase, MedHistorysModelCreateView, SuccessMessageMixin):
             _,  # medallergys_forms
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
-            _,  # lab_formset
+            _,  # lab_formsets
             onetoones_to_save,
             medallergys_to_save,
             medhistorys_to_save,
@@ -146,6 +147,8 @@ class PpxDetail(DetailView):
 class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
     """Updates a Ppx"""
 
+    labs = {"urate": (PpxUrateFormSet, LabFormHelper, dated_urates(Urate.objects.all()))}
+
     def form_valid(
         self,
         form,
@@ -191,7 +194,7 @@ class PpxUpdate(PpxBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             _,  # medallergys_forms
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
-            _,  # lab_formset
+            _,  # lab_formsets
             onetoones_to_save,
             onetoones_to_delete,
             medallergys_to_save,

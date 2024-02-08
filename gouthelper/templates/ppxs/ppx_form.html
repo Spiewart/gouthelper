@@ -42,7 +42,7 @@
     $(document).ready(function() {
       $(function() {
         $('#ppx-form tbody tr').formset({
-          prefix: '{{ lab_formset.prefix }}',
+          prefix: '{{ urate_formset.prefix}}',
           added: function() {
             $('input[id*="date_drawn"]').each(function() {
               var css_class = $(this).attr('class');
@@ -73,10 +73,10 @@
             // Check if the input has a value
             if (id_input.val()) {
               // If it does, check if TOTAL_FORMS is less than INITIAL_FORMS
-              var initial_forms = '{{ lab_formset.prefix }}' + '-INITIAL_FORMS';
+              var initial_forms = '{{ urate_formset.prefix}}' + '-INITIAL_FORMS';
               var initial_forms_input = $('#id_' + initial_forms);
               // If it does, then add one back to formset TOTAL_FORMS
-              var total_forms = '{{ lab_formset.prefix }}' + '-TOTAL_FORMS';
+              var total_forms = '{{ urate_formset.prefix}}' + '-TOTAL_FORMS';
               var total_forms_input = $('#id_' + total_forms);
               var total_initial_dif = (parseInt(initial_forms_input.val()) - parseInt(total_forms_input.val()) + 1);
               if (total_initial_dif > 0) {
