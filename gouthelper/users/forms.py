@@ -13,6 +13,7 @@ from ..utils.helpers.form_helpers import (
     forms_helper_insert_dateofbirth,
     forms_helper_insert_ethnicity,
     forms_helper_insert_gender,
+    forms_helper_insert_goutdetail,
     forms_helper_insert_medhistory,
 )
 from .models import Pseudopatient
@@ -34,6 +35,7 @@ class PseudopatientForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -50,7 +52,7 @@ class PseudopatientForm(forms.ModelForm):
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
         # Insert ethnicity and gout/detail forms
         forms_helper_insert_ethnicity(layout=self.helper.layout)
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
+        forms_helper_insert_goutdetail(layout=self.helper.layout)
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):

@@ -98,8 +98,8 @@ class TestPpxDecisionAidMethods(TestCase):
 
     def test__hyperuricemic(self):
         """Test that all the hyperuricemic property outcomes return the correct value."""
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.ppx.urate_set.all().delete()
+        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.assertEqual(aid.hyperuricemic, self.ppx.hyperuricemic)
 
         self.ppx.goutdetail.hyperuricemic = True

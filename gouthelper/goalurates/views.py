@@ -5,7 +5,7 @@ from django.contrib import messages  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
 from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
@@ -13,12 +13,7 @@ from ..contents.choices import Contexts
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
-from ..utils.views import (
-    MedHistorysModelCreateView,
-    MedHistorysModelUpdateView,
-    PatientAidCreateView,
-    PatientAidUpdateView,
-)
+from ..utils.views import MedHistoryModelBaseMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
 from .selectors import goalurate_user_qs, goalurate_userless_qs
@@ -51,7 +46,7 @@ class GoalUrateAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.GOALURATE, tag=None)
 
 
-class GoalUrateBase(View):
+class GoalUrateBase:
     class Meta:
         abstract = True
 
@@ -64,7 +59,7 @@ class GoalUrateBase(View):
     }
 
 
-class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageMixin):
+class GoalUrateCreate(GoalUrateBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
     success_message = "Goal Urate created successfully!"
@@ -72,11 +67,11 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
     def form_valid(
         self,
         form: GoalUrateForm,
-        onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
-        medallergys_to_save: list["MedAllergy"],
-        medhistorys_to_save: list["MedHistory"],
-        labs_to_save: list["Lab"],
+        oto_2_save: list["Model"],
+        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
+        ma_2_save: list["MedAllergy"],
+        mh_2_save: list["MedHistory"],
+        labs_2_save: list["Lab"],
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and to add ultaid to form instance if it exists."""
@@ -86,11 +81,11 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
         # Object will be returned by the super().form_valid() call
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
+            oto_2_save=oto_2_save,
+            mh_det_2_save=mh_det_2_save,
+            ma_2_save=ma_2_save,
+            mh_2_save=mh_2_save,
+            labs_2_save=labs_2_save,
             **kwargs,
         )
         # Update object / form instance
@@ -135,22 +130,22 @@ class GoalUrateCreate(GoalUrateBase, MedHistorysModelCreateView, SuccessMessageM
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # lab_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
+            oto_2_save,
+            ma_2_save,
+            mh_2_save,
+            mh_det_2_save,
+            labs_2_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
+                ma_2_save=ma_2_save,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_2_save=mh_2_save,
+                labs_2_save=labs_2_save,
             )
 
 
@@ -198,7 +193,7 @@ class GoalUrateDetail(GoalUrateDetailBase):
         return goalurate_userless_qs(self.kwargs["pk"])
 
 
-class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageMixin):
+class GoalUrateUpdate(GoalUrateBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
     success_message = "GoalUrate updated successfully!"
@@ -206,31 +201,31 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
 
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         # Update the DecisionAidModel by calling the update method with the QuerySet
         # of the object, which will hopefully have been annotated by the view to
@@ -276,32 +271,32 @@ class GoalUrateUpdate(GoalUrateBase, MedHistorysModelUpdateView, SuccessMessageM
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # lab_formset
-            _,  # onetoones_to_delete,
-            _,  # onetoones_to_save,
-            _,  # medallergys_to_save,
-            _,  # medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            _,  # medhistorydetails_to_save,
-            _,  # medhistorydetails_to_remove,
-            _,  # labs_to_save,
-            _,  # labs_to_remove,
+            _,  # oto_2_rem,
+            _,  # oto_2_save,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            _,  # mh_det_2_save,
+            _,  # mh_det_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                onetoones_to_delete=None,
-                onetoones_to_save=None,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                medhistorydetails_to_save=None,
-                medhistorydetails_to_remove=None,
-                medallergys_to_save=None,
-                medallergys_to_remove=None,
-                labs_to_save=None,
-                labs_to_remove=None,
+                oto_2_rem=None,
+                oto_2_save=None,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=None,
+                mh_det_2_rem=None,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
             )
 
 
@@ -320,7 +315,7 @@ class GoalUratePatientBase(GoalUrateBase):
 
 
 class GoalUratePseudopatientCreate(
-    PermissionRequiredMixin, GoalUratePatientBase, PatientAidCreateView, SuccessMessageMixin
+    PermissionRequiredMixin, GoalUratePatientBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a GoalUrate for a Pseudopatient."""
 
@@ -342,30 +337,30 @@ class GoalUratePseudopatientCreate(
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
         form = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         goalurate = form.save()
         # Add the relationship to the existing user object so that user
@@ -396,32 +391,32 @@ class GoalUratePseudopatientCreate(
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            ma_2_save,
+            ma_2_rem,
+            oto_2_rem,
+            oto_2_save,
+            mh_det_2_save,
+            mh_det_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )
 
 
@@ -478,7 +473,7 @@ class GoalUratePseudopatientDetail(AutoPermissionRequiredMixin, GoalUrateDetailB
 
 
 class GoalUratePseudopatientUpdate(
-    AutoPermissionRequiredMixin, GoalUratePatientBase, PatientAidUpdateView, SuccessMessageMixin
+    AutoPermissionRequiredMixin, GoalUratePatientBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's GoalUrate successfully created."
 
@@ -496,30 +491,30 @@ class GoalUratePseudopatientUpdate(
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
         form = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         goalurate = form.save()
         # Add the relationship to the existing user object so that user
@@ -550,30 +545,30 @@ class GoalUratePseudopatientUpdate(
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            ma_2_save,
+            ma_2_rem,
+            oto_2_rem,
+            oto_2_save,
+            mh_det_2_save,
+            mh_det_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )

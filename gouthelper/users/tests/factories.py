@@ -140,7 +140,7 @@ def create_psp(
                 psp.ethnicity = EthnicityFactory(user=psp)
             except IntegrityError:
                 pass
-    if gender:
+    if gender is not None and gender is not False:
         if isinstance(gender, (str, Genders)):
             if gender == Genders.MALE and menopause is True:
                 raise ValueError("Can't have a menopausal male.")
@@ -179,11 +179,18 @@ def create_psp(
     medhistorytypes.remove(MedHistoryTypes.GOUT)
     medhistorytypes.remove(MedHistoryTypes.MENOPAUSE)
     # Create a Gout MedHistory and GoutDetail, as all Pseudopatients have Gout
-    gout = MedHistoryFactory(
-        user=psp,
-        medhistorytype=MedHistoryTypes.GOUT,
-    )
-    GoutDetailFactory(medhistory=gout)
+    with transaction.atomic():
+        try:
+            gout = MedHistoryFactory(
+                user=psp,
+                medhistorytype=MedHistoryTypes.GOUT,
+            )
+        except IntegrityError:
+            gout = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.GOUT)
+        try:
+            GoutDetailFactory(medhistory=gout)
+        except IntegrityError:
+            pass
     if hasattr(psp, "gender'") and psp.gender.value == Genders.FEMALE and hasattr(psp, "dateofbirth"):
         if menopause:
             MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)

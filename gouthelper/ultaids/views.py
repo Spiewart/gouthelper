@@ -4,7 +4,7 @@ from django.apps import apps  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.db.models import Q  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
 
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthFormOptional
@@ -44,7 +44,7 @@ from ..medhistorys.models import (
     Xoiinteraction,
 )
 from ..treatments.choices import UltChoices
-from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
+from ..utils.views import MedHistoryModelBaseMixin
 from .forms import UltAidForm
 from .models import UltAid
 from .selectors import ultaid_userless_qs
@@ -74,7 +74,7 @@ class UltAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULTAID, tag=None)
 
 
-class UltAidBase(View):
+class UltAidBase:
     class Meta:
         abstract = True
 
@@ -114,7 +114,7 @@ class UltAidBase(View):
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
 
 
-class UltAidCreate(UltAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
+class UltAidCreate(UltAidBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
     """
     Create a new UltAid instance.
     """
@@ -124,22 +124,22 @@ class UltAidCreate(UltAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
     def form_valid(
         self,
         form: UltAidForm,
-        onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
         # Object will be returned by the super().form_valid() call
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
+            oto_2_save=oto_2_save,
+            mh_det_2_save=mh_det_2_save,
+            ma_2_save=ma_2_save,
+            mh_2_save=mh_2_save,
+            labs_2_save=labs_2_save,
             **kwargs,
         )
         # Update object / form instance
@@ -156,22 +156,22 @@ class UltAidCreate(UltAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # labs_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
+            oto_2_save,
+            ma_2_save,
+            mh_2_save,
+            mh_det_2_save,
+            labs_2_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
+                ma_2_save=ma_2_save,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_2_save=mh_2_save,
+                labs_2_save=labs_2_save,
             )
 
 
@@ -207,37 +207,37 @@ class UltAidDetail(DetailView):
         return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
 
 
-class UltAidUpdate(UltAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
+class UltAidUpdate(UltAidBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
     """Updates a UltAid"""
 
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
 
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         # Update object / form instance
         self.object.update_aid(qs=self.object)
@@ -256,30 +256,30 @@ class UltAidUpdate(UltAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            oto_2_save,
+            oto_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )

@@ -400,7 +400,6 @@ class TestFlareCreate(TestCase):
             MedHistory.objects.count(),
             Urate.objects.count(),
         )
-
         flare_data = {
             "crystal_analysis": "",
             "date_ended": "",
@@ -590,14 +589,17 @@ class TestFlarePseudopatientCreate(TestCase):
         # Create a fake request
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        view = self.view(request=request)
+        kwargs = {"username": self.user.username}
+        view = self.view(request=request, kwargs=kwargs)
+
+        # Set the object on the view, which is required for the get_form_kwargs method
+        view.object = view.get_object()
         form_kwargs = view.get_form_kwargs()
-        self.assertNotIn("patient", form_kwargs)
-        # Add add user attr to view, which should result in "patient" being added to form_kwargs
-        view.user = self.anon_user
-        form_kwargs = view.get_form_kwargs()
+
+        # Assert that the form_kwargs detected the view has a user attr and sets
+        # the patient kwarg to True
         self.assertIn("patient", form_kwargs)
-        self.assertEqual(form_kwargs["patient"], True)
+        self.assertEqual(form_kwargs["patient"], self.user)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
@@ -931,7 +933,7 @@ class TestFlarePseudopatientCreate(TestCase):
         # Create a Pseudopatient without medhistorys to avoid that influencing the likelihood and prevalence
         psp = create_psp(
             dateofbirth=timezone.now().date() - timedelta(days=365 * 64),
-            gender=Genders.MALE,
+            gender=Genders.FEMALE,
         )
         # Create a fake data dict
         data = flare_data_factory(psp)
@@ -1765,12 +1767,9 @@ class TestFlarePseudopatientUpdate(TestCase):
         # Get the form kwargs
         form_kwargs = view.get_form_kwargs()
         # Test form kwargs are correct
-        self.assertNotIn("patient", form_kwargs)
-        # Add add user attr to view, which should result in "patient" being added to form_kwargs
-        view.user = self.anon_user
         form_kwargs = view.get_form_kwargs()
         self.assertIn("patient", form_kwargs)
-        self.assertEqual(form_kwargs["patient"], True)
+        self.assertEqual(form_kwargs["patient"], self.user)
 
     def test__get_initial(self):
         """Test the get_initial() method for the view."""
@@ -1859,8 +1858,8 @@ class TestFlarePseudopatientUpdate(TestCase):
             self.assertTrue(hasattr(qs, "dateofbirth"))
             self.assertTrue(hasattr(qs, "gender"))
 
-    def test__post_populate_onetoone_forms(self):
-        """Test the post_populate_onetoone_forms() method for the view."""
+    def test__post_populate_oto_forms(self):
+        """Test the post_populate_oto_forms() method for the view."""
         # Iterate over the Pseudopatients
         for user in Pseudopatient.objects.all():
             # Fetch the Flare, each User will only have 1
@@ -1872,10 +1871,10 @@ class TestFlarePseudopatientUpdate(TestCase):
             view.setup(request, **{"username": user.username, "pk": flare.pk})
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            onetoone_forms = view.post_populate_onetoone_forms(
+            onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                user=user,
+                query_obj=user,
             )
             for onetoone, modelform_dict in view.onetoones.items():
                 # Assert that the onetoone_forms dict has the correct keys
@@ -1885,11 +1884,15 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # Assert that the onetoone_forms dict has the correct initial data
                 self.assertEqual(
                     onetoone_forms[f"{onetoone}_form"].initial,
-                    {"value": getattr(view.object, onetoone, None).value} if getattr(view.object, onetoone) else {},
+                    {
+                        "value": getattr(view.object, onetoone, None).value
+                        if getattr(view.object, onetoone, None)
+                        else None
+                    },
                 )
 
-    def test__post_process_onetoone_forms(self):
-        """Test the post_process_onetoone_forms() method for the view."""
+    def test__post_process_oto_forms(self):
+        """Test the post_process_oto_forms() method for the view."""
         # Iterate over the Pseudopatients
         for user in Pseudopatient.objects.all():
             # Fetch the Flare, each User will only have 1
@@ -1901,10 +1904,10 @@ class TestFlarePseudopatientUpdate(TestCase):
             view.setup(request, **{"username": user.username, "pk": flare.pk})
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            onetoone_forms = view.post_populate_onetoone_forms(
+            onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                user=user,
+                query_obj=user,
             )
             # Create some fake flare data
             data = flare_data_factory(user=user, flare=flare)
@@ -1915,12 +1918,12 @@ class TestFlarePseudopatientUpdate(TestCase):
                 form.data._mutable = True
                 form.data[f"{onetoone}-value"] = data.get(f"{onetoone}-value", "")
                 form.is_valid()
-            # Call the post_process_onetoone_forms() method and assign to new lists
+            # Call the post_process_oto_forms() method and assign to new lists
             # of onetoones to save and delete to test against
-            onetoones_to_save, onetoones_to_delete = view.post_process_onetoone_forms(
-                onetoone_forms=onetoone_forms,
+            oto_2_save, oto_2_rem = view.post_process_oto_forms(
+                oto_forms=onetoone_forms,
                 req_onetoones=view.req_onetoones,
-                user=user,
+                query_obj=user,
             )
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
             for onetoone in view.onetoones:
@@ -1933,34 +1936,34 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # Check if there was no pre-existing onetoone and there is no data to create a new one
                 if not initial and data_val == (None or ""):
                     # Should not be marked for save or deletion
-                    assert not next(iter(onetoone for onetoone in onetoones_to_save), None) and not next(
-                        iter(onetoone for onetoone in onetoones_to_delete), None
+                    assert not next(iter(onetoone for onetoone in oto_2_save), None) and not next(
+                        iter(onetoone for onetoone in oto_2_rem), None
                     )
                 # If there was no pre-existing onetoone but there is data to create a new one
                 elif not initial and data_val != (None or ""):
                     # Should be marked for save and not deletion
-                    assert next(iter(onetoone for onetoone in onetoones_to_save)) and not next(
-                        iter(onetoone for onetoone in onetoones_to_delete), None
+                    assert next(iter(onetoone for onetoone in oto_2_save)) and not next(
+                        iter(onetoone for onetoone in oto_2_rem), None
                     )
                 # If there was a pre-existing onetoone but the data is not present in the POST data
                 elif initial and data_val == (None or ""):
                     # Should be marked for deletion and not save
-                    assert not next(iter(onetoone for onetoone in onetoones_to_save), None) and next(
-                        iter(onetoone for onetoone in onetoones_to_delete)
+                    assert not next(iter(onetoone for onetoone in oto_2_save), None) and next(
+                        iter(onetoone for onetoone in oto_2_rem)
                     )
                 # If there is a pre-existing object and there is data in the POST request
                 elif initial and data_val != (None or ""):
                     # If the data changed, the object should be marked for saving
                     if initial != data_val:
-                        assert next(iter(onetoone for onetoone in onetoones_to_save)) and not next(
-                            iter(onetoone for onetoone in onetoones_to_delete), None
+                        assert next(iter(onetoone for onetoone in oto_2_save)) and not next(
+                            iter(onetoone for onetoone in oto_2_rem), None
                         )
                     # Otherwise it should not be marked for saving or
                     # deletion and the form's changed_data dict should be empty
                     else:
                         assert (
-                            not next(iter(onetoone for onetoone in onetoones_to_save), None)
-                            and not next(iter(onetoone for onetoone in onetoones_to_delete), None)
+                            not next(iter(onetoone for onetoone in oto_2_save), None)
+                            and not next(iter(onetoone for onetoone in oto_2_rem), None)
                             and not onetoone_forms[f"{onetoone}_form"].changed_data
                         )
                         assert onetoone_forms[f"{onetoone}_form"].changed_data == []
@@ -1987,7 +1990,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             # Fetch the Flare, each User will only have 1
             flare = user.flare_set.first()
             # Create some fake flare data
-            data = flare_data_factory(user=user)
+            data = flare_data_factory(user=user, flare=flare)
             # Call the view
             response = self.client.post(
                 reverse("flares:pseudopatient-update", kwargs={"username": user.username, "pk": flare.pk}), data=data
@@ -2061,6 +2064,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         flare.refresh_from_db()
         self.assertTrue(getattr(flare, "urate", None))
         urate = flare.urate
+        print(Urate.objects.get(pk=urate.pk).value)
         self.assertEqual(urate.value, Decimal("6.0"))
 
     def test__post_deletes_urate(self):
@@ -2472,17 +2476,19 @@ class TestFlareUpdate(TestCase):
 
         # Iterate over some flares
         for flare in Flare.objects.filter(user__isnull=True).all()[:10]:
+            print(flare.medhistory_set.all())
             # Create some fake data and calculate the difference between the current and intended MedHistorys
             # on the Flare
             data = flare_data_factory()
             mh_count = flare.medhistory_set.count()
             mh_diff = medhistory_diff_obj_data(flare, data, FLARE_MEDHISTORYS)
-
+            print(mh_diff)
+            print(mh_count)
             # Post the data
             response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
             tests_print_response_form_errors(response)
             self.assertEqual(response.status_code, 302)
-
+            print(flare.medhistory_set.all())
             # Assert that the number of MedHistory objects in the Flare's medhistory_set changed correctly
             self.assertEqual(flare.medhistory_set.count(), mh_count + mh_diff)
 
@@ -2495,7 +2501,8 @@ class TestFlareUpdate(TestCase):
             data = flare_data_factory()
 
             # Post the data
-            response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), data)
+            response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
+            tests_print_response_form_errors(response)
             self.assertEqual(response.status_code, 302)
 
             self.flare.refresh_from_db()

@@ -35,7 +35,7 @@ class PpxDecisionAid:
             self.ppx = qs
             self.user = qs.user
         elif isinstance(qs, User):
-            self.flare = qs.ppx
+            self.ppx = qs.ppx
             self.user = qs
         else:
             raise ValueError("PpxDecisionAid requires a Ppx or User instance.")
@@ -46,12 +46,11 @@ class PpxDecisionAid:
         self.urates = qs.urates_qs
         # Process the urates to figure out if the Urates indicate that the patient
         # has been at goal uric acid for the past 6 months or longer
-        if labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
-            self.at_goal = False
-        else:
+        self.at_goal: bool = False
+        if not labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
             self.at_goal = labs_urates_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
         # Check if there is a recent_urate
-        self.recent_urate = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
+        self.recent_urate: bool = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
 
     gout: Union["MedHistory", None]
     goutdetail: Union["GoutDetail", None]
@@ -72,15 +71,13 @@ class PpxDecisionAid:
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
-        return defaults_get_goalurate(self.user) if self.user else GoalUrates.SIX
+        return defaults_get_goalurate(self.user if self.user else self)
 
     @property
     def flaring(self) -> bool:
         """Returns True the Gout MedHistory flaring attr is True,
         False if not or there is no Gout."""
-        if self.goutdetail:
-            return self.goutdetail.flaring if self.goutdetail.flaring else False
-        return False
+        return self.goutdetail.flaring
 
     def _get_indication(self) -> Indications:
         """Determines the indication for the Ppx object.

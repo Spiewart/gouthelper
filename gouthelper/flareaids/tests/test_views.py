@@ -289,7 +289,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
         # Create a fake request
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        view = self.view(request=request)
+        view = self.view()
+        view.setup(request=request, username=self.user.username)
+        view.object = view.get_object()
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
 
@@ -312,13 +314,16 @@ class TestFlareAidPseudopatientCreate(TestCase):
         self.assertTrue(hasattr(view, "user"))
         self.assertEqual(view.user, self.user)
         # Create a new FlareAid and test that the view redirects to the detailview
-        flareaid = create_flareaid(user=self.user)
+        create_flareaid(user=self.user)
         self.client.force_login(self.user)
         response = self.client.get(
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.user.username}), follow=True
         )
         self.assertEqual(view.user, self.user)
-        self.assertRedirects(response, flareaid.get_absolute_url())
+        self.assertRedirects(
+            response,
+            reverse("flareaids:pseudopatient-update", kwargs={"username": self.user.username}),
+        )
         # Check that the response message is correct
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
@@ -400,7 +405,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
                         response.context_data[f"{mhtype}_form"].instance._state.adding
                         is True  # pylint: disable=w0212, line-too-long # noqa: E501
                     )
-                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
             assert "ckddetail_form" in response.context_data
             if user.ckd:
                 if getattr(user.ckd, "ckddetail", None):
@@ -543,10 +548,12 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"{MedHistoryTypes.DIABETES}-value": False,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
+        print(self.psp.medhistory_set.all())
         response = self.client.post(
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         assert response.status_code == 302
+        print(self.psp.medhistory_set.all())
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES).exists())
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
 
@@ -1022,7 +1029,8 @@ class TestFlareAidPseudopatientUpdate(TestCase):
     def test__get_form_kwargs(self):
         # Create a fake request
         request = self.factory.get("/fake-url/")
-        view = self.view(request=request)
+        view = self.view()
+        view.setup(request=request, username=self.user.username)
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
 
@@ -1083,6 +1091,8 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         self.assertEqual(view.user, self.user)
         # Repeat the test for a User w/o a FlareAid
         user_no_flareaid = create_psp()
+        print(user_no_flareaid)
+        view = self.view()
         view.setup(request, username=user_no_flareaid.username)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()

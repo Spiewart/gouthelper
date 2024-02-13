@@ -12,18 +12,20 @@ if TYPE_CHECKING:
 def medhistorys_get(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
     medhistorytype: MedHistoryTypes | list[MedHistoryTypes],
+    null_return: bool | None = False,
 ) -> Union[bool, "MedHistory"] | list["MedHistory"]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is medhistorytype or False."""
 
     if isinstance(medhistorytype, MedHistoryTypes):
         return next(
-            iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]), False
+            iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]),
+            null_return,
         )
     elif isinstance(medhistorytype, list):
         return [medhistory for medhistory in medhistorys if medhistory.medhistorytype in medhistorytype]
     else:
-        return False
+        return null_return
 
 
 def medhistory_attr(

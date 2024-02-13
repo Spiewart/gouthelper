@@ -81,15 +81,17 @@ class TestChfManager(TestCase):
 
 
 class TestCkdManagers(TestCase):
-    def test__manager(self):
+    def setUp(self):
         self.ckd = Ckd.objects.create()
+
+    def test__manager(self):
         self.assertEqual(self.ckd.medhistorytype, MedHistoryTypes.CKD)
         for mh in Ckd.objects.get_queryset().all():
             self.assertEqual(mh.medhistorytype, MedHistoryTypes.CKD)
 
     def test__related_objects(self):
         with CaptureQueriesContext(connection) as queries:
-            Ckd.related_objects.all()
+            Ckd.related_objects.last()
         self.assertEqual(len(queries), 1)
 
 

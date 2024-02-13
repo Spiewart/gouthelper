@@ -83,6 +83,35 @@ class FlareDecisionAid:
         Returns:
             Flare: the updated Flare (self)
         """
+        prev_points = flares_calculate_prevalence_points(
+            gender=self.gender,
+            onset=self.flare.onset,
+            redness=self.flare.redness,
+            joints=self.flare.joints,
+            medhistorys=self.medhistorys,
+            urate=self.urate,
+        )
+        print(prev_points)
+        prev = flares_calculate_prevalence(prevalence_points=prev_points)
+        print(prev)
+        less_likelys = flares_get_less_likelys(
+            age=self.age,
+            date_ended=self.flare.date_ended,
+            duration=self.flare.duration,
+            gender=self.gender,
+            joints=self.flare.joints,
+            menopause=self.menopause,
+            crystal_analysis=self.flare.crystal_analysis,
+            ckd=self.ckd,
+        )
+        print(less_likelys)
+        likeli = flares_calculate_likelihood(
+            less_likelys=less_likelys,
+            diagnosed=self.flare.diagnosed,
+            crystal_analysis=self.flare.crystal_analysis,
+            prevalence=prev,
+        )
+        print(likeli)
         self.flare.prevalence = flares_calculate_prevalence(
             prevalence_points=flares_calculate_prevalence_points(
                 gender=self.gender,

@@ -6,7 +6,12 @@ from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: 
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # pylint: disable=e0401 # type: ignore
+from django.views.generic import (  # pylint: disable=e0401 # type: ignore
+    CreateView,
+    DetailView,
+    TemplateView,
+    UpdateView,
+)
 from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     AutoPermissionRequiredMixin,
     PermissionRequiredMixin,
@@ -54,12 +59,7 @@ from ..medhistorys.models import (
     Stroke,
 )
 from ..treatments.choices import FlarePpxChoices
-from ..utils.views import (
-    MedHistorysModelCreateView,
-    MedHistorysModelUpdateView,
-    PatientAidCreateView,
-    PatientAidUpdateView,
-)
+from ..utils.views import MedHistoryModelBaseMixin
 from .forms import PpxAidForm
 from .models import PpxAid
 from .selectors import ppxaid_user_qs, ppxaid_userless_qs
@@ -91,7 +91,7 @@ class PpxAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.PPXAID, tag=None)
 
 
-class PpxAidBase(View):
+class PpxAidBase:
     class Meta:
         abstract = True
 
@@ -128,7 +128,7 @@ class PpxAidBase(View):
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class PpxAidCreate(PpxAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
+class PpxAidCreate(PpxAidBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
     """
     Create a new PpxAid instance.
     """
@@ -136,22 +136,22 @@ class PpxAidCreate(PpxAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
     def form_valid(
         self,
         form: PpxAid,
-        onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
         # Object will be returned by the super().form_valid() call
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
+            oto_2_save=oto_2_save,
+            mh_det_2_save=mh_det_2_save,
+            ma_2_save=ma_2_save,
+            mh_2_save=mh_2_save,
+            labs_2_save=labs_2_save,
             **kwargs,
         )
         # Update object / form instance
@@ -167,22 +167,22 @@ class PpxAidCreate(PpxAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # lab_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
+            oto_2_save,
+            ma_2_save,
+            mh_2_save,
+            mh_det_2_save,
+            labs_2_save,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
+                ma_2_save=ma_2_save,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_2_save=mh_2_save,
+                labs_2_save=labs_2_save,
             )
 
 
@@ -242,7 +242,9 @@ class PpxAidPatientBase(PpxAidBase):
         return ppxaid_user_qs(username=username)
 
 
-class PpxAidPseudopatientCreate(PermissionRequiredMixin, PpxAidPatientBase, PatientAidCreateView, SuccessMessageMixin):
+class PpxAidPseudopatientCreate(
+    PermissionRequiredMixin, PpxAidPatientBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin
+):
     """View for creating a PpxAid for a patient."""
 
     permission_required = "ppxaids.can_add_pseudopatient_ppxaid"
@@ -267,30 +269,30 @@ class PpxAidPseudopatientCreate(PermissionRequiredMixin, PpxAidPatientBase, Pati
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
         form = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         ppxaid = form.save()
         # Add the relationship to the existing user object so that user
@@ -319,32 +321,32 @@ class PpxAidPseudopatientCreate(PermissionRequiredMixin, PpxAidPatientBase, Pati
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formsets
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            ma_2_save,
+            ma_2_rem,
+            oto_2_rem,
+            oto_2_save,
+            mh_det_2_save,
+            mh_det_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )
 
 
@@ -397,7 +399,7 @@ class PpxAidPseudopatientDetail(AutoPermissionRequiredMixin, PpxAidDetailBase):
         return ppxaid_user_qs(self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> PpxAid:
-        self.user: User = self.get_queryset().get()
+        self.user: User = self.get_queryset().get()  # pylint: disable=W0201
         try:
             ppxaid: PpxAid = self.user.ppxaid
         except PpxAid.DoesNotExist as exc:
@@ -407,7 +409,7 @@ class PpxAidPseudopatientDetail(AutoPermissionRequiredMixin, PpxAidDetailBase):
 
 
 class PpxAidPseudopatientUpdate(
-    AutoPermissionRequiredMixin, PpxAidPatientBase, PatientAidUpdateView, SuccessMessageMixin
+    AutoPermissionRequiredMixin, PpxAidPatientBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's PpxAid successfully created."
 
@@ -431,30 +433,30 @@ class PpxAidPseudopatientUpdate(
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
         form = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         ppxaid = form.save()
         # Add the relationship to the existing user object so that user
@@ -485,66 +487,66 @@ class PpxAidPseudopatientUpdate(
             _,  # medhistorydetails_forms
             _,  # medallergys_forms
             _,  # lab_formset
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            ma_2_save,
+            ma_2_rem,
+            oto_2_rem,
+            oto_2_save,
+            mh_det_2_save,
+            mh_det_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )
 
 
-class PpxAidUpdate(PpxAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
+class PpxAidUpdate(PpxAidBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
     """Updates a PpxAid"""
 
     def form_valid(
         self,
         form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_det_2_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to redirect appropriately and update the form instance."""
 
         self.object = super().form_valid(
             form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
+            oto_2_save=oto_2_save,
+            oto_2_rem=oto_2_rem,
+            mh_2_save=mh_2_save,
+            mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=ma_2_save,
+            ma_2_rem=ma_2_rem,
+            labs_2_save=labs_2_save,
+            labs_2_rem=labs_2_rem,
         )
         # Update object / form instance
         self.object.update_aid(qs=self.object)
@@ -573,30 +575,30 @@ class PpxAidUpdate(PpxAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
             _,  # medhistorys_forms
             _,  # medhistorydetails_forms
             _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            labs_to_save,
-            labs_to_remove,
+            oto_2_save,
+            oto_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
                 form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )

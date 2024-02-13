@@ -107,6 +107,10 @@ class FlareAidDecisionAid:
         # Create default trt_dict
         trt_dict = self._create_trts_dict()
         # Set contras to True if indicated per MedHistorys
+        print(self.ckddetail)
+        if self.ckddetail:
+            print(self.ckddetail.stage)
+            print(self.ckddetail.dialysis)
         trt_dict = aids_process_medhistorys(
             trt_dict=trt_dict,
             medhistorys=self.medhistorys,

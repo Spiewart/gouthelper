@@ -81,23 +81,6 @@ def pseudopatient_qs(username: str) -> "QuerySet":
     )
 
 
-def pseudopatient_qs_plus(username: str) -> "QuerySet":
-    return (
-        Pseudopatient.objects.filter(username=username)
-        .select_related(
-            "pseudopatientprofile",
-            "dateofbirth",
-            "ethnicity",
-            "gender",
-        )
-        .prefetch_related(
-            pseudopatient_medallergy_prefetch(),
-            pseudopatient_medhistory_prefetch(),
-            # pseudopatient_lab_prefetch(),
-        )
-    )
-
-
 def pseudopatient_profile_qs(username: str) -> "QuerySet":
     return (
         Pseudopatient.objects.filter(username=username)

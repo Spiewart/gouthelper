@@ -113,17 +113,3 @@ def now_date() -> "date":
 
 def now_datetime() -> "datetime":
     return timezone.now()
-
-
-def set_to_delete(obj: Any) -> None:
-    """Method that sets a to_delete attr to True on an object."""
-
-    if not hasattr(obj, "to_delete"):
-        obj.to_delete = True
-
-
-def set_to_save(obj: Any) -> None:
-    """Method that sets a to_save attr to False on an object."""
-
-    if not hasattr(obj, "to_save"):
-        obj.to_save = False

@@ -136,6 +136,7 @@ class GoutDetailForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
         super().__init__(*args, **kwargs)
         self.fields["flaring"].initial = None
         self.fields["flaring"].choices = YES_OR_NO_OR_UNKNOWN
@@ -168,16 +169,17 @@ than 6.0 mg/dL in the past 6 months?""",
         self.fields["on_ult"].required = True
         self.helper = FormHelper()
         self.helper.form_tag = False
+        legend_sub = "the Patient" if not self.patient else self.patient
         self.helper.layout = Layout(
             Fieldset(
                 "",
                 Div(
                     Div(
                         HTML(
-                            """
+                            f"""
                                 <hr size="3" color="dark">
-                                <legend>About the Gout</legend>
-                                """
+                                <legend>About {legend_sub}'s Gout</legend>
+                            """
                         ),
                         css_id="about-the-gout",
                     ),

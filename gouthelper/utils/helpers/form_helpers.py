@@ -133,6 +133,32 @@ def forms_helper_insert_gender(layout: "Layout") -> "Layout":
     )
 
 
+def forms_helper_insert_goutdetail(layout: "Layout") -> "Layout":
+    """Generic form_helper method to insert a GoutDetailForm into a
+    crispy_forms.layout.Layout object
+
+    Args:
+        layout (Layout): crispy_forms.layout.Layout object
+
+    Returns:
+        Layout: crispy_forms.layout.Layout object
+    """
+    layout_len = len(layout)
+    sub_len = len(layout[layout_len - 1])
+    layout[layout_len - 1][sub_len - 1].append(
+        Div(
+            Div(
+                HTML(
+                    f"""{{% load crispy_forms_tags %}}{{% crispy goutdetail_form %}}"""  # noqa: E501, F541 # pylint: disable=W1309
+                ),
+                css_class="col",
+            ),
+            css_class="row",
+            css_id="goutdetail",
+        ),
+    )
+
+
 def forms_helper_insert_medallergys(layout: "Layout", treatments: Union["FlarePpxChoices", "UltChoices"]) -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
@@ -310,14 +336,7 @@ def forms_helper_insert_urates_formset(layout: "Layout") -> "Layout":
             Div(
                 Div(
                     HTML(
-                        f"""  # noqa: E501, F541  # pylint: disable=W1309
-                        <hr size="3" color="dark">
-                        <legend>Urates</legend>
-                        <div class="form-text">Has the patient had his or her uric acid level checked \
-in the past 12-24 months? Enter as many as you like, in any order.</div>
-                        {{% load crispy_forms_tags %}}
-                        {{% crispy urate_formset urate_formset_helper %}}
-                        """,
+                        f"""<hr size="3" color="dark"><legend>Urates</legend><div class="form-text">Has the patient had his or her uric acid level checked in the past 12-24 months? Enter as many as you like, in any order.</div>{{% load crispy_forms_tags %}}{{% crispy urate_formset urate_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
                     ),
                     css_class="col",
                 ),

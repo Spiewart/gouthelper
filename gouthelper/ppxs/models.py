@@ -78,7 +78,8 @@ class Ppx(
     def at_goal(self) -> bool:
         """Method that interprets the Ppx's labs (Urates) and returns a bool
         indicating whether the patient is at goal."""
-        if hasattr(self, "labs_qs"):
+        print("in at goal")
+        if hasattr(self, "urates_qs"):
             return labs_urates_months_at_goal(
                 urates=self.urates_qs,
                 goutdetail=self.goutdetail if self.goutdetail else None,
@@ -106,7 +107,10 @@ class Ppx(
         return self.goutdetail.flaring if self.goutdetail else None
 
     def get_absolute_url(self):
-        return reverse("ppxs:detail", kwargs={"pk": self.pk})
+        if self.user:
+            return reverse("ppxs:pseudopatient-detail", kwargs={"username": self.user.username})
+        else:
+            return reverse("ppxs:detail", kwargs={"pk": self.pk})
 
     def get_dated_urates(self):
         return urates_dated_qs().filter(ppx=self)

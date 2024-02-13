@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps  # type: ignore
 from django.contrib import messages  # type: ignore
@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
-from django.views.generic import DetailView, TemplateView  # type: ignore
+from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
 from ..contents.choices import Contexts
@@ -51,24 +51,13 @@ from ..medhistorys.models import (
     Stroke,
 )
 from ..treatments.choices import FlarePpxChoices
-from ..utils.views import (
-    MedHistorysModelCreateView,
-    MedHistorysModelUpdateView,
-    PatientAidCreateView,
-    PatientAidUpdateView,
-)
+from ..utils.views import MedHistoryModelBaseMixin
 from .forms import FlareAidForm
 from .models import FlareAid
 from .selectors import flareaid_user_qs, flareaid_userless_qs
 
 if TYPE_CHECKING:
-    from django.db.models import Model, QuerySet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
-
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import GoutDetailForm
-    from ..medhistorys.models import MedHistory
+    from django.db.models import QuerySet  # type: ignore
 
 User = get_user_model()
 
@@ -119,288 +108,46 @@ class FlareAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class FlareAidCreate(FlareAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
+class FlareAidCreate(FlareAidBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
     """Creates a new FlareAid"""
 
-    def form_valid(
-        self,
-        form: FlareAidForm,
-        onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        self.object.update_aid(qs=self.object)
-        return HttpResponseRedirect(self.get_success_url())
+    success_message = "FlareAid successfully created."
 
     def post(self, request, *args, **kwargs):
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            oto_2_save,
+            oto_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
-            )
-
-
-class FlareAidPatientBase(FlareAidBase):
-    class Meta:
-        abstract = True
-
-    onetoones = {}
-    req_onetoones = ["dateofbirth", "gender"]
-
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
-        """Used to set the user attribute on the view, with associated related models
-        select_related and prefetch_related."""
-        return flareaid_user_qs(username=username)
-
-
-class FlareAidPseudopatientCreate(
-    PermissionRequiredMixin, FlareAidPatientBase, PatientAidCreateView, SuccessMessageMixin
-):
-    """View for creating a FlareAid for a patient."""
-
-    permission_required = "flareaids.can_add_pseudopatient_flareaid"
-    success_message = "%(username)s's FlareAid successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPseudopatientUpdate url instead."""
-        # Will also set self.user
-        model = self.get_object()
-        if model.objects.filter(user=self.user).exists():
-            messages.error(request, f"{self.user} already has a {model.__name__}. Please update it instead.")
-            view_str = "flareaids:pseudopatient-detail"
-            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        flareaid = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.flareaid = flareaid
-        # Update object / form instance
-        flareaid.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
-
-    def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
-        return self.user
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
-
-    def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formset
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
-            )
-
-
-class FlareAidPseudopatientUpdate(
-    AutoPermissionRequiredMixin, FlareAidPatientBase, PatientAidUpdateView, SuccessMessageMixin
-):
-    success_message = "%(username)s's FlareAid successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the User has a FlareAid and redirect to the CreateView if not."""
-        try:
-            self.object = self.get_object()
-        except FlareAid.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("flareaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
-            )
-        # self.user set by get_object()
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        flareaid = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.flareaid = flareaid
-        # Update object / form instance
-        flareaid.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(flareaid.get_absolute_url() + "?updated=True")
-
-    def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
-        return self.object
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
-
-    def post(self, request, *args, **kwargs):
-        """Overwritten to finish the post() method and avoid conflicts with the MRO.
-        For FlareAid, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formset
-            medallergys_to_save,
-            medallergys_to_remove,
-            onetoones_to_delete,
-            onetoones_to_save,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            labs_to_save,
-            labs_to_remove,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
+                form=form,
+                oto_2_save=oto_2_save,
+                oto_2_rem=oto_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                labs_2_save=None,
+                labs_2_rem=None,
             )
 
 
@@ -446,6 +193,74 @@ class FlareAidDetail(FlareAidDetailBase):
 
     def get_queryset(self) -> "QuerySet[Any]":
         return flareaid_userless_qs(self.kwargs["pk"])
+
+
+class FlareAidPatientBase(FlareAidBase):
+    class Meta:
+        abstract = True
+
+    onetoones = {}
+    req_onetoones = ["dateofbirth", "gender"]
+
+    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+        """Used to set the user attribute on the view, with associated related models
+        select_related and prefetch_related."""
+        return flareaid_user_qs(username=username)
+
+
+class FlareAidPseudopatientCreate(
+    FlareAidPatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+):
+    """View for creating a FlareAid for a patient."""
+
+    permission_required = "flareaids.can_add_pseudopatient_flareaid"
+    success_message = "%(username)s's FlareAid successfully created."
+
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a FlareAid for."""
+        return self.user
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, username=self.user.username)
+
+    def post(self, request, *args, **kwargs):
+        (
+            errors,
+            form,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            oto_2_save,
+            oto_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            return self.form_valid(
+                form=form,
+                oto_2_save=oto_2_save,
+                oto_2_rem=oto_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                labs_2_save=None,
+                labs_2_rem=None,
+            )
 
 
 class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
@@ -506,52 +321,64 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
         return flareaid
 
 
-class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
+class FlareAidPseudopatientUpdate(
+    FlareAidPatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+):
+    success_message = "%(username)s's FlareAid successfully updated."
+
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a FlareAid for."""
+        return self.object
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, username=self.user.username)
+
+    def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For FlareAid, no additional processing is needed."""
+        (
+            errors,
+            form,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            oto_2_save,
+            oto_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            return self.form_valid(
+                form=form,
+                oto_2_save=oto_2_save,
+                oto_2_rem=oto_2_rem,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                labs_2_save=None,
+                labs_2_rem=None,
+            )
+
+
+class FlareAidUpdate(FlareAidBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
     """Updates a FlareAid"""
 
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        # Update object / form instance
-        self.object.update_aid(qs=self.object)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
-
-    def get(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPseudopatientUpdate url instead."""
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(
-                reverse("flareaids:pseudopatient-update", kwargs={"username": self.object.user.username})
-            )
-        return self.render_to_response(self.get_context_data())
+    success_message = "FlareAid successfully updated."
 
     def get_queryset(self):
         return flareaid_userless_qs(self.kwargs["pk"])
@@ -560,35 +387,35 @@ class FlareAidUpdate(FlareAidBase, MedHistorysModelUpdateView, SuccessMessageMix
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            _,  # labs_to_save
-            _,  # labs_to_remove
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            oto_2_save,
+            oto_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            ma_2_save,
+            ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=None,
-                labs_to_remove=None,
+                form=form,
+                oto_2_rem=oto_2_rem,
+                oto_2_save=oto_2_save,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=ma_2_save,
+                ma_2_rem=ma_2_rem,
+                labs_2_save=None,
+                labs_2_rem=None,
             )

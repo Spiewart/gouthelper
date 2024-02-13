@@ -3,7 +3,11 @@ from crispy_forms.layout import Div, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..medhistorys.models import MedHistoryTypes
-from ..utils.helpers.form_helpers import forms_helper_insert_medhistory, forms_helper_insert_urates_formset
+from ..utils.helpers.form_helpers import (
+    forms_helper_insert_goutdetail,
+    forms_helper_insert_medhistory,
+    forms_helper_insert_urates_formset,
+)
 from .models import Ppx
 
 
@@ -18,12 +22,11 @@ class PpxForm(
         model = Ppx
         exclude = (
             "indication",
-            "labs",
-            "medhistorys",
             "user",
         )
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
         super().__init__(*args, **kwargs)
         self.fields[
             "starting_ult"
@@ -37,8 +40,12 @@ has started ULT in the last 3 months?"
                 Div(),
             ),
         )
-        # Insert GoutForm
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
+        # Check if there's a patient: if so, only add the GoutDetailForm
+        if self.patient:
+            forms_helper_insert_goutdetail(layout=self.helper.layout)
+        # Otherwise, add the GoutForm and GoutDetailForm
+        else:
+            forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
         layout_len = len(self.helper.layout)
         sub_len = len(self.helper.layout[layout_len - 1])
         self.helper.layout[layout_len - 1][sub_len - 1].append(
