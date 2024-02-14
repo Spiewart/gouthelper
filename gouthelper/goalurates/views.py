@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps  # type: ignore
 from django.contrib import messages  # type: ignore
@@ -13,6 +13,7 @@ from ..contents.choices import Contexts
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
+from ..ultaids.models import UltAid
 from ..utils.views import MedHistoryModelBaseMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
@@ -20,13 +21,7 @@ from .selectors import goalurate_user_qs, goalurate_userless_qs
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
-    from django.db.models import Model, QuerySet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
-
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
-    from ..medhistorys.models import MedHistory
+    from django.db.models import QuerySet  # type: ignore
 
     User = get_user_model()
 
@@ -59,50 +54,13 @@ class GoalUrateBase:
     }
 
 
-class GoalUrateCreate(GoalUrateBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class GoalUrateCreate(
+    GoalUrateBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+):
     """Creates a new GoalUrate"""
 
+    permission_required = "goalurates.can_add_goalurate"
     success_message = "Goal Urate created successfully!"
-
-    def form_valid(
-        self,
-        form: GoalUrateForm,
-        oto_2_save: list["Model"],
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"],
-        ma_2_save: list["MedAllergy"],
-        mh_2_save: list["MedHistory"],
-        labs_2_save: list["Lab"],
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and to add ultaid to form instance if it exists."""
-        ultaid = self.kwargs.get("ultaid", None)
-        if ultaid:
-            form.instance.ultaid_id = ultaid
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            mh_det_2_save=mh_det_2_save,
-            ma_2_save=ma_2_save,
-            mh_2_save=mh_2_save,
-            labs_2_save=labs_2_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        self.object.update_aid(qs=self.object)
-        # If request is an htmx request, return HttpResponseClientRefresh
-        # Will reload related model DetailPage
-        if self.request.htmx:
-            return HttpResponseClientRefresh()
-        return HttpResponseRedirect(self.get_success_url())
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        if self.request.htmx:
-            kwargs.update({"htmx": True})
-        else:
-            kwargs.update({"htmx": False})
-        return kwargs
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         """Add ultaid to context if it exists."""
@@ -112,44 +70,67 @@ class GoalUrateCreate(GoalUrateBase, MedHistoryModelBaseMixin, CreateView, Succe
             context["ultaid"] = ultaid
         return context
 
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.request.htmx:
+            kwargs.update({"htmx": True})
+        else:
+            kwargs.update({"htmx": False})
+        return kwargs
+
+    def get_permission_object(self):
+        ultaid = self.kwargs.get("ultaid", None)
+        return ultaid if ultaid else None
+
     def get_template_names(self) -> list[str]:
         if self.request.htmx:
             return ["goalurates/partials/goalurate_form.html"]
         return super().get_template_names()
 
     def post(self, request, *args, **kwargs):
-        try:
-            kwargs.pop("ultaid")
-        except KeyError:
-            pass
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            oto_2_save,
-            ma_2_save,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
-            mh_det_2_save,
-            labs_2_save,
+            mh_2_rem,
+            _,  # mh_det_2_save,
+            _,  # mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
+            ultaid_kwarg = self.kwargs.get("ultaid", None)
+            kwargs = {"ultaid": UltAid.objects.get(pk=ultaid_kwarg) if ultaid_kwarg else None}
+            if self.request.htmx:
+                kwargs.update({"htmx": HttpResponseClientRefresh()})
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
-                oto_2_save=oto_2_save,
-                mh_det_2_save=mh_det_2_save,
+                form=form,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
-                labs_2_save=labs_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=None,
+                mh_det_2_rem=None,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
+                **kwargs,
             )
 
 
-class GoalUrateDetailBase(DetailView):
+class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
     """Abstract base class for attrs and methods that GoalUrateDetail and
     GoalUratePseudopatientDetail inherit from."""
 
@@ -159,15 +140,18 @@ class GoalUrateDetailBase(DetailView):
     model = GoalUrate
     object: GoalUrate
 
+    @property
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE, tag__isnull=False)
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         for content in self.contents:
             context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE, tag__isnull=False)
+    def get_permission_object(self):
+        return self.object
 
 
 class GoalUrateDetail(GoalUrateDetailBase):
@@ -193,113 +177,6 @@ class GoalUrateDetail(GoalUrateDetailBase):
         return goalurate_userless_qs(self.kwargs["pk"])
 
 
-class GoalUrateUpdate(GoalUrateBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
-    """Creates a new GoalUrate"""
-
-    success_message = "GoalUrate updated successfully!"
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-
-        self.object = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        # Update the DecisionAidModel by calling the update method with the QuerySet
-        # of the object, which will hopefully have been annotated by the view to
-        # include the related models
-        self.object.update_aid(qs=self.object)
-        if self.request.htmx:
-            return HttpResponseClientRefresh()
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
-
-    def get(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPseudopatientUpdate url instead."""
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(
-                reverse("goalurates:pseudopatient-update", kwargs={"username": self.object.user.username})
-            )
-        return self.render_to_response(self.get_context_data())
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        if self.request.htmx:
-            kwargs.update({"htmx": True})
-        else:
-            kwargs.update({"htmx": False})
-        return kwargs
-
-    def get_queryset(self):
-        return goalurate_userless_qs(self.kwargs["pk"])
-
-    def get_template_names(self) -> list[str]:
-        if self.request.htmx:
-            return ["goalurates/partials/goalurate_form.html"]
-        return super().get_template_names()
-
-    def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            _,  # oto_2_rem,
-            _,  # oto_2_save,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            _,  # mh_det_2_save,
-            _,  # mh_det_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                oto_2_rem=None,
-                oto_2_save=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=None,
-                mh_det_2_rem=None,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
-
-
 class GoalUratePatientBase(GoalUrateBase):
     """Abstract base class for attrs and methods that GoalUratePseudopatientCreate/Update
     inherit from."""
@@ -315,61 +192,12 @@ class GoalUratePatientBase(GoalUrateBase):
 
 
 class GoalUratePseudopatientCreate(
-    PermissionRequiredMixin, GoalUratePatientBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin
+    GoalUratePatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a GoalUrate for a Pseudopatient."""
 
-    permission_required = "goalurates.can_add_pseudopatient_goalurate"
+    permission_required = "goalurates.can_add_goalurate"
     success_message = "%(username)s's GoalUrate successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct GoalUratePseudopatientUpdate url instead."""
-        # For CreateView, self.object is set to the Model class being created
-        # Also sets the user attribute on the view
-        self.object = self.get_object()
-        if hasattr(self.user, "goalurate"):
-            messages.error(request, f"{self.user} already has a {self.object.__name__}. Please update it instead.")
-            view_str = "goalurates:pseudopatient-detail"
-            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        goalurate = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.goalurate = goalurate
-        # Update object / form instance
-        goalurate.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(goalurate.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -386,41 +214,45 @@ class GoalUratePseudopatientCreate(
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formset
-            ma_2_save,
-            ma_2_rem,
-            oto_2_rem,
-            oto_2_save,
-            mh_det_2_save,
-            mh_det_2_rem,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
-            labs_2_save,
-            labs_2_rem,
+            _,  # mh_det_2_save,
+            _,  # mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
+            kwargs = {"ultaid": self.kwargs.get("ultaid", None)}
+            if self.request.htmx:
+                kwargs.update({"htmx": HttpResponseClientRefresh()})
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                oto_2_rem=oto_2_rem,
-                oto_2_save=oto_2_save,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
+                form=form,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
+                mh_det_2_save=None,
+                mh_det_2_rem=None,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
+                kwargs=kwargs,
             )
 
 
-class GoalUratePseudopatientDetail(AutoPermissionRequiredMixin, GoalUrateDetailBase):
+class GoalUratePseudopatientDetail(GoalUrateDetailBase):
     """View for displaying a GoalUrate for a Pseudopatient."""
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
@@ -473,57 +305,9 @@ class GoalUratePseudopatientDetail(AutoPermissionRequiredMixin, GoalUrateDetailB
 
 
 class GoalUratePseudopatientUpdate(
-    AutoPermissionRequiredMixin, GoalUratePatientBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin
+    GoalUratePatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's GoalUrate successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the User has a GoalUrate and redirect to the CreateView if not."""
-        try:
-            self.object = self.get_object()
-        except GoalUrate.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("goalurates:pseudopatient-create", kwargs={"username": kwargs["username"]})
-            )
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        goalurate = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.goalurate = goalurate
-        # Update object / form instance
-        goalurate.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(goalurate.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -540,35 +324,104 @@ class GoalUratePseudopatientUpdate(
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formset
-            ma_2_save,
-            ma_2_rem,
-            oto_2_rem,
-            oto_2_save,
-            mh_det_2_save,
-            mh_det_2_rem,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
-            labs_2_save,
-            labs_2_rem,
+            _,  # mh_det_2_save,
+            _,  # mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                oto_2_rem=oto_2_rem,
-                oto_2_save=oto_2_save,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
+                form=form,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
+                mh_det_2_save=None,
+                mh_det_2_rem=None,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
+                kwargs=kwargs,
+            )
+
+
+class GoalUrateUpdate(
+    GoalUrateBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+):
+    """Creates a new GoalUrate"""
+
+    success_message = "GoalUrate updated successfully!"
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.request.htmx:
+            kwargs.update({"htmx": True})
+        else:
+            kwargs.update({"htmx": False})
+        return kwargs
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_queryset(self):
+        return goalurate_userless_qs(self.kwargs["pk"])
+
+    def get_template_names(self) -> list[str]:
+        if self.request.htmx:
+            return ["goalurates/partials/goalurate_form.html"]
+        return super().get_template_names()
+
+    def post(self, request, *args, **kwargs):
+        (
+            errors,
+            form,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
+            mh_2_save,
+            mh_2_rem,
+            _,  # mh_det_2_save,
+            _,  # mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
+        ) = super().post(request, *args, **kwargs)
+        if errors:
+            return errors
+        else:
+            kwargs = {"ultaid": self.kwargs.get("ultaid", None)}
+            if self.request.htmx:
+                kwargs.update({"htmx": HttpResponseClientRefresh()})
+            return self.form_valid(
+                form=form,
+                oto_2_save=None,
+                oto_2_rem=None,
+                mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=None,
+                mh_det_2_rem=None,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
+                kwargs=kwargs,
             )

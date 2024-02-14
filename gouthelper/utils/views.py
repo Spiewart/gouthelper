@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
+from django.db.models import Model  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
@@ -22,7 +23,7 @@ from ..utils.helpers.helpers import get_or_create_qs_attr
 
 if TYPE_CHECKING:
     from crispy_forms.helper import FormHelper  # type: ignore
-    from django.db.models import Model, QuerySet  # type: ignore
+    from django.db.models import QuerySet  # type: ignore
     from django.forms import BaseModelFormSet, ModelForm  # type: ignore
     from django.http import HttpRequest, HttpResponse  # type: ignore
 
@@ -255,17 +256,14 @@ class MedHistoryModelBaseMixin:
                     form_kwargs.update({"goutdetail": goutdetail})
                     if goutdetail:
                         try:
-                            print("trying")
                             self.goutdetail_mh_context(kwargs=kwargs, mh_dets=mh_dets, mh_obj=mh_obj)
                         except Continue:
-                            print("continuing 1")
                             continue
                         kwargs[form_str] = mh_dict["form"](
                             instance=mh_obj,
                             initial={f"{mhtype}-value": True},
                             **form_kwargs,
                         )
-                        print("continuing 2")
                         continue
                 kwargs[form_str] = mh_dict["form"](
                     instance=mh_obj,
@@ -351,8 +349,8 @@ class MedHistoryModelBaseMixin:
     def form_valid(
         self,
         form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
+        oto_2_save: list[Model] | None,
+        oto_2_rem: list[Model] | None,
         mh_2_save: list["MedHistory"] | None,
         mh_2_rem: list["MedHistory"] | None,
         mh_det_2_save: list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"] | None,
@@ -361,6 +359,7 @@ class MedHistoryModelBaseMixin:
         ma_2_rem: list["MedAllergy"] | None,
         labs_2_save: list["Lab"] | None,
         labs_2_rem: list["Lab"] | None,
+        **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
         if isinstance(form.instance, User):
@@ -372,6 +371,7 @@ class MedHistoryModelBaseMixin:
             and (oto_2_save or oto_2_rem)
             or self.user
             and form.instance.user is None
+            or self.create_view
         ):
             aid_obj = form.save(commit=False)
             save_aid_obj = True
@@ -393,6 +393,11 @@ class MedHistoryModelBaseMixin:
             if oto_2_rem:
                 for oto in oto_2_rem:
                     oto.delete()
+        print(kwargs)
+        if kwargs:
+            for key, val in kwargs.items():
+                if isinstance(val, Model):
+                    setattr(aid_obj, key, val)
         if save_aid_obj:
             aid_obj.save()
         aid_obj_attr = aid_obj.__class__.__name__.lower()
@@ -444,6 +449,8 @@ class MedHistoryModelBaseMixin:
             aid_obj.update_aid(qs=self.user)
         else:
             aid_obj.update_aid(qs=aid_obj)
+        if self.request.htmx:
+            return kwargs.get("htmx")
         return HttpResponseRedirect(aid_obj.get_absolute_url() + "?updated=True")
 
     def get(self, request, *args, **kwargs):
@@ -493,7 +500,7 @@ class MedHistoryModelBaseMixin:
             kwargs.update({"instance": self.object})
         return kwargs
 
-    def get_object(self, queryset=None) -> "Model":
+    def get_object(self, queryset=None) -> Model:
         if not hasattr(self, "object"):
             if self.create_view:
                 return self.model()
@@ -520,8 +527,8 @@ class MedHistoryModelBaseMixin:
         self,
         query_obj: Union["MedAllergyAidHistoryModel", "User", None],
         oto: str,
-        alt_obj: "Model" = None,
-    ) -> "Model":
+        alt_obj: Model = None,
+    ) -> Model:
         """Method that looks looks for a 1to1 related object on the query_obj and returns it if found.
         If it's not, if the oto str is "urate", it looks for the 1to1 on the alt_obj and returns it if found."""
         oto_obj = getattr(query_obj, oto, None) if query_obj else None
@@ -941,10 +948,7 @@ class MedHistoryModelBaseMixin:
                         if getattr(form.instance, query_obj_attr, None) is None:
                             setattr(form.instance, query_obj_attr, query_obj)
                             labs_2_save.append(form.instance)
-                        elif form.instance and form.has_changed():
-                            labs_2_save.append(form.instance)
-                        # If there's a value but no instance, add the form's instance to the labs_2_save list
-                        elif form.instance is None:
+                        elif (form.instance and form.has_changed()) or form.instance is None:
                             labs_2_save.append(form.instance)
                         # Add the lab to the form instance's labs_qs if it's not already there
                         if form.instance not in qs_attr:
@@ -1049,11 +1053,11 @@ class MedHistoryModelBaseMixin:
         oto_forms: dict[str, "ModelForm"],
         req_onetoones: list[str],
         query_obj: Union["MedAllergyAidHistoryModel", "User"],
-    ) -> tuple[list["Model"], list["Model"]]:
+    ) -> tuple[list[Model], list[Model]]:
         """Method to process the forms for the OneToOne objects for the post() method."""
 
-        oto_2_save: list["Model"] = []
-        oto_2_rem: list["Model"] = []
+        oto_2_save: list[Model] = []
+        oto_2_rem: list[Model] = []
         for oto_form_str, oto_form in oto_forms.items():
             object_attr = oto_form_str.split("_")[0]
             if object_attr not in req_onetoones:

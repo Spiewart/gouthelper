@@ -54,22 +54,22 @@ class TestCanCreateFlare(TestCase):
 
     def test__create_anonymous_object(self):
         """Test that any user can create an anonymous object."""
-        assert rules.test_rule("can_add_pseudopatient_flare", self.anon, self.anon_psp)
-        assert rules.test_rule("can_add_pseudopatient_flare", self.provider, self.anon_psp)
-        assert rules.test_rule("can_add_pseudopatient_flare", self.admin, self.anon_psp)
+        assert rules.test_rule("can_add_flare", self.anon, self.anon_psp)
+        assert rules.test_rule("can_add_flare", self.provider, self.anon_psp)
+        assert rules.test_rule("can_add_flare", self.admin, self.anon_psp)
 
     def test__create_provider_object(self):
         """Test that only the provider can create an object for his or
         her pseudopatients."""
-        assert rules.test_rule("can_add_pseudopatient_flare", self.provider, self.provider_psp)
-        assert not rules.test_rule("can_add_pseudopatient_flare", self.admin, self.provider_psp)
-        assert not rules.test_rule("can_add_pseudopatient_flare", self.anon, self.provider_psp)
+        assert rules.test_rule("can_add_flare", self.provider, self.provider_psp)
+        assert not rules.test_rule("can_add_flare", self.admin, self.provider_psp)
+        assert not rules.test_rule("can_add_flare", self.anon, self.provider_psp)
 
     def test__create_admin_object(self):
         """Test that only an admin can create an object for another user."""
-        assert rules.test_rule("can_add_pseudopatient_flare", self.admin, self.admin_psp)
-        assert not rules.test_rule("can_add_pseudopatient_flare", self.provider, self.admin_psp)
-        assert not rules.test_rule("can_add_pseudopatient_flare", self.anon, self.admin_psp)
+        assert rules.test_rule("can_add_flare", self.admin, self.admin_psp)
+        assert not rules.test_rule("can_add_flare", self.provider, self.admin_psp)
+        assert not rules.test_rule("can_add_flare", self.anon, self.admin_psp)
 
 
 class TestCanDeleteFlare(TestCase):
@@ -85,22 +85,22 @@ class TestCanDeleteFlare(TestCase):
 
     def test__delete_anonymous_object(self):
         """Test that no one can delete an anonymous object."""
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.anon, self.anon_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.provider, self.anon_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.admin, self.anon_flare)
+        assert not rules.test_rule("can_delete_flare", self.anon, self.anon_flare)
+        assert not rules.test_rule("can_delete_flare", self.provider, self.anon_flare)
+        assert not rules.test_rule("can_delete_flare", self.admin, self.anon_flare)
 
     def test__delete_provider_object(self):
         """Test that only the provider can delete an object for his or
         her own Pseudopatients."""
-        assert rules.test_rule("can_delete_pseudopatient_flare", self.provider, self.provider_psp_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.admin, self.provider_psp_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.anon, self.provider_psp_flare)
+        assert rules.test_rule("can_delete_flare", self.provider, self.provider_psp_flare)
+        assert not rules.test_rule("can_delete_flare", self.admin, self.provider_psp_flare)
+        assert not rules.test_rule("can_delete_flare", self.anon, self.provider_psp_flare)
 
     def test__delete_admin_object(self):
         """Test that only an admin can delete an object for another user."""
-        assert rules.test_rule("can_delete_pseudopatient_flare", self.admin, self.admin_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.provider, self.admin_flare)
-        assert not rules.test_rule("can_delete_pseudopatient_flare", self.anon, self.admin_flare)
+        assert rules.test_rule("can_delete_flare", self.admin, self.admin_flare)
+        assert not rules.test_rule("can_delete_flare", self.provider, self.admin_flare)
+        assert not rules.test_rule("can_delete_flare", self.anon, self.admin_flare)
 
 
 class TestCanViewFlare(TestCase):
@@ -147,19 +147,19 @@ class TestCanViewFlareList(TestCase):
 
     def test__view_anonymous_list(self):
         """Test that any user can view an anonymous list."""
-        assert rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.anon_psp)
-        assert rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.anon_psp)
-        assert rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.anon_psp)
+        assert rules.test_rule("can_view_flare_list", self.anon, self.anon_psp)
+        assert rules.test_rule("can_view_flare_list", self.provider, self.anon_psp)
+        assert rules.test_rule("can_view_flare_list", self.admin, self.anon_psp)
 
     def test__view_provider_list(self):
         """Test that only the provider can view a list for his or her
         pseudopatients."""
-        assert rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.provider_psp)
-        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.provider_psp)
-        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.provider_psp)
+        assert rules.test_rule("can_view_flare_list", self.provider, self.provider_psp)
+        assert not rules.test_rule("can_view_flare_list", self.admin, self.provider_psp)
+        assert not rules.test_rule("can_view_flare_list", self.anon, self.provider_psp)
 
     def test__view_admin_list(self):
         """Test that only an admin can view a list for another user."""
-        assert rules.test_rule("can_view_pseudopatient_flare_list", self.admin, self.admin_psp)
-        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.provider, self.admin_psp)
-        assert not rules.test_rule("can_view_pseudopatient_flare_list", self.anon, self.admin_psp)
+        assert rules.test_rule("can_view_flare_list", self.admin, self.admin_psp)
+        assert not rules.test_rule("can_view_flare_list", self.provider, self.admin_psp)
+        assert not rules.test_rule("can_view_flare_list", self.anon, self.admin_psp)

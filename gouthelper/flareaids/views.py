@@ -108,10 +108,14 @@ class FlareAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class FlareAidCreate(FlareAidBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class FlareAidCreate(FlareAidBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new FlareAid"""
 
+    permission_required = "flareaids.can_add_flareaid"
     success_message = "FlareAid successfully created."
+
+    def get_permission_object(self):
+        return None
 
     def post(self, request, *args, **kwargs):
         (
@@ -151,12 +155,16 @@ class FlareAidCreate(FlareAidBase, MedHistoryModelBaseMixin, CreateView, Success
             )
 
 
-class FlareAidDetailBase(DetailView):
+class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):
     class Meta:
         abstract = True
 
     model = FlareAid
     object: FlareAid
+
+    @property
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -164,9 +172,8 @@ class FlareAidDetailBase(DetailView):
             context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
+    def get_permission_object(self):
+        return self.object
 
 
 class FlareAidDetail(FlareAidDetailBase):
@@ -213,7 +220,7 @@ class FlareAidPseudopatientCreate(
 ):
     """View for creating a FlareAid for a patient."""
 
-    permission_required = "flareaids.can_add_pseudopatient_flareaid"
+    permission_required = "flareaids.can_add_flareaid"
     success_message = "%(username)s's FlareAid successfully created."
 
     def get_permission_object(self):
@@ -263,7 +270,7 @@ class FlareAidPseudopatientCreate(
             )
 
 
-class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBase):
+class FlareAidPseudopatientDetail(FlareAidDetailBase):
     """Overwritten for different url routing, object fetching, and
     building the content data."""
 
@@ -296,9 +303,6 @@ class FlareAidPseudopatientDetail(AutoPermissionRequiredMixin, FlareAidDetailBas
             self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
-
-    def get_permission_object(self):
-        return self.object
 
     def assign_flareaid_attrs_from_user(self, flareaid: FlareAid, user: "User") -> FlareAid:
         flareaid.dateofbirth = user.dateofbirth
@@ -375,13 +379,18 @@ class FlareAidPseudopatientUpdate(
             )
 
 
-class FlareAidUpdate(FlareAidBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class FlareAidUpdate(
+    FlareAidBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+):
     """Updates a FlareAid"""
 
     success_message = "FlareAid successfully updated."
 
     def get_queryset(self):
         return flareaid_userless_qs(self.kwargs["pk"])
+
+    def get_permission_object(self):
+        return self.object
 
     def post(self, request, *args, **kwargs):
         (

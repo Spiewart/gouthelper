@@ -304,6 +304,7 @@ class TestFlareCreate(TestCase):
 
     def test__get_context_data(self):
         request = self.factory.get("/flares/create")
+        request.user = AnonymousUser()
         response = FlareCreate.as_view()(request)
         self.assertIsInstance(response.context_data, dict)  # type: ignore
         for medhistory in FLARE_MEDHISTORYS:
@@ -542,6 +543,7 @@ class TestFlareDetail(TestCase):
         self.assertIsNone(self.flare.likelihood)
         self.assertIsNone(self.flare.prevalence)
         request = self.factory.get(reverse("flares:detail", kwargs={"pk": self.flare.pk}))
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=self.flare.pk)
         # This needs to be manually refetched from the db
         self.assertIsNotNone(Flare.objects.get().likelihood)
@@ -551,6 +553,7 @@ class TestFlareDetail(TestCase):
         self.assertIsNone(self.flare.likelihood)
         self.assertIsNone(self.flare.prevalence)
         request = self.factory.get(reverse("flares:detail", kwargs={"pk": self.flare.pk}) + "?updated=True")
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=self.flare.pk)
         # This needs to be manually refetched from the db
         self.assertIsNone(Flare.objects.get().likelihood)
@@ -2416,6 +2419,7 @@ class TestFlareUpdate(TestCase):
 
         # Test that the context data is correct
         request = self.factory.get(f"/flares/update/{self.flare.pk}")
+        request.user = AnonymousUser()
         response = FlareUpdate.as_view()(request, pk=self.flare.pk)
         self.assertIsInstance(response.context_data, dict)  # type: ignore
         for medhistory in FLARE_MEDHISTORYS:

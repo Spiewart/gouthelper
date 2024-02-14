@@ -186,7 +186,10 @@ def create_psp(
                 medhistorytype=MedHistoryTypes.GOUT,
             )
         except IntegrityError:
-            gout = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.GOUT)
+            gout = None
+    if not gout:
+        gout = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.GOUT)
+    with transaction.atomic():
         try:
             GoutDetailFactory(medhistory=gout)
         except IntegrityError:

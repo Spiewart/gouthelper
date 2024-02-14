@@ -28,6 +28,39 @@ def anon_user(_, obj):
 
 
 @rules.predicate
+def is_an_admin(user):
+    return hasattr(user, "role") and user.role == Roles.ADMIN
+
+
+@rules.predicate
+def is_a_provider(user):
+    return hasattr(user, "role") and user.role == Roles.PROVIDER
+
+
+@rules.predicate
+def is_anon_obj(_, obj):
+    """Checks if the object is an anonymous object, in that it has a user
+    field that is None.
+
+    Expects an object with an optional user field."""
+    return hasattr(obj.user, "profile") and obj.user.profile.provider is None if obj.user else True
+
+
+@rules.predicate
+def no_user(_, obj):
+    """Checks if the request.user is None and that the object's user is None."""
+    return not isinstance(obj, User) and (obj.user is None if hasattr(obj, "user") else True)
+
+
+@rules.predicate
+def is_obj_provider(user, obj):
+    """Checks if the request.user is the provider for the object's user.
+
+    Expects an object with an optional user field."""
+    return obj.user.pseudopatientprofile.provider == user if obj.user else False
+
+
+@rules.predicate
 def request_user_kwarg_provider(user, obj):
     """Checks if the request.user.username is the same as the provider
     for the user object associated with a username kwarg via his or her
@@ -53,37 +86,12 @@ def request_user_kwarg_provider_or_user(user, obj):
     )
 
 
-@rules.predicate
-def is_an_admin(user):
-    return hasattr(user, "role") and user.role == Roles.ADMIN
-
-
-@rules.predicate
-def is_a_provider(user):
-    return hasattr(user, "role") and user.role == Roles.PROVIDER
-
-
-@rules.predicate
-def is_anon_obj(_, obj):
-    """Checks if the object is an anonymous object, in that it has a user
-    field that is None.
-
-    Expects an object with an optional user field."""
-    return hasattr(obj.user, "profile") and obj.user.profile.provider is None if obj.user else True
-
-
-@rules.predicate
-def is_obj_provider(user, obj):
-    """Checks if the request.user is the provider for the object's user.
-
-    Expects an object with an optional user field."""
-    return obj.user.pseudopatientprofile.provider == user if obj.user else False
-
-
-add_object = anon_user | (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
-change_object = is_anon_obj | is_obj_provider
+add_object = (
+    no_user | anon_user | (is_a_provider & request_user_kwarg_provider) | (is_an_admin & request_user_kwarg_provider)
+)
+change_object = no_user | is_anon_obj | is_obj_provider
 delete_object = is_obj_provider
-view_object = is_anon_obj | is_obj_provider
+view_object = no_user | is_anon_obj | is_obj_provider
 view_object_list = (
     anon_user
     | (is_a_provider & request_user_kwarg_provider_or_user)

@@ -137,10 +137,13 @@ menopause status to evaluate their flare."
         return form, oto_forms, errors_bool
 
 
-class FlareCreate(FlareBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class FlareCreate(FlareBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
+
+    def get_permission_object(self):
+        return None
 
     def post(self, request, *args, **kwargs):
         (
@@ -198,12 +201,16 @@ class FlareCreate(FlareBase, MedHistoryModelBaseMixin, CreateView, SuccessMessag
             )
 
 
-class FlareDetailBase(DetailView):
+class FlareDetailBase(AutoPermissionRequiredMixin, DetailView):
     class Meta:
         abstract = True
 
     model = Flare
     object: Flare
+
+    @property
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE, tag__isnull=False)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -211,9 +218,8 @@ class FlareDetailBase(DetailView):
             context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE, tag__isnull=False)
+    def get_permission_object(self):
+        return self.object
 
 
 class FlareDetail(FlareDetailBase):
@@ -264,7 +270,7 @@ class FlarePatientBase(FlareBase):
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):
     context_object_name = "flares"
     model = Flare
-    permission_required = "flares.can_view_pseudopatient_flare_list"
+    permission_required = "flares.can_view_flare_list"
     template_name = "flares/flare_list.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -293,7 +299,7 @@ class FlarePseudopatientCreate(
 ):
     """View for creating a Flare for a patient."""
 
-    permission_required = "flares.can_add_pseudopatient_flare"
+    permission_required = "flares.can_add_flare"
     success_message = "%(username)s's Flare successfully created."
 
     def post(self, request, *args, **kwargs):
@@ -386,7 +392,7 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView):
         )
 
 
-class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
+class FlarePseudopatientDetail(FlareDetailBase):
     """Overwritten for different url routing, object fetching, and
     building the content data."""
 
@@ -412,9 +418,6 @@ class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
             self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
-
-    def get_permission_object(self):
-        return self.object
 
     def assign_flare_attrs_from_user(self, flare: Flare, user: "User") -> Flare:
         flare.dateofbirth = user.dateofbirth
@@ -444,7 +447,7 @@ class FlarePseudopatientDetail(AutoPermissionRequiredMixin, FlareDetailBase):
 class FlarePseudopatientUpdate(
     FlarePatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    permission_required = "flares.can_change_pseudopatient_flare"
+    permission_required = "flares.can_change_flare"
     success_message = "%(username)s's FlareAid successfully updated."
 
     def get_initial(self) -> dict[str, Any]:
@@ -513,7 +516,7 @@ class FlarePseudopatientUpdate(
         )
 
 
-class FlareUpdate(FlareBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class FlareUpdate(FlareBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Flare"""
 
     success_message = "Flare updated successfully!"
@@ -535,6 +538,9 @@ class FlareUpdate(FlareBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessag
 
     def get_queryset(self):
         return flare_userless_qs(self.kwargs["pk"])
+
+    def get_permission_object(self):
+        return self.object
 
     def post(self, request, *args, **kwargs):
         (

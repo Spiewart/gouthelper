@@ -1529,6 +1529,7 @@ class TestFlareAidDetail(TestCase):
         medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
         self.flareaid.medallergy_set.add(medallergy)
         request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=self.flareaid.pk)
         # This needs to be manually refetched from the db
         self.assertFalse(FlareAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
@@ -1538,6 +1539,7 @@ class TestFlareAidDetail(TestCase):
         medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
         self.flareaid.medallergy_set.add(medallergy)
         request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}) + "?updated=True")
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=self.flareaid.pk)
         # This needs to be manually refetched from the db
         self.assertTrue(FlareAid.objects.get().recommendation[0] == Treatments.NAPROXEN)

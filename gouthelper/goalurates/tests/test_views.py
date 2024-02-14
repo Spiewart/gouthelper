@@ -65,6 +65,7 @@ class TestGoalUrateCreate(TestCase):
         self.request = self.factory.get(reverse("goalurates:create"))
         # Set the request's htmx attr to False to test the non-htmx code path.
         self.request.htmx = False
+        self.request.user = AnonymousUser()
         self.response = self.view.as_view()(self.request)
         self.ultaid = UltAidFactory()
 
@@ -95,17 +96,22 @@ class TestGoalUrateCreate(TestCase):
     def test__get_context_data_with_ultaid(self):
         request = self.factory.get(reverse("goalurates:ultaid-create", kwargs={"ultaid": self.ultaid.id}))
         request.htmx = False
+        request.user = AnonymousUser()
         response = self.view.as_view()(request, ultaid=self.ultaid.id)
         self.assertEqual(response.context_data.get("ultaid"), self.ultaid.id)
 
     def test__get_form_kwargs(self):
-        view = self.view(request=self.request)
+        view = self.view()
+        view.setup(self.request)
+        view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertFalse(kwargs.get("htmx"))
 
     def test__get_form_kwargs_htmx(self):
         self.request.htmx = True
-        view = self.view(request=self.request)
+        view = self.view()
+        view.setup(self.request)
+        view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertTrue(kwargs.get("htmx"))
 
@@ -115,6 +121,7 @@ class TestGoalUrateCreate(TestCase):
     def test__get_template_name_htmx(self):
         request = self.factory.get(reverse("goalurates:create"))
         request.htmx = True
+        request.user = AnonymousUser()
         response = self.view.as_view()(request)
         self.assertEqual(response.template_name, ["goalurates/partials/goalurate_form.html"])
 
@@ -127,7 +134,7 @@ class TestGoalUrateCreate(TestCase):
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
-        self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}))
+        self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
         self.assertEqual(goal_urate.ultaid, None)
         self.assertFalse(goal_urate.medhistory_set.all())
 
@@ -153,7 +160,7 @@ class TestGoalUrateCreate(TestCase):
         response = self.client.post(reverse("goalurates:ultaid-create", kwargs={"ultaid": self.ultaid.id}), data=data)
         tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
-        goal_urate = GoalUrate.objects.first()
+        goal_urate = GoalUrate.objects.order_by("created").last()
         self.assertTrue(goal_urate.ultaid)
         self.assertEqual(goal_urate.ultaid, self.ultaid)
 
@@ -175,6 +182,7 @@ class TestGoalUrateDetail(TestCase):
         self.goalurate = create_goalurate()
         self.view: GoalUrateDetail = GoalUrateDetail
         self.request = RequestFactory().get(reverse("goalurates:detail", kwargs={"pk": self.goalurate.id}))
+        self.request.user = AnonymousUser()
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
         self.content_qs = Content.objects.filter(context=Contexts.GOALURATE, tag=Tags.EXPLANATION, slug__isnull=False)
         self.factory = RequestFactory()
@@ -216,6 +224,7 @@ class TestGoalUrateUpdate(TestCase):
         self.view: GoalUrateUpdate = GoalUrateUpdate
         self.request = RequestFactory().get(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}))
         self.request.htmx = False
+        self.request.user = AnonymousUser()
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
         self.ultaid = UltAidFactory()
         self.factory = RequestFactory()
@@ -248,13 +257,15 @@ class TestGoalUrateUpdate(TestCase):
         assert response.url == reverse("goalurates:pseudopatient-update", kwargs={"username": user_gu.user.username})
 
     def test__get_form_kwargs(self):
-        view = self.view(request=self.request)
+        view = self.view()
+        view.setup(self.request, pk=self.goalurate.id)
         kwargs = view.get_form_kwargs()
         self.assertFalse(kwargs.get("htmx"))
 
     def test__get_form_kwargs_htmx(self):
         self.request.htmx = True
-        view = self.view(request=self.request)
+        view = self.view()
+        view.setup(self.request, pk=self.goalurate.id)
         kwargs = view.get_form_kwargs()
         self.assertTrue(kwargs.get("htmx"))
 
@@ -354,11 +365,11 @@ class TestGoalUratePseudopatientCreate(TestCase):
         response = view.dispatch(request, username=self.anon_psp.username)
         # Assert that dispatch() set the object attr on the view
         self.assertTrue(hasattr(view, "object"))
-        self.assertEqual(view.object, GoalUrate)
+        self.assertTrue(isinstance(view.object, GoalUrate))
         # Assert that dispatch() redirected to the DetailView
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
-            response.url, reverse("goalurates:pseudopatient-detail", kwargs={"username": self.anon_psp.username})
+            response.url, reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
         )
 
     def test__get_context_data_medhistorys(self):
@@ -386,7 +397,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
                 assert f"{mhtype}_form" in response.context_data
                 if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
                     assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
-                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
             assert "ckddetail_form" not in response.context_data
             assert "goutdetail_form" not in response.context_data
 
@@ -818,6 +829,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         self.assertEqual(obj, self.anon_psp.goalurate)
         # Do the above again except test that get_object returns a DoesNotExist when
         # the user doesn't have a GoalUrate
+        view = self.view()
         view.setup(request, username=self.empty_psp.username)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
