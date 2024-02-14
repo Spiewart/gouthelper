@@ -1,10 +1,38 @@
 <script>
+  {
+    %
+    if not view.kwargs.username %
+  }
   $(document).ready(function() {
-    CKD_checker();
+    CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
     dialysis_checker();
-    $('#id_CKD-value').change(CKD_checker);
+    $('#id_CKD-value').change(function() {
+      CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
+    });
     $('#id_dialysis').change(dialysis_checker);
+    $('#id_baselinecreatinine-value').change(function() {
+      CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
+    });
   });
+  {
+    %
+    else %
+  }
+  $(document).ready(function() {
+    CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
+    dialysis_checker();
+    $('#id_CKD-value').change(function() {
+      CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
+    });
+    $('#id_dialysis').change(dialysis_checker);
+    $('#id_baselinecreatinine-value').change(function() {
+      CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
+    });
+  });
+  {
+    %
+    endif %
+  }
 </script>
 {% if not view.kwargs.username %}
   <script>
@@ -44,24 +72,24 @@
   {% if view.kwargs.username %}
     <script>
       $(document).ready(function() {
-        CKD_optional_checker(patient = true);
+        CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
         $('#id_CKD-value').change(function() {
-          CKD_optional_checker(patient = true);
+          CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
         });
         $('#id_baselinecreatinine-value').change(function() {
-          CKD_optional_checker(patient = true);
+          CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
         });
       });
     </script>
   {% else %}
     <script>
       $(document).ready(function() {
-        CKD_optional_checker(patient = false);
+        CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
         $('#id_CKD-value').change(function() {
-          CKD_optional_checker(patient = false);
+          CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
         });
         $('#id_baselinecreatinine-value').change(function() {
-          CKD_optional_checker(patient = false);
+          CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
         });
       });
     </script>

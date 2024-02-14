@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Union
 
 from django.db import IntegrityError, transaction  # type: ignore
+from django.forms import BaseModelFormSet
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
@@ -16,7 +17,7 @@ from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
 from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medallergys.models import MedAllergy
@@ -555,6 +556,8 @@ class LabCreatorMixin(CreateAidMixin):
                     elif isinstance(lab, Decimal):
                         lab = lab_factory(user=self.user, value=lab, **{aid_obj_attr: aid_obj}, dated=True)
                     qs_attr.append(lab)
+                if lab_name == "urate":
+                    labs_urates_annotate_order_by_dates(qs_attr)
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):
@@ -877,7 +880,7 @@ def tests_print_response_form_errors(response: Union["HttpResponse", None] = Non
                 if getattr(val, "errors", None):
                     print("printing form errors")
                     print(key, val.errors)
-            elif key.endswith("_formset") and val:
+            elif val and isinstance(val, BaseModelFormSet):
                 non_form_errors = val.non_form_errors()
                 if non_form_errors:
                     print("printing non form errors")

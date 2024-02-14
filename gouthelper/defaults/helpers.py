@@ -31,8 +31,10 @@ def defaults_get_goalurate(obj: Any) -> "GoalUrates":
         return user_gu.goal_urate if user_gu else next
     elif getattr(obj, "user", None):
         return get_obj_goalurate(obj.user)
-    else:
+    elif isinstance(obj, apps.get_model("ultaids.UltAid")):
         return get_obj_goalurate(obj)
+    else:
+        return GoalUrates.SIX
 
 
 def defaults_treatments_create_dosing_dict(

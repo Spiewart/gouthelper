@@ -68,5 +68,7 @@
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  {% include 'medhistorys/_ckd_js.html' %}
+  {% with dob_optional=False gender_optional=True %}
+    {% include 'medhistorys/_ckd_js.html' %}
+  {% endwith %}
 {% endblock inline_javascript %}

@@ -80,21 +80,73 @@ function update_plus(id) {
 }
 
 // function that checks whether or not CKD is checked and hides/shows dialysis/stage fields as appropriate
-function CKD_checker() {
+function CKD_checker(dob_optional, gender_optional, patient = false) {
   // function that checks whether CKD is checked or not, shows dialysis and stage fields or hides/empties them
   if ($('#id_CKD-value').find(':selected').val() == 'True') {
     $('#ckddetail').show();
     add_asterisk($('#dialysis'));
     dialysis_checker();
+    var baselinecreatinine = $('#id_baselinecreatinine-value').val();
+    if (
+      baselinecreatinine != '' &&
+      typeof baselinecreatinine != 'undefined' &&
+      !patient
+    ) {
+      $('#dateofbirth').show();
+      add_asterisk($('#dateofbirth'));
+      $('#id_dateofbirth').prop('required', true);
+      $('#gender').show();
+      add_asterisk($('#gender'));
+      $('#id_gender').prop('required', true);
+    } else if (!patient) {
+      if (dob_optional === 'True') {
+        $('#dateofbirth').hide();
+        remove_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', false);
+      } else {
+        $('#dateofbirth').show();
+        add_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', true);
+      }
+      if (gender_optional === 'True') {
+        $('#gender').hide();
+        remove_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      } else {
+        $('#gender').show();
+        add_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      }
+    }
   } else {
     $('#ckddetail').hide();
     remove_asterisk($('#dialysis'));
     dialysis_checker();
+    if (!patient) {
+      if (dob_optional === 'True') {
+        $('#dateofbirth').hide();
+        remove_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', false);
+      } else {
+        $('#dateofbirth').show();
+        add_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', true);
+      }
+      if (gender_optional === 'True') {
+        $('#gender').hide();
+        remove_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      } else {
+        $('#gender').show();
+        add_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      }
+    }
   }
 }
 
 // function that checks whether an OPTIONAL CKD is checked and hides/shows dateofbirth and gender fields as appropriate
-function CKD_optional_checker(patient = false) {
+function CKD_optional_checker(dob_optional, gender_optional, patient = false) {
   // function that checks whether CKD is checked or not, shows/hides dateofbirth and gender forms
   var baselinecreatinine = $('#id_baselinecreatinine-value').val();
   // Check if there's a baseline creatinine to show/hide dateofbirth and gender forms
@@ -109,13 +161,17 @@ function CKD_optional_checker(patient = false) {
     $('#gender').show();
     add_asterisk($('#gender'));
     $('#id_gender').prop('required', true);
-  } else {
-    $('#dateofbirth').hide();
-    remove_asterisk($('#dateofbirth'));
-    $('#id_dateofbirth').prop('required', false);
-    $('#gender').hide();
-    remove_asterisk($('#gender'));
-    $('#id_gender').prop('required', false);
+  } else if (!patient) {
+    if (dob_optional === 'True') {
+      $('#dateofbirth').hide();
+      remove_asterisk($('#dateofbirth'));
+      $('#id_dateofbirth').prop('required', false);
+    }
+    if (gender_optional === 'True') {
+      $('#gender').hide();
+      remove_asterisk($('#gender'));
+      $('#id_gender').prop('required', false);
+    }
   }
 }
 

@@ -241,7 +241,6 @@ class MedHistoryModelBaseMixin:
         query_obj: Union["MedAllergyAidHistoryModel", "User", None],
         ckddetail: bool,
         goutdetail: bool,
-        create: bool = False,
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         for mhtype, mh_dict in medhistorys.items():
@@ -267,7 +266,7 @@ class MedHistoryModelBaseMixin:
                         continue
                 kwargs[form_str] = mh_dict["form"](
                     instance=mh_obj,
-                    initial={f"{mhtype}-value": True if mh_obj else None if create else False},
+                    initial={f"{mhtype}-value": True if mh_obj else None if self.create_view else False},
                     **form_kwargs,
                 )
 
@@ -393,7 +392,6 @@ class MedHistoryModelBaseMixin:
             if oto_2_rem:
                 for oto in oto_2_rem:
                     oto.delete()
-        print(kwargs)
         if kwargs:
             for key, val in kwargs.items():
                 if isinstance(val, Model):
@@ -479,7 +477,6 @@ class MedHistoryModelBaseMixin:
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
                 ckddetail=self.ckddetail,
                 goutdetail=self.goutdetail,
-                create=False,
             )
         if self.labs:
             self.context_labs(
@@ -508,7 +505,6 @@ class MedHistoryModelBaseMixin:
                 if self.model not in (User, Pseudopatient):
                     model_name = self.model.__name__.lower()
                     try:
-                        print(getattr(self.user, model_name))
                         return getattr(self.user, model_name)
                     except self.model.DoesNotExist as exc:
                         raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
@@ -555,7 +551,6 @@ class MedHistoryModelBaseMixin:
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
             kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](instance=goutdetail_i)
-            print(mh_obj)
             if hasattr(mh_obj, "user") and mh_obj.user:
                 raise Continue
 
@@ -916,30 +911,32 @@ class MedHistoryModelBaseMixin:
             query_obj_attr = f"{query_obj.__class__.__name__.lower()}" if not isinstance(query_obj, User) else "user"
             for lab_name, lab_formset in lab_formsets.items():
                 qs_attr = get_or_create_qs_attr(query_obj, lab_name)
-                for lab in qs_attr:
+                if qs_attr:
                     cleaned_data = lab_formset.cleaned_data
-                    # Check if the lab is not in the formset's cleaned_data list by id key
-                    for lab_form in cleaned_data:
-                        try:
-                            if lab_form["id"] == lab:
-                                # Check if the form is not marked for deletion
-                                if not lab_form["DELETE"]:
-                                    # If the lab is in the formset and not marked for deletion,
-                                    # append it to the form instance's labs_qs if it's not already there
-                                    if lab not in qs_attr:
-                                        qs_attr.append(lab)
-                                    if getattr(lab, query_obj_attr, None) is None:
-                                        setattr(lab, query_obj_attr, query_obj)
-                                        labs_2_save.append(lab)
-                                    # If so, break out of the loop
-                                    break
-                                # If it is marked for deletion, it will be removed by the formset loop below
-                        except KeyError:
-                            pass
-                    else:
-                        # If not, add the lab to the labs_2_rem list
-                        labs_2_rem.append(lab)
-                        qs_attr.remove(lab)
+                    # NOTE: FOR FUTURE SELF: COPY A LIST WHEN ITERATING OVER IT AND ADDING/REMOVING ELEMENTS
+                    for lab in qs_attr.copy():
+                        # Check if the lab is not in the formset's cleaned_data list by id key
+                        for lab_form in cleaned_data:
+                            try:
+                                if lab_form["id"] == lab:
+                                    # Check if the form is not marked for deletion
+                                    if not lab_form["DELETE"]:
+                                        # If the lab is in the formset and not marked for deletion,
+                                        # append it to the form instance's labs_qs if it's not already there
+                                        if lab not in qs_attr:
+                                            qs_attr.append(lab)
+                                        if getattr(lab, query_obj_attr, None) is None:
+                                            setattr(lab, query_obj_attr, query_obj)
+                                            labs_2_save.append(lab)
+                                        # If so, break out of the loop
+                                        break
+                                    # If it is marked for deletion, it will be removed by the formset loop below
+                            except KeyError:
+                                pass
+                        else:
+                            # If not, add the lab to the labs_2_rem list
+                            labs_2_rem.append(lab)
+                            qs_attr.remove(lab)
                 # Iterate over the forms in the formset
                 for form in lab_formset:
                     # Check if the form has a value in the "value" field
@@ -1111,7 +1108,7 @@ class MedHistoryModelBaseMixin:
                 **mh_forms if mh_forms else {},
                 **mh_det_forms if mh_det_forms else {},
                 **ma_forms if ma_forms else {},
-                **lab_formsets if lab_formsets else {},
+                **{f"{lab}_formset": formset for lab, formset in lab_formsets.items()} if lab_formsets else {},
                 **{f"{lab}_formset_helper": lab_tup[1] for lab, lab_tup in labs.items()} if labs else {},
             )
         )

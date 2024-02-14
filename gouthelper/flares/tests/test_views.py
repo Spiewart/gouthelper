@@ -2067,7 +2067,6 @@ class TestFlarePseudopatientUpdate(TestCase):
         flare.refresh_from_db()
         self.assertTrue(getattr(flare, "urate", None))
         urate = flare.urate
-        print(Urate.objects.get(pk=urate.pk).value)
         self.assertEqual(urate.value, Decimal("6.0"))
 
     def test__post_deletes_urate(self):
@@ -2480,19 +2479,15 @@ class TestFlareUpdate(TestCase):
 
         # Iterate over some flares
         for flare in Flare.objects.filter(user__isnull=True).all()[:10]:
-            print(flare.medhistory_set.all())
             # Create some fake data and calculate the difference between the current and intended MedHistorys
             # on the Flare
             data = flare_data_factory()
             mh_count = flare.medhistory_set.count()
             mh_diff = medhistory_diff_obj_data(flare, data, FLARE_MEDHISTORYS)
-            print(mh_diff)
-            print(mh_count)
             # Post the data
             response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
             tests_print_response_form_errors(response)
             self.assertEqual(response.status_code, 302)
-            print(flare.medhistory_set.all())
             # Assert that the number of MedHistory objects in the Flare's medhistory_set changed correctly
             self.assertEqual(flare.medhistory_set.count(), mh_count + mh_diff)
 

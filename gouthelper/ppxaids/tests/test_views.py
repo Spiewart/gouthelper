@@ -318,6 +318,7 @@ class TestPpxAidDetail(TestCase):
 
         # Re-POST the view and check to see if if the recommendation has been updated
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=ppxaid.pk)
 
         # Refresh the ppxaid from the db
@@ -339,12 +340,14 @@ class TestPpxAidDetail(TestCase):
         ppxaid.medallergy_set.add(medallergy)
 
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}) + "?updated=True")
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=self.ppxaid.pk)
         # This needs to be manually refetched from the db
         self.assertTrue(PpxAid.objects.order_by("created").last().recommendation[0] == Treatments.NAPROXEN)
 
         # Call without the updated=True query param and assert that the recommendation has been updated
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
+        request.user = AnonymousUser()
         self.view.as_view()(request, pk=ppxaid.pk)
         # Refresh the ppxaid from the db
         ppxaid.refresh_from_db()
@@ -454,6 +457,8 @@ class TestPpxAidPseudopatientCreate(TestCase):
 
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.psp
+        view.setup(request, username=self.psp.username)
+        view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
         form_kwargs = view.get_form_kwargs()
@@ -481,13 +486,15 @@ class TestPpxAidPseudopatientCreate(TestCase):
         self.assertTrue(hasattr(view, "user"))
         self.assertEqual(view.user, self.user)
         # Create a new PpxAid and test that the view redirects to the detailview
-        ppxaid = create_ppxaid(user=self.user)
+        create_ppxaid(user=self.user)
         self.client.force_login(self.user)
         response = self.client.get(
             reverse("ppxaids:pseudopatient-create", kwargs={"username": self.user.username}), follow=True
         )
         self.assertEqual(view.user, self.user)
-        self.assertRedirects(response, ppxaid.get_absolute_url())
+        self.assertRedirects(
+            response, reverse("ppxaids:pseudopatient-update", kwargs={"username": self.user.username})
+        )
         # Check that the response message is correct
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
@@ -1196,6 +1203,7 @@ class TestppxaidPseudopatientUpdate(TestCase):
         # Create a fake request
         request = self.factory.get("/fake-url/")
         view = self.view(request=request)
+        view.setup(request, username=self.user.username)
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
 
@@ -1256,6 +1264,7 @@ class TestppxaidPseudopatientUpdate(TestCase):
         self.assertEqual(view.user, self.user)
         # Repeat the test for a User w/o a PpxAid
         user_no_ppxaid = create_psp()
+        view = self.view()
         view.setup(request, username=user_no_ppxaid.username)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()

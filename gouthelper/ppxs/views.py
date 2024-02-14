@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal  # pylint: disable=e0401, e0015 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
 from django.contrib import messages  # pylint: disable=e0401 # pylint: disable=e0401 # type: ignore
@@ -19,6 +19,7 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
 
 from ..contents.choices import Contexts
 from ..labs.forms import LabFormHelper, PpxUrateFormSet
+from ..labs.helpers import labs_urates_annotate_order_by_dates
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates
 from ..medhistorydetails.forms import GoutDetailPpxForm
@@ -32,13 +33,7 @@ from .selectors import ppx_user_qs, ppx_userless_qs
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
-    from django.db.models import Model, QuerySet  # pylint: disable=e0401 # type: ignore
-    from django.http import HttpResponse  # pylint: disable=e0401 # type: ignore
-
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
-    from ..medhistorys.models import MedHistory
+    from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 
     User = get_user_model()
 
@@ -72,35 +67,16 @@ class PpxBase:
     labs: dict[Literal["urate"], tuple[PpxUrateFormSet, LabFormHelper]] = {"urate": (PpxUrateFormSet, LabFormHelper)}
 
 
-class PpxCreate(PpxBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class PpxCreate(PpxBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new Ppx instance.
     """
 
-    def form_valid(
-        self,
-        form: PpxForm,
-        oto_2_save: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
-        # Object will be returned by the super().form_valid() call
-        aid_object = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            mh_det_2_save=mh_det_2_save,
-            ma_2_save=ma_2_save,
-            mh_2_save=mh_2_save,
-            labs_2_save=labs_2_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        aid_object.update_aid(qs=aid_object)
-        return HttpResponseRedirect(aid_object.get_absolute_url())
+    permission_required = "ppxs.can_add_ppx"
+    success_message = "Ppx successfully created."
+
+    def get_permission_object(self):
+        return None
 
     @cached_property
     def urate_formset_qs(self):
@@ -110,36 +86,51 @@ class PpxCreate(PpxBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMix
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formsets
-            oto_2_save,
-            ma_2_save,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
+            mh_2_rem,
             mh_det_2_save,
+            mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
             labs_2_save,
+            labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
         else:
+            labs_urates_annotate_order_by_dates(form.instance.urates_qs)
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
-                oto_2_save=oto_2_save,
-                mh_det_2_save=mh_det_2_save,
+                form=form,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=None,
+                ma_2_rem=None,
                 labs_2_save=labs_2_save,
+                labs_2_rem=labs_2_rem,
             )
 
 
-class PpxDetailBase(DetailView):
+class PpxDetailBase(AutoPermissionRequiredMixin, DetailView):
     class Meta:
         abstract = True
 
     model = Ppx
     object: Ppx
+
+    @property
+    def contents(self):
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPX)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -147,9 +138,8 @@ class PpxDetailBase(DetailView):
             context.update({content.slug: {content.tag: content}})  # type: ignore
         return context
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPX)
+    def get_permission_object(self):
+        return self.object
 
 
 class PpxDetail(PpxDetailBase):
@@ -193,64 +183,12 @@ class PpxPatientBase(PpxBase):
 
 
 class PpxPseudopatientCreate(
-    PermissionRequiredMixin, PpxPatientBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin
+    PpxPatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Ppx for a patient."""
 
-    permission_required = "ppxs.can_add_pseudopatient_ppx"
+    permission_required = "ppxs.can_add_ppx"
     success_message = "%(username)s's Ppx successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct PpxPseudopatientUpdate url instead."""
-        model = self.get_object()  # Will also set self.user
-        if model.objects.filter(user=self.user).exists():
-            messages.error(request, f"{self.user} already has a {model.__name__}. Please update it instead.")
-            view_str = "ppxs:pseudopatient-detail"
-            return HttpResponseRedirect(reverse(view_str, kwargs={"username": self.user.username}))
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        ppx = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.ppx = ppx
-        # Update object / form instance
-        ppx.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(ppx.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -265,19 +203,19 @@ class PpxPseudopatientCreate(
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formsets
-            _,  # ma_2_save
-            _,  # ma_2_rem
-            _,  # oto_2_rem
-            _,  # oto_2_save
-            mh_det_2_save,
-            mh_det_2_rem,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
             labs_2_save,
             labs_2_rem,
         ) = super().post(request, *args, **kwargs)
@@ -285,21 +223,21 @@ class PpxPseudopatientCreate(
             return errors
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=None,
-                ma_2_rem=None,
-                oto_2_rem=None,
+                form=form,
                 oto_2_save=None,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=None,
+                ma_2_rem=None,
                 labs_2_save=labs_2_save,
                 labs_2_rem=labs_2_rem,
             )
 
 
-class PpxPseudopatientDetail(AutoPermissionRequiredMixin, PpxDetailBase):
+class PpxPseudopatientDetail(PpxDetailBase):
     """Overwritten for different url routing, object fetching, and
     building the content data."""
 
@@ -349,61 +287,9 @@ class PpxPseudopatientDetail(AutoPermissionRequiredMixin, PpxDetailBase):
 
 
 class PpxPseudopatientUpdate(
-    AutoPermissionRequiredMixin, PpxPatientBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin
+    PpxPatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's Ppx successfully created."
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the User has a Ppx and redirect to the CreateView if not."""
-        try:
-            self.object = self.get_object()
-        except Ppx.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(reverse("ppxs:pseudopatient-create", kwargs={"username": kwargs["username"]}))
-        # self.user set by get_object()
-        try:
-            self.check_user_onetoones(user=self.user)
-        except AttributeError as exc:
-            messages.error(request, exc)
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-        form = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        ppx = form.save()
-        # Add the relationship to the existing user object so that user
-        # can be used as the QuerySet for the update method
-        self.user.ppx = ppx
-        # Update object / form instance
-        ppx.update_aid(qs=self.user)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(ppx.get_absolute_url() + "?updated=True")
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -420,19 +306,19 @@ class PpxPseudopatientUpdate(
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # medallergys_forms
-            _,  # lab_formset
-            _,  # ma_2_save
-            _,  # ma_2_rem
-            _,  # oto_2_rem
-            _,  # oto_2_save
-            mh_det_2_save,
-            mh_det_2_rem,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
+            mh_det_2_save,
+            mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
             labs_2_save,
             labs_2_rem,
         ) = super().post(request, *args, **kwargs)
@@ -440,62 +326,31 @@ class PpxPseudopatientUpdate(
             return errors
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=None,
-                ma_2_rem=None,
-                oto_2_rem=None,
+                form=form,
                 oto_2_save=None,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=None,
+                ma_2_rem=None,
                 labs_2_save=labs_2_save,
                 labs_2_rem=labs_2_rem,
             )
 
 
-class PpxUpdate(PpxBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class PpxUpdate(PpxBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ppx"""
 
     labs = {"urate": (PpxUrateFormSet, LabFormHelper, dated_urates(Urate.objects.all()))}
 
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", GoutDetailPpxForm] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-
-        self.object = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
-        # Update object / form instance
-        self.object.update_aid(qs=self.object)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
-
     @cached_property
     def urate_formset_qs(self):
         return dated_urates(Urate.objects.filter(ppx=self.object))
+
+    def get_permission_object(self):
+        return self.object
 
     def get_queryset(self):
         return ppx_userless_qs(self.kwargs["pk"])
@@ -504,34 +359,35 @@ class PpxUpdate(PpxBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMix
         (
             errors,
             form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formsets
-            oto_2_save,
-            oto_2_rem,
-            ma_2_save,
-            ma_2_rem,
+            _,  # oto_forms,
+            _,  # mh_forms,
+            _,  # mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
             mh_det_2_save,
             mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
             labs_2_save,
             labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
+        labs_urates_annotate_order_by_dates(form.instance.urates_qs)
         return self.form_valid(
-            form=form,  # type: ignore
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            oto_2_rem=oto_2_rem,
-            oto_2_save=oto_2_save,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
+            form=form,
+            oto_2_rem=None,
+            oto_2_save=None,
             mh_2_save=mh_2_save,
             mh_2_rem=mh_2_rem,
+            mh_det_2_save=mh_det_2_save,
+            mh_det_2_rem=mh_det_2_rem,
+            ma_2_save=None,
+            ma_2_rem=None,
             labs_2_save=labs_2_save,
             labs_2_rem=labs_2_rem,
         )

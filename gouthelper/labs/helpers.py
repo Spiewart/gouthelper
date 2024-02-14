@@ -138,6 +138,23 @@ def labs_urates_chronological_dates(
         raise ValueError("The Urates are not in chronological order. QuerySet must be ordered by date.")
 
 
+def labs_urates_annotate_order_by_dates(
+    urates: list["Urate"],
+) -> None:
+    """Method that takes a list of Urate objects and annotates each Urate with a date attr
+    that is derived from the date_drawn field on the Urate if it exists and, if not,
+    the date_started field on the Urate's Flare object. Raises a ValueError if neither
+    field exists. Orders the list by date in descending order."""
+    for urate in urates:
+        if urate.date_drawn:
+            urate.date = urate.date_drawn
+        elif hasattr(urate, "flare") and urate.flare.date_started:
+            urate.date = urate.flare.date_started
+        else:
+            raise ValueError(f"Urate {urate} has no date_drawn, Flare, or annotated date.")
+    urates.sort(key=lambda x: x.date, reverse=True)
+
+
 def labs_urates_hyperuricemic(
     urates: Union["QuerySet[Urate]", list["Urate"]],
     goutdetail: Union["GoutDetail", None] = None,

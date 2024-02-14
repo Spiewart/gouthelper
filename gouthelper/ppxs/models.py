@@ -78,7 +78,6 @@ class Ppx(
     def at_goal(self) -> bool:
         """Method that interprets the Ppx's labs (Urates) and returns a bool
         indicating whether the patient is at goal."""
-        print("in at goal")
         if hasattr(self, "urates_qs"):
             return labs_urates_months_at_goal(
                 urates=self.urates_qs,

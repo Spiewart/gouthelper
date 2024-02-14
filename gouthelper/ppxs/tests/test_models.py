@@ -5,6 +5,7 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...labs.helpers import labs_urates_annotate_order_by_dates
 from ...labs.models import Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.lists import PPX_MEDHISTORYS
@@ -41,6 +42,8 @@ class TestPpx(TestCase):
         self.assertFalse(self.ppx.at_goal)
         for urate in self.urates:
             urate.ppx = self.ppx
+            self.ppx.urates_qs.append(urate)
+            labs_urates_annotate_order_by_dates(urates=self.ppx.urates_qs)
             urate.save()
         # Need to delete the cached_property to test the property again.
         del self.ppx.at_goal

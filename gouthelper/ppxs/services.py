@@ -71,7 +71,7 @@ class PpxDecisionAid:
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
-        return defaults_get_goalurate(self.user if self.user else self)
+        return defaults_get_goalurate(self.user if self.user else GoalUrates.SIX)
 
     @property
     def flaring(self) -> bool:

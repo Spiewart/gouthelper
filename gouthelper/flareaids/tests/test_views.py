@@ -405,7 +405,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
                         response.context_data[f"{mhtype}_form"].instance._state.adding
                         is True  # pylint: disable=w0212, line-too-long # noqa: E501
                     )
-                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
             assert "ckddetail_form" in response.context_data
             if user.ckd:
                 if getattr(user.ckd, "ckddetail", None):
@@ -548,12 +548,10 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"{MedHistoryTypes.DIABETES}-value": False,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
-        print(self.psp.medhistory_set.all())
         response = self.client.post(
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         assert response.status_code == 302
-        print(self.psp.medhistory_set.all())
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES).exists())
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
 
@@ -1091,7 +1089,6 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         self.assertEqual(view.user, self.user)
         # Repeat the test for a User w/o a FlareAid
         user_no_flareaid = create_psp()
-        print(user_no_flareaid)
         view = self.view()
         view.setup(request, username=user_no_flareaid.username)
         with self.assertRaises(ObjectDoesNotExist):
