@@ -278,15 +278,15 @@ class TestPpxAidDetail(TestCase):
         for content in self.content_qs:
             self.assertIn(content, self.view().contents)
 
-    def test__dispatch_redirects_if_flareaid_user(self):
+    def test__dispatch_redirects_if_ppxaid_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
         PpxAid has a user."""
-        user_fa = create_ppxaid(user=True)
+        user_ppxaid = create_ppxaid(user=True)
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
-        response = self.view.as_view()(request, pk=user_fa.pk)
+        response = self.view.as_view()(request, pk=user_ppxaid.pk)
         assert response.status_code == 302
-        assert response.url == reverse("ppxaids:pseudopatient-detail", kwargs={"username": user_fa.user.username})
+        assert response.url == reverse("ppxaids:pseudopatient-detail", kwargs={"username": user_ppxaid.user.username})
 
     def test__get_context_data(self):
         response = self.client.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}))
@@ -355,74 +355,6 @@ class TestPpxAidDetail(TestCase):
         del ppxaid.aid_dict
         del ppxaid.recommendation
         self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
-
-
-class TestPpxAidUpdate(TestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
-        self.view: PpxAidUpdate = PpxAidUpdate
-
-    def test__dispatch_redirects_if_flareaid_user(self):
-        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
-        FlareAid has a user."""
-        user_fa = create_ppxaid(user=True)
-        request = self.factory.get("/fake-url/")
-        request.user = AnonymousUser()
-        response = self.view.as_view()(request, pk=user_fa.pk)
-        assert response.status_code == 302
-        assert response.url == reverse("ppxaids:pseudopatient-update", kwargs={"username": user_fa.user.username})
-
-    def test__dispatch_returns_HttpResponse(self):
-        """Test that the overwritten dispatch() method returns an HttpResponse."""
-        ppxaid = create_ppxaid()
-        request = self.factory.get("/fake-url/")
-        request.user = AnonymousUser()
-        view = self.view()
-        kwargs = {"pk": ppxaid.pk}
-        view.setup(request, **kwargs)
-        response = view.dispatch(request, **kwargs)
-        assert response.status_code == 200
-        assert isinstance(response, HttpResponse)
-
-    def test__post_updates_medallergys(self):
-        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
-            data = ppxaid_data_factory()
-
-            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
-
-            tests_print_response_form_errors(response)
-            self.assertEqual(response.status_code, 302)
-
-            # Iterate over the data and check the medallergy values are reflected in the updated ppxaid
-            for key, val in data.items():
-                split_key = key.split("_")
-                try:
-                    trt = split_key[1]
-                except IndexError:
-                    continue
-                if trt in Treatments.values:
-                    if val:
-                        self.assertTrue(ppxaid.medallergy_set.filter(treatment=trt).exists())
-                    else:
-                        self.assertFalse(ppxaid.medallergy_set.filter(treatment=trt).exists())
-
-    def test__post_updates_medhistorys(self):
-        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
-            data = ppxaid_data_factory()
-
-            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
-
-            tests_print_response_form_errors(response)
-            self.assertEqual(response.status_code, 302)
-
-            # Iterate over data and check medhistory values are reflected in the updated ppxaid
-            for key, val in data.items():
-                mh = key.split("-")[0]
-                if mh in MedHistoryTypes.values:
-                    if val:
-                        self.assertTrue(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())
-                    else:
-                        self.assertFalse(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())
 
 
 class TestPpxAidPseudopatientCreate(TestCase):
@@ -975,7 +907,7 @@ class TestPpxAidPseudopatientCreate(TestCase):
         assert response.status_code == 200
 
 
-class TestppxaidPseudopatientDetail(TestCase):
+class TestPpxAidPseudopatientDetail(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.view = PpxAidPseudopatientDetail
@@ -1173,7 +1105,7 @@ class TestppxaidPseudopatientDetail(TestCase):
         self.assertIn(Treatments.COLCHICINE, PpxAid.objects.get(user=psp).options)
 
 
-class TestppxaidPseudopatientUpdate(TestCase):
+class TestPpxAidPseudopatientUpdate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.view = PpxAidPseudopatientUpdate
@@ -1639,3 +1571,71 @@ class TestppxaidPseudopatientUpdate(TestCase):
         # Test that the logged in Admin can see an anonymous Pseudopatient
         response = self.client.get(anon_psp_url)
         assert response.status_code == 200
+
+
+class TestPpxAidUpdate(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.view: PpxAidUpdate = PpxAidUpdate
+
+    def test__dispatch_redirects_if_flareaid_user(self):
+        """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
+        FlareAid has a user."""
+        user_fa = create_ppxaid(user=True)
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=user_fa.pk)
+        assert response.status_code == 302
+        assert response.url == reverse("ppxaids:pseudopatient-update", kwargs={"username": user_fa.user.username})
+
+    def test__dispatch_returns_HttpResponse(self):
+        """Test that the overwritten dispatch() method returns an HttpResponse."""
+        ppxaid = create_ppxaid()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        view = self.view()
+        kwargs = {"pk": ppxaid.pk}
+        view.setup(request, **kwargs)
+        response = view.dispatch(request, **kwargs)
+        assert response.status_code == 200
+        assert isinstance(response, HttpResponse)
+
+    def test__post_updates_medallergys(self):
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
+            data = ppxaid_data_factory()
+
+            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
+
+            tests_print_response_form_errors(response)
+            self.assertEqual(response.status_code, 302)
+
+            # Iterate over the data and check the medallergy values are reflected in the updated ppxaid
+            for key, val in data.items():
+                split_key = key.split("_")
+                try:
+                    trt = split_key[1]
+                except IndexError:
+                    continue
+                if trt in Treatments.values:
+                    if val:
+                        self.assertTrue(ppxaid.medallergy_set.filter(treatment=trt).exists())
+                    else:
+                        self.assertFalse(ppxaid.medallergy_set.filter(treatment=trt).exists())
+
+    def test__post_updates_medhistorys(self):
+        for ppxaid in PpxAid.objects.filter(user__isnull=True).all()[:10]:
+            data = ppxaid_data_factory()
+
+            response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
+
+            tests_print_response_form_errors(response)
+            self.assertEqual(response.status_code, 302)
+
+            # Iterate over data and check medhistory values are reflected in the updated ppxaid
+            for key, val in data.items():
+                mh = key.split("-")[0]
+                if mh in MedHistoryTypes.values:
+                    if val:
+                        self.assertTrue(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())
+                    else:
+                        self.assertFalse(ppxaid.medhistory_set.filter(medhistorytype=mh).exists())

@@ -115,3 +115,23 @@ class GoutDetailFactory(DjangoModelFactory):
     hyperuricemic = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
     on_ppx = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
     on_ult = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
+
+    class Params:
+        ppx_conditional = Trait(
+            flaring=True,
+            hyperuricemic=True,
+            on_ppx=False,
+            on_ult=True,
+        )
+        ppx_indicated = Trait(
+            flaring=True,
+            hyperuricemic=True,
+            on_ppx=False,
+            on_ult=False,
+        )
+        ppx_not_indicated = Trait(
+            flaring=False,
+            hyperuricemic=False,
+            on_ppx=False,
+            on_ult=False,
+        )

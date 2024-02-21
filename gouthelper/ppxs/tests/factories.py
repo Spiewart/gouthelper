@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Union  # pylint: disable=e0401 # type: ignore
 
 import factory  # pylint: disable=e0401 # type: ignore
 import pytest  # pylint: disable=e0401 # type: ignore
+from django.db.models import QuerySet
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # type: ignore
 
@@ -12,6 +13,7 @@ from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPX_MEDHISTORYS
+from ...utils.helpers.helpers import get_qs_or_set
 from ...utils.helpers.test_helpers import (
     LabCreatorMixin,
     MedHistoryCreatorMixin,
@@ -62,8 +64,14 @@ def ppx_data_factory(
     ppx: Ppx | None = None,
     urates: list[Urate, Decimal] | None = None,
     init_urates: list[Urate, Decimal] | None = None,
+    **kwargs,
 ) -> dict[str, str]:
     """Create data for related MedHistory and Urate objects for the Ppx."""
+    if ppx:
+        if user and ppx.user != user:
+            raise ValueError("Ppx does not belong to User. Something wrong.")
+        elif ppx.user and not user:
+            user = ppx.user
     data = CreatePpxData(
         medallergys=None,
         medhistorys=PPX_MEDHISTORYS,
@@ -72,31 +80,43 @@ def ppx_data_factory(
         user=user,
         aid_obj=ppx,
     ).create()
-    ppx_stub = PpxFactory.stub()
-    # Assign stub attrs to the data as key/val pairs
-    for attr in dir(ppx_stub):
-        if not attr.startswith("_"):
-            data.update({attr: getattr(ppx_stub, attr)})
-
+    if kwargs and "starting_ult" in kwargs:
+        data.update({"starting_ult": kwargs["starting_ult"]})
+    elif ppx:
+        data.update({"starting_ult": ppx.starting_ult})
+    elif user and hasattr(user, "ppx"):
+        data.update({"starting_ult": user.ppx.starting_ult})
+    else:
+        ppx_stub = PpxFactory.stub()
+        # Assign stub attrs to the data as key/val pairs
+        for attr in dir(ppx_stub):
+            if not attr.startswith("_"):
+                data.update({attr: getattr(ppx_stub, attr)})
     # Create data for urates
-    if ppx:
-        if init_urates:
-            raise ValueError("If ppx is provided, init_urates must be None.")
-        if user:
-            raise ValueError("If ppx is provided, user must be None.")
-        init_urates = ppx.urate_qs if hasattr(ppx, "urate_qs") else ppx.urate_set.order_by("date_drawn").all()
-    elif user:
+    if user:
         if init_urates:
             raise ValueError("If user is provided, init_urates must be None.")
-        init_urates = user.urate_qs if hasattr(user, "urate_qs") else user.urate_set.order_by("date_drawn").all()
+        init_urates = get_qs_or_set(user, "urate")
+    elif ppx:
+        if init_urates:
+            raise ValueError("If ppx is provided, init_urates must be None.")
+        init_urates = get_qs_or_set(ppx, "urate")
     else:
         init_urates = sorted(init_urates, key=lambda urate: urate.date_drawn) if init_urates else []
+    if isinstance(init_urates, QuerySet):
+        init_urates.order_by("date_drawn")
     init_urate_len = len(init_urates)
     if init_urates:
         exi_i = 0
         for urate in init_urates:
+            # If the urate list is not None and the urate is not in the list,
+            # it needs to be marked for deletion in the formset
+            if urates is not None and urate not in urates:
+                data.update(create_urate_data(exi_i, urate))
+                data.update({f"urate-{exi_i}-DELETE": "on"})
+                exi_i += 1
             # 50/50 chance that each initial urate will be deleted
-            if fake.boolean():
+            elif fake.boolean():
                 data.update(create_urate_data(exi_i, urate))
                 # 50/50 chance the urate value changed
                 if fake.boolean():
@@ -133,7 +153,7 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
         # Set the kwargs from the super() method
         kwargs = super().create(**kwargs)
 
-        # Pop the mhs_specified from the kwargs so it don't get passed to the GoalUrate constructor
+        # Pop the mhs_specified from the kwargs so it don't get passed to the Ppx constructor
         mhs_specified = kwargs.pop("mhs_specified", False)
 
         # Create the Ppx

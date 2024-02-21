@@ -28,6 +28,7 @@ from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
+from ...ults.choices import Indications
 from ..choices import Roles
 from ..models import Pseudopatient
 
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
     User = get_user_model()
 
 fake = faker.Faker()
+
+User = get_user_model()
 
 
 class UserFactory(DjangoModelFactory):
@@ -100,6 +103,7 @@ def create_psp(
     medallergys: list[Treatments] | None = None,
     menopause: bool = False,
     plus: bool = False,
+    ppx_indicated: Indications | None = None,
 ) -> Pseudopatient:
     """Method that creates a Pseudopatient and dynamically set related models
     using FactoryBoy. Hopefully avoids IntegrityErrors."""
@@ -170,7 +174,14 @@ def create_psp(
     # of whether this is run as a function or as a factory
     with transaction.atomic():
         try:
-            psp.pseudopatientprofile = PseudopatientProfileFactory(user=psp, provider=provider)
+            psp.pseudopatientprofile = PseudopatientProfileFactory(
+                user=psp,
+                provider=provider
+                if isinstance(provider, User)
+                else UserFactory(role=Roles.PROVIDER)
+                if provider
+                else None,
+            )
         except IntegrityError:
             pass
     # Next deal with required, optional, and randomly generated MedHistorys
@@ -191,7 +202,15 @@ def create_psp(
         gout = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.GOUT)
     with transaction.atomic():
         try:
-            GoutDetailFactory(medhistory=gout)
+            if ppx_indicated is not None:
+                if ppx_indicated == Indications.CONDITIONAL:
+                    GoutDetailFactory(medhistory=gout, ppx_conditional=True)
+                elif ppx_indicated == Indications.INDICATED:
+                    GoutDetailFactory(medhistory=gout, ppx_indicated=True)
+                else:
+                    GoutDetailFactory(medhistory=gout, ppx_not_indicated=True)
+            else:
+                GoutDetailFactory(medhistory=gout)
         except IntegrityError:
             pass
     if hasattr(psp, "gender'") and psp.gender.value == Genders.FEMALE and hasattr(psp, "dateofbirth"):

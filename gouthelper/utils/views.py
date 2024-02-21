@@ -95,7 +95,7 @@ class MedHistoryModelBaseMixin:
         elif hasattr(baselinecreatinine_form.instance, "to_delete"):
             mhd_to_remove.append(baselinecreatinine_form)
 
-    def check_user_onetoones(self, user: "User") -> None:
+    def check_user_onetoones(self, user: User) -> None:
         """Method that checks the view's user for the required onetoone models
         and raises and redirects to the user's profile updateview if they are
         missing."""
@@ -190,7 +190,7 @@ class MedHistoryModelBaseMixin:
     def context_labs(
         self,
         labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet"]],
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
         kwargs: dict,
     ) -> None:
         """Method adds a formset of labs to the context. Uses a QuerySet that takes a query_obj
@@ -219,7 +219,7 @@ class MedHistoryModelBaseMixin:
         self,
         medallergys: list["MedAllergy"],
         kwargs: dict,
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> None:
         for treatment in medallergys:
             form_str = f"medallergy_{treatment}_form"
@@ -238,7 +238,7 @@ class MedHistoryModelBaseMixin:
         medhistorys: dict[MedHistoryTypes, "FormModelDict"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         kwargs: dict,
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
         ckddetail: bool,
         goutdetail: bool,
     ) -> None:
@@ -275,7 +275,7 @@ class MedHistoryModelBaseMixin:
         onetoones: dict[str, "FormModelDict"],
         req_onetoones: list[str],
         kwargs: dict,
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> None:
         """Method to populate the kwargs dict with forms for the objects's related 1to1 models. For
         required one to one objects, the value is set as a kwarg for the context."""
@@ -311,12 +311,15 @@ class MedHistoryModelBaseMixin:
         try:
             self.object = self.get_object()
         except self.model.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse(
-                    f"{self.model.__name__.lower()}s:pseudopatient-create", kwargs={"username": kwargs["username"]}
+            if self.user:
+                messages.error(request, exc.args[0])
+                return HttpResponseRedirect(
+                    reverse(
+                        f"{self.model.__name__.lower()}s:pseudopatient-create", kwargs={"username": kwargs["username"]}
+                    )
                 )
-            )
+            else:
+                raise exc
         if self.user:
             try:
                 self.check_user_onetoones(user=self.user)
@@ -435,9 +438,8 @@ class MedHistoryModelBaseMixin:
                 for lab in labs_2_save:
                     if self.user and lab.user is None:
                         lab.user = self.user
-                    else:
-                        if getattr(lab, aid_obj_attr, None) is None:
-                            setattr(lab, aid_obj_attr, aid_obj)
+                    elif not self.user and getattr(lab, aid_obj_attr, None) is None:
+                        setattr(lab, aid_obj_attr, aid_obj)
                     lab.save()
             if labs_2_rem:
                 for lab in labs_2_rem:
@@ -521,7 +523,7 @@ class MedHistoryModelBaseMixin:
 
     def get_oto_obj(
         self,
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
         oto: str,
         alt_obj: Model = None,
     ) -> Model:
@@ -747,7 +749,7 @@ class MedHistoryModelBaseMixin:
         self,
         request: "HttpRequest",
         labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str]] | None,
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> dict[str, "BaseModelFormSet"] | None:
         """Method to populate a dict of lab forms with POST data in the post() method."""
         if labs:
@@ -782,7 +784,7 @@ class MedHistoryModelBaseMixin:
         self,
         medallergys: None | type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"],
         request: "HttpRequest",
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> dict[str, "ModelForm"]:
         """Method to populate the forms for the MedAllergys for the post() method."""
         ma_forms: dict[str, "ModelForm"] = {}
@@ -809,7 +811,7 @@ class MedHistoryModelBaseMixin:
         self,
         medhistorys: dict[MedHistoryTypes, "FormModelDict"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
         request: "HttpRequest",
         ckddetail: bool,
         goutdetail: bool,
@@ -870,7 +872,7 @@ class MedHistoryModelBaseMixin:
         self,
         onetoones: dict[str, "FormModelDict"],
         request: "HttpRequest",
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> dict[str, "ModelForm"]:
         """Method that populates a dict of OneToOne related model forms with POST data
         in the post() method."""
@@ -891,7 +893,7 @@ class MedHistoryModelBaseMixin:
     def post_process_lab_formsets(
         self,
         lab_formsets: dict[str, "BaseModelFormSet"],
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> tuple[list["Lab"], list["Lab"]]:
         """Method to process the forms in a Lab formset for the post() method.
         Requires a list of existing labs (can be empty) to iterate over and compare to the forms in the
@@ -926,7 +928,8 @@ class MedHistoryModelBaseMixin:
                                         if lab not in qs_attr:
                                             qs_attr.append(lab)
                                         if getattr(lab, query_obj_attr, None) is None:
-                                            setattr(lab, query_obj_attr, query_obj)
+                                            if not self.user:
+                                                setattr(lab, query_obj_attr, query_obj)
                                             labs_2_save.append(lab)
                                         # If so, break out of the loop
                                         break
@@ -942,7 +945,7 @@ class MedHistoryModelBaseMixin:
                     # Check if the form has a value in the "value" field
                     if "value" in form.cleaned_data and not form.cleaned_data["DELETE"]:
                         # Check if the form has an instance and the form has changed
-                        if getattr(form.instance, query_obj_attr, None) is None:
+                        if getattr(form.instance, query_obj_attr, None) is None and not self.user:
                             setattr(form.instance, query_obj_attr, query_obj)
                             labs_2_save.append(form.instance)
                         elif (form.instance and form.has_changed()) or form.instance is None:
@@ -955,7 +958,7 @@ class MedHistoryModelBaseMixin:
     def post_process_ma_forms(
         self,
         ma_forms: dict[str, "ModelForm"],
-        query_obj: Union["MedAllergyAidHistoryModel", "User", None],
+        query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> tuple[list["MedAllergy"], list["MedAllergy"]]:
         ma_2_save: list["MedAllergy"] = []
         ma_2_rem: list["MedAllergy"] = []
@@ -988,7 +991,7 @@ class MedHistoryModelBaseMixin:
         self,
         mh_forms: dict[str, "ModelForm"],
         mh_det_forms: dict[str, "ModelForm"],
-        query_obj: Union["MedAllergyAidHistoryModel", "User"],
+        query_obj: Union["MedAllergyAidHistoryModel", User],
         ckddetail: bool,
         goutdetail: bool,
         dateofbirth: Union["DateOfBirthForm", "DateOfBirth", None],
@@ -1037,6 +1040,30 @@ class MedHistoryModelBaseMixin:
             elif mh_obj:
                 mhs_2_remove.append(mh_obj)
                 query_obj.medhistorys_qs.remove(mh_obj)
+        # Process the forms for the MedHistoryDetail objects
+        # Iterate over the forms in the MedHistoryDetail form dict and, if they are not present
+        # in the MedHistory form dict, then they still need to be processed
+        for mh_det_form_str in mh_det_forms.keys():
+            mhdet = mh_det_form_str.split("_")[0]
+            mh = mhdet.split("detail")[0]
+            if mh not in mh_forms:
+                if mhdet == "goutdetail" and goutdetail:
+                    self.goutdetail_mh_post_process(
+                        gout=query_obj.gout,
+                        mh_det_forms=mh_det_forms,
+                        mhd_to_save=mhdets_2_save,
+                    )
+                elif mhdet == "ckddetail" and ckddetail:
+                    ckddetail_errors = self.ckddetail_mh_post_process(
+                        ckd=mh_to_include,
+                        mh_det_forms=mh_det_forms,
+                        dateofbirth=dateofbirth if dateofbirth else query_obj.dateofbirth,
+                        gender=gender if gender else query_obj.gender,
+                        mhd_to_save=mhdets_2_save,
+                        mhd_to_remove=mhdets_2_remove,
+                    )
+                    if ckddetail_errors:
+                        errors = True
         return (
             mhs_2_save,
             mhs_2_remove,
@@ -1049,7 +1076,7 @@ class MedHistoryModelBaseMixin:
         self,
         oto_forms: dict[str, "ModelForm"],
         req_onetoones: list[str],
-        query_obj: Union["MedAllergyAidHistoryModel", "User"],
+        query_obj: Union["MedAllergyAidHistoryModel", User],
     ) -> tuple[list[Model], list[Model]]:
         """Method to process the forms for the OneToOne objects for the post() method."""
 
@@ -1114,7 +1141,7 @@ class MedHistoryModelBaseMixin:
         )
 
     @cached_property
-    def user(self) -> Union["User", None]:
+    def user(self) -> User | None:
         """Method that returns the User object from the username kwarg."""
         username = self.kwargs.get("username", None)
         if username:

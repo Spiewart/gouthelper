@@ -55,6 +55,16 @@ Stages = Stages.values
 Stages.remove(None)
 
 
+def create_baselinecreatinine_value() -> Decimal:
+    return fake.pydecimal(
+        left_digits=2,
+        right_digits=2,
+        positive=True,
+        min_value=2,
+        max_value=10,
+    )
+
+
 def create_medhistory_atomic(
     medhistory: MedHistoryTypes,
     user: Union["User", None] = None,
@@ -133,30 +143,29 @@ def get_mh_val(medhistory: MedHistoryTypes, bool_mhs: MedHistoryTypes) -> bool |
         return get_True_or_empty_str()
 
 
-def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: int = None) -> dict:
+def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: int = None, **kwargs) -> dict:
     if user and dateofbirth or user and gender:
         raise ValueError("Calling this function with both a user and demographic information. Not allowed.")
     data = {}
-    dialysis_value = fake.boolean()
+    d_kwarg = kwargs.get("dialysis", None) if kwargs else None
+    dialysis_value = d_kwarg if d_kwarg else fake.boolean()
     data["dialysis"] = dialysis_value
     if dialysis_value:
-        data["dialysis_duration"] = random.choice(DialysisDurations)
-        data["dialysis_type"] = random.choice(DialysisChoices.values)
+        d_d_kwarg = kwargs.get("dialysis_duration", None) if kwargs else None
+        d_t_kwarg = kwargs.get("dialysis_type", None) if kwargs else None
+        data["dialysis_duration"] = d_d_kwarg if d_d_kwarg else random.choice(DialysisDurations)
+        data["dialysis_type"] = d_t_kwarg if d_t_kwarg else random.choice(DialysisChoices.values)
     else:
         data["dialysis_duration"] = ""
         data["dialysis_type"] = ""
-        # 50/50 chance of having stage data
-        if fake.boolean():
-            # 50/50 chance of having baseline creatinine
-            if fake.boolean():
-                # Create a fake baselinecreatinine value
-                bc_value = fake.pydecimal(
-                    left_digits=2,
-                    right_digits=2,
-                    positive=True,
-                    min_value=2,
-                    max_value=10,
-                )
+        stage_kwarg = kwargs.get("stage", None) if kwargs else None
+        bc_kwarg = kwargs.get("baselinecreatinine", None) if kwargs else None
+        if stage_kwarg:
+            data["stage"] = stage_kwarg
+            if bc_kwarg:
+                data["baselinecreatinine-value"] = bc_kwarg
+            elif fake.boolean():
+                bc_value = create_baselinecreatinine_value()
                 data["baselinecreatinine-value"] = bc_value
                 data["stage"] = labs_stage_calculator(
                     eGFR=labs_eGFR_calculator(
@@ -165,30 +174,51 @@ def make_ckddetail_data(user: "User" = None, dateofbirth: "str" = None, gender: 
                         gender=gender if not user else user.gender.value,
                     )
                 )
-            else:
-                data["stage"] = random.choice(Stages)
+        elif bc_kwarg:
+            data["baselinecreatinine-value"] = bc_kwarg
+            if stage_kwarg:
+                data["stage"] = stage_kwarg
+            elif fake.boolean():
+                data["stage"] = labs_stage_calculator(
+                    eGFR=labs_eGFR_calculator(
+                        creatinine=bc_kwarg,
+                        age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
+                        gender=gender if not user else user.gender.value,
+                    )
+                )
         else:
-            # Then there is just a baselinecreatinine
-            # Create a fake baselinecreatinine value
-            bc_value = fake.pydecimal(
-                left_digits=2,
-                right_digits=2,
-                positive=True,
-                min_value=2,
-                max_value=10,
-            )
-            data["baselinecreatinine-value"] = bc_value
+            # 50/50 chance of having stage data
+            if fake.boolean():
+                # 50/50 chance of having baseline creatinine
+                if fake.boolean():
+                    # Create a fake baselinecreatinine value
+                    bc_value = create_baselinecreatinine_value()
+                    data["baselinecreatinine-value"] = bc_value
+                    data["stage"] = labs_stage_calculator(
+                        eGFR=labs_eGFR_calculator(
+                            creatinine=bc_value,
+                            age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
+                            gender=gender if not user else user.gender.value,
+                        )
+                    )
+                else:
+                    data["stage"] = random.choice(Stages)
+            else:
+                # Then there is just a baselinecreatinine
+                # Create a fake baselinecreatinine value
+                bc_value = create_baselinecreatinine_value()
+                data["baselinecreatinine-value"] = bc_value
     return data
 
 
-def make_goutdetail_data() -> dict:
+def make_goutdetail_data(**kwargs) -> dict:
     """Method that creates data for a GoutDetail object."""
-    # Create a GoutDetail stub object with attrs populated by the factory
+    data = {}
     stub = GoutDetailFactory.stub()
-
-    # Iterate over the stub's attributes and add them to a dict
-    data = {attr: getattr(stub, attr) for attr in dir(stub) if not attr.startswith("_") and not attr == "medhistory"}
-    # Return the data
+    fields = [attr for attr in dir(stub) if not attr.startswith("_") and not attr == "medhistory"]
+    for field in fields:
+        attr_kwarg = kwargs.get(field, None) if kwargs else None
+        data.update({field: attr_kwarg if attr_kwarg else getattr(stub, field)})
     return data
 
 
@@ -255,14 +285,34 @@ def update_ckddetail_data(ckddetail: "CkdDetail", data: dict) -> None:
     )
 
 
-def update_goutdetail_data(goutdetail: "GoutDetail", data: dict) -> None:
+def update_goutdetail_data(goutdetail: "GoutDetail", data: dict, **kwargs) -> None:
     """Updates a data dictionary with GoutDetail values from a GoutDetail object."""
+    flaring_kwarg = kwargs.get("flaring", None) if kwargs else None
+    hyperuricemic_kwarg = kwargs.get("hyperuricemic", None) if kwargs else None
+    on_ppx_kwarg = kwargs.get("on_ppx", None) if kwargs else None
+    on_ult_kwarg = kwargs.get("on_ult", None) if kwargs else None
     data.update(
         {
-            "flaring": goutdetail.flaring if goutdetail.flaring else "",
-            "hyperuricemic": goutdetail.hyperuricemic if goutdetail.hyperuricemic else "",
-            "on_ppx": goutdetail.on_ppx if goutdetail.on_ppx else fake.boolean(),
-            "on_ult": goutdetail.on_ult if goutdetail.on_ult else fake.boolean(),
+            "flaring": flaring_kwarg
+            if flaring_kwarg
+            else goutdetail.flaring
+            if goutdetail.flaring is not None
+            else "",
+            "hyperuricemic": hyperuricemic_kwarg
+            if hyperuricemic_kwarg
+            else goutdetail.hyperuricemic
+            if goutdetail.hyperuricemic is not None
+            else "",
+            "on_ppx": on_ppx_kwarg
+            if on_ppx_kwarg
+            else goutdetail.on_ppx
+            if goutdetail.on_ppx is not None
+            else fake.boolean(),
+            "on_ult": on_ult_kwarg
+            if on_ult_kwarg
+            else goutdetail.on_ult
+            if goutdetail.on_ult is not None
+            else fake.boolean(),
         }
     )
 
@@ -286,15 +336,6 @@ def update_or_create_ckddetail_data(
                 )
             else:
                 data.update(**make_ckddetail_data(user=user))
-        elif aid_obj and aid_obj.user:
-            if hasattr(aid_obj.user, "ckddetail"):
-                ckdetail = aid_obj.user.ckddetail
-                update_ckddetail_data(ckdetail, data)
-                data["baselinecreatinine-value"] = (
-                    user.baselinecreatinine.value if getattr(aid_obj.user, "baselinecreatinine") else ""
-                )
-            else:
-                data.update(**make_ckddetail_data(user=aid_obj.user))
         elif aid_obj:
             if hasattr(aid_obj, "ckddetail"):
                 ckdetail = aid_obj.ckddetail
@@ -313,29 +354,27 @@ def update_or_create_goutdetail_data(
     user: Union["User", None] = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
     mh_details: list[MedHistoryTypes] | None = None,
+    **kwargs,
 ) -> None:
-    gout_value = data[f"{MedHistoryTypes.GOUT}-value"]
+    if user:
+        gout_value = True
+    else:
+        gout_value = data[f"{MedHistoryTypes.GOUT}-value"]
     if mh_details and gout_value and MedHistoryTypes.GOUT in mh_details:
         if user:
             if hasattr(user, "goutdetail"):
                 goutdetail = user.goutdetail
-                update_goutdetail_data(goutdetail, data)
+                update_goutdetail_data(goutdetail, data, **kwargs)
             else:
-                data.update(**make_goutdetail_data())
-        elif aid_obj and aid_obj.user:
-            if hasattr(aid_obj.user, "goutdetail"):
-                goutdetail = aid_obj.user.goutdetail
-                update_goutdetail_data(goutdetail, data)
-            else:
-                data.update(**make_goutdetail_data())
+                data.update(**make_goutdetail_data(**kwargs))
         elif aid_obj:
             if hasattr(aid_obj, "goutdetail"):
                 goutdetail = aid_obj.goutdetail
-                update_goutdetail_data(goutdetail, data)
+                update_goutdetail_data(goutdetail, data, **kwargs)
             else:
-                data.update(**make_goutdetail_data())
+                data.update(**make_goutdetail_data(**kwargs))
         else:
-            data.update(**make_goutdetail_data())
+            data.update(**make_goutdetail_data(**kwargs))
 
 
 class DataMixin:
@@ -380,7 +419,7 @@ class DataMixin:
                     self.ethnicity = random.choice(Ethnicitys.values)
                 elif onetoone == "gender":
                     self.gender = random.choice(Genders.values)
-        self.user = user
+        self.user = user if user else aid_obj.user if aid_obj else None
         self.aid_obj = aid_obj
 
 
@@ -388,22 +427,27 @@ class MedHistoryDataMixin(DataMixin):
     """Mixin for creating data for MedHistorys and MedHistoryDetails to
     populate forms for testing."""
 
-    def create_mh_data(self, required: list[MedHistoryTypes] | None = None):
+    def create_mh_data(self, required: list[MedHistoryTypes] | None = None, **kwargs):
+        """Creates data for MedHistory objects in forms.
+
+        Args:
+            required: list[MedHistoryTypes], for which data WILL NOT be created if there
+            is a user attr on the class. GoutHelper requires this to be set elsewhere for
+            user-based views. If there is not a user attr, dict value will always be True."""
         data = {}
         # Create MedHistory data
         for medhistory in self.medhistorys:
-            if self.user:
-                data[f"{medhistory}-value"] = (
-                    True if getattr(self.user, medhistory.lower()) else False if medhistory in self.bool_mhs else ""
-                )
-            elif self.aid_obj and self.aid_obj.user:
-                data[f"{medhistory}-value"] = (
-                    True
-                    if getattr(self.aid_obj.user, medhistory.lower())
-                    else False
-                    if medhistory in self.bool_mhs
-                    else ""
-                )
+            if kwargs and medhistory in kwargs:
+                data[f"{medhistory}-value"] = kwargs[medhistory]
+            elif self.user:
+                if not required or (required and medhistory not in required):
+                    data[f"{medhistory}-value"] = (
+                        True
+                        if getattr(self.user, medhistory.lower())
+                        else False
+                        if medhistory in self.bool_mhs
+                        else ""
+                    )
             elif self.aid_obj:
                 data[f"{medhistory}-value"] = (
                     True if getattr(self.aid_obj, medhistory.lower()) else False if medhistory in self.bool_mhs else ""
@@ -413,16 +457,17 @@ class MedHistoryDataMixin(DataMixin):
             # correctly generate or not a Menopause MedHistory
             elif medhistory == MedHistoryTypes.MENOPAUSE:
                 data.update(make_menopause_data(age=self.dateofbirth, gender=self.gender))
-            elif required and medhistory in required:
-                data[f"{medhistory}-value"] = True
             else:
-                data[f"{medhistory}-value"] = get_mh_val(medhistory, self.bool_mhs)
+                if not self.user or (self.user and (not required or (required and medhistory not in required))):
+                    data[f"{medhistory}-value"] = (
+                        True if required and medhistory in required else get_mh_val(medhistory, self.bool_mhs)
+                    )
             if medhistory == MedHistoryTypes.CKD:
                 update_or_create_ckddetail_data(
-                    data, self.user, self.aid_obj, self.mh_details, self.dateofbirth, self.gender
+                    data, self.user, self.aid_obj, self.mh_details, self.dateofbirth, self.gender, **kwargs
                 )
             elif medhistory == MedHistoryTypes.GOUT:
-                update_or_create_goutdetail_data(data, self.user, self.aid_obj, self.mh_details)
+                update_or_create_goutdetail_data(data, self.user, self.aid_obj, self.mh_details, **kwargs)
         return data
 
     def create(self):

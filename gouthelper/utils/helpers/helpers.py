@@ -8,6 +8,8 @@ from django.utils import timezone  # type: ignore
 if TYPE_CHECKING:
     from datetime import date
 
+    from django.db.models import QuerySet
+
 
 def calculate_duration(
     date_started: "date",
@@ -98,6 +100,15 @@ def get_or_create_qs_attr(obj: Any, name: str) -> list:
     if not hasattr(obj, qs_name):
         setattr(obj, qs_name, [])
     return getattr(obj, qs_name)
+
+
+def get_qs_or_set(obj: Any, name: str) -> Union[list, "QuerySet"]:
+    """Method that attempts to get a prefetched QuerySet or list from an object
+    based on a str. If the str doesn't end in "s", "s" will be added to the str
+    to create the QuerySet's attr. If the attr doesn't exist, will attempt to fetch
+    the str's _set object manager."""
+    qs_name = f"{name}s_qs" if not name.endswith("s") else f"{name}_qs"
+    return getattr(obj, qs_name) if hasattr(obj, qs_name) else getattr(obj, f"{name}_set").all()
 
 
 def normalize_fraction(d):

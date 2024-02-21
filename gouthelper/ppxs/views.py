@@ -130,7 +130,7 @@ class PpxDetailBase(AutoPermissionRequiredMixin, DetailView):
 
     @property
     def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPX)
+        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPX, tag__isnull=False)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -222,6 +222,7 @@ class PpxPseudopatientCreate(
         if errors:
             return errors
         else:
+            labs_urates_annotate_order_by_dates(self.user.urates_qs)
             return self.form_valid(
                 form=form,
                 oto_2_save=None,
@@ -325,6 +326,7 @@ class PpxPseudopatientUpdate(
         if errors:
             return errors
         else:
+            labs_urates_annotate_order_by_dates(self.user.urates_qs)
             return self.form_valid(
                 form=form,
                 oto_2_save=None,

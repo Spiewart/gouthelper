@@ -87,7 +87,7 @@ class Ppx(
             )
         else:
             return labs_urates_months_at_goal(
-                urates=dated_urates(self.urate_set).all(),
+                urates=self.get_dated_urates(),
                 goutdetail=self.goutdetail if self.goutdetail else None,  # type: ignore
                 goal_urate=self.goalurate,
                 commit=False,
@@ -112,7 +112,8 @@ class Ppx(
             return reverse("ppxs:detail", kwargs={"pk": self.pk})
 
     def get_dated_urates(self):
-        return urates_dated_qs().filter(ppx=self)
+        kwargs = {"user": self.user} if self.user else {"ppx": self}
+        return urates_dated_qs().filter(**kwargs)
 
     @cached_property
     def goalurate(self) -> "GoalUrates":
