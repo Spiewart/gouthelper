@@ -119,71 +119,6 @@ class TestFlareBase(TestCase):
             "urate_form": self.urate_form,
         }
 
-    def test__post_process_menopause(self):
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        # Assert there are no errors on the menopause form
-        self.assertFalse(self.menopause_form.errors)
-        self.assertFalse(errors_bool)
-        # Change the menopause data to make it invalid (no value)
-        self.menopause_data.update({f"{MedHistoryTypes.MENOPAUSE}-value": None})
-        # Need to create new form instance to re-run is_valid and clean
-        # NOTE: This is because the form is already bound to the data ???
-        new_menopause_form = MenopauseForm(data=self.menopause_data)
-        # Re-run is_valid and clean
-        new_menopause_form.data = self.menopause_data
-        new_menopause_form.is_valid()
-        new_menopause_form.clean()
-        self.medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        # Assert there are errors on the menopause form
-        self.assertTrue(new_menopause_form.errors)
-        self.assertTrue(errors_bool)
-        # Change the flare.dateofbirth to make it too young for menopause
-        self.flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 39)
-        self.flare.dateofbirth.save()
-        self.medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        # Assert the errors_bool is False
-        # Form not tested because we didn't create a new one and the errors are the same
-        self.assertFalse(errors_bool)
-        # Change the flare.dateofbirth to make it too old for menopause
-        self.flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 61)
-        self.flare.dateofbirth.save()
-        self.medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        # Assert the errors_bool is False
-        # Form not tested because we didn't create a new one and the errors are the same
-        self.assertFalse(errors_bool)
-        self.flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 45)
-        self.flare.dateofbirth.save()
-        self.medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        self.assertTrue(errors_bool)
-        # Test male gender doesn't need menopause
-        self.flare.gender.value = Genders.MALE
-        self.flare.gender.save()
-        self.medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            self.medhistorys_forms,
-            self.flare,
-        )
-        self.assertFalse(errors_bool)
-
     def test__post_process_urate_check(self):
         _, _, errors_bool = self.view.post_process_urate_check(
             self.form,
@@ -473,6 +408,85 @@ class TestFlareCreate(TestCase):
             "For females between ages 40 and 60, we need to know the patient's \
 menopause status to evaluate their flare.",
         )
+
+    def test__post_process_menopause(self):
+        flare = create_flare(
+            dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
+            gender=GenderFactory(value=Genders.FEMALE),
+            urate=UrateFactory(value=Decimal("5.0")),
+        )
+        menopause_data = {
+            f"{MedHistoryTypes.MENOPAUSE}-value": True,
+        }
+        menopause_form = MenopauseForm(data=menopause_data)
+        menopause_form.is_valid()
+        menopause_form.clean()
+        medhistorys_forms = {
+            f"{MedHistoryTypes.MENOPAUSE}_form": menopause_form,
+        }
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        # Assert there are no errors on the menopause form
+        self.assertFalse(menopause_form.errors)
+        self.assertFalse(errors_bool)
+        # Change the menopause data to make it invalid (no value)
+        menopause_data.update({f"{MedHistoryTypes.MENOPAUSE}-value": None})
+        # Need to create new form instance to re-run is_valid and clean
+        # NOTE: This is because the form is already bound to the data ???
+        new_menopause_form = MenopauseForm(data=menopause_data)
+        # Re-run is_valid and clean
+        new_menopause_form.data = menopause_data
+        new_menopause_form.is_valid()
+        new_menopause_form.clean()
+        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        # Assert there are errors on the menopause form
+        self.assertTrue(new_menopause_form.errors)
+        self.assertTrue(errors_bool)
+        # Change the flare.dateofbirth to make it too young for menopause
+        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 39)
+        flare.dateofbirth.save()
+        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        # Assert the errors_bool is False
+        # Form not tested because we didn't create a new one and the errors are the same
+        self.assertFalse(errors_bool)
+        # Change the flare.dateofbirth to make it too old for menopause
+        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 61)
+        flare.dateofbirth.save()
+        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        # Assert the errors_bool is False
+        # Form not tested because we didn't create a new one and the errors are the same
+        self.assertFalse(errors_bool)
+        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 45)
+        flare.dateofbirth.save()
+        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        self.assertTrue(errors_bool)
+        # Test male gender doesn't need menopause
+        flare.gender.value = Genders.MALE
+        flare.gender.save()
+        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
+        _, errors_bool = self.view.post_process_menopause(
+            medhistorys_forms,
+            flare,
+        )
+        self.assertFalse(errors_bool)
 
     def test__urate_check_not_valid(self):
         self.flare_data.update(

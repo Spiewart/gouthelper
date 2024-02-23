@@ -109,7 +109,7 @@ LOCAL_APPS = [
     "gouthelper.profiles.apps.ProfilesConfig",
     "gouthelper.treatments.apps.TreatmentsConfig",
     "gouthelper.ults.apps.UltsConfig",
-    "gouthelper.ultaids.apps.UltaidsConfig",
+    "gouthelper.ultaids.apps.UltAidsConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

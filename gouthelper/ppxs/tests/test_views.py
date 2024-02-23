@@ -1261,7 +1261,6 @@ class TestPpxPseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("ppxs:pseudopatient-update", kwargs={"username": ppx.user.username}), data=data
             )
-            print(data)
             tests_print_response_form_errors(response)
             assert response.status_code == 302
 

@@ -130,7 +130,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         kwargs = super().create(**kwargs)
         # pop() the menopause kwarg from the kwargs
         menopause_kwarg = kwargs.pop("menopause", None)
-        # Pop the mhs_specified from the kwargs so it don't get passed to the GoalUrate constructor
+        # Pop the mhs_specified from the kwargs so it don't get passed to the Flare constructor
         mhs_specified = kwargs.pop("mhs_specified", False)
         flare = FlareFactory.build(**kwargs)
         # Create the OneToOne fields and add them to the Flare

@@ -1,9 +1,10 @@
 from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
+from crispy_forms.layout import Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.helpers.form_helpers import (
+    forms_helper_insert_about_the_patient,
     forms_helper_insert_cvdiseases,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_ethnicity,
@@ -35,24 +36,17 @@ class UltAidForm(
         )
 
     def __init__(self, *args, **kwargs):
-        # pop medallergys from kwargs in order to populate form from the view
         self.medallergys = kwargs.pop("medallergys")
+        self.patient = kwargs.pop("patient", None)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Fieldset(
                 "",
-                Div(
-                    HTML(
-                        """
-                            <hr size="3" color="dark">
-                            <legend>About the Patient</legend>
-                            """
-                    ),
-                ),
             ),
         )
+        forms_helper_insert_about_the_patient(layout=self.helper.layout)
         forms_helper_insert_ethnicity(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout)

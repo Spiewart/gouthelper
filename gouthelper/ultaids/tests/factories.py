@@ -1,6 +1,5 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
-import factory  # type: ignore
 import pytest  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
@@ -8,13 +7,20 @@ from factory.faker import faker  # type: ignore
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.tests.factories import GenderFactory
+from ...labs.tests.factories import Hlab5801Factory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...treatments.choices import UltChoices
-from ...users.tests.factories import PseudopatientPlusFactory
-from ...utils.helpers.test_helpers import MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin
+from ...utils.helpers.test_helpers import (
+    MedAllergyCreatorMixin,
+    MedAllergyDataMixin,
+    MedHistoryCreatorMixin,
+    MedHistoryDataMixin,
+    OneToOneCreatorMixin,
+    OneToOneDataMixin,
+)
 from ..models import UltAid
 
 if TYPE_CHECKING:
@@ -69,20 +75,53 @@ def ultaid_data_factory(
     ).create()
 
 
+class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreatorMixin):
+    """Creates MedAllergy, MedHistory, and OneToOne objects for UltAid."""
+
+    def create(self, **kwargs):
+        kwargs = super().create(**kwargs)
+        mas_specified = kwargs.pop("mas_specified", False)
+        mhs_specified = kwargs.pop("mhs_specified", False)
+        ultaid = UltAidFactory()
+        self.create_otos(ultaid)
+        self.create_mas(ultaid, specified=mas_specified)
+        self.create_mhs(ultaid, specified=mhs_specified, opt_mh_dets=[MedHistoryTypes.CKD])
+        return ultaid
+
+
+def create_ultaid(
+    user: Union["User", None] = None,
+    medallergys: list[UltChoices.values] | None = None,
+    medhistorys: list[ULTAID_MEDHISTORYS] | None = None,
+    **kwargs,
+) -> UltAid:
+    """Creates a UltAid with the given user, onetoones, medallergys, and medhistorys."""
+    if medallergys is None:
+        medallergys = UltChoices.values
+        mas_specified = False
+    else:
+        mas_specified = True
+    if medhistorys is None:
+        medhistorys = ULTAID_MEDHISTORYS
+        mhs_specified = False
+    else:
+        mhs_specified = True
+    # Call the constructor Class Method
+    return CreateUltAid(
+        medallergys=medallergys,
+        medhistorys=medhistorys,
+        mh_details=[MedHistoryTypes.CKD],
+        onetoones={
+            "dateofbirth": DateOfBirthFactory,
+            "gender": GenderFactory,
+            "ethnicity": EthnicityFactory,
+            "hlab5801": Hlab5801Factory,
+        },
+        req_onetoones=["ethnicity"],
+        user=user,
+    ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
+
+
 class UltAidFactory(DjangoModelFactory):
     class Meta:
         model = UltAid
-
-    dateofbirth = factory.SubFactory(DateOfBirthFactory)
-    ethnicity = factory.SubFactory(EthnicityFactory)
-    gender = factory.SubFactory(GenderFactory)
-
-
-class UltAidUserFactory(DjangoModelFactory):
-    class Meta:
-        model = UltAid
-
-    user = factory.SubFactory(PseudopatientPlusFactory)
-    dateofbirth = None
-    ethnicity = None
-    gender = None

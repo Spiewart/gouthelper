@@ -397,8 +397,11 @@ class DataMixin:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
                     setattr(self, onetoone, age_calc(getattr(user, onetoone).value))
-                elif onetoone != "urate":
+                elif onetoone == "urate":
+                    setattr(self, onetoone, aid_obj.urate.value if hasattr(aid_obj, "urate") else "")
+                else:
                     setattr(self, onetoone, getattr(user, onetoone).value)
+
         elif aid_obj and aid_obj.user and self.onetoones:
             for onetoone in self.onetoones:
                 if onetoone == "dateofbirth":
@@ -419,6 +422,10 @@ class DataMixin:
                     self.ethnicity = random.choice(Ethnicitys.values)
                 elif onetoone == "gender":
                     self.gender = random.choice(Genders.values)
+                elif onetoone == "hlab5801":
+                    self.hlab5801 = fake.boolean() if fake.boolean() else None
+                elif onetoone == "urate":
+                    self.urate = fake_urate_decimal() if fake.boolean() else None
         self.user = user if user else aid_obj.user if aid_obj else None
         self.aid_obj = aid_obj
 
@@ -521,9 +528,12 @@ class OneToOneDataMixin(DataMixin):
                 data[f"{onetoone}-value"] = self.ethnicity
             elif onetoone == "gender":
                 data[f"{onetoone}-value"] = self.gender
+            elif onetoone == "hlab5801":
+                if self.hlab5801 is not None:
+                    data[f"{onetoone}-value"] = self.hlab5801
             elif onetoone == "urate":
-                if fake.boolean():
-                    data[f"{onetoone}-value"] = fake_urate_decimal()
+                if self.urate is not None:
+                    data[f"{onetoone}-value"] = self.urate
         return data
 
     def create(self):
@@ -666,6 +676,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
         specified: bool = False,
+        opt_mh_dets: list[MedHistoryTypes] | None = None,
     ) -> None:
         """Method that creates MedHistory objects with a ForeignKey to the Aid object."""
         aid_obj_attr = aid_obj.__class__.__name__.lower()
@@ -732,30 +743,40 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                             if medhistory == MedHistoryTypes.CKD:
                                 if self.user:
                                     if not getattr(new_mh, "ckddetail", None):
-                                        create_ckddetail(
-                                            medhistory=new_mh,
-                                            dateofbirth=self.user.dateofbirth.value
-                                            if getattr(self.user, "dateofbirth", None)
-                                            else None,
-                                            gender=self.user.gender.value
-                                            if getattr(self.user, "gender", None)
-                                            else None,
-                                        )
+                                        if not opt_mh_dets or (
+                                            opt_mh_dets and medhistory in opt_mh_dets and fake.boolean()
+                                        ):
+                                            create_ckddetail(
+                                                medhistory=new_mh,
+                                                dateofbirth=self.user.dateofbirth.value
+                                                if getattr(self.user, "dateofbirth", None)
+                                                else None,
+                                                gender=self.user.gender.value
+                                                if getattr(self.user, "gender", None)
+                                                else None,
+                                            )
                                 else:
                                     if not getattr(new_mh, "ckddetail", None):
-                                        create_ckddetail(
-                                            medhistory=new_mh,
-                                            dateofbirth=aid_obj.dateofbirth.value
-                                            if getattr(aid_obj, "dateofbirth", None)
-                                            else None,
-                                            gender=aid_obj.gender.value if getattr(aid_obj, "gender", None) else None,
-                                        )
+                                        if not opt_mh_dets or (
+                                            opt_mh_dets and medhistory in opt_mh_dets and fake.boolean()
+                                        ):
+                                            create_ckddetail(
+                                                medhistory=new_mh,
+                                                dateofbirth=aid_obj.dateofbirth.value
+                                                if getattr(aid_obj, "dateofbirth", None)
+                                                else None,
+                                                gender=aid_obj.gender.value
+                                                if getattr(aid_obj, "gender", None)
+                                                else None,
+                                            )
                             elif medhistory == MedHistoryTypes.GOUT and not getattr(new_mh, "goutdetail", None):
                                 if specified:
                                     GoutDetailFactory(
                                         medhistory=new_mh,
                                     )
-                                elif fake.boolean():
+                                elif (not opt_mh_dets and fake.boolean()) or (
+                                    opt_mh_dets and medhistory in opt_mh_dets and fake.boolean()
+                                ):
                                     GoutDetailFactory(
                                         medhistory=new_mh,
                                     )
