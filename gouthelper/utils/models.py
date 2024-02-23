@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from ..users.models import User
 
 
-class DecisionAidModel(models.Model):
+class GoutHelperBaseModel:
     """Abstract base model that adds method for iterating over the model fields or
     a prefetched / select_related QuerySet of the model fields in order to
     categorize and display them."""
@@ -220,7 +220,7 @@ class DecisionAidModel(models.Model):
     def ethnicity_hlab5801_risk(self) -> bool:
         """Method that determines whether an object object has an ethnicity and whether
         it is an ethnicity that has a high prevalence of HLA-B*58:01 genotype."""
-        return ethnicitys_hlab5801_risk(ethnicity=self.ethnicity)
+        return ethnicitys_hlab5801_risk(ethnicity=self.user.ethnicity if self.user else self.ethnicity)
 
     @cached_property
     def febuxostat_allergy(self) -> list["MedAllergy"] | None:
@@ -428,6 +428,11 @@ class DecisionAidModel(models.Model):
         return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)
 
 
+class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
+    class Meta:
+        abstract = True
+
+
 class GoutHelperModel(models.Model):
     """
     Model Mixin to add UUID field for objects.
@@ -439,6 +444,38 @@ class GoutHelperModel(models.Model):
         abstract = True
 
     objects = models.Manager()
+
+
+class GoutHelperPatientModel(GoutHelperBaseModel):
+    """Abstract base model that adds methods for iterating over a User's related models
+    via a prefetched / select_related QuerySet or the User's defualt related model Managers
+    in order to categorize and display them."""
+
+    class Meta:
+        abstract = True
+
+    dateofbirth: Union["DateOfBirth", None]
+    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]
+    ethnicity: Union["Ethnicity", None]
+    hlab5801: Union["Hlab5801", None]
+    medallergys_qs: list["MedAllergy"]
+    medallergys: QuerySet["MedAllergy"]
+    medhistorys_qs: list["MedHistory"]
+    medhistorys: QuerySet["MedHistory"]
+    options: dict
+    recommendation: tuple[Treatments, dict] | None
+    user: Union["User", None]
+
+    @cached_property
+    def age(self) -> int | None:
+        """Method that returns the age of the object's user if it exists."""
+        return age_calc(date_of_birth=self.dateofbirth.value)
+
+    @cached_property
+    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
+        """Method that returns DefaultUltTrtSettings object from the objects user
+        attribute/property or the GoutHelper default if User doesn't exist."""
+        return defaults_defaultulttrtsettings(user=self)
 
 
 class DecisionAidRelation(models.Model):

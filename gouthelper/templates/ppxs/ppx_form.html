@@ -22,6 +22,7 @@
     {% if form.instance.created %}
       {% if view.kwargs.username %}
         <form class="form-horizontal"
+              id="ppx-form"
               method="post"
               action="{% url 'ppxs:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
@@ -41,6 +42,7 @@
     {% else %}
       {% if view.kwargs.username %}
         <form class="form-horizontal"
+              id="ppx-form"
               method="post"
               action="{% url 'ppxs:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}

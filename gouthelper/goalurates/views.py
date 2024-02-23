@@ -14,7 +14,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
 from ..ultaids.models import UltAid
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
 from .selectors import goalurate_user_qs, goalurate_userless_qs
@@ -54,9 +54,7 @@ class GoalUrateBase:
     }
 
 
-class GoalUrateCreate(
-    GoalUrateBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
     permission_required = "goalurates.can_add_goalurate"
@@ -192,7 +190,7 @@ class GoalUratePatientBase(GoalUrateBase):
 
 
 class GoalUratePseudopatientCreate(
-    GoalUratePatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    GoalUratePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a GoalUrate for a Pseudopatient."""
 
@@ -305,7 +303,7 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
 
 
 class GoalUratePseudopatientUpdate(
-    GoalUratePatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    GoalUratePatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's GoalUrate successfully created."
 
@@ -359,9 +357,7 @@ class GoalUratePseudopatientUpdate(
             )
 
 
-class GoalUrateUpdate(
-    GoalUrateBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
+class GoalUrateUpdate(GoalUrateBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
     success_message = "GoalUrate updated successfully!"

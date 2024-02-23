@@ -18,7 +18,7 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
 )
 
 from ..contents.choices import Contexts
-from ..labs.forms import LabFormHelper, PpxUrateFormSet
+from ..labs.forms import PpxUrateFormSet, UrateFormHelper
 from ..labs.helpers import labs_urates_annotate_order_by_dates
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates
@@ -26,7 +26,7 @@ from ..medhistorydetails.forms import GoutDetailPpxForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import PpxForm
 from .models import Ppx
 from .selectors import ppx_user_qs, ppx_userless_qs
@@ -64,10 +64,12 @@ class PpxBase:
         MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailPpxForm}
-    labs: dict[Literal["urate"], tuple[PpxUrateFormSet, LabFormHelper]] = {"urate": (PpxUrateFormSet, LabFormHelper)}
+    labs: dict[Literal["urate"], tuple[PpxUrateFormSet, UrateFormHelper]] = {
+        "urate": (PpxUrateFormSet, UrateFormHelper)
+    }
 
 
-class PpxCreate(PpxBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class PpxCreate(PpxBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new Ppx instance.
     """
@@ -170,8 +172,6 @@ class PpxPatientBase(PpxBase):
     class Meta:
         abstract = True
 
-    labs = {"urate": (PpxUrateFormSet, LabFormHelper)}
-
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
@@ -179,11 +179,11 @@ class PpxPatientBase(PpxBase):
 
     @cached_property
     def urate_formset_qs(self):
-        return dated_urates(Urate.objects.filter(user=self.user))
+        return dated_urates(Urate.objects.select_related("flare").filter(user=self.user))  # pylint: disable=E1101
 
 
 class PpxPseudopatientCreate(
-    PpxPatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    PpxPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Ppx for a patient."""
 
@@ -288,7 +288,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
 
 
 class PpxPseudopatientUpdate(
-    PpxPatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    PpxPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's Ppx successfully created."
 
@@ -342,10 +342,10 @@ class PpxPseudopatientUpdate(
             )
 
 
-class PpxUpdate(PpxBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class PpxUpdate(PpxBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ppx"""
 
-    labs = {"urate": (PpxUrateFormSet, LabFormHelper, dated_urates(Urate.objects.all()))}
+    labs = {"urate": (PpxUrateFormSet, UrateFormHelper)}
 
     @cached_property
     def urate_formset_qs(self):

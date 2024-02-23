@@ -15,7 +15,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..utils.models import DecisionAidModel, GoutHelperModel
+from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import FlareFreqs, FlareNums, Indications
 from .services import UltDecisionAid
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 class Ult(
     RulesModelMixin,
-    DecisionAidModel,
+    GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

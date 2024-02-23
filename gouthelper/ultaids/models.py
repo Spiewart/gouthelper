@@ -14,7 +14,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GoutHelperModel
+from ..utils.models import GoutHelperAidModel, GoutHelperModel
 
 if TYPE_CHECKING:
     from ..defaults.models import DefaultUltTrtSettings
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 class UltAid(
     RulesModelMixin,
-    DecisionAidModel,
+    GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

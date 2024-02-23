@@ -213,12 +213,12 @@ class UrateFlareForm(BaseLabForm):
 
 
 # https://stackoverflow.com/questions/42615357/cannot-pass-helper-to-django-crispy-formset-in-template
-class LabFormHelper(FormHelper):
+class UrateFormHelper(FormHelper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.form_tag = False
         self.template = "bootstrap4/table_inline_formset.html"
-        self.form_id = "labs_formset"
+        self.form_id = "urate_formset"
 
 
 # https://stackoverflow.com/questions/14328381/django-error-unexpected-keyword-argument-widget

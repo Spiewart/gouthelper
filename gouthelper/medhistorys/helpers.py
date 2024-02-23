@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
 
     from ..medhistorys.models import MedHistory
-    from ..utils.models import DecisionAidModel
+    from ..utils.models import GoutHelperAidModel
 
 
 def medhistorys_get(
@@ -30,23 +30,23 @@ def medhistorys_get(
 
 def medhistory_attr(
     medhistory: MedHistoryTypes | list[MedHistoryTypes],
-    da_obj: "DecisionAidModel",
+    obj: "GoutHelperAidModel",
     select_related: str | list[str] = None,
 ) -> Union[bool, "MedHistory"]:
     """Method that consolidates the Try / Except logic for getting a MedHistory."""
     try:
-        return medhistorys_get(da_obj.medhistorys_qs, medhistory)
+        return medhistorys_get(obj.medhistorys_qs, medhistory)
     except AttributeError as exc:
         if isinstance(medhistory, MedHistoryTypes):
-            if hasattr(da_obj, "user") and da_obj.user:
-                qs = da_obj.user.medhistory_set.filter(medhistorytype=medhistory)
+            if hasattr(obj, "user") and obj.user:
+                qs = obj.user.medhistory_set.filter(medhistorytype=medhistory)
             else:
-                qs = da_obj.medhistory_set.filter(medhistorytype=medhistory)
+                qs = obj.medhistory_set.filter(medhistorytype=medhistory)
         elif isinstance(medhistory, list):
-            if hasattr(da_obj, "user") and da_obj.user:
-                qs = da_obj.user.medhistory_set.filter(medhistorytype__in=medhistory)
+            if hasattr(obj, "user") and obj.user:
+                qs = obj.user.medhistory_set.filter(medhistorytype__in=medhistory)
             else:
-                qs = da_obj.medhistory_set.filter(medhistorytype__in=medhistory)
+                qs = obj.medhistory_set.filter(medhistorytype__in=medhistory)
         else:
             raise TypeError("medhistory must be a MedHistoryTypes or list[MedHistoryTypes].") from exc
         if select_related:

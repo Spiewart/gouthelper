@@ -20,7 +20,7 @@ from ..labs.selectors import dated_urates, urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
-from ..utils.models import DecisionAidModel, GoutHelperModel
+from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
 from .selectors import ppx_user_qs, ppx_userless_qs
 from .services import PpxDecisionAid
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 class Ppx(
     RulesModelMixin,
-    DecisionAidModel,
+    GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

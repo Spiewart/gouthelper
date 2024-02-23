@@ -1,7 +1,9 @@
+import uuid
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
+from django.core.exceptions import ValidationError  # type: ignore
 from django.db.models import Model  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
@@ -9,6 +11,7 @@ from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
+from ..genders.choices import Genders
 from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
 from ..medallergys.forms import MedAllergyTreatmentForm
@@ -17,11 +20,15 @@ from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.models import Gout
+from ..profiles.models import PseudopatientProfile
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
 from ..utils.helpers.helpers import get_or_create_qs_attr
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from crispy_forms.helper import FormHelper  # type: ignore
     from django.db.models import QuerySet  # type: ignore
     from django.forms import BaseModelFormSet, ModelForm  # type: ignore
@@ -71,7 +78,7 @@ def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
     return formsets_valid
 
 
-class MedHistoryModelBaseMixin:
+class GoutHelperAidMixin:
     onetoones: dict[str, "FormModelDict"] = {}
     req_onetoones: list[str] = []
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
@@ -212,6 +219,7 @@ class MedHistoryModelBaseMixin:
                     kwargs[f"{lab}_formset"] = lab_tup[0](
                         queryset=getattr(self, f"{lab}_formset_qs").none(), prefix=lab
                     )
+            if f"{lab}_formset_helper" not in kwargs:
                 kwargs[f"{lab}_formset_helper"] = lab_tup[1]
         # TODO: Rewrite BaseModelFormset to take a list of objects rather than a QuerySet
 
@@ -516,7 +524,6 @@ class MedHistoryModelBaseMixin:
                             return model_qs[0]
                         except IndexError:
                             raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
-
                 else:
                     return self.user
             return super().get_object(queryset)
@@ -547,7 +554,7 @@ class MedHistoryModelBaseMixin:
         self,
         kwargs: dict[str, Any],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
-        mh_obj: Union["MedHistory", None] = None,
+        mh_obj: Union["MedHistory", User, None] = None,
     ) -> None:
         """Method that adds the GoutDetailForm to the context."""
         if "goutdetail_form" not in kwargs:
@@ -574,7 +581,7 @@ class MedHistoryModelBaseMixin:
 
     def goutdetail_mh_post_process(
         self,
-        gout: "MedHistory",
+        gout: Union["MedHistory", None],
         mh_det_forms: dict[str, "ModelForm"],
         mhd_to_save: list["CkdDetail", "GoutDetail", BaselineCreatinine],
     ) -> None:
@@ -591,7 +598,7 @@ class MedHistoryModelBaseMixin:
         ):
             mhd_to_save.append(gd_form.save(commit=False))
             # Check if the form instance has a medhistory attr
-            if not gd_mh:
+            if not gd_mh and gout:
                 # If not, set it to the medhistory instance
                 gd_form.instance.medhistory = gout
 
@@ -987,6 +994,35 @@ class MedHistoryModelBaseMixin:
                                 query_obj.medallergys_qs.append(ma_obj)
         return ma_2_save, ma_2_rem
 
+    def post_process_menopause(
+        self,
+        mh_forms: dict[str, "ModelForm"],
+        post_object: Union["MedAllergyAidHistoryModel", None] = None,
+        gender: Genders | None = None,
+        dateofbirth: Union["date", None] = None,
+        errors_bool: bool = False,
+    ) -> tuple[dict[str, "ModelForm"], bool]:
+        if post_object and gender or post_object and dateofbirth:
+            raise ValueError("You must provide either a MedAllergyAidHistoryModel object or a dateofbirth and gender.")
+        gender = post_object.gender.value if post_object else gender
+        dateofbirth = post_object.dateofbirth.value if post_object else dateofbirth
+        if gender and gender == Genders.FEMALE and dateofbirth:
+            age = age_calc(dateofbirth)
+            if age >= 40 and age < 60:
+                menopause = mh_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
+                    f"{MedHistoryTypes.MENOPAUSE}-value", None
+                )
+                if menopause is None or menopause == "":
+                    menopause_error = ValidationError(
+                        message="For females between ages 40 and 60, we need to know the patient's \
+menopause status to evaluate their flare."
+                    )
+                    mh_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
+                        f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
+                    )
+                    errors_bool = True
+        return mh_forms, errors_bool
+
     def post_process_mh_forms(
         self,
         mh_forms: dict[str, "ModelForm"],
@@ -1040,20 +1076,19 @@ class MedHistoryModelBaseMixin:
             elif mh_obj:
                 mhs_2_remove.append(mh_obj)
                 query_obj.medhistorys_qs.remove(mh_obj)
-        # Process the forms for the MedHistoryDetail objects
-        # Iterate over the forms in the MedHistoryDetail form dict and, if they are not present
-        # in the MedHistory form dict, then they still need to be processed
-        for mh_det_form_str in mh_det_forms.keys():
-            mhdet = mh_det_form_str.split("_")[0]
-            mh = mhdet.split("detail")[0]
-            if mh not in mh_forms:
-                if mhdet == "goutdetail" and goutdetail:
+        # Iterate over the forms in the MedHistoryDetail form dict and,
+        # if their associated MedHistory is not present in the MedHistory form dict
+        # then it still needs to be processed
+        for form in mh_det_forms.values():
+            mhtype = form._meta.model.medhistorytype()  # pylint: disable=W0212
+            if f"{mhtype}_form" not in mh_forms:
+                if mhtype == MedHistoryTypes.GOUT and goutdetail:
                     self.goutdetail_mh_post_process(
-                        gout=query_obj.gout,
+                        gout=query_obj.gout if not (self.create_view and isinstance(query_obj, User)) else None,
                         mh_det_forms=mh_det_forms,
                         mhd_to_save=mhdets_2_save,
                     )
-                elif mhdet == "ckddetail" and ckddetail:
+                elif mhtype == MedHistoryTypes.CKD and ckddetail:
                     ckddetail_errors = self.ckddetail_mh_post_process(
                         ckd=mh_to_include,
                         mh_det_forms=mh_det_forms,
@@ -1152,3 +1187,126 @@ class MedHistoryModelBaseMixin:
                 return self.get_queryset().get(username=username)
         else:
             return None
+
+
+class GoutHelperUserMixin(GoutHelperAidMixin):
+    """Overwritten to modify related models around a User, rather than
+    a GoutHelper DecisionAid or TreatmentAid object. Also to create a user."""
+
+    def form_valid(
+        self,
+        form,
+        oto_2_save: list["Model"] | None,
+        oto_2_rem: list["Model"] | None,
+        mh_2_save: list["MedHistory"] | None,
+        mh_2_rem: list["MedHistory"] | None,
+        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", "GoutDetailForm"] | None,
+        ma_2_save: list["MedAllergy"] | None,
+        ma_2_rem: list["MedAllergy"] | None,
+        labs_2_save: list["Lab"] | None,
+        labs_2_rem: list["Lab"] | None,
+        **kwargs,
+    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
+        """Overwritten to facilitate creating Users."""
+        if self.create_view:  # pylint: disable=W0125
+            form.instance.username = uuid.uuid4().hex[:30]
+            self.object = form.save()
+        # Save the OneToOne related models
+        if self.onetoones:
+            if oto_2_save:
+                for oto in oto_2_save:
+                    if oto.user is None:
+                        oto.user = self.object
+                    oto.save()
+            if oto_2_rem:
+                for oto in oto_2_rem:
+                    oto.delete()
+        if self.medhistorys:
+            if mh_2_save:
+                for mh in mh_2_save:
+                    if mh.user is None:
+                        mh.user = self.object
+                    mh.save()
+            if mh_det_2_save:
+                for mh_det in mh_det_2_save:
+                    if self.create_view and isinstance(mh_det, GoutDetail):
+                        mh_det.medhistory = Gout.objects.create(user=self.object)
+                    mh_det.save()
+            if mh_2_rem:
+                for mh in mh_2_rem:
+                    mh.delete()
+            if mh_det_2_rem:
+                for mh_det in mh_det_2_rem:
+                    mh_det.instance.delete()
+        if self.medallergys:
+            if ma_2_save:
+                for ma in ma_2_save:
+                    if ma.user is None:
+                        ma.user = self.object
+                    ma.save()
+            if ma_2_rem:
+                for ma in ma_2_rem:
+                    ma.delete()
+        if self.labs:
+            if labs_2_save:
+                # Modify and remove labs from the object
+                for lab in labs_2_save:
+                    if lab.user is None:
+                        lab.user = self.object
+                    lab.save()
+            if labs_2_rem:
+                for lab in labs_2_rem:
+                    lab.delete()
+        if self.create_view:  # pylint: disable=W0125
+            # Create a PseudopatientProfile for the Pseudopatient
+            PseudopatientProfile.objects.create(
+                user=self.object,
+                provider=self.request.user if self.provider else None,  # pylint: disable=W0125
+            )
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Provider the view is trying to create
+        a Pseudopatient for."""
+        if self.create_view:  # pylint: disable=W0125
+            return self.provider
+        else:
+            return self.object
+
+    def goutdetail_mh_context(
+        self,
+        kwargs: dict[str, Any],
+        mh_dets: dict[MedHistoryTypes, "ModelForm"],
+        mh_obj: Union["MedHistory", User, None] = None,
+    ) -> None:
+        """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
+        if "goutdetail_form" not in kwargs:
+            goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
+            kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](instance=goutdetail_i)
+            raise Continue
+
+    def goutdetail_mh_post_pop(
+        self,
+        gout: Union["MedHistory", None],
+        mh_det_forms: dict[str, "ModelForm"],
+        mh_dets: dict[MedHistoryTypes, "ModelForm"],
+        request: "HttpRequest",
+    ) -> None:
+        """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
+        if gout:
+            gd = getattr(gout, "goutdetail", None)
+        else:
+            gd = GoutDetail()
+        mh_det_forms.update({"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd)})
+        raise Continue
+
+    @cached_property
+    def provider(self) -> str | None:
+        """Method that returns the username kwarg from the url."""
+        return self.kwargs.get("username", None)
+
+    @cached_property
+    def user(self) -> None:
+        return None

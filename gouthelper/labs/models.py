@@ -11,6 +11,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
+from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import labs_eGFR_calculator, labs_stage_calculator
@@ -153,6 +154,10 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
     )
 
     history = HistoricalRecords()
+
+    @classmethod
+    def medhistorytype(cls):
+        return MedHistoryTypes.CKD
 
     @cached_property
     def value_str(self) -> str:

@@ -44,7 +44,7 @@ from ..medhistorys.models import (
     Xoiinteraction,
 )
 from ..treatments.choices import UltChoices
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import UltAidForm
 from .models import UltAid
 from .selectors import ultaid_userless_qs
@@ -114,7 +114,7 @@ class UltAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
 
 
-class UltAidCreate(UltAidBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class UltAidCreate(UltAidBase, GoutHelperAidMixin, CreateView, SuccessMessageMixin):
     """
     Create a new UltAid instance.
     """
@@ -207,7 +207,7 @@ class UltAidDetail(DetailView):
         return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
 
 
-class UltAidUpdate(UltAidBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class UltAidUpdate(UltAidBase, GoutHelperAidMixin, UpdateView, SuccessMessageMixin):
     """Updates a UltAid"""
 
     def form_valid(

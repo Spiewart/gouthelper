@@ -14,7 +14,7 @@ from ..medhistorydetails.forms import CkdDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
 from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import UltForm
 from .models import Ult
 from .selectors import ult_userless_qs
@@ -77,7 +77,7 @@ class UltBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class UltCreate(UltBase, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class UltCreate(UltBase, GoutHelperAidMixin, CreateView, SuccessMessageMixin):
     """View to create a new Ult instance."""
 
     success_message = "ULT created successfully."
@@ -147,7 +147,7 @@ class UltDetail(DetailView):
         return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULT)
 
 
-class UltUpdate(UltBase, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class UltUpdate(UltBase, GoutHelperAidMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ult"""
 
     success_message = "ULT updated successfully."

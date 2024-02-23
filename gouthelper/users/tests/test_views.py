@@ -220,7 +220,12 @@ menopause status to evaluate their flare."
         assert response.status_code == 302
         # Assert that a Pseudopatient was created
         assert Pseudopatient.objects.count() == psp_count + 1
-        pseudopatient = Pseudopatient.objects.last()
+        pseudopatient = (
+            Pseudopatient.objects.select_related("pseudopatientprofile")
+            .filter(pseudopatientprofile__provider=self.provider)
+            .order_by("created")
+            .last()
+        )
         assert getattr(pseudopatient, "dateofbirth", None)
         assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
         assert getattr(pseudopatient, "ethnicity", None)
@@ -589,8 +594,7 @@ class TestPseudopatientUpdateView(TestCase):
         self.client.force_login(self.provider)
         response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.female.username}))
         assert response.status_code == 200
-        assert f"{MedHistoryTypes.GOUT}_form" in response.context
-        assert response.context[f"{MedHistoryTypes.GOUT}_form"].instance == self.female.gout
+        assert f"{MedHistoryTypes.GOUT}_form" not in response.context
         assert "dateofbirth_form" in response.context
         assert response.context["dateofbirth_form"].instance == self.female.dateofbirth
         assert "ethnicity_form" in response.context

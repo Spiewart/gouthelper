@@ -1,10 +1,6 @@
-import uuid
-from typing import TYPE_CHECKING, Union
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.core.exceptions import ValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -12,19 +8,16 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, R
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
 from ..dateofbirths.forms import DateOfBirthForm
-from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
 from ..ethnicitys.forms import EthnicityForm
 from ..ethnicitys.models import Ethnicity
-from ..genders.choices import Genders
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
 from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm, MenopauseForm
 from ..medhistorys.models import Gout, Menopause
-from ..profiles.models import PseudopatientProfile
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperUserMixin
 from .choices import Roles
 from .forms import PseudopatientForm
 from .models import Pseudopatient
@@ -32,49 +25,8 @@ from .selectors import pseudopatient_profile_qs, pseudopatient_qs
 
 User = get_user_model()
 
-if TYPE_CHECKING:
-    from datetime import date
 
-    from django.db.models import Model  # type: ignore
-    from django.forms import ModelForm  # type: ignore
-    from django.http import HttpResponse  # type: ignore
-
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import CkdDetailForm
-    from ..medhistorys.models import MedHistory
-
-
-def post_process_menopause(
-    medhistorys_forms: dict[str, "ModelForm"],
-    gender: Genders,
-    dateofbirth: "date",
-    errors_bool: bool = False,
-) -> tuple[dict[str, "ModelForm"], bool]:
-    if gender == Genders.FEMALE:
-        age = age_calc(dateofbirth)
-        if (
-            age >= 40
-            and age < 60
-            and (
-                medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
-                    f"{MedHistoryTypes.MENOPAUSE}-value"
-                )
-                is None
-            )
-        ):
-            menopause_error = ValidationError(
-                message="For females between ages 40 and 60, we need to know the patient's \
-menopause status to evaluate their flare."
-            )
-            medhistorys_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
-                f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
-            )
-            errors_bool = True
-    return medhistorys_forms, errors_bool
-
-
-class PseudopatientCreateView(PermissionRequiredMixin, MedHistoryModelBaseMixin, CreateView, SuccessMessageMixin):
+class PseudopatientCreateView(GoutHelperUserMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View to create Pseudopatient Users. If called with a provider kwarg in the url,
     assigns provider field to the creating User.
 
@@ -102,99 +54,70 @@ class PseudopatientCreateView(PermissionRequiredMixin, MedHistoryModelBaseMixin,
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
 
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"],
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm],
-        ma_2_save: list["MedAllergy"],
-        mh_2_save: list["MedHistory"],
-        labs_2_save: list["Lab"],
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately."""
-        # Set the username attr on the form instance
-        form.instance.username = uuid.uuid4().hex[:30]
-        # Pop the username kwarg from the url
-        provider = kwargs.pop("username", None)
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form,
-            oto_2_save=oto_2_save,
-            mh_det_2_save=mh_det_2_save,
-            ma_2_save=ma_2_save,
-            mh_2_save=mh_2_save,
-            labs_2_save=labs_2_save,
-            **kwargs,
-        )
-        # Create a PseudopatientProfile for the Pseudopatient
-        PseudopatientProfile.objects.create(
-            user=self.object,
-            provider=self.request.user if provider else None,
-        )
-        return HttpResponseRedirect(self.get_success_url())
-
     def get_permission_required(self):
         """Returns the list of permissions that the user must have in order to access the view."""
         perms = ["users.can_add_user"]
         if self.kwargs.get("username", None):
-            perms += ["users.can_add_user_with_provider", "users.can_add_user_with_specific_provider"]
+            perms += ["users.can_add_user_with_provider"]
         return perms
-
-    def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Provider the view is trying to create
-        a Pseudopatient for."""
-        return self.kwargs.get("username", None)
 
     def post(self, request, *args, **kwargs):
         (
             errors,
             form,
-            onetoone_forms,
-            medallergys_forms,
-            medhistorys_forms,
-            medhistorydetails_forms,
-            lab_formset,
+            oto_forms,
+            mh_forms,
+            mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
             oto_2_save,
-            ma_2_save,
+            oto_2_rem,
             mh_2_save,
+            mh_2_rem,
             mh_det_2_save,
-            labs_2_save,
+            mh_det_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        medhistorys_forms, errors_bool = post_process_menopause(
-            medhistorys_forms=medhistorys_forms,
-            gender=onetoone_forms["gender_form"].instance.value,
-            dateofbirth=onetoone_forms["dateofbirth_form"].instance.value,
+        mh_forms, errors_bool = self.post_process_menopause(
+            mh_forms=mh_forms,
+            dateofbirth=oto_forms["dateofbirth_form"].cleaned_data.get("value"),
+            gender=oto_forms["gender_form"].cleaned_data.get("value"),
         )
         if errors_bool:
             return super().render_errors(
                 form=form,
-                onetoone_forms=onetoone_forms,
-                medhistorys_forms=medhistorys_forms,
-                medhistorydetails_forms=medhistorydetails_forms,
-                medallergys_forms=medallergys_forms,
-                lab_formset=lab_formset,
-                labs=self.labs if hasattr(self, "labs") else None,
+                oto_forms=oto_forms,
+                mh_forms=mh_forms,
+                mh_det_forms=mh_det_forms,
+                ma_forms=None,
+                lab_formsets=None,
+                labs=None,
             )
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
+                form=form,
                 oto_2_save=oto_2_save,
-                mh_det_2_save=mh_det_2_save,
+                oto_2_rem=oto_2_rem,
                 mh_2_save=mh_2_save,
-                labs_2_save=labs_2_save,
-                **kwargs,
+                mh_2_rem=mh_2_rem,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
             )
 
 
 pseudopatient_create_view = PseudopatientCreateView.as_view()
 
 
-class PseudopatientUpdateView(PermissionRequiredMixin, MedHistoryModelBaseMixin, UpdateView, SuccessMessageMixin):
+class PseudopatientUpdateView(GoutHelperUserMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """View to update Pseudopatient Users.
 
     Returns:
@@ -224,48 +147,6 @@ class PseudopatientUpdateView(PermissionRequiredMixin, MedHistoryModelBaseMixin,
     }
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
 
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check if the object has a User and redirect to the
-        correct UpdateView if so."""
-        self.object = self.get_object()
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(
-        self,
-        form,
-        oto_2_save: list["Model"] | None,
-        oto_2_rem: list["Model"] | None,
-        mh_det_2_save: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm] | None,
-        mh_det_2_rem: list["CkdDetailForm", "BaselineCreatinine", GoutDetailForm] | None,
-        ma_2_save: list["MedAllergy"] | None,
-        ma_2_rem: list["MedAllergy"] | None,
-        mh_2_save: list["MedHistory"] | None,
-        mh_2_rem: list["MedHistory"] | None,
-        labs_2_save: list["Lab"] | None,
-        labs_2_rem: list["Lab"] | None,
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately."""
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=ma_2_save,
-            ma_2_rem=ma_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-            **kwargs,
-        )
-        return HttpResponseRedirect(self.get_success_url())
-
-    def get_permission_object(self):
-        return self.object
-
     def get_queryset(self):
         return pseudopatient_profile_qs(self.kwargs.get("username"))
 
@@ -273,53 +154,52 @@ class PseudopatientUpdateView(PermissionRequiredMixin, MedHistoryModelBaseMixin,
         (
             errors,
             form,
-            onetoone_forms,
-            medallergys_forms,
-            medhistorys_forms,
-            medhistorydetails_forms,
-            lab_formset,
+            oto_forms,
+            mh_forms,
+            mh_det_forms,
+            _,  # ma_forms,
+            _,  # lab_formsets,
             oto_2_save,
             oto_2_rem,
-            ma_2_save,
-            ma_2_rem,
             mh_2_save,
             mh_2_rem,
             mh_det_2_save,
             mh_det_2_rem,
-            labs_2_save,
-            labs_2_rem,
+            _,  # ma_2_save,
+            _,  # ma_2_rem,
+            _,  # labs_2_save,
+            _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
         if errors:
             return errors
-        medhistorys_forms, errors_bool = post_process_menopause(
-            medhistorys_forms=medhistorys_forms,
-            gender=onetoone_forms["gender_form"].instance.value,
-            dateofbirth=onetoone_forms["dateofbirth_form"].instance.value,
+        mh_forms, errors_bool = self.post_process_menopause(
+            mh_forms=mh_forms,
+            dateofbirth=oto_forms["dateofbirth_form"].cleaned_data.get("value"),
+            gender=oto_forms["gender_form"].cleaned_data.get("value"),
         )
         if errors_bool:
             return super().render_errors(
                 form=form,
-                onetoone_forms=onetoone_forms,
-                medhistorys_forms=medhistorys_forms,
-                medhistorydetails_forms=medhistorydetails_forms,
-                medallergys_forms=medallergys_forms,
-                lab_formset=lab_formset,
-                labs=self.labs if hasattr(self, "labs") else None,
+                oto_forms=oto_forms,
+                mh_forms=mh_forms,
+                mh_det_forms=mh_det_forms,
+                ma_forms=None,
+                lab_formsets=None,
+                labs=None,
             )
         else:
             return self.form_valid(
-                form=form,  # type: ignore
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
+                form=form,
                 oto_2_save=oto_2_save,
                 oto_2_rem=oto_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
-                **kwargs,
+                mh_det_2_save=mh_det_2_save,
+                mh_det_2_rem=mh_det_2_rem,
+                ma_2_save=None,
+                ma_2_rem=None,
+                labs_2_save=None,
+                labs_2_rem=None,
             )
 
 

@@ -59,7 +59,7 @@ from ..medhistorys.models import (
     Stroke,
 )
 from ..treatments.choices import FlarePpxChoices
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import PpxAidForm
 from .models import PpxAid
 from .selectors import ppxaid_user_qs, ppxaid_userless_qs
@@ -122,7 +122,7 @@ class PpxAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class PpxAidCreate(PpxAidBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class PpxAidCreate(PpxAidBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new PpxAid instance.
     """
@@ -231,7 +231,7 @@ class PpxAidPatientBase(PpxAidBase):
 
 
 class PpxAidPseudopatientCreate(
-    PpxAidPatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    PpxAidPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a PpxAid for a patient."""
 
@@ -344,7 +344,7 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
 
 
 class PpxAidPseudopatientUpdate(
-    PpxAidPatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    PpxAidPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's PpxAid successfully created."
 
@@ -397,7 +397,7 @@ class PpxAidPseudopatientUpdate(
             )
 
 
-class PpxAidUpdate(PpxAidBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class PpxAidUpdate(PpxAidBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a PpxAid"""
 
     success_message = "PpxAid successfully updated."

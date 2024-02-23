@@ -5,7 +5,7 @@ from ..treatments.choices import Treatments
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
-    from ..utils.models import DecisionAidModel
+    from ..utils.models import GoutHelperAidModel
     from .models import MedAllergy
 
 
@@ -22,32 +22,32 @@ def medallergys_get(
 
 def medallergy_attr(
     medallergy: Treatments | list[Treatments],
-    da_obj: "DecisionAidModel",
+    obj: "GoutHelperAidModel",
 ) -> Union[bool, "MedAllergy", list["MedAllergy"]]:
     """Method that consolidates the Try / Except logic for getting a MedAllergy."""
     try:
-        return medallergys_get(da_obj.medallergys_qs, medallergy)
+        return medallergys_get(obj.medallergys_qs, medallergy)
     except AttributeError as exc:
         if isinstance(medallergy, Treatments):
-            if hasattr(da_obj, "user") and da_obj.user:
+            if hasattr(obj, "user") and obj.user:
                 return medallergys_get(
-                    da_obj.user.medallergy_set.filter(treatment=medallergy).all(),
+                    obj.user.medallergy_set.filter(treatment=medallergy).all(),
                     medallergy,
                 )
             else:
                 return medallergys_get(
-                    da_obj.medallergy_set.filter(treatment=medallergy).all(),
+                    obj.medallergy_set.filter(treatment=medallergy).all(),
                     medallergy,
                 )
         elif isinstance(medallergy, list):
-            if hasattr(da_obj, "user") and da_obj.user:
+            if hasattr(obj, "user") and obj.user:
                 return medallergys_get(
-                    da_obj.user.medallergy_set.filter(treatment__in=medallergy).all(),
+                    obj.user.medallergy_set.filter(treatment__in=medallergy).all(),
                     medallergy,
                 )
             else:
                 return medallergys_get(
-                    da_obj.medallergy_set.filter(treatment__in=medallergy).all(),
+                    obj.medallergy_set.filter(treatment__in=medallergy).all(),
                     medallergy,
                 )
         else:

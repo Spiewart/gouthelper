@@ -13,7 +13,7 @@ from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GoutHelperModel
+from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .selectors import ppxaid_user_qs, ppxaid_userless_qs
 from .services import PpxAidDecisionAid
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 class PpxAid(
     RulesModelMixin,
-    DecisionAidModel,
+    GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

@@ -7,6 +7,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
+from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
 
@@ -95,6 +96,10 @@ class CkdDetail(MedHistoryDetail):
         verbose_name=_("CKD Stage"),
     )
 
+    @classmethod
+    def medhistorytype(cls):
+        return MedHistoryTypes.CKD
+
 
 class GoutDetail(MedHistoryDetail):
     """Describes whether a Patient with a history of gout is actively
@@ -126,3 +131,7 @@ class GoutDetail(MedHistoryDetail):
         help_text="Is the patient on ULT (urate-lowering therapy)?",
         default=False,
     )
+
+    @classmethod
+    def medhistorytype(cls):
+        return MedHistoryTypes.GOUT

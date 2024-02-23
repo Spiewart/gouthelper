@@ -51,7 +51,7 @@ from ..medhistorys.models import (
     Stroke,
 )
 from ..treatments.choices import FlarePpxChoices
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import FlareAidForm
 from .models import FlareAid
 from .selectors import flareaid_user_qs, flareaid_userless_qs
@@ -108,7 +108,7 @@ class FlareAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class FlareAidCreate(FlareAidBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlareAidCreate(FlareAidBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new FlareAid"""
 
     permission_required = "flareaids.can_add_flareaid"
@@ -216,7 +216,7 @@ class FlareAidPatientBase(FlareAidBase):
 
 
 class FlareAidPseudopatientCreate(
-    FlareAidPatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    FlareAidPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a FlareAid for a patient."""
 
@@ -326,7 +326,7 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
 
 
 class FlareAidPseudopatientUpdate(
-    FlareAidPatientBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    FlareAidPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's FlareAid successfully updated."
 
@@ -379,9 +379,7 @@ class FlareAidPseudopatientUpdate(
             )
 
 
-class FlareAidUpdate(
-    FlareAidBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
+class FlareAidUpdate(FlareAidBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a FlareAid"""
 
     success_message = "FlareAid successfully updated."

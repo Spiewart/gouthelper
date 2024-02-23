@@ -13,7 +13,7 @@ from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, Treatments
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GoutHelperModel
+from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .selectors import flareaid_user_qs, flareaid_userless_qs
 from .services import FlareAidDecisionAid
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 class FlareAid(
     RulesModelMixin,
-    DecisionAidModel,
+    GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,

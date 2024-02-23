@@ -1,20 +1,28 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any  # pylint: disable=E0015, E0013 # type: ignore
 
-from django.apps import apps  # type: ignore
-from django.contrib import messages  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.core.exceptions import ValidationError  # type: ignore
-from django.http import Http404, HttpResponseRedirect  # type: ignore
-from django.urls import reverse  # type: ignore
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView  # type: ignore
-from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
+from django.apps import apps  # pylint: disable=e0401 # type: ignore
+from django.contrib import messages  # pylint: disable=e0401 # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
+from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
+from django.core.exceptions import ValidationError  # pylint: disable=e0401 # type: ignore
+from django.http import Http404, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
+from django.urls import reverse  # pylint: disable=e0401 # type: ignore
+from django.views.generic import (  # pylint: disable=e0401 # type: ignore
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
+from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
+    AutoPermissionRequiredMixin,
+    PermissionRequiredMixin,
+)
 
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
-from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
-from ..genders.choices import Genders
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
 from ..labs.forms import UrateFlareForm
@@ -34,18 +42,14 @@ from ..medhistorys.forms import (
 )
 from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from ..users.models import Pseudopatient
-from ..utils.views import MedHistoryModelBaseMixin
+from ..utils.views import GoutHelperAidMixin
 from .forms import FlareForm
 from .models import Flare
 from .selectors import flare_user_qs, flare_userless_qs, user_flares
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from django.db.models import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
-
-    from ..utils.types import MedAllergyAidHistoryModel
 
 User = get_user_model()
 
@@ -92,35 +96,6 @@ class FlareBase:
     }
     req_onetoones = {}
 
-    def post_process_menopause(
-        self,
-        mh_forms: dict[str, "ModelForm"],
-        post_object: Union["MedAllergyAidHistoryModel", None] = None,
-        gender: Genders | None = None,
-        dateofbirth: Union["date", None] = None,
-        errors_bool: bool = False,
-    ) -> tuple[dict[str, "ModelForm"], bool]:
-        if post_object and gender or post_object and dateofbirth:
-            raise ValueError("You must provide either a MedAllergyAidHistoryModel object or a dateofbirth and gender.")
-        gender = post_object.gender.value if post_object else gender
-        dateofbirth = post_object.dateofbirth.value if post_object else dateofbirth
-        if gender and gender == Genders.FEMALE and dateofbirth:
-            age = age_calc(dateofbirth)
-            if age >= 40 and age < 60:
-                menopause = mh_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].cleaned_data.get(
-                    f"{MedHistoryTypes.MENOPAUSE}-value", None
-                )
-                if menopause is None or menopause == "":
-                    menopause_error = ValidationError(
-                        message="For females between ages 40 and 60, we need to know the patient's \
-menopause status to evaluate their flare."
-                    )
-                    mh_forms[f"{MedHistoryTypes.MENOPAUSE}_form"].add_error(
-                        f"{MedHistoryTypes.MENOPAUSE}-value", menopause_error
-                    )
-                    errors_bool = True
-        return mh_forms, errors_bool
-
     def post_process_urate_check(
         self,
         form: "ModelForm",
@@ -137,13 +112,10 @@ menopause status to evaluate their flare."
         return form, oto_forms, errors_bool
 
 
-class FlareCreate(FlareBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlareCreate(FlareBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
-
-    def get_permission_object(self):
-        return None
 
     def post(self, request, *args, **kwargs):
         (
@@ -295,7 +267,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
 
 
 class FlarePseudopatientCreate(
-    FlarePatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    FlarePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Flare for a patient."""
 
@@ -445,7 +417,7 @@ class FlarePseudopatientDetail(FlareDetailBase):
 
 
 class FlarePseudopatientUpdate(
-    FlarePatientBase, MedHistoryModelBaseMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    FlarePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     permission_required = "flares.can_change_flare"
     success_message = "%(username)s's FlareAid successfully updated."
@@ -516,7 +488,7 @@ class FlarePseudopatientUpdate(
         )
 
 
-class FlareUpdate(FlareBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class FlareUpdate(FlareBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Flare"""
 
     success_message = "Flare updated successfully!"
@@ -538,9 +510,6 @@ class FlareUpdate(FlareBase, MedHistoryModelBaseMixin, AutoPermissionRequiredMix
 
     def get_queryset(self):
         return flare_userless_qs(self.kwargs["pk"])
-
-    def get_permission_object(self):
-        return self.object
 
     def post(self, request, *args, **kwargs):
         (

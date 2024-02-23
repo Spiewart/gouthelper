@@ -20,6 +20,7 @@ from ...labs.tests.factories import UrateFactory
 from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.helpers import medhistory_attr
 from ...medhistorys.lists import PPX_MEDHISTORYS
 from ...medhistorys.models import Gout
 from ...medhistorys.tests.factories import GoutFactory
@@ -990,19 +991,10 @@ class TestPpxPseudopatientUpdate(TestCase):
     def test__dispatch_redirects_to_create(self):
         """Test that the dispatch() method redirects to the Pseudopatient create view when the view
         has a user and the user doesn't have a Ppx."""
-        request = self.factory.get("/fake-url/")
-        request.user = self.anon_user
-        kwargs = {"username": self.empty_user.username}
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
-
-        view = self.view()
-        view.setup(request, **kwargs)
-        response = view.dispatch(request, **kwargs)
-        self.assertEqual(response.status_code, 302)
         self.assertRedirects(
-            response, reverse("ppxs:pseudopatient-create", kwargs={"username": self.empty_user.username})
+            self.client.get(reverse("ppxs:pseudopatient-update", kwargs={"username": self.empty_user.username})),
+            reverse("ppxs:pseudopatient-create", kwargs={"username": self.empty_user.username}),
         )
 
     def test__dispatch(self):
@@ -1106,7 +1098,10 @@ class TestPpxPseudopatientUpdate(TestCase):
                         )
                         assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
             assert "goutdetail_form" in response.context_data
-            assert response.context_data["goutdetail_form"].instance == ppx.user.gout.goutdetail
+            assert (
+                response.context_data["goutdetail_form"].instance
+                == medhistory_attr(MedHistoryTypes.GOUT, ppx.user, "goutdetail").goutdetail
+            )
 
     def test__get_context_data_patient(self):
         """Test that the context data includes the user."""
@@ -1214,10 +1209,12 @@ class TestPpxPseudopatientUpdate(TestCase):
         total_urates = data["urate-TOTAL_FORMS"]
         data.update(
             {
-                f"urate-{total_urates+1}-date_drawn": "2021-01-01",
-                f"urate-{total_urates+1}-value": "5.9",
-                f"urate-{total_urates+2}-date_drawn": "2021-02-02",
-                f"urate-{total_urates+2}-value": "7.9",
+                f"urate-{total_urates}-date_drawn": "2021-01-01",
+                f"urate-{total_urates}-value": "5.9",
+                f"urate-{total_urates}-id": "",
+                f"urate-{total_urates+1}-date_drawn": "2021-02-02",
+                f"urate-{total_urates+1}-value": "7.9",
+                f"urate-{total_urates+1}-id": "",
                 "urate-TOTAL_FORMS": total_urates + 2,
             }
         )
@@ -1230,8 +1227,6 @@ class TestPpxPseudopatientUpdate(TestCase):
 
         # Get the urates
         urates = self.psp.urate_set.all()
-        print(urates)
-        print(data)
         # Assert that the urates were created
         self.assertIn(Decimal("5.9"), [urate.value for urate in urates])
         self.assertIn(Decimal("7.9"), [urate.value for urate in urates])
