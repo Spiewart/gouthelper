@@ -14,7 +14,6 @@ from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
 from ...goalurates.tests.factories import GoalUrateFactory
 from ...labs.models import Hlab5801
-from ...labs.tests.factories import Hlab5801Factory
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import Xoiinteraction
@@ -22,7 +21,7 @@ from ...treatments.choices import Treatments
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import UltAid
 from ..views import UltAidAbout, UltAidCreate, UltAidDetail, UltAidUpdate
-from .factories import UltAidFactory, ultaid_data_factory
+from .factories import create_ultaid, ultaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -138,7 +137,7 @@ class TestUltAidDetail(TestCase):
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.ULTAID, slug__isnull=False
         ).all()
         # Need to set ethnicity to Caucasian to avoid HLA-B*5801 contraindication with high risk ethnicity
-        self.ultaid = UltAidFactory(ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
+        self.ultaid = create_ultaid(mas=[], mhs=[], ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
 
     def test__contents(self):
         self.assertTrue(self.view().contents)
@@ -190,7 +189,7 @@ class TestUltAidUpdate(TestCase):
     def test__post_removes_hlab5801(self):
         """Test that a POST request removes a Hlab5801 instance as an attribute
         to the updated UltAid and deletes the Hlab5801 instance."""
-        ultaid = UltAidFactory(hlab5801=Hlab5801Factory(value=True))
+        ultaid = create_ultaid(hlab5801=True)
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
@@ -214,22 +213,12 @@ class TestUltAidUpdate(TestCase):
     def test__post_adds_False_hlab5801(self):
         """Test that a POST request creates and adds a Hlab5801 instance, with
         a value=False, as an attribute to the updated UltAid."""
-        ultaid = UltAidFactory(hlab5801=None)
+        ultaid = create_ultaid(hlab5801=None)
         self.assertFalse(Hlab5801.objects.all())
         self.assertIsNone(UltAid.objects.get().hlab5801)
-        ultaid_data = {
-            "dateofbirth-value": age_calc(ultaid.dateofbirth.value),
-            "gender-value": ultaid.gender.value,
-            "ethnicity-value": ultaid.ethnicity.value,
-            "hlab5801-value": False,
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
-            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
-            f"{MedHistoryTypes.XOIINTERACTION}-value": False,
-        }
+        ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": False})
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors
+        tests_print_response_form_errors(response)
         self.assertEqual(response.status_code, 302)
         ultaid.refresh_from_db()
         self.assertTrue(Hlab5801.objects.all())
@@ -240,7 +229,7 @@ class TestUltAidUpdate(TestCase):
     def test__post_adds_True_hlab5801(self):
         """Test that a POST request creates and adds a Hlab5801 instance, with
         a value=True, as an attribute to the updated UltAid."""
-        ultaid = UltAidFactory(hlab5801=None)
+        ultaid = create_ultaid(hlab5801=None)
         self.assertFalse(Hlab5801.objects.all())
         self.assertIsNone(UltAid.objects.get().hlab5801)
         ultaid_data = {
@@ -266,7 +255,7 @@ class TestUltAidUpdate(TestCase):
     def test__post_removes_updates_hlab5801_True_to_False(self):
         """Test that a POST request updates a Hlab5801 object / UltAid attribute
         from True to False."""
-        ultaid = UltAidFactory(hlab5801=Hlab5801Factory(value=True))
+        ultaid = create_ultaid(hlab5801=True)
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
@@ -295,7 +284,7 @@ class TestUltAidUpdate(TestCase):
     def test__post_removes_updates_hlab5801_False_to_True(self):
         """Test that a POST request updates a Hlab5801 object / UltAid attribute
         from False to True."""
-        ultaid = UltAidFactory(hlab5801=Hlab5801Factory(value=False))
+        ultaid = create_ultaid(hlab5801=False)
         self.assertTrue(Hlab5801.objects.all())
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = {
@@ -322,7 +311,7 @@ class TestUltAidUpdate(TestCase):
         """Test that a POST request can create or update a CKD instance without
         an associated CkdDetail instance. This is unique to certain models, like
         UltAid, that doesn't require CkdDetail for processing."""
-        ultaid = UltAidFactory()
+        ultaid = create_ultaid()
         self.assertFalse(ultaid.ckd)
         self.assertFalse(ultaid.ckddetail)
         ultaid_data = {

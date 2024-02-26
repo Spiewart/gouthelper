@@ -1,6 +1,6 @@
 import random
 from decimal import Decimal  # pylint: disable=e0401 # type: ignore
-from typing import TYPE_CHECKING, Union  # pylint: disable=e0401 # type: ignore
+from typing import TYPE_CHECKING, Any, Union  # pylint: disable=e0401 # type: ignore
 
 import factory  # pylint: disable=e0401 # type: ignore
 import pytest  # pylint: disable=e0401 # type: ignore
@@ -39,7 +39,7 @@ class CreatePpxData(MedHistoryDataMixin):
     fields on the FlareAid."""
 
     def create(self):
-        mh_data = self.create_mh_data(required=[MedHistoryTypes.GOUT])
+        mh_data = self.create_mh_data()
         return {**mh_data}
 
 
@@ -62,21 +62,19 @@ def create_urate_data(index: int, urate: Urate | Decimal = None) -> dict[str, st
 def ppx_data_factory(
     user: Union["User", None] = None,
     ppx: Ppx | None = None,
+    mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
     urates: list[Urate, Decimal] | None = None,
     init_urates: list[Urate, Decimal] | None = None,
     **kwargs,
 ) -> dict[str, str]:
     """Create data for related MedHistory and Urate objects for the Ppx."""
-    if ppx:
-        if user and ppx.user != user:
-            raise ValueError("Ppx does not belong to User. Something wrong.")
-        elif ppx.user and not user:
-            user = ppx.user
     data = CreatePpxData(
-        medallergys=None,
-        medhistorys=PPX_MEDHISTORYS,
+        aid_mhs=PPX_MEDHISTORYS,
         bool_mhs=[MedHistoryTypes.GOUT],
-        mh_details=[MedHistoryTypes.GOUT],
+        req_mhs=[MedHistoryTypes.GOUT],
+        aid_mh_dets=[MedHistoryTypes.GOUT],
+        mh_dets=mh_dets,
+        req_mh_dets=[MedHistoryTypes.GOUT],
         user=user,
         aid_obj=ppx,
     ).create()
@@ -86,12 +84,11 @@ def ppx_data_factory(
         data.update({"starting_ult": ppx.starting_ult})
     elif user and hasattr(user, "ppx"):
         data.update({"starting_ult": user.ppx.starting_ult})
-    else:
-        ppx_stub = PpxFactory.stub()
-        # Assign stub attrs to the data as key/val pairs
-        for attr in dir(ppx_stub):
-            if not attr.startswith("_"):
-                data.update({attr: getattr(ppx_stub, attr)})
+    ppx_stub = PpxFactory.stub()
+    # Assign stub attrs to the data as key/val pairs
+    for attr in dir(ppx_stub):
+        if not attr.startswith("_") and attr not in data:
+            data.update({attr: getattr(ppx_stub, attr)})
     # Create data for urates
     if user:
         if init_urates:
@@ -157,7 +154,7 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
         mhs_specified = kwargs.pop("mhs_specified", False)
 
         # Create the Ppx
-        ppx = PpxFactory(**kwargs, user=self.user)
+        ppx = PpxFactory(user=self.user, **kwargs)
 
         # Create the labs related to the Ppx
         self.create_labs(ppx)
@@ -190,8 +187,8 @@ def create_ppx(
     # Call the constructor Class Method
     return CreatePpx(
         labs=labs_kwarg,
-        medhistorys=PPX_MEDHISTORYS,
-        mh_details=[MedHistoryTypes.GOUT],
+        mhs=PPX_MEDHISTORYS,
+        mh_dets=[MedHistoryTypes.GOUT],
         user=user,
     ).create(mhs_specified=True, **kwargs)
 

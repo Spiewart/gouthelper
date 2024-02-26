@@ -72,7 +72,7 @@ class TestFlareMethods(TestCase):
         flare = create_flare(
             gender=GenderFactory(value=Genders.FEMALE),
             dateofbirth=DateOfBirthFactory(value=(timezone.now() - timedelta(days=365 * 40)).date()),
-            medhistorys=[CkdFactory()],
+            mhs=[CkdFactory()],
             menopause=True,
         )
         self.assertTrue(flare.at_risk_for_gout)
@@ -81,7 +81,7 @@ class TestFlareMethods(TestCase):
         flare = create_flare(
             gender=GenderFactory(value=Genders.FEMALE),
             dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 40)),
-            medhistorys=[],  # No medhistorys
+            mhs=[],  # No medhistorys
             menopause=False,
         )
         self.assertFalse(flare.at_risk_for_gout)

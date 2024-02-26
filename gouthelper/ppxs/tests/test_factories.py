@@ -104,6 +104,7 @@ class TestPpxDataFactory(TestCase):
         UrateFactory.create_batch(3, user=self.user_with_ppx)
         urates = self.user_with_ppx.urate_set.all()
         data = ppx_data_factory(ppx=self.user_ppx)
+        print(data)
         for urate in urates:
             self.assertIn(urate.id, data.values())
         self.assertEqual(data["urate-INITIAL_FORMS"], len(urates))

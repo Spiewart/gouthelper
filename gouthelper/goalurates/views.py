@@ -183,7 +183,7 @@ class GoalUratePatientBase(GoalUrateBase):
         abstract = True
 
     onetoones = {}
-    req_onetoones = []
+    req_otos = []
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         return goalurate_user_qs(username=username)

@@ -16,7 +16,7 @@ pytestmark = pytest.mark.django_db
 class TestPpxAidMethods(TestCase):
     def setUp(self):
         self.ppxaid = create_ppxaid()
-        self.empty_ppxaid = create_ppxaid(medallergys=[], medhistorys=[])
+        self.empty_ppxaid = create_ppxaid(mas=[], mhs=[])
         self.user_ppxaid = create_ppxaid(user=True)
 
     def test__aid_dict(self):
@@ -66,7 +66,7 @@ class TestPpxAidMethods(TestCase):
         """Test options includes all the standard prophylactic treatments for a
         PpxAid without any medhistorys or medallergys."""
         # Create a PpxAid with no medhistorys or medallergys
-        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(mhs=[], mas=[])
         self.assertTrue(ppxaid.options)
         self.assertIn(Treatments.NAPROXEN, ppxaid.options)
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)

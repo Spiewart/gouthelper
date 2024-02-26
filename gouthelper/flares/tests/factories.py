@@ -1,6 +1,6 @@
 import random
 from datetime import timedelta
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import factory  # type: ignore
 import factory.fuzzy  # type: ignore
@@ -27,7 +27,7 @@ from ...utils.helpers.test_helpers import (
     MedHistoryDataMixin,
     OneToOneCreatorMixin,
     OneToOneDataMixin,
-    create_or_append_medhistorys_qs,
+    create_or_append_mhs_qs,
     get_menopause_val,
 )
 from ..models import Flare
@@ -54,17 +54,29 @@ class CreateFlareData(MedHistoryDataMixin, OneToOneDataMixin):
 def flare_data_factory(
     user: Union["User", None] = None,
     flare: Flare | None = None,
+    mhs: list[MedHistoryTypes] | None = None,
+    otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
     data = CreateFlareData(
-        medallergys=None,
-        medhistorys=FLARE_MEDHISTORYS,
+        aid_mas=None,
+        aid_mhs=FLARE_MEDHISTORYS,
+        aid_labs=None,
+        mas=None,
+        mhs=mhs,
         bool_mhs=[
             MedHistoryTypes.CKD,
             MedHistoryTypes.GOUT,
             MedHistoryTypes.MENOPAUSE,
         ],
+        req_mhs=None,
+        aid_mh_dets=None,
+        mh_dets=None,
+        aid_otos=["dateofbirth", "gender", "urate"],
+        otos=otos,
+        req_otos=["dateofbirth", "gender"],
+        user_otos=["dateofbirth", "gender"],
         user=user,
-        onetoones=["dateofbirth", "gender", "urate"],
+        aid_obj=flare,
     ).create()
     # Create FlareAid Data
     date_started = fake.date_between_dates(
@@ -167,7 +179,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         if menopause and menopause_kwarg is not False:
             with transaction.atomic():
                 try:
-                    create_or_append_medhistorys_qs(
+                    create_or_append_mhs_qs(
                         flare,
                         MedHistoryFactory.create(
                             medhistorytype=MedHistoryTypes.MENOPAUSE,
@@ -179,7 +191,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
                     pass
         elif menopause_kwarg:
             if gender == Genders.FEMALE:
-                create_or_append_medhistorys_qs(
+                create_or_append_mhs_qs(
                     flare,
                     MedHistoryFactory.create(
                         medhistorytype=MedHistoryTypes.MENOPAUSE,
@@ -197,20 +209,20 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
 
 def create_flare(
     user: Union["User", None] = None,
-    medhistorys: list[FLARE_MEDHISTORYS] | None = None,
+    mhs: list[FLARE_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> Flare:
     """Creates a Flare with the given user, onetoones, and medhistorys."""
-    if medhistorys is None:
-        medhistorys = FLARE_MEDHISTORYS
+    if mhs is None:
+        mhs = FLARE_MEDHISTORYS
         specified = False
     else:
         specified = True
     # Call the constructor Class Method
     return CreateFlare(
-        medhistorys=medhistorys,
-        onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
-        req_onetoones=["dateofbirth", "gender"],
+        mhs=mhs,
+        otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
+        req_otos=["dateofbirth", "gender"],
         user=user,
     ).create(mhs_specified=specified, **kwargs)
 

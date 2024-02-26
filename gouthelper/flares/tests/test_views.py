@@ -1939,7 +1939,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             # of onetoones to save and delete to test against
             oto_2_save, oto_2_rem = view.post_process_oto_forms(
                 oto_forms=onetoone_forms,
-                req_onetoones=view.req_onetoones,
+                req_otos=view.req_otos,
                 query_obj=user,
             )
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
@@ -2201,7 +2201,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         data indicates a moderate likelihood and prevalence flare."""
 
         # Get a flare for the Pseudopatient
-        flare = create_flare(user=True, medhistorys=[], gender=Genders.MALE)
+        flare = create_flare(user=True, mhs=[], gender=Genders.MALE)
         # Create a fake data dict
         data = flare_data_factory(self.psp)
         # Modify data entries to indicate a moderate likelihood and prevalence flare

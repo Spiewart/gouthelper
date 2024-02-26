@@ -77,7 +77,7 @@ class TestFlareUserlessQuerySet(TestCase):
 
     def test__queryset_returns_correctly(self):
         flare = create_flare(
-            medhistorys=[*self.medhistorys],
+            mhs=[*self.medhistorys],
             dateofbirth=self.dateofbirth,
             gender=self.gender,
             urate=self.urate,
@@ -112,7 +112,7 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertEqual(len(queries.captured_queries), 0)
 
     def test__queryset_returns_correctly_no_relateds(self):
-        flare = create_flare(medhistorys=[], dateofbirth=self.dateofbirth, gender=Genders.MALE, urate=None)
+        flare = create_flare(mhs=[], dateofbirth=self.dateofbirth, gender=Genders.MALE, urate=None)
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)

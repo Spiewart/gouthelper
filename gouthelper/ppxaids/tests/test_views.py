@@ -309,7 +309,7 @@ class TestPpxAidDetail(TestCase):
     def test__get_object_updates(self):
         """Test that calling the view without the updated=True query param updates the ppxaid."""
         # Create a blank PpxAid and assert that it has vanilla recommendations
-        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(mhs=[], mas=[])
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
         # Add some contraindications that will be updated for
@@ -330,7 +330,7 @@ class TestPpxAidDetail(TestCase):
 
     def test__get_object_does_not_update(self):
         # Create an empty PpxAid
-        ppxaid: PpxAid = create_ppxaid(medhistorys=[], medallergys=[])
+        ppxaid: PpxAid = create_ppxaid(mhs=[], mas=[])
 
         # Assert that it's recommendations are vanilla
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)

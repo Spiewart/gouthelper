@@ -207,7 +207,7 @@ class FlareAidPatientBase(FlareAidBase):
         abstract = True
 
     onetoones = {}
-    req_onetoones = ["dateofbirth", "gender"]
+    req_otos = ["dateofbirth", "gender"]
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models

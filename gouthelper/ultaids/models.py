@@ -70,6 +70,8 @@ class UltAid(
     ethnicity = models.OneToOneField(
         "ethnicitys.Ethnicity",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     gender = models.OneToOneField(
         "genders.Gender",

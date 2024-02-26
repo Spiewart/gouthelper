@@ -41,11 +41,11 @@ class TestPpxAidMethods(TestCase):
             MedHistoryTypes.HEARTATTACK,
             MedHistoryTypes.CKD,
         ]
-        self.ppxaid = create_ppxaid(medhistorys=medhistorys, medallergys=[Treatments.COLCHICINE])
+        self.ppxaid = create_ppxaid(mhs=medhistorys, mas=[Treatments.COLCHICINE])
         if not self.ppxaid.baselinecreatinine:
             self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("2.20"), medhistory=self.ppxaid.ckd)
         self.decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
-        self.empty_ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        self.empty_ppxaid = create_ppxaid(mhs=[], mas=[])
         self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
 
     def test__init_without_user(self):
@@ -167,8 +167,8 @@ class TestPpxAidMethods(TestCase):
         when it doesn't have a user."""
         # Create a PpxAid without any medhistorys or medallergys
         ppxaid = create_ppxaid(
-            medhistorys=[],
-            medallergys=[],
+            mhs=[],
+            mas=[],
             dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
         )
 
@@ -210,8 +210,8 @@ class TestPpxAidMethods(TestCase):
         does not include NSAIDs in the options or recommendation."""
         # Create a PpxAid with a medhistory that is a contraindication to NSAIDs
         ppxaid = create_ppxaid(
-            medhistorys=[MedHistoryTypes.HEARTATTACK],
-            medallergys=[],
+            mhs=[MedHistoryTypes.HEARTATTACK],
+            mas=[],
         )
 
         # Test that the options and recommendation are correct and exclude NSAIDs
@@ -223,7 +223,7 @@ class TestPpxAidMethods(TestCase):
         """Test that a PpxAid that has colchicine as an option alters the dose
         when indicated by the CKD stage."""
         # Create a PpxAid for which colchicine is an option
-        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(mhs=[], mas=[])
 
         # Assert that colchicine is in the options dict
 
@@ -258,7 +258,7 @@ class TestPpxAidMethods(TestCase):
         of dosing when indicated by the CKD stage and custom DefaultPpxTrtSettings."""
         # Create a PpxAid for which colchicine is an option
 
-        ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        ppxaid = create_ppxaid(mhs=[], mas=[])
 
         # Assert that colchicine is in the options dict
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)

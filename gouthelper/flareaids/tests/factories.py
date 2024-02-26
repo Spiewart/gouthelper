@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import pytest  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
@@ -49,19 +49,32 @@ class CreateFlareAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataM
 
 def flareaid_data_factory(
     user: Union["User", None] = None,
+    flareaid: "FlareAid" = None,
+    mas: list[FlarePpxChoices.values] | None = None,
+    mhs: list[MedHistoryTypes] | None = None,
+    mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
+    otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
     return CreateFlareAidData(
-        medallergys=FlarePpxChoices.values,
-        medhistorys=FLAREAID_MEDHISTORYS,
+        aid_mas=FlarePpxChoices.values,
+        aid_mhs=FLAREAID_MEDHISTORYS,
+        mas=mas,
+        mhs=mhs,
         bool_mhs=[
             MedHistoryTypes.CKD,
             MedHistoryTypes.COLCHICINEINTERACTION,
             MedHistoryTypes.DIABETES,
             MedHistoryTypes.ORGANTRANSPLANT,
         ],
-        mh_details=[MedHistoryTypes.CKD],
+        aid_mh_dets=[MedHistoryTypes.CKD],
+        mh_dets=mh_dets,
+        req_mh_dets=[MedHistoryTypes.CKD],
+        aid_otos=["dateofbirth", "gender"],
+        otos=otos,
+        req_otos=["dateofbirth"],
+        user_otos=["dateofbirth", "gender"],
         user=user,
-        onetoones=["dateofbirth", "gender"],
+        aid_obj=flareaid,
     ).create()
 
 
@@ -110,11 +123,11 @@ def create_flareaid(
         mhs_specified = True
     # Call the constructor Class Method
     return CreateFlareAid(
-        medallergys=medallergys,
-        medhistorys=medhistorys,
-        mh_details=[MedHistoryTypes.CKD],
-        onetoones={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
-        req_onetoones=["dateofbirth"],
+        mas=medallergys,
+        mhs=medhistorys,
+        mh_dets=[MedHistoryTypes.CKD],
+        otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
+        req_otos=["dateofbirth"],
         user=user,
     ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 

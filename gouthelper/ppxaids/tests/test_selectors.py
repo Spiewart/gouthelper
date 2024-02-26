@@ -24,8 +24,8 @@ pytestmark = pytest.mark.django_db
 class TestPpxAidUserlessQuerySet(TestCase):
     def setUp(self):
         self.ppxaid = create_ppxaid(
-            medallergys=[Treatments.COLCHICINE],
-            medhistorys=[MedHistoryTypes.CKD],
+            mas=[Treatments.COLCHICINE],
+            mhs=[MedHistoryTypes.CKD],
         )
         if not self.ppxaid.ckd:
             self.ckd = CkdFactory(ppxaid=self.ppxaid)
@@ -50,7 +50,7 @@ class TestPpxAidUserlessQuerySet(TestCase):
             )
         else:
             self.ckddetail = self.ppxaid.ckddetail
-        self.empty_ppxaid = create_ppxaid(medhistorys=[], medallergys=[])
+        self.empty_ppxaid = create_ppxaid(mhs=[], mas=[])
 
     def test__queryset_returns_correctly(self):
         queryset = ppxaid_userless_qs(self.ppxaid.pk)

@@ -94,7 +94,7 @@ class FlareBase:
         MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
         MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
     }
-    req_onetoones = {}
+    req_otos = {}
 
     def post_process_urate_check(
         self,
@@ -231,7 +231,7 @@ class FlarePatientBase(FlareBase):
         MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
     }
     onetoones = {"urate": {"form": UrateFlareForm, "model": Urate}}
-    req_onetoones = ["dateofbirth", "gender"]
+    req_otos = ["dateofbirth", "gender"]
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models

@@ -80,7 +80,7 @@ def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
 
 class GoutHelperAidMixin:
     onetoones: dict[str, "FormModelDict"] = {}
-    req_onetoones: list[str] = []
+    req_otos: list[str] = []
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
     medhistorys: dict[MedHistoryTypes, "FormModelDict"] = {}
     medhistory_details: dict[MedHistoryTypes, "ModelForm"] = {}
@@ -108,7 +108,7 @@ class GoutHelperAidMixin:
         missing."""
         # Need to check the user's role to avoid redirecting a Provider or Admin to
         # a view that is meant for a Pseudopatient or Patient
-        for onetoone in self.req_onetoones:
+        for onetoone in self.req_otos:
             if not hasattr(user, onetoone):
                 raise AttributeError("Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
 
@@ -281,7 +281,7 @@ class GoutHelperAidMixin:
     def context_onetoones(
         self,
         onetoones: dict[str, "FormModelDict"],
-        req_onetoones: list[str],
+        req_otos: list[str],
         kwargs: dict,
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
     ) -> None:
@@ -300,7 +300,7 @@ class GoutHelperAidMixin:
                     # Add the form to the context with a new instance of the related model
                     kwargs[form_str] = onetoone_dict["form"](instance=oto_obj if oto_obj else onetoone_dict["model"]())
         # Add the required one to one objects to the context
-        for onetoone in req_onetoones:
+        for onetoone in req_otos:
             if onetoone not in kwargs:
                 # If the one to one is a dateofbirth, calculate the age and add it to the context
                 if onetoone == "dateofbirth":
@@ -466,10 +466,10 @@ class GoutHelperAidMixin:
         return self.render_to_response(self.get_context_data())
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        if self.onetoones or self.req_onetoones:
+        if self.onetoones or self.req_otos:
             self.context_onetoones(
                 onetoones=self.onetoones,
-                req_onetoones=self.req_onetoones,
+                req_otos=self.req_otos,
                 kwargs=kwargs,
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
             )
@@ -657,7 +657,7 @@ class GoutHelperAidMixin:
             # Set related models for saving and set as attrs of the UpdateView model instance
             oto_2_save, oto_2_rem = self.post_process_oto_forms(
                 oto_forms=oto_forms,
-                req_onetoones=self.req_onetoones,
+                req_otos=self.req_otos,
                 query_obj=self.user if self.user else form.instance,
             )
             ma_2_save, ma_2_rem = self.post_process_ma_forms(
@@ -1110,7 +1110,7 @@ menopause status to evaluate their flare."
     def post_process_oto_forms(
         self,
         oto_forms: dict[str, "ModelForm"],
-        req_onetoones: list[str],
+        req_otos: list[str],
         query_obj: Union["MedAllergyAidHistoryModel", User],
     ) -> tuple[list[Model], list[Model]]:
         """Method to process the forms for the OneToOne objects for the post() method."""
@@ -1119,7 +1119,7 @@ menopause status to evaluate their flare."
         oto_2_rem: list[Model] = []
         for oto_form_str, oto_form in oto_forms.items():
             object_attr = oto_form_str.split("_")[0]
-            if object_attr not in req_onetoones:
+            if object_attr not in req_otos:
                 try:
                     oto_form.check_for_value()
                     # Check if the onetoone changed

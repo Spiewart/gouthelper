@@ -107,7 +107,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -132,7 +132,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -157,7 +157,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[MedHistoryTypes.GOUT],
+            mhs=[MedHistoryTypes.GOUT],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -182,7 +182,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -207,7 +207,7 @@ class TestFlareHelpers(TestCase):
             redness=True,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -232,7 +232,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -257,7 +257,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -283,7 +283,7 @@ class TestFlareHelpers(TestCase):
             redness=False,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
         )
         prevalence_points = flares_calculate_prevalence_points(
             gender=gender,
@@ -308,7 +308,7 @@ class TestFlareHelpers(TestCase):
             crystal_analysis=None,
             dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30)),
             gender=Genders.FEMALE,
-            medhistorys=[],
+            mhs=[],
             menopause=False,
         )
         less_likelys = flares_get_less_likelys(
@@ -348,7 +348,7 @@ class TestFlareHelpers(TestCase):
             menopause=False,
             dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30)),
             gender=GenderFactory(value=Genders.FEMALE),
-            medhistorys=[MedHistoryTypes.CKD],
+            mhs=[MedHistoryTypes.CKD],
         )
 
         less_likelys = flares_get_less_likelys(
@@ -576,7 +576,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
             date_started=(timezone.now() - timedelta(days=6)).date(),
             date_ended=timezone.now().date(),
         )
@@ -602,7 +602,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.EQUIVOCAL)
@@ -623,7 +623,7 @@ Physician evaluation is recommended.",
             diagnosed=False,
             urate=urate,
             menopause=True,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
             date_started=(timezone.now() - timedelta(days=6)).date(),
             date_ended=timezone.now().date(),
         )
@@ -645,7 +645,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CKD, MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CKD, MedHistoryTypes.CHF],
             date_started=(timezone.now() - timedelta(days=6)).date(),
             date_ended=timezone.now().date(),
         )
@@ -667,7 +667,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
@@ -691,7 +691,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=urate,
-            medhistorys=[MedHistoryTypes.CHF],
+            mhs=[MedHistoryTypes.CHF],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
@@ -716,7 +716,7 @@ Physician evaluation is recommended.",
             redness=True,
             diagnosed=False,
             urate=None,
-            medhistorys=[],  # no medhistorys
+            mhs=[],  # no medhistorys
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.EQUIVOCAL)
@@ -739,7 +739,7 @@ Physician evaluation is recommended.",
             redness=False,
             diagnosed=False,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.UNLIKELY)
@@ -758,7 +758,7 @@ Physician evaluation is recommended.",
             redness=False,
             diagnosed=True,
             urate=None,
-            medhistorys=[],
+            mhs=[],
         )
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)

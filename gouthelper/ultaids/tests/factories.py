@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import pytest  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
@@ -41,37 +41,41 @@ fake = faker.Faker()
 class CreateUltAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
     """Overwritten to add functionality for OneToOnes and HLAb5801."""
 
-    def create_hlab5801(self):
-        data = {}
-        if fake.boolean():
-            data["hlab5801-value"] = fake.boolean()
-        else:
-            data["hlab5801-value"] = ""
-        return data
-
     def create(self):
         ma_data = self.create_ma_data()
         mh_data = self.create_mh_data()
         oto_data = self.create_oto_data()
-        hlab5801_data = self.create_hlab5801()
-        return {**ma_data, **mh_data, **oto_data, **hlab5801_data}
+        return {**ma_data, **mh_data, **oto_data}
 
 
 def ultaid_data_factory(
     user: "User" = None,
+    ultaid: "UltAid" = None,
+    mas: list[UltChoices.values] | None = None,
+    mhs: list[MedHistoryTypes] | None = None,
+    mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
+    otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
     return CreateUltAidData(
-        medallergys=UltChoices.values,
-        medhistorys=ULTAID_MEDHISTORYS,
+        aid_mas=UltChoices.values,
+        aid_mhs=ULTAID_MEDHISTORYS,
+        mas=mas,
+        mhs=mhs,
         bool_mhs=[
             MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY,
+            MedHistoryTypes.CKD,
             MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,
             MedHistoryTypes.ORGANTRANSPLANT,
             MedHistoryTypes.XOIINTERACTION,
         ],
-        mh_details=[MedHistoryTypes.CKD],
+        aid_mh_dets=[MedHistoryTypes.CKD],
+        mh_dets=mh_dets,
+        aid_otos=["dateofbirth", "ethnicity", "gender", "hlab5801"],
+        otos=otos,
+        req_otos=["ethnicity"],
+        user_otos=["dateofbirth", "ethnicity", "gender"],
         user=user,
-        onetoones=["dateofbirth", "ethnicity", "gender"],
+        aid_obj=ultaid,
     ).create()
 
 
@@ -82,8 +86,9 @@ class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
         kwargs = super().create(**kwargs)
         mas_specified = kwargs.pop("mas_specified", False)
         mhs_specified = kwargs.pop("mhs_specified", False)
-        ultaid = UltAidFactory()
+        ultaid = UltAidFactory.build(user=self.user)
         self.create_otos(ultaid)
+        ultaid.save()
         self.create_mas(ultaid, specified=mas_specified)
         self.create_mhs(ultaid, specified=mhs_specified, opt_mh_dets=[MedHistoryTypes.CKD])
         return ultaid
@@ -91,33 +96,33 @@ class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 def create_ultaid(
     user: Union["User", None] = None,
-    medallergys: list[UltChoices.values] | None = None,
-    medhistorys: list[ULTAID_MEDHISTORYS] | None = None,
+    mas: list[UltChoices.values] | None = None,
+    mhs: list[ULTAID_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> UltAid:
     """Creates a UltAid with the given user, onetoones, medallergys, and medhistorys."""
-    if medallergys is None:
-        medallergys = UltChoices.values
+    if mas is None:
+        mas = UltChoices.values
         mas_specified = False
     else:
         mas_specified = True
-    if medhistorys is None:
-        medhistorys = ULTAID_MEDHISTORYS
+    if mhs is None:
+        mhs = ULTAID_MEDHISTORYS
         mhs_specified = False
     else:
         mhs_specified = True
     # Call the constructor Class Method
     return CreateUltAid(
-        medallergys=medallergys,
-        medhistorys=medhistorys,
-        mh_details=[MedHistoryTypes.CKD],
-        onetoones={
+        mas=mas,
+        mhs=mhs,
+        mh_dets={MedHistoryTypes.CKD: {}},
+        otos={
             "dateofbirth": DateOfBirthFactory,
             "gender": GenderFactory,
             "ethnicity": EthnicityFactory,
             "hlab5801": Hlab5801Factory,
         },
-        req_onetoones=["ethnicity"],
+        req_otos=["ethnicity"],
         user=user,
     ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 

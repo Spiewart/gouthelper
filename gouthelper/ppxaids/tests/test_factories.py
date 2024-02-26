@@ -31,8 +31,8 @@ def test__ppxaid_data_factory():
         # Test the onetoone field data
         assert "dateofbirth-value" in data
         assert isinstance(data["dateofbirth-value"], int)
-        assert "gender-value" in data
-        assert isinstance(data["gender-value"], int)
+        if data.get("gender", None):
+            assert isinstance(data["gender-value"], int)
 
         # Test the medhistory data
         for mh in PPXAID_MEDHISTORYS:
@@ -75,10 +75,8 @@ def test__ppxaid_data_factory():
         data = ppxaid_data_factory(psp)
 
         # Test the onetoone field data
-        assert "dateofbirth-value" in data
-        assert data["dateofbirth-value"] == age_calc(psp.dateofbirth.value)
-        assert "gender-value" in data
-        assert data["gender-value"] == psp.gender.value
+        assert "dateofbirth-value" not in data
+        assert "gender-value" not in data
 
         # Test the medhistory data
         for mh in PPXAID_MEDHISTORYS:
@@ -158,13 +156,13 @@ def test__create_ppxaid_with_onetoones():
 
 
 def test__create_ppxaid_without_onetoones():
-    ppxaid = create_ppxaid(gender=False)
+    ppxaid = create_ppxaid(gender=None)
     assert not getattr(ppxaid, "ethnicity", None)
     assert not getattr(ppxaid, "gender", None)
 
 
 def test__create_ppxaid_with_medallergys():
-    ppxaid = create_ppxaid(medallergys=[FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE])
+    ppxaid = create_ppxaid(mas=[FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE])
     assert hasattr(ppxaid, "medallergys_qs")
     assert len(ppxaid.medallergys_qs) == 2
     for ma in ppxaid.medallergys_qs:
@@ -178,7 +176,7 @@ def test__create_ppxaid_with_medallergys():
 
 
 def test__create_ppxaid_with_medhistorys():
-    ppxaid = create_ppxaid(medhistorys=[MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION])
+    ppxaid = create_ppxaid(mhs=[MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION])
     assert hasattr(ppxaid, "medhistorys_qs")
     assert len(ppxaid.medhistorys_qs) == 2
     for mh in ppxaid.medhistorys_qs:
@@ -192,7 +190,7 @@ def test__create_ppxaid_with_medhistorys():
 
 
 def test__create_ppxaid_with_ckd_and_ckddetail():
-    ppxaid = create_ppxaid(medhistorys=[MedHistoryTypes.CKD])
+    ppxaid = create_ppxaid(mhs=[MedHistoryTypes.CKD])
     assert hasattr(ppxaid, "ckd")
     assert hasattr(ppxaid, "ckddetail")
     assert hasattr(ppxaid, "gender")

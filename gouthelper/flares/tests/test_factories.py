@@ -119,10 +119,8 @@ def test__flare_data_factory():
             assert "aspiration" not in data
 
         # Test the onetoone field data
-        assert "dateofbirth-value" in data
-        assert data["dateofbirth-value"] == age_calc(psp.dateofbirth.value)
-        assert "gender-value" in data
-        assert data["gender-value"] == psp.gender.value
+        assert "dateofbirth-value" not in data
+        assert "gender-value" not in data
 
         # Test the medhistory data
         for mh in FLARE_MEDHISTORYS:
@@ -281,7 +279,7 @@ def test__create_flare_with_onetoones():
 
 
 def test__create_flare_with_medhistorys():
-    flare = create_flare(medhistorys=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
+    flare = create_flare(mhs=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
     assert hasattr(flare, "medhistorys_qs")
     if flare.gender.value == Genders.MALE:
         assert len(flare.medhistorys_qs) == 3
@@ -301,7 +299,7 @@ def test__create_flare_with_medhistorys():
 
 def test__create_flare_with_medhistorys_and_user():
     """Test that the MedHistorys are created with the User."""
-    flare = create_flare(user=True, medhistorys=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
+    flare = create_flare(user=True, mhs=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
     assert hasattr(flare, "medhistorys_qs")
     if flare.user.gender.value == Genders.MALE:
         assert len(flare.medhistorys_qs) == 3

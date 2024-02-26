@@ -226,7 +226,7 @@ class GoutHelperBaseModel:
     def febuxostat_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Febuxostat MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        medallergy_attr(Treatments.FEBUXOSTAT, self)
+        return medallergy_attr(Treatments.FEBUXOSTAT, self)
 
     @cached_property
     def febuxostathypersensitivity(self) -> Union["MedHistory", bool]:
@@ -340,6 +340,7 @@ class GoutHelperBaseModel:
                 for option, option_dict in self.options.items()
                 if option != rec
             ]
+        return None
 
     @cached_property
     def organtransplant(self) -> Union["MedHistory", bool]:

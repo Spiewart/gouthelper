@@ -54,7 +54,7 @@ class TestFlareMethods(TestCase):
             dateofbirth=self.userless_dateofbirth,
             gender=self.userless_gender,
             urate=self.userless_urate,
-            medhistorys=[
+            mhs=[
                 MedHistoryTypes.ANGINA,
                 MedHistoryTypes.CHF,
                 MedHistoryTypes.HEARTATTACK,
