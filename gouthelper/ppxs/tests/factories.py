@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Union  # pylint: disable=e0401 # type: ig
 
 import factory  # pylint: disable=e0401 # type: ignore
 import pytest  # pylint: disable=e0401 # type: ignore
-from django.db.models import QuerySet
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # type: ignore
 
@@ -13,14 +12,7 @@ from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPX_MEDHISTORYS
-from ...utils.helpers.helpers import get_qs_or_set
-from ...utils.helpers.test_helpers import (
-    LabCreatorMixin,
-    MedHistoryCreatorMixin,
-    MedHistoryDataMixin,
-    fake_date_drawn,
-    fake_urate_decimal,
-)
+from ...utils.helpers.test_helpers import LabCreatorMixin, LabDataMixin, MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import Ppx
 
 if TYPE_CHECKING:
@@ -33,46 +25,46 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-class CreatePpxData(MedHistoryDataMixin):
+class CreatePpxData(MedHistoryDataMixin, LabDataMixin):
     """Provides data for Ppx and related objects when the class method is called with the appropriate
     arguments. However, the resulting data still needs to be populated with FlareAid-specific data for
     fields on the FlareAid."""
 
     def create(self):
         mh_data = self.create_mh_data()
-        return {**mh_data}
-
-
-def create_urate_data(index: int, urate: Urate | Decimal = None) -> dict[str, str | Decimal]:
-    return {
-        f"urate-{index}-value": (
-            urate.value
-            if urate and isinstance(urate, Urate)
-            else urate
-            if urate and isinstance(urate, Decimal)
-            else fake_urate_decimal()
-        ),
-        f"urate-{index}-date_drawn": (
-            urate.date_drawn if urate and isinstance(urate, Urate) else str(fake_date_drawn())
-        ),
-        f"urate-{index}-id": (urate.pk if urate and isinstance(urate, Urate) else ""),
-    }
+        lab_data = self.create_lab_data()
+        return {**mh_data, **lab_data}
 
 
 def ppx_data_factory(
     user: Union["User", None] = None,
     ppx: Ppx | None = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
-    urates: list[Urate, Decimal] | None = None,
-    init_urates: list[Urate, Decimal] | None = None,
+    urates: list[Urate, Decimal, tuple[Urate, Any]] | None = None,
     **kwargs,
 ) -> dict[str, str]:
-    """Create data for related MedHistory and Urate objects for the Ppx."""
+    """Create data for related MedHistory and Urate objects for the Ppx.
+
+    Args:
+        user: The user to associate with the Ppx data.
+        ppx: The Ppx to associate with the data.
+        mh_dets: Dictionary of MedHistoryTypes and to add kwargs to the creation / modification of their
+                    related MedHistoryDetails.
+        urates: List of Urate objects or Decimal values OR tuples of Urate objects or Decimal values
+                and a dictionary containing field / value mappings to modify the data for
+                existing Urate objects already related to the Ppx object. Passing a dict with "DELETE":True
+                will flag the urate for deletion in the data. Passing an empty list will result in standard
+                behavior where data for anywhere between 0 and 5 urates will be added. PASS NONE if you
+                want to mark all urates for deletion and not create any new ones.
+    """
+
     data = CreatePpxData(
         aid_mhs=PPX_MEDHISTORYS,
+        aid_labs=["urate"],
         bool_mhs=[MedHistoryTypes.GOUT],
         req_mhs=[MedHistoryTypes.GOUT],
         aid_mh_dets=[MedHistoryTypes.GOUT],
+        labs={"urate": urates if urates or urates is None else []},
         mh_dets=mh_dets,
         req_mh_dets=[MedHistoryTypes.GOUT],
         user=user,
@@ -89,57 +81,6 @@ def ppx_data_factory(
     for attr in dir(ppx_stub):
         if not attr.startswith("_") and attr not in data:
             data.update({attr: getattr(ppx_stub, attr)})
-    # Create data for urates
-    if user:
-        if init_urates:
-            raise ValueError("If user is provided, init_urates must be None.")
-        init_urates = get_qs_or_set(user, "urate")
-    elif ppx:
-        if init_urates:
-            raise ValueError("If ppx is provided, init_urates must be None.")
-        init_urates = get_qs_or_set(ppx, "urate")
-    else:
-        init_urates = sorted(init_urates, key=lambda urate: urate.date_drawn) if init_urates else []
-    if isinstance(init_urates, QuerySet):
-        init_urates.order_by("date_drawn")
-    init_urate_len = len(init_urates)
-    if init_urates:
-        exi_i = 0
-        for urate in init_urates:
-            # If the urate list is not None and the urate is not in the list,
-            # it needs to be marked for deletion in the formset
-            if urates is not None and urate not in urates:
-                data.update(create_urate_data(exi_i, urate))
-                data.update({f"urate-{exi_i}-DELETE": "on"})
-                exi_i += 1
-            # 50/50 chance that each initial urate will be deleted
-            elif fake.boolean():
-                data.update(create_urate_data(exi_i, urate))
-                # 50/50 chance the urate value changed
-                if fake.boolean():
-                    data.update({f"urate-{exi_i}-value": fake_urate_decimal()})
-                exi_i += 1
-            # Otherwise, if the urate is a Urate and not a Decimal it needs to be marked for deletion in the formset
-            elif isinstance(urate, Urate):
-                data.update(create_urate_data(exi_i, urate))
-                data.update({f"urate-{exi_i}-DELETE": "on"})
-                exi_i += 1
-    if urates is not None:
-        new_urates = len(urates)
-    else:
-        new_urates = random.randint(0, 5)
-    data.update(
-        {
-            "urate-INITIAL_FORMS": init_urate_len,
-            "urate-TOTAL_FORMS": init_urate_len + new_urates,
-        }
-    )
-    if urates is not None:
-        for i, urate in enumerate(urates):
-            data.update(create_urate_data(init_urate_len + i, urate))
-    else:
-        for i in range(new_urates):
-            data.update(create_urate_data(init_urate_len + i))
     return data
 
 
@@ -188,7 +129,7 @@ def create_ppx(
     return CreatePpx(
         labs=labs_kwarg,
         mhs=PPX_MEDHISTORYS,
-        mh_dets=[MedHistoryTypes.GOUT],
+        mh_dets={MedHistoryTypes.GOUT: {}},
         user=user,
     ).create(mhs_specified=True, **kwargs)
 

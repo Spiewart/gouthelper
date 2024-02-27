@@ -50,13 +50,50 @@ class CkdDetailFactory(DjangoModelFactory):
 def create_ckddetail(
     medhistory: "Ckd" = None,
     stage: "Stages" = None,
-    on_dialysis: bool = False,
+    dialysis: bool = False,
     dialysis_type: "DialysisChoices" = None,
     dialysis_duration: "DialysisDurations" = None,
     baselinecreatinine: Union["BaselineCreatinine", "Decimal"] = None,
     dateofbirth: "date" = None,
     gender: "Genders" = None,
 ) -> CkdDetail:
+    def set_dialysis_fields(ckddetail: CkdDetail) -> None:
+        if not ckddetail.dialysis:
+            ckddetail.dialysis = True
+        if ckddetail.dialysis_type is None:
+            ckddetail.dialysis_type = random.choice(DialysisChoices.values)
+        if ckddetail.dialysis_duration is None:
+            ckddetail.dialysis_duration = random.choice(DialysisDurations)
+        if ckddetail.stage != Stages.FIVE:
+            ckddetail.stage = Stages.FIVE
+
+    def set_non_dialysis_fields(
+        ckddetail: CkdDetail,
+        medhistory: "Ckd",
+        dateofbirth: "date",
+        gender: "Genders",
+    ) -> None:
+        if dateofbirth and gender and fake.boolean():
+            baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
+            calc_stage = labs_stage_calculator(
+                labs_eGFR_calculator(
+                    creatinine=baselinecreatinine.value,
+                    age=age_calc(dateofbirth),
+                    gender=gender,
+                )
+            )
+            ckddetail.stage = calc_stage
+        else:
+            ckddetail.stage = random.choice(Stages.values)
+
+    ckddetail = CkdDetailFactory.build(
+        medhistory=medhistory,
+        stage=stage,
+        dialysis=dialysis,
+        dialysis_type=dialysis_type,
+        dialysis_duration=dialysis_duration,
+    )
+
     if baselinecreatinine:
         if not dateofbirth or not gender:
             raise ValueError("Need date of birth and gender to interpret baseline creatinine.")
@@ -77,33 +114,36 @@ def create_ckddetail(
     elif calc_stage:
         if isinstance(baselinecreatinine, Decimal):
             BaselineCreatinineFactory(value=baselinecreatinine, medhistory=medhistory)
-        return CkdDetailFactory(stage=calc_stage, medhistory=medhistory)
-    elif on_dialysis:
-        kwargs = {}
-        if dialysis_type:
-            kwargs.update({"dialysis_type": dialysis_type})
-        if dialysis_duration:
-            kwargs.update({"dialysis_duration": dialysis_duration})
-        return CkdDetailFactory(on_dialysis=on_dialysis, **kwargs)
+        ckddetail.stage = calc_stage
     # If none of the above are True, then we're just creating a random CkdDetail
     else:
-        if fake.boolean():
-            # 50/50 chance of being on dialysis
-            return CkdDetailFactory(medhistory=medhistory, on_dialysis=True)
-        else:
-            # Otherwise, 50/50 chance of having a baselinecreatinine associated with the stage
-            if dateofbirth and gender and fake.boolean():
-                baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
-                calc_stage = labs_stage_calculator(
-                    labs_eGFR_calculator(
-                        creatinine=baselinecreatinine.value,
-                        age=age_calc(dateofbirth),
-                        gender=gender,
-                    )
-                )
-                return CkdDetailFactory(medhistory=medhistory, stage=calc_stage)
+        if (
+            stage
+            and stage != Stages.FIVE
+            and dialysis
+            or ckddetail.stage
+            and ckddetail.stage != Stages.FIVE
+            and dialysis
+        ):
+            raise ValueError("Stage must be FIVE if dialysis is True.")
+        if dialysis is None or dialysis_duration is None or dialysis_type is None:
+            if stage and stage != Stages.FIVE or ckddetail.stage and ckddetail.stage != Stages.FIVE:
+                ckddetail.dialysis = False
+            elif (
+                dialysis is None
+                and fake.boolean()
+                or (dialysis and dialysis_duration is None or dialysis_type is None)
+            ):
+                # 50/50 chance of being on dialysis
+                set_dialysis_fields(ckddetail)
             else:
-                return CkdDetailFactory(medhistory=medhistory)
+                # Otherwise, 50/50 chance of having a baselinecreatinine associated with the stage
+                set_non_dialysis_fields(ckddetail, medhistory, dateofbirth, gender)
+        else:
+            set_dialysis_fields(ckddetail)
+
+    ckddetail.save()
+    return ckddetail
 
 
 class GoutDetailFactory(DjangoModelFactory):

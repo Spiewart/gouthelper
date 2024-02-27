@@ -597,7 +597,7 @@ class TestPpxPseudopatientCreate(TestCase):
         UrateFactory.create_batch(3, user=self.psp)
 
         # Create some data without urates
-        data = ppx_data_factory(user=self.psp, urates=[])
+        data = ppx_data_factory(user=self.psp, urates=None)
 
         # POST the data
         response = self.client.post(
@@ -1237,7 +1237,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         UrateFactory.create_batch(3, user=self.psp)
 
         # Create some data without urates
-        data = ppx_data_factory(user=self.psp, urates=[])
+        data = ppx_data_factory(user=self.psp, urates=None)
 
         # POST the data
         response = self.client.post(
@@ -1411,11 +1411,8 @@ class TestPpxUpdate(TestCase):
     def test__post_removes_multiple_urates(self):
         """Test that post() removes 3 existing Urates for the Ppx."""
         # Create fake data with data for 3 urates to be deleted
-        data = ppx_data_factory(ppx=self.ppx, urates=[])
-        exi_i = 0
-        for _ in self.ppx.urate_set.all():
-            data.update({f"urate-{exi_i}-DELETE": "on"})
-            exi_i += 1
+        data = ppx_data_factory(ppx=self.ppx, urates=None)
+        print(data)
 
         # Post the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
@@ -1428,11 +1425,9 @@ class TestPpxUpdate(TestCase):
     def test__post_removes_multiple_but_not_all_urates(self):
         """Test that post() removes 3 existing Urates for the Ppx."""
         # Create fake data with data for 3 urates to be deleted and a new one to be added
-        data = ppx_data_factory(ppx=self.ppx, urates=[Decimal("18.9")])
-        exi_i = 0
-        for _ in self.ppx.urate_set.all():
-            data.update({f"urate-{exi_i}-DELETE": "on"})
-            exi_i += 1
+        data = ppx_data_factory(
+            ppx=self.ppx, urates=[Decimal("18.9"), *[(urate, {"DELETE": True}) for urate in self.ppx.urate_set.all()]]
+        )
 
         # Post the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
@@ -1476,7 +1471,7 @@ class TestPpxUpdate(TestCase):
     def test__post_updates_goutdetail(self):
         """Tests that a POST request updates a Ppx object's related GoutDetail."""
         # Create fake data
-        data = ppx_data_factory(ppx=self.ppx, urates=[])
+        data = ppx_data_factory(ppx=self.ppx, urates=None)
 
         # Set GoutDetail fields as attrs on the test to test against later
         data.update(

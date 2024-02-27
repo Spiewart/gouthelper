@@ -102,12 +102,18 @@ def create_ultaid(
 ) -> UltAid:
     """Creates a UltAid with the given user, onetoones, medallergys, and medhistorys."""
     if mas is None:
-        mas = UltChoices.values
+        if user:
+            mas = user.medallergys_qs if hasattr(user, "medallergys_qs") else user.medallergy_set.all()
+        else:
+            mas = UltChoices.values
         mas_specified = False
     else:
         mas_specified = True
     if mhs is None:
-        mhs = ULTAID_MEDHISTORYS
+        if user:
+            mhs = user.medhistorys_qs if hasattr(user, "medhistorys_qs") else user.medhistory_set.all()
+        else:
+            mhs = ULTAID_MEDHISTORYS
         mhs_specified = False
     else:
         mhs_specified = True

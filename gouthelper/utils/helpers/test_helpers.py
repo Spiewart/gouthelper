@@ -1,13 +1,14 @@
 import random
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
-from django.contrib.auth import get_user_model  # type: ignore
-from django.db import IntegrityError, transaction  # type: ignore
-from django.forms import BaseModelFormSet
-from factory.django import DjangoModelFactory  # type: ignore
-from factory.faker import faker  # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
+from django.db import IntegrityError, transaction  # pylint: disable=e0401 # type: ignore
+from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
+from django.forms import BaseModelFormSet  # pylint: disable=e0401 # type: ignore
+from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
+from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
@@ -32,9 +33,11 @@ from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import NsaidChoices, Treatments
 from ...users.tests.factories import create_psp
-from .helpers import get_or_create_attr, get_or_create_qs_attr
+from .helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
 
 if TYPE_CHECKING:
+    import uuid
+
     from django.http import HttpResponse  # type: ignore
 
     from ...flareaids.models import FlareAid
@@ -51,10 +54,10 @@ User = get_user_model()
 
 fake = faker.Faker()
 
-DialysisDurations = DialysisDurations.values
-DialysisDurations.remove("")
-Stages = Stages.values
-Stages.remove(None)
+ModDialysisDurations = DialysisDurations.values
+ModDialysisDurations.remove("")
+ModStages = Stages.values
+ModStages.remove(None)
 
 
 def create_baselinecreatinine_value() -> Decimal:
@@ -158,7 +161,7 @@ def make_ckddetail_kwargs(
     if d_val:
         d_d_kwarg = ckddetail_kwargs.get("dialysis_duration", None) if ckddetail_kwargs else None
         if not d_d_kwarg:
-            d_d_val = random.choice(DialysisDurations)
+            d_d_val = random.choice(ModDialysisDurations)
             ckddetail_kwargs.update({"dialysis_duration": d_d_val})
         d_t_kwarg = ckddetail_kwargs.get("dialysis_type", None) if ckddetail_kwargs else None
         if not d_t_kwarg:
@@ -171,16 +174,16 @@ def make_ckddetail_kwargs(
             if stage_kwarg:
                 ckddetail_kwargs.update({"stage": stage_kwarg})
             elif fake.boolean():
-                ckddetail_kwargs.update({"stage": random.choice(Stages)})
+                ckddetail_kwargs.update({"stage": random.choice(ModStages)})
             if bc_kwarg:
-                ckddetail_kwargs.update({"baselinecreatinine-value": bc_kwarg})
+                ckddetail_kwargs.update({"baselinecreatinine": bc_kwarg})
             elif fake.boolean():
-                ckddetail_kwargs.update({"baselinecreatinine-value": create_baselinecreatinine_value()})
+                ckddetail_kwargs.update({"baselinecreatinine": create_baselinecreatinine_value()})
         else:
             if fake.boolean():
-                ckddetail_kwargs.update({"baselinecreatinine-value": create_baselinecreatinine_value()})
+                ckddetail_kwargs.update({"baselinecreatinine": create_baselinecreatinine_value()})
             if fake.boolean():
-                ckddetail_kwargs.update({"stage": random.choice(Stages)})
+                ckddetail_kwargs.update({"stage": random.choice(ModStages)})
     return ckddetail_kwargs
 
 
@@ -212,59 +215,60 @@ def make_goutdetail_kwargs(
     return goutdetail_kwargs
 
 
-def make_ckddetail_data(user: User = None, dateofbirth: "str" = None, gender: int = None, **kwargs) -> dict:
-    if user and dateofbirth or user and gender:
+def make_ckddetail_data(
+    user: User = None,
+    dateofbirth: "str" = None,
+    gender: int = None,
+    dialysis: bool | None = None,
+    dialysis_duration: DialysisDurations | None = None,
+    dialysis_type: DialysisChoices | None = None,
+    stage: Stages | None = None,
+    baselinecreatinine: Decimal | None = None,
+) -> dict:
+    print(user)
+    print(dateofbirth)
+    print(gender)
+    print(baselinecreatinine)
+    if user and dateofbirth is not None or user and gender is not None:
         raise ValueError("Calling this function with both a user and demographic information. Not allowed.")
+    elif baselinecreatinine and not user and (gender is None or dateofbirth is None):
+        raise ValueError(
+            "Calling this function with a baselinecreatinine and no user or demographic information. Not allowed."
+        )
     data = {}
-    print("creating ckddetail data")
-    d_kwarg = kwargs.get("dialysis", None) if kwargs else None
-    dialysis_value = d_kwarg if d_kwarg else fake.boolean()
+    dialysis_value = dialysis if dialysis is not None else fake.boolean()
     data["dialysis"] = dialysis_value
     if dialysis_value:
-        d_d_kwarg = kwargs.get("dialysis_duration", None) if kwargs else None
-        d_t_kwarg = kwargs.get("dialysis_type", None) if kwargs else None
-        data["dialysis_duration"] = d_d_kwarg if d_d_kwarg else random.choice(DialysisDurations)
-        data["dialysis_type"] = d_t_kwarg if d_t_kwarg else random.choice(DialysisChoices.values)
+        data["dialysis_duration"] = dialysis_duration if dialysis_duration else random.choice(ModDialysisDurations)
+        data["dialysis_type"] = dialysis_type if dialysis_type else random.choice(DialysisChoices.values)
     else:
         data["dialysis_duration"] = ""
         data["dialysis_type"] = ""
-        stage_kwarg = kwargs.get("stage", None) if kwargs else None
-        bc_kwarg = kwargs.get("baselinecreatinine", None) if kwargs else None
-        if stage_kwarg:
-            data["stage"] = stage_kwarg
-            if bc_kwarg:
-                data["baselinecreatinine-value"] = bc_kwarg
+        if stage:
+            data["stage"] = stage
+            if baselinecreatinine:
+                data["baselinecreatinine"] = baselinecreatinine
             elif fake.boolean():
                 bc_value = create_baselinecreatinine_value()
-                data["baselinecreatinine-value"] = bc_value
-                data["stage"] = labs_stage_calculator(
-                    eGFR=labs_eGFR_calculator(
-                        creatinine=bc_value,
-                        age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
-                        gender=gender if not user else user.gender.value,
-                    )
-                )
-        elif bc_kwarg:
-            data["baselinecreatinine-value"] = bc_kwarg
+                data["baselinecreatinine"] = bc_value
+        elif baselinecreatinine:
+            data["baselinecreatinine"] = baselinecreatinine
             calc_stage = labs_stage_calculator(
                 eGFR=labs_eGFR_calculator(
-                    creatinine=bc_kwarg,
+                    creatinine=baselinecreatinine,
                     age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
                     gender=gender if not user else user.gender.value,
                 )
             )
-            if stage_kwarg:
-                data["stage"] = stage_kwarg if stage_kwarg == calc_stage else calc_stage
-            elif fake.boolean():
+            if fake.boolean():
                 data["stage"] = calc_stage
         else:
-            # 50/50 chance of having stage data
-            if fake.boolean():
-                # 50/50 chance of having baseline creatinine
+            # 50/50 chance of having baseline creatinine
+            if fake.boolean() and (dateofbirth and gender or user):
+                bc_value = create_baselinecreatinine_value()
+                data["baselinecreatinine"] = bc_value
+                # 50/50 chance of having a stage
                 if fake.boolean():
-                    # Create a fake baselinecreatinine value
-                    bc_value = create_baselinecreatinine_value()
-                    data["baselinecreatinine-value"] = bc_value
                     data["stage"] = labs_stage_calculator(
                         eGFR=labs_eGFR_calculator(
                             creatinine=bc_value,
@@ -272,13 +276,9 @@ def make_ckddetail_data(user: User = None, dateofbirth: "str" = None, gender: in
                             gender=gender if not user else user.gender.value,
                         )
                     )
-                else:
-                    data["stage"] = random.choice(Stages)
             else:
-                # Then there is just a baselinecreatinine
-                # Create a fake baselinecreatinine value
-                bc_value = create_baselinecreatinine_value()
-                data["baselinecreatinine-value"] = bc_value
+                # Then there is just a stage
+                data["stage"] = random.choice(ModStages)
     return data
 
 
@@ -403,7 +403,7 @@ def update_or_create_ckddetail_data(
             if hasattr(user, "ckddetail"):
                 ckdetail = user.ckddetail
                 update_ckddetail_data(ckdetail, data)
-                data["baselinecreatinine-value"] = (
+                data["baselinecreatinine"] = (
                     user.baselinecreatinine.value if getattr(user, "baselinecreatinine") else ""
                 )
             else:
@@ -412,7 +412,7 @@ def update_or_create_ckddetail_data(
             if hasattr(aid_obj, "ckddetail"):
                 ckdetail = aid_obj.ckddetail
                 update_ckddetail_data(ckdetail, data)
-                data["baselinecreatinine-value"] = (
+                data["baselinecreatinine"] = (
                     aid_obj.baselinecreatinine.value if getattr(aid_obj, "baselinecreatinine") else ""
                 )
             else:
@@ -573,7 +573,7 @@ def add_ckddetail_req_otos(
     user: User | None = None,
 ) -> None:
     """Method that determines which OneToOnes for a CkdDetail are required or not."""
-    if "baselinecreatinine-value" in ckddetail_kwargs:
+    if "baselinecreatinine" in ckddetail_kwargs:
         if not req_otos or not user or "dateofbirth" not in req_otos:
             req_otos.append("dateofbirth")
         if not req_otos or not user or "gender" not in req_otos:
@@ -588,7 +588,7 @@ class DataMixin:
         aid_labs: list[str] | None = None,
         mas: list[Treatments] = None,
         mhs: list[MedHistoryTypes] = None,
-        labs: dict[str : list[Lab | Decimal]] = None,
+        labs: dict[Literal["urate"], list[tuple[Lab | Decimal, dict[str, Any] | None]], None] = {},
         bool_mhs: list[MedHistoryTypes] = None,
         req_mhs: list[MedHistoryTypes] = None,
         aid_mh_dets: list[MedHistoryTypes] = None,
@@ -643,6 +643,121 @@ class DataMixin:
                     set_obj_oto(self, rel_obj, onetoone, None, self.user_otos)
                 else:
                     set_oto(self, onetoone, self.req_otos)
+
+
+class LabDataMixin(DataMixin):
+    """Mixin for creating data for labs to populate forms for testing."""
+
+    @staticmethod
+    def create_labtype_data(
+        index: int,
+        lab: Literal["urate"],
+        lab_obj: Urate | Decimal | None = None,
+    ) -> dict[str, str | Decimal]:
+        return {
+            f"{lab}-{index}-value": (
+                fake_urate_decimal() if not lab_obj else lab_obj if isinstance(lab_obj, Decimal) else lab_obj.value
+            ),
+            f"{lab}-{index}-date_drawn": (
+                str(fake_date_drawn()) if not lab_obj or isinstance(lab_obj, Decimal) else lab_obj.date_drawn
+            ),
+            f"{lab}-{index}-id": (lab_obj.pk if lab_obj and not isinstance(lab_obj, Decimal) else ""),
+        }
+
+    @classmethod
+    def create_up_to_5_labs_data(cls, data: dict, num_init_labs: int, lab: Literal["urate"]) -> int:
+        num_new_labs = random.randint(0, 5)
+        for i in range(num_new_labs):
+            data.update(cls.create_labtype_data(i + num_init_labs, lab))
+        return num_new_labs
+
+    @staticmethod
+    def get_lab_id_key(data: dict, pk: "uuid") -> str:
+        return next(iter([key for key, val in data.items() if val == pk]))
+
+    @classmethod
+    def mark_lab_for_deletion(cls, data: dict, pk: "uuid") -> None:
+        data_key = cls.get_lab_id_key(data, pk)
+        lab, index = data_key.split("-")[:2]
+        data.update(
+            {
+                f"{lab}-{index}-DELETE": "on",
+            }
+        )
+
+    def create_lab_data(self) -> dict:
+        data = {}
+        for lab in self.aid_labs:
+            if self.user:
+                init_labs = get_qs_or_set(self.user, lab)
+            elif self.aid_obj:
+                init_labs = get_qs_or_set(self.aid_obj, lab)
+            else:
+                init_labs = None
+
+            if init_labs:
+                if isinstance(init_labs, QuerySet):
+                    init_labs.order_by("date_drawn")
+                    num_init_labs = init_labs.count()
+                else:
+                    num_init_labs = len(init_labs)
+                for i, lab_obj in enumerate(init_labs):
+                    data.update(self.create_labtype_data(i, lab, lab_obj))
+            else:
+                num_init_labs = 0
+
+            if self.labs and lab in self.labs:
+                lab_list_of_tups_or_None = self.labs[lab]
+                if init_labs:
+                    num_new_labs = 0
+                    if lab_list_of_tups_or_None is None:
+                        for init_lab in init_labs:
+                            self.mark_lab_for_deletion(data, init_lab.pk)
+                    else:
+                        for lab_tup_or_obj in lab_list_of_tups_or_None:
+                            if isinstance(lab_tup_or_obj, tuple):
+                                lab_obj, lab_dict = lab_tup_or_obj
+                                if lab_obj in init_labs:
+                                    for key, val in lab_dict.items():
+                                        if key == "DELETE" and val:
+                                            self.mark_lab_for_deletion(data, lab_obj.pk)
+                                        else:
+                                            index = self.get_lab_id_key(data, lab_obj.pk).split("-")[1]
+                                            data.update({f"{lab}-{index}-{key}": val})
+                                else:
+                                    data.update(self.create_labtype_data(num_new_labs + num_init_labs, lab, lab_obj))
+                                    num_new_labs += 1
+                            else:
+                                if lab_tup_or_obj in init_labs:
+                                    raise ValueError(f"{lab_tup_or_obj} is already in the data. Cannot again.")
+                                else:
+                                    data.update(
+                                        self.create_labtype_data(num_new_labs + num_init_labs, lab, lab_tup_or_obj)
+                                    )
+                                    num_new_labs += 1
+                elif lab_list_of_tups_or_None:
+                    num_new_labs = len(lab_list_of_tups_or_None)
+                    for i, lab_obj_or_tup in enumerate(lab_list_of_tups_or_None):
+                        if isinstance(lab_obj_or_tup, tuple):
+                            lab_obj = lab_obj_or_tup[0]
+                        else:
+                            lab_obj = lab_obj_or_tup
+                        data.update(self.create_labtype_data(i + num_init_labs, lab, lab_obj))
+                elif lab_list_of_tups_or_None is not None:
+                    num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
+                else:
+                    num_new_labs = 0
+            else:
+                num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
+
+            data.update(
+                {
+                    f"{lab}-INITIAL_FORMS": num_init_labs,
+                    f"{lab}-TOTAL_FORMS": num_init_labs + num_new_labs,
+                }
+            )
+
+        return data
 
 
 class MedHistoryDataMixin(DataMixin):
@@ -732,12 +847,10 @@ class MedAllergyDataMixin(DataMixin):
             except AttributeError:
                 ma_qs = self.user.medallergy_set.filter(treatment__in=self.aid_mas).all()
         elif self.aid_obj:
-            print(self.aid_obj)
             try:
                 ma_qs = self.aid_obj.medallergys_qs
             except AttributeError:
                 ma_qs = self.aid_obj.medallergy_set.filter(treatment__in=self.aid_mas).all()
-            print(ma_qs)
         else:
             ma_qs = None
         for treatment in self.aid_mas:
@@ -831,7 +944,6 @@ class CreateAidMixin:
                         kwargs.pop(key)
                     else:
                         self.mh_dets[mh] = val
-            print(self.mh_dets)
         return kwargs
 
 
@@ -929,8 +1041,10 @@ class MedHistoryCreatorMixin(CreateAidMixin):
         if not hasattr(aid_obj, "medhistorys_qs"):
             aid_obj.medhistorys_qs = []
         if self.mhs:
-            for medhistory in [mh for mh in self.mhs if mh != MedHistoryTypes.MENOPAUSE]:
+            for medhistory in self.mhs:
                 if isinstance(medhistory, MedHistory):
+                    if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE:
+                        continue
                     if self.user:
                         if medhistory.user != self.user:
                             try:
@@ -955,6 +1069,8 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
                 elif specified or fake.boolean():
+                    if medhistory == MedHistoryTypes.MENOPAUSE:
+                        continue
                     if specified:
                         new_mh = create_medhistory_atomic(
                             medhistory,
@@ -989,14 +1105,11 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                 ckddetail_kwargs = self.mh_dets.get(medhistory, None)
                                 if self.user:
                                     if not getattr(new_mh, "ckddetail", None):
-                                        if (
-                                            not opt_mh_dets
-                                            or (
-                                                opt_mh_dets
-                                                and medhistory in opt_mh_dets
-                                                and (fake.boolean() or ckddetail_kwargs is not None)
-                                            )
-                                            or ckddetail_kwargs is not None
+                                        if not opt_mh_dets or (
+                                            opt_mh_dets
+                                            and medhistory in opt_mh_dets
+                                            and ckddetail_kwargs is not None
+                                            and (fake.boolean() or ckddetail_kwargs)
                                         ):
                                             create_ckddetail(
                                                 medhistory=new_mh,
@@ -1013,7 +1126,8 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                         if not opt_mh_dets or (
                                             opt_mh_dets
                                             and medhistory in opt_mh_dets
-                                            and (fake.boolean() or ckddetail_kwargs is not None)
+                                            and ckddetail_kwargs is not None
+                                            and (fake.boolean() or ckddetail_kwargs)
                                         ):
                                             create_ckddetail(
                                                 medhistory=new_mh,
@@ -1035,7 +1149,8 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                 elif not opt_mh_dets or (
                                     opt_mh_dets
                                     and medhistory in opt_mh_dets
-                                    and (fake.boolean() or goutdetail_kwargs is not None)
+                                    and goutdetail_kwargs is not None
+                                    and (fake.boolean() or goutdetail_kwargs)
                                 ):
                                     GoutDetailFactory(
                                         medhistory=new_mh,

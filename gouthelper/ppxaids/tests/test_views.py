@@ -749,7 +749,7 @@ class TestPpxAidPseudopatientCreate(TestCase):
         ckd = MedHistoryFactory(user=self.psp, medhistorytype=MedHistoryTypes.CKD)
         create_ckddetail(
             medhistory=self.psp.ckd,
-            on_dialysis=False,
+            dialysis=False,
             stage=labs_stage_calculator(
                 labs_eGFR_calculator(
                     creatinine=BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.2")),
@@ -1417,7 +1417,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
         ckd = MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.CKD)
         create_ckddetail(
             medhistory=psp.ckd,
-            on_dialysis=False,
+            dialysis=False,
             stage=labs_stage_calculator(
                 labs_eGFR_calculator(
                     creatinine=BaselineCreatinineFactory(medhistory=ckd, value=Decimal("2.2")),

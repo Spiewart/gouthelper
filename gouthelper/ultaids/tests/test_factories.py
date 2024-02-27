@@ -346,6 +346,24 @@ class TestUltAid(TestCase):
         ultaid = create_ultaid(mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.THREE})
         self.assertTrue(ultaid.ckd)
         self.assertTrue(ultaid.ckddetail)
+        self.assertEqual(ultaid.ckddetail.stage, Stages.THREE)
 
-    def test__without_user_ckd_and_ckddetail_kwargs(self):
-        pass
+    def test__with_user(self):
+        for _ in range(5):
+            user = create_psp(plus=True)
+            ultaid = create_ultaid(user=user)
+            self.assertIsInstance(ultaid, UltAid)
+            self.assertEqual(ultaid.user, user)
+            self.assertTrue(hasattr(ultaid, "medallergys_qs"))
+            for ma in user.medallergy_set.all():
+                if ma.treatment in UltChoices.values:
+                    self.assertIn(ma, ultaid.medallergys_qs)
+            for mh in user.medhistory_set.all():
+                if mh.medhistorytype in ULTAID_MEDHISTORYS:
+                    self.assertIn(mh, ultaid.medhistorys_qs)
+            self.assertTrue(hasattr(ultaid, "medhistorys_qs"))
+            self.assertFalse(getattr(ultaid, "dateofbirth", False))
+            self.assertFalse(getattr(ultaid, "gender", False))
+            self.assertTrue(hasattr(ultaid, "hlab5801"))
+            if getattr(ultaid, "hlab5801", None):
+                self.assertTrue(isinstance(ultaid.hlab5801, Hlab5801))
