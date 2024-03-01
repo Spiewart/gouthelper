@@ -451,32 +451,27 @@ def update_or_create_goutdetail_data(
             data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
 
 
-def set_obj_oto(
+def set_oto_from_obj(
     self_obj: Any,
     data_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", User],
     oto: str,
     oto_data: Any | None = None,
-    user_otos: list[str] | None = None,
 ) -> None:
     """Method that takes an object and a string of a onetoone field name and sets
     the class attribute to the value of the object's onetoone field."""
-    if getattr(data_obj, oto, False) and (not isinstance(data_obj, User) or (not user_otos or oto not in user_otos)):
-        if oto == "dateofbirth":
-            setattr(
-                self_obj,
-                oto,
-                (
-                    age_calc(oto_data)
-                    if oto_data and isinstance(oto_data, date)
-                    else oto_data
-                    if oto_data
-                    else age_calc(getattr(data_obj, oto).value)
-                ),
-            )
-        else:
-            setattr(self_obj, oto, oto_data if oto_data else getattr(data_obj, oto).value)
-    else:
-        setattr(self_obj, oto, oto_data if oto_data else None)
+    if data_obj:
+        data_oto = getattr(data_obj, oto, None)
+        if data_oto is not None:
+            if oto == "dateofbirth":
+                setattr(
+                    self_obj,
+                    oto,
+                    (age_calc(getattr(data_obj, oto).value)),
+                )
+            else:
+                setattr(self_obj, oto, oto_data if oto_data else getattr(data_obj, oto).value)
+            return
+    setattr(self_obj, oto, oto_data if oto_data else None)
 
 
 def set_oto(
@@ -588,7 +583,7 @@ class DataMixin:
         aid_labs: list[str] | None = None,
         mas: list[Treatments] = None,
         mhs: list[MedHistoryTypes] = None,
-        labs: dict[Literal["urate"], list[tuple[Lab | Decimal, dict[str, Any] | None]], None] = {},
+        labs: dict[Literal["urate"], list[tuple[Lab | Decimal, dict[str, Any] | None]], None] = None,
         bool_mhs: list[MedHistoryTypes] = None,
         req_mhs: list[MedHistoryTypes] = None,
         aid_mh_dets: list[MedHistoryTypes] = None,
@@ -630,7 +625,6 @@ class DataMixin:
             if self.ckd_bool
             else False
         )
-        # Create CkdDetail data if ckddetail_bool is True
         if self.ckddetail_bool:
             self.ckddetail_kwargs = make_ckddetail_kwargs(self.mh_dets)
             add_ckddetail_req_otos(self.ckddetail_kwargs, self.req_otos)
@@ -638,9 +632,15 @@ class DataMixin:
             rel_obj = user if user else aid_obj.user if aid_obj and aid_obj.user else aid_obj if aid_obj else None
             for onetoone in self.aid_otos:
                 if otos and onetoone in otos:
-                    set_obj_oto(self, rel_obj, onetoone, otos[onetoone], self.user_otos)
+                    if user and self.user_otos and onetoone in self.user_otos:
+                        raise ValueError(f"{onetoone} for {user} doesn't belong in the data.")
+                    else:
+                        setattr(self, onetoone, otos[onetoone])
+                # Set these here, because they may be used to calculate CkdDetail stage
+                # They will not be added to the data but sub-classes when they are in user_otos
+                # and there is a user.
                 elif rel_obj:
-                    set_obj_oto(self, rel_obj, onetoone, None, self.user_otos)
+                    set_oto_from_obj(self, rel_obj, onetoone, None)
                 else:
                     set_oto(self, onetoone, self.req_otos)
 
@@ -874,7 +874,9 @@ class OneToOneDataMixin(DataMixin):
     def create_oto_data(self):
         data = {}
         for onetoone in self.aid_otos:
-            if getattr(self, onetoone, None) is not None:
+            if self.user and self.user_otos and onetoone in self.user_otos:
+                continue
+            elif getattr(self, onetoone, None) is not None:
                 data[f"{onetoone}-value"] = getattr(self, onetoone)
         return data
 
@@ -932,7 +934,6 @@ class CreateAidMixin:
         if self.mh_dets:
             for key, val in kwargs.copy().items():
                 mh_det_str = key.split("detail")[0]
-
                 try:
                     mh = MedHistoryTypes(mh_det_str.upper())
                 except ValueError:

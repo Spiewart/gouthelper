@@ -4,7 +4,6 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
-from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -40,26 +39,26 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
+def ultaid_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "ethnicity",
+        "gender",
+        "goalurate",
+        "hlab5801",
+    ).prefetch_related(
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+    )
+
+
+def ultaid_user_relations(qs: "QuerySet") -> "QuerySet":
+    return ultaid_relations(qs).select_related("defaultulttrtsettings", "ultaid")
+
+
 def ultaid_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("ultaids.UltAid").objects.filter(pk=pk)
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("ethnicity")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("goalurate")
-    queryset = queryset.select_related("hlab5801")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+    return ultaid_relations(apps.get_model("ultaids.UltAid").objects.filter(pk=pk))
 
 
 def ultaid_user_qs(username: str) -> "QuerySet":
-    queryset = Pseudopatient.objects.filter(username=username)
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("ethnicity")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("goalurate")
-    queryset = queryset.select_related("hlab5801")
-    queryset = queryset.select_related("ultaid")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+    return ultaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

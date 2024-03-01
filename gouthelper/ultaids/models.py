@@ -15,10 +15,16 @@ from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from .managers import UltAidManager
+from .selectors import ultaid_userless_qs
 
 if TYPE_CHECKING:
+    from django.contrib.auth import get_user_model  # type: ignore
+
     from ..defaults.models import DefaultUltTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
+
+    User = get_user_model()
 
 
 class UltAid(
@@ -89,6 +95,7 @@ class UltAid(
     history = HistoricalRecords()
 
     objects = models.Manager()
+    related_objects = UltAidManager()
 
     def __str__(self):
         return f"UltAid: {self.created}"
@@ -168,15 +175,19 @@ class UltAid(
         except AttributeError:
             return False
 
-    def update_aid(self, decisionaid: UltAidDecisionAid | None = None, qs: Union["UltAid", None] = None) -> "UltAid":
+    def update_aid(self, qs: Union["UltAid", "User", None] = None) -> "UltAid":
         """Updates UltAid decisionaid JSON  field.
 
         Args:
-            decisionaid (UltAidDecisionAid, optional): UltAidDecisionAid object. Defaults to None.
-            qs (UltAid, optional): UltAid object. Defaults to None.
+            qs (UltAid, User, optional): UltAid or User object. Defaults to None.
+            Should have related field objects prefetched and select_related.
 
         Returns:
-            PpxAid: PpxAid object."""
-        if decisionaid is None:
-            decisionaid = UltAidDecisionAid(pk=self.pk, qs=qs)
+            UltAid: UltAid object with decisionaid field updated ."""
+        if qs is None:
+            if self.user:
+                qs = UltAid.objects.ultaid_qs.filter(username=self.user.username)
+            else:
+                qs = ultaid_userless_qs(pk=self.pk)
+        decisionaid = UltAidDecisionAid(qs=qs)
         return decisionaid._update()

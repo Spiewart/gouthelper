@@ -44,7 +44,7 @@ class PpxAidDecisionAid:
             self.ppxaid = qs
             self.user = qs.user
             # If the queryset is a PpxAid instance with a user,
-            # try to assign defaultflaretrtsettings from it
+            # try to assign defaultppxtrtsettings from it
             self.defaultppxtrtsettings = (
                 self.user.defaultppxtrtsettings if self.user and hasattr(self.user, "defaultppxtrtsettings") else None
             )
@@ -83,18 +83,13 @@ class PpxAidDecisionAid:
     TrtTypes = TrtTypes
 
     def _create_trts_dict(self):
-        """Creates a DecisionAid Treatment dict
-
-        returns:
-            dict: keys = Treatments, vals = sub-dict of dosing + contra, which defaults to False."""
+        """Returns a dict {Treatments: {dose/freq/duration + contra=False}}."""
         return aids_create_trts_dosing_dict(default_trts=self.default_trts)
 
     def _create_decisionaid_dict(self) -> dict:
-        """Method to create PpxAidDecisionAid trt_dict from the PpxAidDecisionAid instance.
-        Creates default dict, then modifies the dict according to medhistorys, medallergys, sideeffects.
-
-        Returns:
-            dict: keys = Treatments, vals = sub-dict of dosing + contra, which defaults to False."""
+        """Returns a trt_dict (dict {Treatments: {dose/freq/duration + contra=False}} with
+        dosing and contraindications for each treatment adjusted for the patient's
+        relevant medical history."""
         trt_dict = self._create_trts_dict()
         trt_dict = aids_process_medhistorys(
             trt_dict=trt_dict,
@@ -115,15 +110,12 @@ class PpxAidDecisionAid:
 
     @cached_property
     def default_medhistorys(self) -> "QuerySet":
+        """Returns a QuerySet of DefaultMedHistorys filtered for the class User and trttype=PPX."""
         return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.PPX, user=self.user)
 
     @cached_property
     def default_trts(self) -> "QuerySet":
-        """Uses defaults_defaulttrts_trttype to fetch the DefaultTrts for the user or
-        GoutHelper DefaultTrts.
-
-        Returns:
-            QuerySet: of DefaultTrts filtered for trttype=PPX"""
+        """Returns a QuerySet of DefaultTrts filtered for the class User and trttype=PPX."""
         return defaults_defaulttrts_trttype(trttype=TrtTypes.PPX, user=self.user)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
@@ -131,6 +123,7 @@ class PpxAidDecisionAid:
 
         Args:
             trt_dict {dict}: keys = Treatments, vals = dosing + contraindications.
+            commit (bool): defaults to True, True will clean/save, False will not
 
         Returns:
             str: decisionaid field JSON representation fo the trt_dict

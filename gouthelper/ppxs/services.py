@@ -38,7 +38,7 @@ class PpxDecisionAid:
             self.ppx = qs.ppx
             self.user = qs
         else:
-            raise ValueError("PpxDecisionAid requires a Ppx or User instance.")
+            raise TypeError("PpxDecisionAid requires a Ppx or User instance.")
         self.medhistorys = qs.medhistorys_qs
         self.gout = medhistorys_get(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
         self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None

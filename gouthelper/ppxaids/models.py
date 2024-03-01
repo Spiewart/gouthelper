@@ -152,8 +152,8 @@ class PpxAid(
         """Updates PpxAid decisionaid JSON field field.
 
         Args:
-            qs (PpxAid, User, optional): PpxAid object. Defaults to None. Should have related field objects
-            prefetched and select_related.
+            qs (PpxAid, User, optional): PpxAid object. Defaults to None.
+            Should have related field objects prefetched and select_related.
 
         Returns:
             PpxAid: PpxAid object."""

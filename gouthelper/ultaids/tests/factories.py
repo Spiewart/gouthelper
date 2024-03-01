@@ -56,6 +56,15 @@ def ultaid_data_factory(
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
     otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
+    """Method to create data for a UltAid to test forms.
+
+    Args:
+        user: The user to create the data for (can't have with ultaid).
+        ultaid: The UltAid to create the data for (can't have with user).
+        mas: The MedAllergys to create the data for. Pass empty list to not create any.
+        mhs: The MedHistorys to create the data for. Pass empty list to not create any.
+        mh_dets: The MedHistoryDetails to create the data for.
+        otos: The OneToOne to create the data for."""
     return CreateUltAidData(
         aid_mas=UltChoices.values,
         aid_mhs=ULTAID_MEDHISTORYS,

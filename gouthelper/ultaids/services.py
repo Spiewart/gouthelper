@@ -1,6 +1,9 @@
 from typing import TYPE_CHECKING, Union
 
-from django.utils.functional import cached_property  # type: ignore
+from django.apps import apps  # type: ignore  # pylint: disable=E0401
+from django.contrib.auth import get_user_model  # type: ignore  # pylint: disable=E0401
+from django.db.models import QuerySet  # type: ignore  # pylint: disable=E0401
+from django.utils.functional import cached_property  # type: ignore  # pylint: disable=E0401
 
 from ..dateofbirths.helpers import age_calc
 from ..defaults.selectors import (
@@ -19,15 +22,11 @@ from ..utils.helpers.aid_helpers import (
     aids_process_medhistorys,
     aids_process_sideeffects,
 )
-from .selectors import ultaid_userless_qs
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
-    from django.db.models import QuerySet  # type: ignore
-
-    from ..defaults.models import DefaultUltTrtSettings
     from ..ultaids.models import UltAid
+
+User = get_user_model()
 
 
 class UltAidDecisionAid:
@@ -35,30 +34,46 @@ class UltAidDecisionAid:
 
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["UltAid", None] = None,
+        qs: Union["UltAid", User, None] = None,
     ):
-        if qs is not None:
+        UltAid = apps.get_model(app_label="ultaids", model_name="UltAid")
+        if isinstance(qs, QuerySet):
+            qs = qs.get()
+        if isinstance(qs, UltAid):
             self.ultaid = qs
+            self.user = qs.user
+            # If the queryset is a UltAid instance with a user,
+            # try to assign defaultulttrtsettings from it
+            self.defaultulttrtsettings = (
+                self.user.defaultulttrtsettings if self.user and hasattr(self.user, "defaultulttrtsettings") else None
+            )
+        elif isinstance(qs, User):
+            self.ultaid = qs.ultaid
+            self.user = qs
+            # If the queryset is a User instance, try to assign defaultulttrtsettings from it
+            self.defaultulttrtsettings = qs.defaultulttrtsettings if hasattr(qs, "defaultulttrtsettings") else None
         else:
-            self.ultaid = ultaid_userless_qs(pk=pk).get()
-        if self.ultaid.dateofbirth is not None:
-            self.dateofbirth = self.ultaid.dateofbirth
-            self.age = age_calc(self.ultaid.dateofbirth.value)
+            raise TypeError("UltAidDecisionAid requires a UltAid or User instance.")
+        if not getattr(self, "defaultulttrtsettings", None):
+            self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=self.user)
+        self.dateofbirth = qs.dateofbirth if hasattr(qs, "dateofbirth") else None
+        if self.dateofbirth:
+            self.age = age_calc(self.dateofbirth.value)
         else:
-            self.dateofbirth = None
             self.age = None
-        self.ethnicity = self.ultaid.ethnicity
-        if self.ultaid.gender is not None:
-            self.gender = self.ultaid.gender
-        else:
-            self.gender = None
-        if self.ultaid.hlab5801 is not None:
-            self.hlab5801 = self.ultaid.hlab5801
-        else:
-            self.hlab5801 = None
-        self.medallergys = self.ultaid.medallergys_qs
-        self.medhistorys = self.ultaid.medhistorys_qs
+        if isinstance(qs, UltAid) and qs.user:
+            setattr(self.ultaid, "dateofbirth", None)
+        self.ethnicity = qs.ethnicity
+        if isinstance(qs, UltAid) and qs.user:
+            setattr(self.ultaid, "ethnicity", None)
+        self.gender = qs.gender if hasattr(qs, "gender") else None
+        if isinstance(qs, UltAid) and qs.user:
+            setattr(self.ultaid, "gender", None)
+        self.hlab5801 = qs.hlab5801 if hasattr(qs, "hlab5801") else None
+        if isinstance(qs, UltAid) and qs.user:
+            setattr(self.ultaid, "hlab5801", None)
+        self.medallergys = qs.medallergys_qs
+        self.medhistorys = qs.medhistorys_qs
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         self.sideeffects = None
@@ -67,11 +82,13 @@ class UltAidDecisionAid:
     TrtTypes = TrtTypes
 
     def _create_trts_dict(self):
-        """Returns a dict of treatments with keys = TrtTypes, vals = dosing."""
+        """Returns a dict {Treatments: {dose/freq/duration + contra=False}}."""
         return aids_create_trts_dosing_dict(default_trts=self.default_trts)
 
     def _create_decisionaid_dict(self) -> dict:
-        """Creates the decisionaid dictionary."""
+        """Returns a trt_dict (dict {Treatments: {dose/freq/duration + contra=False}} with
+        dosing and contraindications for each treatment adjusted for the patient's
+        relevant medical history."""
         trt_dict = self._create_trts_dict()
         trt_dict = aids_process_medhistorys(
             trt_dict=trt_dict,
@@ -92,35 +109,21 @@ class UltAidDecisionAid:
         return trt_dict
 
     @cached_property
-    def default_medhistorys(self) -> "QuerySet":
-        """Cached property of DefaultMedhistorys filtered for trttype=ULT.
-
-        Returns:
-            QuerySet: of DefaultMedhistorys filtered for trttype=ULT
-        """
-        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.ULT, user=None)
+    def default_medhistorys(self) -> QuerySet:
+        """Returns a QuerySet of DefaultMedHistorys filtered for the class User and trttype=ULT."""
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=TrtTypes.ULT, user=self.user)
 
     @cached_property
-    def default_trts(self) -> "QuerySet":
-        """Uses defaults_defaulttrts_trttype to fetch the ULT DefaultTrts for the user or
-        GoutHelper DefaultTrts.
-
-        Returns:
-            QuerySet: ULT DefaultTrts for the user or GoutHelper
-        """
-        return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=None)
-
-    @cached_property
-    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Uses defaults_defaultulttrtsettings to fetch the DefaultSettings for the user or
-        GoutHelper DefaultUltTrtSettings."""
-        return defaults_defaultulttrtsettings(user=None)
+    def default_trts(self) -> QuerySet:
+        """Returns a QuerySet of DefaultTrts filtered for the class User and trttype=ULT."""
+        return defaults_defaulttrts_trttype(trttype=TrtTypes.ULT, user=self.user)
 
     def _save_trt_dict_to_decisionaid(self, trt_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the UltAid decisionaid field as a JSON string.
 
         Args:
             trt_dict {dict}: keys = Treatments, vals = dosing + contraindications.
+            commit (bool): defaults to True, True will clean/save, False will not
 
         Returns:
             str: decisionaid field JSON representation fo the trt_dict
@@ -132,7 +135,7 @@ class UltAidDecisionAid:
         return self.ultaid.decisionaid
 
     def _update(self, trt_dict: dict | None = None, commit=True) -> "UltAid":
-        """Updates the UltAid decisionaid fields.
+        """Updates the UltAid decisionaid field.
 
         Args:
             trt_dict {dict}: defaults to None, trt_dict from _create_trts_dict()

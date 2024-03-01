@@ -30,16 +30,19 @@ class CreateGoalUrateData(MedHistoryDataMixin):
 
 def goalurate_data_factory(
     user: Union["User", None] = None,
+    goalurate: GoalUrate | None = None,
+    mhs: list[GOALURATE_MEDHISTORYS] | None = None,
 ) -> dict[str, str]:
     return CreateGoalUrateData(
-        medallergys=None,
-        medhistorys=GOALURATE_MEDHISTORYS,
+        aid_mas=None,
+        aid_mhs=GOALURATE_MEDHISTORYS,
+        mhs=mhs,
         bool_mhs=[
             MedHistoryTypes.EROSIONS,
             MedHistoryTypes.TOPHI,
         ],
         user=user,
-        onetoones=None,
+        aid_obj=goalurate,
     ).create()
 
 
@@ -57,17 +60,17 @@ class CreateGoalUrate(MedHistoryCreatorMixin):
 
 def create_goalurate(
     user: Union["User", None] = None,
-    medhistorys: list[GOALURATE_MEDHISTORYS] | None = None,
+    mhs: list[GOALURATE_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> GoalUrate:
-    if medhistorys is None:
-        medhistorys = GOALURATE_MEDHISTORYS
+    if mhs is None:
+        mhs = GOALURATE_MEDHISTORYS
         specified = False
     else:
         specified = True
     # Call the constructor Class Method
     return CreateGoalUrate(
-        medhistorys=medhistorys,
+        mhs=mhs,
         user=user,
     ).create(mhs_specified=specified, **kwargs)
 

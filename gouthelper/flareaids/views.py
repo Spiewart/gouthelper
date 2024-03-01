@@ -1,13 +1,21 @@
 from typing import TYPE_CHECKING, Any
 
-from django.apps import apps  # type: ignore
-from django.contrib import messages  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.http import HttpResponseRedirect  # type: ignore
-from django.urls import reverse
-from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
-from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
+from django.apps import apps  # pylint: disable=E0401  # type: ignore
+from django.contrib import messages  # pylint: disable=E0401  # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
+from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
+from django.http import HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
+from django.urls import reverse  # pylint: disable=E0401  # type: ignore
+from django.views.generic import (  # pylint: disable=E0401  # type: ignore
+    CreateView,
+    DetailView,
+    TemplateView,
+    UpdateView,
+)
+from rules.contrib.views import (  # pylint: disable=E0401  # type: ignore
+    AutoPermissionRequiredMixin,
+    PermissionRequiredMixin,
+)
 
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
@@ -59,7 +67,7 @@ from .selectors import flareaid_user_qs, flareaid_userless_qs
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
-User = get_user_model()
+    User = get_user_model()
 
 
 class FlareAidAbout(TemplateView):
@@ -156,6 +164,8 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidMixin, PermissionRequiredMixin, 
 
 
 class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):
+    """DetailView for FlareAids."""
+
     class Meta:
         abstract = True
 
@@ -177,13 +187,11 @@ class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):
 
 
 class FlareAidDetail(FlareAidDetailBase):
-    """Overwritten for different url routing, object fetching, and
-    building the content data."""
+    """Overwritten for different url routing/redirecting and assigning the view object."""
 
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        # Check if the object has a User and if there is no username in the kwargs,
-        # redirect to the username url
+        # If the object has a user, this is the wrong view so redirect to the right one
         if self.object.user:
             return HttpResponseRedirect(self.object.get_absolute_url())
         else:
@@ -241,8 +249,8 @@ class FlareAidPseudopatientCreate(
             _,  # mh_det_forms,
             _,  # ma_forms,
             _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
             mh_det_2_save,
@@ -257,8 +265,8 @@ class FlareAidPseudopatientCreate(
         else:
             return self.form_valid(
                 form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
                 mh_det_2_save=mh_det_2_save,
@@ -281,9 +289,9 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         return context
 
     def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlareAidPseudopatientCreate url instead. Also checks if the user has
-        the correct OneToOne models and redirects to the view to add them if not."""
+        """Redirects to the FlareAid CreateView if the user doesn't have a FlareAid. Also,
+        redirects to the Pseudopatient UpdateView if the user doesn't have the required
+        OneToOne models. These exceptions are raised by the get_object() method."""
         try:
             self.object = self.get_object()
         except FlareAid.DoesNotExist as exc:
@@ -297,17 +305,20 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        """Updates the objet prior to rendering the view."""
-        # Check if FlareAid is up to date and update if not update
+        """Updates the object prior to rendering the view. Does not call get_object()."""
         if not request.GET.get("updated", None):
             self.object.update_aid(qs=self.object)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
-    def assign_flareaid_attrs_from_user(self, flareaid: FlareAid, user: "User") -> FlareAid:
+    def assign_flareaid_attrs_from_user(
+        self, flareaid: FlareAid, user: "User"
+    ) -> FlareAid:  # pylint: disable=W0201 # type: ignore
+        """Method that assigns attributes from the User QuerySet to the FlareAid for processing in
+        service methods and display in the templates. Raises DoesNotExist errors if the related
+        model does not exist on the User, which are then used to redirect to the appropriate view."""
         flareaid.dateofbirth = user.dateofbirth
-        if hasattr(user, "gender"):
-            flareaid.gender = user.gender
+        flareaid.gender = user.gender
         flareaid.medallergys_qs = user.medallergys_qs
         flareaid.medhistorys_qs = user.medhistorys_qs
         return flareaid
@@ -316,7 +327,7 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         return flareaid_user_qs(self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> FlareAid:
-        self.user: User = self.get_queryset().get()
+        self.user: "User" = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore
         try:
             flareaid: FlareAid = self.user.flareaid
         except FlareAid.DoesNotExist as exc:
@@ -331,9 +342,6 @@ class FlareAidPseudopatientUpdate(
     success_message = "%(username)s's FlareAid successfully updated."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
@@ -350,8 +358,8 @@ class FlareAidPseudopatientUpdate(
             _,  # mh_det_forms,
             _,  # ma_forms,
             _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
+            _,  # oto_2_save,
+            _,  # oto_2_rem,
             mh_2_save,
             mh_2_rem,
             mh_det_2_save,
@@ -366,8 +374,8 @@ class FlareAidPseudopatientUpdate(
         else:
             return self.form_valid(
                 form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
+                oto_2_save=None,
+                oto_2_rem=None,
                 mh_2_save=mh_2_save,
                 mh_2_rem=mh_2_rem,
                 mh_det_2_save=mh_det_2_save,

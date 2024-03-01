@@ -230,10 +230,15 @@ class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rul
         verbose_name=_("HLA-B*5801"),
         help_text=_("HLA-B*5801 genotype present?"),
     )
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
     )
+
     history = HistoricalRecords()
+    objects = models.Manager()
+
+    def __str__(self):
+        return f"HLA-B*5801: {'positive' if self.value else 'negative'}"

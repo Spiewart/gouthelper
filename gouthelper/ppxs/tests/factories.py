@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Union  # pylint: disable=e0401 # type: ig
 import factory  # pylint: disable=e0401 # type: ignore
 import pytest  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
-from factory.faker import faker  # type: ignore
+from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
 from ...choices import BOOL_CHOICES
 from ...labs.models import Lab, Urate

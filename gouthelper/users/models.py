@@ -12,6 +12,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..ultaids.selectors import ultaid_user_relations
 from ..utils.models import GoutHelperPatientModel
 from .choices import Roles
 from .rules import change_user, delete_user, view_user
@@ -161,6 +162,9 @@ class PseudopatientManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
         results = super().get_queryset(*args, **kwargs)
         return results.filter(role=User.Roles.PSEUDOPATIENT)
+
+    def ultaid_qs(self):
+        return ultaid_user_relations(self.get_queryset())
 
     def create(self, **kwargs):
         kwargs.update({"role": Roles.PSEUDOPATIENT})

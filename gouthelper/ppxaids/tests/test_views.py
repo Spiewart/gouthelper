@@ -493,8 +493,10 @@ class TestPpxAidPseudopatientCreate(TestCase):
                     assert f"{mh.medhistorytype}_form" in response.context_data
                     assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
                     assert (
-                        response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding
-                        is False  # pylint: disable=w0212, line-too-long # noqa: E501
+                        response.context_data[
+                            f"{mh.medhistorytype}_form"
+                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        is False
                     )
                     assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
                         f"{mh.medhistorytype}-value": True
@@ -505,9 +507,9 @@ class TestPpxAidPseudopatientCreate(TestCase):
                 assert f"{mhtype}_form" in response.context_data
                 if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             f"{mhtype}_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is True
                     )
                     assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
@@ -516,44 +518,44 @@ class TestPpxAidPseudopatientCreate(TestCase):
                 if getattr(user.ckd, "ckddetail", None):
                     assert response.context_data["ckddetail_form"].instance == user.ckd.ckddetail
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             "ckddetail_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is False
                     )
                 else:
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             "ckddetail_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is True
                     )
                 if getattr(user.ckd, "baselinecreatinine", None):
                     assert response.context_data["baselinecreatinine_form"].instance == user.ckd.baselinecreatinine
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             "baselinecreatinine_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is False
                     )
                 else:
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             "baselinecreatinine_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is True
                     )
             else:
                 assert (
-                    response.context_data[
+                    response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                         "ckddetail_form"
-                    ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                    ].instance._state.adding
                     is True
                 )
                 assert (
-                    response.context_data[
+                    response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                         "baselinecreatinine_form"
-                    ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                    ].instance._state.adding
                     is True
                 )
             assert "goutdetail_form" not in response.context_data
@@ -574,9 +576,9 @@ class TestPpxAidPseudopatientCreate(TestCase):
                 assert f"medallergy_{ma.treatment}_form" in response.context_data
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].instance == ma
                 assert (
-                    response.context_data[
+                    response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                         f"medallergy_{ma.treatment}_form"
-                    ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                    ].instance._state.adding
                     is False
                 )
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
@@ -586,9 +588,9 @@ class TestPpxAidPseudopatientCreate(TestCase):
                 assert f"medallergy_{treatment}_form" in response.context_data
                 if treatment not in user.medallergy_set.values_list("treatment", flat=True):
                     assert (
-                        response.context_data[
+                        response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                             f"medallergy_{treatment}_form"
-                        ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                        ].instance._state.adding
                         is True
                     )
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
