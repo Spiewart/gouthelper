@@ -14,13 +14,13 @@ from ....defaults.selectors import (
 )
 from ....ethnicitys.choices import Ethnicitys
 from ....ethnicitys.tests.factories import EthnicityFactory
-from ....flareaids.tests.factories import FlareAidFactory
+from ....flareaids.tests.factories import create_flareaid
 from ....labs.tests.factories import BaselineCreatinineFactory, Hlab5801Factory
 from ....medallergys.models import MedAllergy
 from ....medallergys.tests.factories import MedAllergyFactory
 from ....medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ....medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
-from ....medhistorys.choices import Contraindications
+from ....medhistorys.choices import Contraindications, MedHistoryTypes
 from ....medhistorys.models import MedHistory
 from ....medhistorys.tests.factories import (
     ChfFactory,
@@ -29,7 +29,7 @@ from ....medhistorys.tests.factories import (
     GoutFactory,
     HeartattackFactory,
 )
-from ....ppxaids.tests.factories import PpxAidFactory
+from ....ppxaids.tests.factories import create_ppxaid
 from ....treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
@@ -41,7 +41,7 @@ from ....treatments.choices import (
     TrtTypes,
 )
 from ....ultaids.services import UltAidDecisionAid
-from ....ultaids.tests.factories import UltAidFactory
+from ....ultaids.tests.factories import create_ultaid
 from ..aid_helpers import (
     aids_assign_baselinecreatinine,
     aids_assign_ckddetail,
@@ -217,12 +217,11 @@ class TestAidsDictToJson(TestCase):
 class TestAidsDoseAdjustAllopurinolCkd(TestCase):
     def setUp(self):
         self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=None)
-        self.userless_ultaid = UltAidFactory()
+        self.userless_ultaid = create_ultaid(mas=[], mhs=[])
 
     def test_ckd_no_stage(self):
-        ckd = CkdFactory()
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -237,10 +236,9 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.QDAY)
 
     def test_ckd_stage_3(self):
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -257,10 +255,9 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults = DefaultUltTrtSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR)
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -279,10 +276,9 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults = DefaultUltTrtSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
         ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.FIVE)
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -301,7 +297,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults = DefaultUltTrtSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
         ckddetail = CkdDetailFactory(
             medhistory=ckd,
             stage=Stages.FIVE,
@@ -309,8 +305,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
             dialysis_type=DialysisChoices.HEMODIALYSIS,
             dialysis_duration=DialysisDurations.MORETHANYEAR,
         )
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         dose_adj, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -329,7 +324,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         custom_defaults = DefaultUltTrtSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.userless_ultaid)
         ckddetail = CkdDetailFactory(
             medhistory=ckd,
             stage=Stages.FIVE,
@@ -337,8 +332,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
             dialysis_type=DialysisChoices.PERITONEAL,
             dialysis_duration=DialysisDurations.MORETHANYEAR,
         )
-        self.userless_ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.userless_ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.userless_ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         contra, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
@@ -445,11 +439,11 @@ class TestAidsDoseAdjustColchicine(TestCase):
 class TestAidsDoseAdjustFebuxostatCkd(TestCase):
     def setUp(self):
         self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=None)
-        self.ultaid = UltAidFactory()
+        self.ultaid = create_ultaid(mas=[], mhs=[])
 
     def test__ckd_no_stage(self):
         ckd = CkdFactory()
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         contra, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
         self.assertEqual(Contraindications.DOSEADJ, contra)
@@ -475,7 +469,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
     def test__ckd_stage_3_or_greater(self):
         ckd = CkdFactory()
         CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR, dialysis=False)
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         contra, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckd.ckddetail)
         self.assertEqual(contra, Contraindications.DOSEADJ)
@@ -494,10 +488,9 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         custom_settings = DefaultUltTrtSettings.objects.get()
         custom_settings.febu_ckd_initial_dose = FebuxostatDoses.FORTY
         custom_settings.save()
-        ckd = CkdFactory()
+        ckd = CkdFactory(ultaid=self.ultaid)
         CkdDetailFactory(medhistory=ckd, stage=Stages.FOUR, dialysis=False)
-        self.ultaid.medhistorys.add(ckd)
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_trts_dict()
         trt_dict = aids_process_medhistorys(
             trt_dict=trt_dict,
@@ -512,10 +505,10 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
 
 class TestAidsJsonToTrtDict(TestCase):
     def test__converts_json_to_dict_simple(self):
-        user_flareaid = FlareAidFactory()
+        user_flareaid = create_flareaid(mas=[], mhs=[])
         user_flareaid.update_aid()
         user_flareaid.refresh_from_db()
-        user_ppxaid = PpxAidFactory()
+        user_ppxaid = create_ppxaid(mas=[], mhs=[])
         user_ppxaid.update_aid()
         user_ppxaid.refresh_from_db()
         flareaid_json = user_flareaid.decisionaid
@@ -552,7 +545,7 @@ class TestAidsJsonToTrtDict(TestCase):
 
 class TestAidsProcessAllopurinolCkdContraindication(TestCase):
     def setUp(self):
-        self.userless_ultaid = UltAidFactory()
+        self.userless_ultaid = create_ultaid(mas=None, mhs=None)
 
     def test_no_ckd_returns_unchanged_dose(self):
         contra_interp = aids_xois_ckd_contra(ckd=None, ckddetail=None)
@@ -636,13 +629,13 @@ class TestAidsProcessHlab5801(TestCase):
         self.default_ult_trt_settings = defaults_defaultulttrtsettings(user=None)
         # self.default_ult_trt_settings.allo_no_ethnicity_no_hlab5801 = False
         # self.default_ult_trt_settings.save()
-        self.ultaid = UltAidFactory()
+        self.ultaid = create_ultaid(mas=None, mhs=None)
 
     def test__hlab5801_returns_absolute_contraindication(self):
         hlab5801 = Hlab5801Factory()
         self.ultaid.hlab5801 = hlab5801
         self.ultaid.save()
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         self.assertTrue(
             aids_hlab5801_contra(
@@ -662,7 +655,7 @@ class TestAidsProcessHlab5801(TestCase):
     def test__risky_ethnicity_without_hlab5801_returns_relative_contraindication(self):
         self.ultaid.ethnicity.value = Ethnicitys.AFRICANAMERICAN
         self.ultaid.ethnicity.save()
-        decisionaid = UltAidDecisionAid(pk=self.ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         self.assertTrue(
             aids_hlab5801_contra(
@@ -683,12 +676,12 @@ class TestAidsProcessHlab5801(TestCase):
         """Test that a UltAid with an ethnicity that isn't high risk for having HLA-B*5801
         doesn't return a contraindication for allopurinol when there is no HLA-B*5801 test result."""
         # Create a UltAid with a non-high-risk ethnicity
-        ultaid = UltAidFactory(
-            ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN), medhistorys=[], medallergys=[]
+        ultaid = create_ultaid(
+            ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN), mas=[], mhs=[], hlab5801=None
         )
 
         ethnicity = ultaid.ethnicity
-        decisionaid = UltAidDecisionAid(pk=ultaid.pk)
+        decisionaid = UltAidDecisionAid(qs=ultaid)
         trt_dict = decisionaid._create_decisionaid_dict()
         self.default_ult_trt_settings.allo_no_ethnicity_no_hlab5801 = False
         self.default_ult_trt_settings.save()
@@ -792,35 +785,21 @@ class TestAidsProcessProbenecidCkdContraindication(TestCase):
     def test__no_ckd_leaves_probenecid_unchanged(self):
         """Test that an aid without any contraindications to probencid (e.g. no CKD or allergy)
         leaves probenecid unchanged."""
-        ultaid = UltAidFactory(medhistorys=[], medallergys=[])
+        ultaid = create_ultaid(mas=[], mhs=[])
         self.assertFalse(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__ckd_without_ckddetail_contraindicates_probenecid(self):
-        ckd = CkdFactory()
-        ultaid = UltAidFactory()
-        ultaid.medhistorys.add(ckd)
-        ultaid.update_aid()
-        ultaid.refresh_from_db()
+        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail=None)
         aid_dict = ultaid.aid_dict
         self.assertTrue(aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__ckd_3_or_greater_contraindicates_probenecid(self):
-        ckd = CkdFactory()
-        CkdDetailFactory(medhistory=ckd, stage=3)
-        ultaid = UltAidFactory()
-        ultaid.medhistorys.add(ckd)
-        ultaid.update_aid()
-        ultaid.refresh_from_db()
+        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail={"stage": 3})
         aid_dict = ultaid.aid_dict
         self.assertTrue(aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__ckd_2_or_less_does_not_contraindicate_probenecid(self):
-        ckd = CkdFactory()
-        CkdDetailFactory(medhistory=ckd, stage=2)
-        ultaid = UltAidFactory()
-        ultaid.medhistorys.add(ckd)
-        ultaid.update_aid()
-        ultaid.refresh_from_db()
+        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail={"stage": 2})
         aid_dict = ultaid.aid_dict
         self.assertFalse(aid_dict[Treatments.PROBENECID]["contra"])
 

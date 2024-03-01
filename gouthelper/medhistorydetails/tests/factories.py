@@ -73,7 +73,7 @@ def create_ckddetail(
         dateofbirth: "date",
         gender: "Genders",
     ) -> None:
-        if dateofbirth and gender and fake.boolean():
+        if dateofbirth and gender is not None and fake.boolean():
             baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
             calc_stage = labs_stage_calculator(
                 labs_eGFR_calculator(
@@ -95,7 +95,7 @@ def create_ckddetail(
     )
 
     if baselinecreatinine:
-        if not dateofbirth or not gender:
+        if not dateofbirth or gender is None:
             raise ValueError("Need date of birth and gender to interpret baseline creatinine.")
         else:
             calc_stage = labs_stage_calculator(

@@ -372,6 +372,7 @@ class GoutHelperAidMixin:
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
+        print(mh_det_2_save)
         if isinstance(form.instance, User):
             self.user = form.save()
             save_aid_obj = False

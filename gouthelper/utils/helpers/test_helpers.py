@@ -33,6 +33,7 @@ from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import NsaidChoices, Treatments
 from ...users.tests.factories import create_psp
+from .data_helpers import create_baselinecreatinine_value, make_ckddetail_kwargs
 from .helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
 
 if TYPE_CHECKING:
@@ -58,16 +59,6 @@ ModDialysisDurations = DialysisDurations.values
 ModDialysisDurations.remove("")
 ModStages = Stages.values
 ModStages.remove(None)
-
-
-def create_baselinecreatinine_value() -> Decimal:
-    return fake.pydecimal(
-        left_digits=2,
-        right_digits=2,
-        positive=True,
-        min_value=2,
-        max_value=10,
-    )
 
 
 def create_medhistory_atomic(
@@ -152,41 +143,6 @@ def get_mh_val(medhistory: MedHistoryTypes, bool_mhs: MedHistoryTypes) -> bool |
         return get_True_or_empty_str()
 
 
-def make_ckddetail_kwargs(
-    mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
-):
-    ckddetail_kwargs = mh_dets.get(MedHistoryTypes.CKD, None) if mh_dets else {}
-    d_kwarg = ckddetail_kwargs.get("dialysis", None) if ckddetail_kwargs else None
-    d_val = d_kwarg if d_kwarg is not None else fake.boolean()
-    if d_val:
-        d_d_kwarg = ckddetail_kwargs.get("dialysis_duration", None) if ckddetail_kwargs else None
-        if not d_d_kwarg:
-            d_d_val = random.choice(ModDialysisDurations)
-            ckddetail_kwargs.update({"dialysis_duration": d_d_val})
-        d_t_kwarg = ckddetail_kwargs.get("dialysis_type", None) if ckddetail_kwargs else None
-        if not d_t_kwarg:
-            d_t_val = random.choice(DialysisChoices.values)
-            ckddetail_kwargs.update({"dialysis_type": d_t_val})
-    else:
-        stage_kwarg = ckddetail_kwargs.get("stage", None) if ckddetail_kwargs else None
-        bc_kwarg = ckddetail_kwargs.get("baselinecreatinine", None) if ckddetail_kwargs else None
-        if stage_kwarg or bc_kwarg:
-            if stage_kwarg:
-                ckddetail_kwargs.update({"stage": stage_kwarg})
-            elif fake.boolean():
-                ckddetail_kwargs.update({"stage": random.choice(ModStages)})
-            if bc_kwarg:
-                ckddetail_kwargs.update({"baselinecreatinine": bc_kwarg})
-            elif fake.boolean():
-                ckddetail_kwargs.update({"baselinecreatinine": create_baselinecreatinine_value()})
-        else:
-            if fake.boolean():
-                ckddetail_kwargs.update({"baselinecreatinine": create_baselinecreatinine_value()})
-            if fake.boolean():
-                ckddetail_kwargs.update({"stage": random.choice(ModStages)})
-    return ckddetail_kwargs
-
-
 def make_goutdetail_kwargs(
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
     goutdetail: Union["GoutDetail", None] = None,
@@ -225,10 +181,6 @@ def make_ckddetail_data(
     stage: Stages | None = None,
     baselinecreatinine: Decimal | None = None,
 ) -> dict:
-    print(user)
-    print(dateofbirth)
-    print(gender)
-    print(baselinecreatinine)
     if user and dateofbirth is not None or user and gender is not None:
         raise ValueError("Calling this function with both a user and demographic information. Not allowed.")
     elif baselinecreatinine and not user and (gender is None or dateofbirth is None):

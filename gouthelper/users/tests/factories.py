@@ -18,7 +18,6 @@ from ...ethnicitys.tests.factories import EthnicityFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
@@ -29,6 +28,7 @@ from ...medhistorys.tests.factories import MedHistoryFactory
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
+from ...utils.helpers.data_helpers import make_ckddetail_kwargs
 from ..choices import Roles
 from ..models import Pseudopatient
 
@@ -94,12 +94,142 @@ class PseudopatientPlusFactory(PseudopatientFactory):
     as well as a random number of MedAllergy objects."""
 
 
+def set_psp_dateofbirth_attr(
+    dateofbirth: DateOfBirth | date | None,
+    psp: Pseudopatient,
+) -> None:
+    if dateofbirth:
+        psp.dateofbirth = create_psp_dateofbirth(dateofbirth, psp)
+    elif dateofbirth is False:
+        psp.dateofbirth = None
+    else:
+        psp.dateofbirth = create_psp_dateofbirth(DateOfBirthFactory(user=psp), psp)
+
+
+def create_and_set_ckddetail(
+    mh_dets: dict[str, dict[Any]] | None,
+    psp: Pseudopatient,
+    medhistory: MedHistory,
+) -> None:
+    ckddetail_kwargs = make_ckddetail_kwargs(mh_dets)
+    bc_kwarg = ckddetail_kwargs.pop("baselinecreatinine", None)
+    setattr(psp, "ckddetail", CkdDetailFactory(medhistory=getattr(psp, medhistory), **ckddetail_kwargs))
+    if bc_kwarg:
+        setattr(
+            psp, "baselinecreatinine", BaselineCreatinineFactory(medhistory=getattr(psp, medhistory), value=bc_kwarg)
+        )
+
+
+def create_psp_dateofbirth(
+    dateofbirth: DateOfBirth | date | None,
+    psp: Pseudopatient,
+) -> DateOfBirth:
+    if isinstance(dateofbirth, (str, date)):
+        with transaction.atomic():
+            try:
+                return DateOfBirthFactory(user=psp, value=dateofbirth)
+            except IntegrityError:
+                return psp.dateofbirth
+    elif isinstance(dateofbirth, DateOfBirth):
+        if dateofbirth.user != psp:
+            dateofbirth.user = psp
+            dateofbirth.save()
+        return dateofbirth
+    else:
+        raise TypeError(f"Expected str, date, or DateOfBirth, got {type(dateofbirth)}")
+
+
+def create_psp_ethnicity(
+    ethnicity: Ethnicitys | None,
+    psp: Pseudopatient,
+) -> Ethnicity:
+    if isinstance(ethnicity, (str, Ethnicitys)):
+        with transaction.atomic():
+            try:
+                return EthnicityFactory(user=psp, value=ethnicity)
+            except IntegrityError:
+                return psp.ethnicity
+    elif isinstance(ethnicity, Ethnicity):
+        if ethnicity.user != psp:
+            ethnicity.user = psp
+            ethnicity.save()
+        return ethnicity
+    else:
+        raise TypeError(f"Expected str, Ethnicitys, or Ethncity, got {type(ethnicity)}")
+
+
+def check_gender_age_menopause(
+    gender: str | Gender | Genders | None = None,
+    dateofbirth: str | DateOfBirth | date | None = None,
+    menopause: bool | None = None,
+) -> None:
+    age = age_calc(dateofbirth.value if isinstance(dateofbirth, DateOfBirth) else dateofbirth) if dateofbirth else None
+    if age and age < 40 and menopause:
+        raise ValueError("Can't have a menopausal woman under 40.")
+    if (
+        gender
+        and (
+            gender == "MALE" or gender == Genders.MALE or (isinstance(gender, Gender) and gender.value == Genders.MALE)
+        )
+        and menopause
+    ):
+        raise ValueError("Can't have a menopausal male.")
+
+
+def create_psp_gender(
+    gender: Genders | None,
+    psp: Pseudopatient,
+) -> Ethnicity:
+    if gender is not None and isinstance(gender, (str, Genders)):
+        with transaction.atomic():
+            try:
+                return GenderFactory(user=psp, value=gender)
+            except IntegrityError:
+                return psp.gender
+    elif gender is not None and isinstance(gender, Gender):
+        if gender.user != psp:
+            gender.user = psp
+            gender.save()
+        return gender
+    else:
+        raise TypeError(f"Expected str, Genders, or Gender, got {type(gender)}")
+
+
+def set_psp_ethnicity_attr(
+    ethnicity: Ethnicitys | None,
+    psp: Pseudopatient,
+) -> None:
+    if ethnicity:
+        psp.ethnicity = create_psp_ethnicity(ethnicity, psp)
+    elif ethnicity is False:
+        psp.ethnicity = None
+    else:
+        psp.ethnicity = create_psp_ethnicity(EthnicityFactory(user=psp), psp)
+
+
+def set_psp_gender_attr(
+    gender: Genders | None,
+    psp: Pseudopatient,
+    menopause: bool = False,
+) -> None:
+    if gender:
+        psp.gender = create_psp_gender(gender, psp)
+    elif gender is False:
+        psp.gender = None
+    else:
+        gender_kwargs = {}
+        if menopause:
+            gender_kwargs.update({"value": Genders.FEMALE})
+        psp.gender = create_psp_gender(GenderFactory(user=psp, **gender_kwargs), psp)
+
+
 def create_psp(
     dateofbirth: date | None = None,
     ethnicity: Ethnicitys | None = None,
     gender: Genders | None = None,
     provider: Union["User", None] = None,
     medhistorys: list[MedHistoryTypes] | None = None,
+    mh_dets: dict[str, dict[Any]] | None = None,
     medallergys: list[Treatments] | None = None,
     menopause: bool = False,
     plus: bool = False,
@@ -107,71 +237,15 @@ def create_psp(
 ) -> Pseudopatient:
     """Method that creates a Pseudopatient and dynamically set related models
     using FactoryBoy. Hopefully avoids IntegrityErrors."""
+    check_gender_age_menopause(
+        gender=gender,
+        dateofbirth=dateofbirth,
+        menopause=menopause,
+    )
     psp = PseudopatientFactory()
-    if dateofbirth:
-        if isinstance(dateofbirth, (str, date)):
-            psp.dateofbirth = DateOfBirthFactory(user=psp, value=dateofbirth)
-        elif isinstance(dateofbirth, DateOfBirth):
-            psp.dateofbirth = dateofbirth
-            if dateofbirth.user != psp:
-                dateofbirth.user = psp
-                dateofbirth.save()
-        else:
-            raise TypeError(f"Expected str, date, or DateOfBirth, got {type(dateofbirth)}")
-    elif dateofbirth is False:
-        psp.dateofbirth = None
-    else:
-        with transaction.atomic():
-            try:
-                psp.dateofbirth = DateOfBirthFactory(user=psp)
-            except IntegrityError:
-                pass
-    if ethnicity:
-        if isinstance(ethnicity, (str, Ethnicitys)):
-            psp.ethnicity = EthnicityFactory(user=psp, value=ethnicity)
-        elif isinstance(ethnicity, Ethnicity):
-            psp.ethnicity = ethnicity
-            if ethnicity.user != psp:
-                ethnicity.user = psp
-                ethnicity.save()
-        else:
-            raise TypeError(f"Expected str, Ethnicitys, or Ethncity, got {type(ethnicity)}")
-    elif ethnicity is False:
-        psp.ethnicity = None
-    else:
-        with transaction.atomic():
-            try:
-                psp.ethnicity = EthnicityFactory(user=psp)
-            except IntegrityError:
-                pass
-    if gender is not None and gender is not False:
-        if isinstance(gender, (str, Genders)):
-            if gender == Genders.MALE and menopause is True:
-                raise ValueError("Can't have a menopausal male.")
-            psp.gender = GenderFactory(user=psp, value=gender)
-        elif isinstance(gender, Gender):
-            if gender.value == Genders.MALE and menopause is True:
-                raise ValueError("Can't have a menopausal male.")
-            psp.gender = gender
-            if gender.user != psp:
-                gender.user = psp
-                gender.save()
-        else:
-            raise TypeError(f"Expected str, Genders, or Gender, got {type(gender)}")
-    elif gender is False:
-        psp.gender = None
-    else:
-        with transaction.atomic():
-            try:
-                if menopause:
-                    psp.gender = GenderFactory(user=psp, value=Genders.FEMALE)
-                else:
-                    psp.gender = GenderFactory(user=psp)
-            except IntegrityError:
-                pass
-    # Create the PseudopatientProfile with the provider *arg passed in
-    # Put in try/except block to avoid IntegrityError, which for some reason keeps happening regardless
-    # of whether this is run as a function or as a factory
+    set_psp_dateofbirth_attr(dateofbirth, psp)
+    set_psp_ethnicity_attr(ethnicity, psp)
+    set_psp_gender_attr(gender, psp, menopause)
     with transaction.atomic():
         try:
             psp.pseudopatientprofile = PseudopatientProfileFactory(
@@ -221,38 +295,20 @@ def create_psp(
             # If age < 40, there is no Menopause MedHistory
             if age >= 40 and age < 60 and fake.boolean():
                 MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
-            else:
+            elif age >= 60:
                 MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
-    if medhistorys or plus:
+    if medhistorys or plus or mh_dets:
         if medhistorys:
             for medhistory in medhistorys:
                 if isinstance(medhistory, MedHistoryTypes):
                     # pop the medhistory from the list
                     medhistorytypes.remove(medhistory)
-                    setattr(psp, medhistory, MedHistoryFactory(user=psp, medhistorytype=medhistory))
-                    if medhistory == MedHistoryTypes.CKD:
-                        # 50/50 chance of having a CKD detail
-                        dialysis = fake.boolean()
-                        if dialysis:
-                            CkdDetailFactory(medhistory=getattr(psp, medhistory), on_dialysis=True)
-                        # Check if the CkdDetail has a dialysis value, and if not,
-                        # 50/50 chance of having a baselinecreatinine associated with
-                        # the stage
-                        else:
-                            if fake.boolean() and hasattr(psp, "dateofbirth") and hasattr(psp, "gender"):
-                                baselinecreatinine = BaselineCreatinineFactory(medhistory=getattr(psp, medhistory))
-                                CkdDetailFactory(
-                                    medhistory=getattr(psp, medhistory),
-                                    stage=labs_stage_calculator(
-                                        eGFR=labs_eGFR_calculator(
-                                            creatinine=baselinecreatinine.value,
-                                            age=age_calc(psp.dateofbirth.value),
-                                            gender=psp.gender.value,
-                                        )
-                                    ),
-                                )
-                            else:
-                                CkdDetailFactory(medhistory=getattr(psp, medhistory))
+                    new_mh = MedHistoryFactory(user=psp, medhistorytype=medhistory)
+                    setattr(psp, medhistory, new_mh)
+                    if medhistory == MedHistoryTypes.CKD and (
+                        (mh_dets and mh_dets.get(MedHistoryTypes.CKD, None)) or fake.boolean()
+                    ):
+                        create_and_set_ckddetail(mh_dets, psp, new_mh)
                 elif isinstance(medhistory, MedHistory):
                     medhistorytypes.remove(medhistory.medhistorytype)
                     setattr(psp, medhistory.medhistorytype, medhistory)
@@ -266,30 +322,12 @@ def create_psp(
             for _ in range(0, random.randint(0, 10)):
                 # Create a random MedHistoryType, popping the value from the list
                 medhistory = medhistorytypes.pop(random.randint(0, len(medhistorytypes) - 1))
-                setattr(psp, medhistory, MedHistoryFactory(user=psp, medhistorytype=medhistory))
-                if medhistory == MedHistoryTypes.CKD:
-                    # 50/50 chance of having a CKD detail
-                    dialysis = fake.boolean()
-                    if dialysis:
-                        CkdDetailFactory(medhistory=getattr(psp, medhistory), on_dialysis=True)
-                    # Check if the CkdDetail has a dialysis value, and if not,
-                    # 50/50 chance of having a baselinecreatinine associated with
-                    # the stage
-                    else:
-                        if fake.boolean():
-                            baselinecreatinine = BaselineCreatinineFactory(medhistory=getattr(psp, medhistory))
-                            CkdDetailFactory(
-                                medhistory=getattr(psp, medhistory),
-                                stage=labs_stage_calculator(
-                                    eGFR=labs_eGFR_calculator(
-                                        creatinine=baselinecreatinine.value,
-                                        age=age_calc(psp.dateofbirth.value),
-                                        gender=psp.gender.value,
-                                    )
-                                ),
-                            )
-                        else:
-                            CkdDetailFactory(medhistory=getattr(psp, medhistory))
+                new_mh = MedHistoryFactory(user=psp, medhistorytype=medhistory)
+                setattr(psp, medhistory, new_mh)
+                if medhistory == MedHistoryTypes.CKD and (
+                    (mh_dets and mh_dets.get(MedHistoryTypes.CKD, None)) or fake.boolean()
+                ):
+                    create_and_set_ckddetail(mh_dets, psp, new_mh)
     if medallergys or plus:
         treatments = Treatments.values
         if medallergys:

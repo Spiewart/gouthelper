@@ -1341,13 +1341,12 @@ class TestPpxAidPseudopatientUpdate(TestCase):
 
     def test__post_updates_medhistorys(self):
         psp = Pseudopatient.objects.last()
-        for mh in PPXAID_MEDHISTORYS:
-            setattr(self, f"{mh}_bool", psp.medhistory_set.filter(medhistorytype=mh).exists())
+        psp_mh_dict = {mh: psp.medhistory_set.filter(medhistorytype=mh).exists() for mh in PPXAID_MEDHISTORYS}
         data = ppxaid_data_factory(psp)
         data.update(
             {
                 **{
-                    f"{mh}-value": not getattr(self, f"{mh}_bool")
+                    f"{mh}-value": not psp_mh_dict[mh]
                     for mh in PPXAID_MEDHISTORYS
                     # Need to exclude CKD because of related CkdDetail fields throwing errors
                     if mh != MedHistoryTypes.CKD
@@ -1355,38 +1354,37 @@ class TestPpxAidPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("ppxaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("ppxaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
         tests_print_response_form_errors(response)
         assert response.status_code == 302
         assert (
             response.url
-            == f"{reverse('ppxaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
+            == f"{reverse('ppxaids:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
         )
         for mh in [mh for mh in PPXAID_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
-            self.assertEqual(psp.medhistory_set.filter(medhistorytype=mh).exists(), not getattr(self, f"{mh}_bool"))
+            self.assertEqual(psp.medhistory_set.filter(medhistorytype=mh).exists(), not psp_mh_dict[mh])
 
     def test__post_updates_medallergys(self):
         psp = Pseudopatient.objects.last()
-        for ma in FlarePpxChoices.values:
-            setattr(self, f"{ma}_bool", psp.medallergy_set.filter(treatment=ma).exists())
+        psp_ma_dict = {ma: psp.medallergy_set.filter(treatment=ma).exists() for ma in FlarePpxChoices.values}
         data = ppxaid_data_factory(psp)
         data.update(
             {
-                **{f"medallergy_{ma}": not getattr(self, f"{ma}_bool") for ma in FlarePpxChoices.values},
+                **{f"medallergy_{ma}": not psp_ma_dict[ma] for ma in FlarePpxChoices.values},
             }
         )
         response = self.client.post(
-            reverse("ppxaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("ppxaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
         tests_print_response_form_errors(response)
         assert response.status_code == 302
         assert (
             response.url
-            == f"{reverse('ppxaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
+            == f"{reverse('ppxaids:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
         )
         for ma in FlarePpxChoices.values:
-            self.assertEqual(psp.medallergy_set.filter(treatment=ma).exists(), not getattr(self, f"{ma}_bool"))
+            self.assertEqual(psp.medallergy_set.filter(treatment=ma).exists(), not psp_ma_dict[ma])
 
     def test__post_creates_medhistorydetails(self):
         """Test that the view creates the User's MedHistoryDetails objects."""

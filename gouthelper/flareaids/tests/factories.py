@@ -103,28 +103,28 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
 
 def create_flareaid(
     user: Union["User", None] = None,
-    medallergys: list[FlarePpxChoices.values] | None = None,
-    medhistorys: list[FLAREAID_MEDHISTORYS] | None = None,
+    mas: list[FlarePpxChoices.values] | None = None,
+    mhs: list[FLAREAID_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> FlareAid:
     """Method to create a FlareAid with or without a User as well as all its related
     objects, which can be pre-assigned through medallergys or medhistorys or, for
     onetoones, through kwargs."""
 
-    if medallergys is None:
-        medallergys = FlarePpxChoices.values
+    if mas is None:
+        mas = FlarePpxChoices.values
         mas_specified = False
     else:
         mas_specified = True
-    if medhistorys is None:
-        medhistorys = FLAREAID_MEDHISTORYS
+    if mhs is None:
+        mhs = FLAREAID_MEDHISTORYS
         mhs_specified = False
     else:
         mhs_specified = True
     # Call the constructor Class Method
     return CreateFlareAid(
-        mas=medallergys,
-        mhs=medhistorys,
+        mas=mas,
+        mhs=mhs,
         mh_dets=[MedHistoryTypes.CKD],
         otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_otos=["dateofbirth"],

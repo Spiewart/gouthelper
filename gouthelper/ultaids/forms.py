@@ -46,11 +46,11 @@ class UltAidForm(
                 "",
             ),
         )
+        forms_helper_insert_about_the_patient(layout=self.helper.layout)
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_ethnicity(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout)
         # Insert CkdForm

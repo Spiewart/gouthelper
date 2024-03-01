@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest  # pylint: disable=e0401 # type: ignore
 from django.contrib.auth.models import AnonymousUser  # pylint: disable=e0401 # type: ignore
@@ -23,14 +24,16 @@ from ...genders.models import Gender
 from ...goalurates.models import GoalUrate
 from ...goalurates.tests.factories import GoalUrateFactory
 from ...labs.models import BaselineCreatinine, Hlab5801
+from ...labs.tests.factories import Hlab5801Factory
 from ...medallergys.tests.factories import MedAllergyFactory
+from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
-from ...medhistorys.models import Xoiinteraction
+from ...medhistorys.models import MedHistory, Xoiinteraction
 from ...treatments.choices import Treatments, UltChoices
 from ...users.models import Pseudopatient
-from ...users.tests.factories import create_psp
+from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.helpers.test_helpers import tests_print_response_form_errors
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
@@ -516,6 +519,272 @@ class TestUltAidPseudopatientCreate(TestCase):
                 ultaid = UltAid.objects.get(user=self.user)
                 assert ultaid.user
                 assert ultaid.user == self.user
+
+    def test__post_updates_medhistorys(self):
+        for user in Pseudopatient.objects.select_related("ultaid").all():
+            if not hasattr(user, "ultaid"):
+                user_mh_dict = {
+                    mh: user.medhistory_set.filter(medhistorytype=mh).exists() for mh in ULTAID_MEDHISTORYS
+                }
+                data = ultaid_data_factory(user)
+                data.update(
+                    {
+                        **{
+                            f"{mh}-value": not user_mh_dict[mh]
+                            for mh in ULTAID_MEDHISTORYS
+                            # Need to exclude CKD because of related CkdDetail fields throwing errors
+                            if mh != MedHistoryTypes.CKD
+                        },
+                    }
+                )
+                response = self.client.post(
+                    reverse("ultaids:pseudopatient-create", kwargs={"username": user.username}), data=data
+                )
+                tests_print_response_form_errors(response)
+                assert response.status_code == 302
+                assert (
+                    response.url
+                    == f"{reverse('ultaids:pseudopatient-detail', kwargs={'username': user.username})}?updated=True"
+                )
+                for mh in [mh for mh in ULTAID_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
+                    self.assertEqual(user.medhistory_set.filter(medhistorytype=mh).exists(), not user_mh_dict[mh])
+
+    def test__post_updates_medallergys(self):
+        for user in Pseudopatient.objects.select_related("ultaid").all():
+            if not hasattr(user, "ultaid"):
+                user_ma_dict = {ma: user.medallergy_set.filter(treatment=ma).exists() for ma in UltChoices.values}
+                data = ultaid_data_factory(user)
+                data.update(
+                    {
+                        **{f"medallergy_{ma}": not user_ma_dict[ma] for ma in UltChoices.values},
+                    }
+                )
+                response = self.client.post(
+                    reverse("ultaids:pseudopatient-create", kwargs={"username": user.username}), data=data
+                )
+                tests_print_response_form_errors(response)
+                assert response.status_code == 302
+                assert (
+                    response.url
+                    == f"{reverse('ultaids:pseudopatient-detail', kwargs={'username': user.username})}?updated=True"
+                )
+                for ma in UltChoices.values:
+                    self.assertEqual(user.medallergy_set.filter(treatment=ma).exists(), not user_ma_dict[ma])
+
+    def test__post_creates_medhistorydetails(self):
+        """Test that the view creates the User's MedHistoryDetails objects."""
+        # Create user without ckd
+        psp = create_psp(medhistorys=[])
+        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+
+        data = ultaid_data_factory(user=psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                # Create data for CKD
+                "dialysis": False,
+                "baselinecreatinine-value": Decimal("2.2"),
+            }
+        )
+
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        assert (
+            response.url
+            == f"{reverse('ultaids:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
+        )
+
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        ckd = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.CKD)
+        self.assertTrue(CkdDetail.objects.filter(medhistory=ckd).exists())
+        self.assertTrue(BaselineCreatinine.objects.filter(medhistory=ckd).exists())
+
+    def test__post_deletes_medhistorydetail(self):
+        psp = create_psp(
+            medhistorys=[MedHistoryTypes.CKD],
+            mh_dets={MedHistoryTypes.CKD: {"dialysis": False, "baselinecreatinine": Decimal("2.2")}},
+        )
+        self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(
+            CkdDetail.objects.filter(medhistory=psp.ckd).exists()
+            and BaselineCreatinine.objects.filter(medhistory=psp.ckd).exists()
+        )
+
+        data = ultaid_data_factory(user=psp)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": False,
+            }
+        )
+
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}), data=data
+        )
+        tests_print_response_form_errors(response)
+        assert response.status_code == 302
+        assert (
+            response.url
+            == f"{reverse('ultaids:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
+        )
+
+        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertFalse(CkdDetail.objects.filter(medhistory=psp.ckd).exists())
+        self.assertFalse(BaselineCreatinine.objects.filter(medhistory=psp.ckd).exists())
+
+    def test__post_removes_hlab5801(self):
+        """Test that a POST request removes a Hlab5801 instance as an attribute
+        to the updated UltAid and deletes the Hlab5801 instance."""
+        Hlab5801Factory(user=self.user, value=True)
+        ultaid_data = ultaid_data_factory(user=self.user, otos={"hlab5801": ""})
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
+        )
+        tests_print_response_form_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Hlab5801.objects.filter(user=self.user).exists())
+
+    def test__post_adds_False_hlab5801(self):
+        """Test that a POST request creates and adds a Hlab5801 instance, with
+        a value=False, as an attribute to the updated 'UltAid's user."""
+        ultaid_data = ultaid_data_factory(user=self.user, otos={"hlab5801": False})
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
+        )
+        tests_print_response_form_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
+        self.assertFalse(Hlab5801.objects.get(user=self.user).value)
+
+    def test__post_adds_True_hlab5801(self):
+        """Test that a POST request creates and adds a Hlab5801 instance, with
+        a value=True, as an attribute to the updated UltAid's user."""
+        ultaid_data = ultaid_data_factory(user=self.user, otos={"hlab5801": True})
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
+        )
+        tests_print_response_form_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
+        self.assertTrue(Hlab5801.objects.get(user=self.user).value)
+
+    def test__post_updates_hlab5801_True_to_False(self):
+        """Test that a POST request updates a Hlab5801 object / UltAid attribute
+        from True to False."""
+        Hlab5801Factory(user=self.user, value=True)
+        ultaid_data = ultaid_data_factory(user=self.user, otos={"hlab5801": False})
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
+        )
+        tests_print_response_form_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
+        self.assertFalse(Hlab5801.objects.get(user=self.user).value)
+
+    def test__post_updates_hlab5801_False_to_True(self):
+        """Test that a POST request updates a Hlab5801 object / UltAid attribute
+        from False to True."""
+        Hlab5801Factory(user=self.user, value=False)
+        ultaid_data = ultaid_data_factory(user=self.user, otos={"hlab5801": True})
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
+        )
+        tests_print_response_form_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
+        self.assertTrue(Hlab5801.objects.get(user=self.user).value)
+
+    def test__post_returns_errors(self):
+        """Test that post returns errors for some common scenarios where the
+        data is invalid. Typically, these are scenarios that should be prevented by
+        the form or javascript."""
+        # Test that the view returns errors when the baselinecreatinine and
+        # stage are not congruent
+        data = ultaid_data_factory(user=self.user)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": False,
+                "baselinecreatinine-value": Decimal("9.9"),
+                "stage": Stages.ONE,
+            }
+        )
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+        )
+        assert response.status_code == 200
+
+        assert "form" in response.context_data
+        assert "ckddetail_form" in response.context_data
+        assert "stage" in response.context_data["ckddetail_form"].errors
+        assert "baselinecreatinine_form" in response.context_data
+        assert "value" in response.context_data["baselinecreatinine_form"].errors
+
+        # Test that the view DOES NOT return errors when CKD is True and dialysis is left blank
+        # For the UltAid CkdDetail is optional
+        data = ultaid_data_factory(user=self.user)
+        data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": "",
+            }
+        )
+        response = self.client.post(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+        )
+        assert response.status_code == 302
+
+    def test__rules(self):
+        """Tests for whether the rules appropriately allow or restrict
+        access to the view."""
+        psp = create_psp()
+        provider = UserFactory()
+        provider_psp = create_psp(provider=provider)
+        admin = AdminFactory()
+        admin_psp = create_psp(provider=admin)
+        # Test that any User can create an anonymous Pseudopatient's PpxAid
+        response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}))
+        assert response.status_code == 200
+        # Test that an anonymous User can't create a Provider's PpxAid
+        response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": provider_psp.username}))
+        # 302 because PermissionDenied will redirect to the login page
+        assert response.status_code == 302
+        # Test that an anonymous User can't create an Admin's PpxAid
+        response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}))
+        # Test that a Provider can create his or her own Pseudopatient's PpxAid
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
+        )
+        assert response.status_code == 200
+        # Test that a Provider can create an anonymous Pseudopatient's PpxAid
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
+        )
+        assert response.status_code == 200
+        self.client.force_login(admin)
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
+        )
+        assert response.status_code == 200
+        # Test that only a Pseudopatient's Provider can add their PpxAid if they have a Provider
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": provider_psp.username}),
+        )
+        assert response.status_code == 403
+        self.client.force_login(provider)
+        # Test that a Provider can't create another provider's Pseudopatient's PpxAid
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
+        )
+        assert response.status_code == 403
+        self.client.force_login(admin)
+        # Test that an Admin can create an anonymous Pseudopatient's PpxAid
+        response = self.client.get(
+            reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
+        )
+        assert response.status_code == 200
 
 
 class TestUltAidPseudopatientDetail(TestCase):

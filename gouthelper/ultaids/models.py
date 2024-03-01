@@ -98,7 +98,10 @@ class UltAid(
     related_objects = UltAidManager()
 
     def __str__(self):
-        return f"UltAid: {self.created}"
+        if self.user:
+            return f"{self.user.username.capitalize()}'s UltAid"
+        else:
+            return f"UltAid: created {self.created.date()}"
 
     @cached_property
     def aid_dict(self) -> dict:
@@ -106,9 +109,6 @@ class UltAid(
         if not self.decisionaid:
             self.decisionaid = self.update_aid().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
-
-    def get_absolute_url(self):
-        return reverse("ultaids:detail", kwargs={"pk": self.pk})
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -146,6 +146,12 @@ class UltAid(
             return self.goalurate.erosions
         except AttributeError:
             return False
+
+    def get_absolute_url(self):
+        if self.user:
+            return reverse("ultaids:pseudopatient-detail", kwargs={"username": self.user.username})
+        else:
+            return reverse("ultaids:detail", kwargs={"pk": self.pk})
 
     @property
     def options(self) -> dict:

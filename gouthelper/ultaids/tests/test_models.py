@@ -30,7 +30,7 @@ class TestUltAid(TestCase):
         self.ultaid = UltAidFactory(ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
 
     def test___str__(self):
-        self.assertEqual(str(self.ultaid), f"UltAid: {self.ultaid.created}")
+        self.assertEqual(str(self.ultaid), f"UltAid: created {self.ultaid.created.date()}")
 
     def test__aid_dict(self):
         self.assertFalse(self.ultaid.decisionaid)
