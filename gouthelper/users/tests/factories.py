@@ -1,7 +1,7 @@
 import random
 from collections.abc import Sequence
 from datetime import date
-from typing import TYPE_CHECKING, Any, Union
+from typing import Any, Union
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -31,9 +31,6 @@ from ...ults.choices import Indications
 from ...utils.helpers.data_helpers import make_ckddetail_kwargs
 from ..choices import Roles
 from ..models import Pseudopatient
-
-if TYPE_CHECKING:
-    User = get_user_model()
 
 fake = faker.Faker()
 
@@ -113,11 +110,27 @@ def create_and_set_ckddetail(
 ) -> None:
     ckddetail_kwargs = make_ckddetail_kwargs(mh_dets)
     bc_kwarg = ckddetail_kwargs.pop("baselinecreatinine", None)
-    setattr(psp, "ckddetail", CkdDetailFactory(medhistory=getattr(psp, medhistory), **ckddetail_kwargs))
+    setattr(psp, "ckddetail", CkdDetailFactory(medhistory=medhistory, **ckddetail_kwargs))
     if bc_kwarg:
-        setattr(
-            psp, "baselinecreatinine", BaselineCreatinineFactory(medhistory=getattr(psp, medhistory), value=bc_kwarg)
-        )
+        setattr(psp, "baselinecreatinine", BaselineCreatinineFactory(medhistory=medhistory, value=bc_kwarg))
+
+
+def create_and_set_pseudopatientprofile(
+    psp: Pseudopatient,
+    provider: User | None,
+) -> None:
+    with transaction.atomic():
+        try:
+            psp.pseudopatientprofile = PseudopatientProfileFactory(
+                user=psp,
+                provider=provider
+                if isinstance(provider, User)
+                else UserFactory(role=Roles.PROVIDER)
+                if provider
+                else None,
+            )
+        except IntegrityError:
+            pass
 
 
 def create_psp_dateofbirth(
@@ -246,18 +259,7 @@ def create_psp(
     set_psp_dateofbirth_attr(dateofbirth, psp)
     set_psp_ethnicity_attr(ethnicity, psp)
     set_psp_gender_attr(gender, psp, menopause)
-    with transaction.atomic():
-        try:
-            psp.pseudopatientprofile = PseudopatientProfileFactory(
-                user=psp,
-                provider=provider
-                if isinstance(provider, User)
-                else UserFactory(role=Roles.PROVIDER)
-                if provider
-                else None,
-            )
-        except IntegrityError:
-            pass
+    create_and_set_pseudopatientprofile(psp, provider)
     # Next deal with required, optional, and randomly generated MedHistorys
     medhistorytypes = MedHistoryTypes.values
     # Remove GOUT and MENOPAUSE from the medhistorytypes, will be handled non-randomly

@@ -592,7 +592,7 @@ class DataMixin:
                 # They will not be added to the data but sub-classes when they are in user_otos
                 # and there is a user.
                 elif rel_obj:
-                    set_oto_from_obj(self, rel_obj, onetoone, None)
+                    set_oto_from_obj(self, rel_obj, onetoone, otos.get(onetoone, None) if otos else None)
                 else:
                     set_oto(self, onetoone, self.req_otos)
 

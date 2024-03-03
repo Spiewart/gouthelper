@@ -314,7 +314,8 @@ class GoutHelperAidMixin:
         return True if isinstance(self, CreateView) else False
 
     def dispatch(self, request, *args, **kwargs):
-        """Overwritten to avoid redirecting if the user already has a Flare."""
+        """Overwritten to redirect if the user is attempting to create an instance of a model that the intended
+        Pseudopatient already has an instance of and their relationship is a 1to1."""
         # Will also set self.user
         try:
             self.object = self.get_object()
@@ -356,6 +357,32 @@ class GoutHelperAidMixin:
             )
         return super().dispatch(request, *args, **kwargs)
 
+    def form_valid_save_otos(
+        self,
+        oto_2_save: list[Model] | None,
+        form: "ModelForm",
+    ) -> None:
+        """Method that saves the OneToOne related models. Related fields for the OneToOne are
+        set based on the User-status of the view, as are attributes of the view's object."""
+        if oto_2_save:
+            for oto in oto_2_save:
+                oto_attr = f"{oto.__class__.__name__.lower()}"
+                if self.user and oto.user is None:
+                    oto.user = self.user
+                oto.save()
+                if getattr(form.instance, oto_attr, None) is None:
+                    if not self.user or oto_attr == "urate":
+                        setattr(form.instance, oto_attr, oto)
+
+    def form_valid_delete_otos(self, oto_2_rem: list[Model] | None, form: "ModelForm") -> None:
+        """Method to delete the OneToOne related models. Related fields for the OneToOne are
+        set based on the User-status of the view, as are attributes of the view's object."""
+        if oto_2_rem:
+            for oto in oto_2_rem:
+                if not self.user or oto.__class__.__name__.lower() == "urate":
+                    setattr(form.instance, f"{oto.__class__.__name__.lower()}", None)
+                oto.delete()
+
     def form_valid(
         self,
         form,
@@ -372,7 +399,6 @@ class GoutHelperAidMixin:
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
-        print(mh_det_2_save)
         if isinstance(form.instance, User):
             self.user = form.save()
             save_aid_obj = False
@@ -393,17 +419,8 @@ class GoutHelperAidMixin:
             aid_obj.user = self.user
         # Save the OneToOne related models
         if self.onetoones:
-            if oto_2_save:
-                for oto in oto_2_save:
-                    oto_str = f"{oto.__class__.__name__.lower()}"
-                    if self.user and oto.user is None:
-                        oto.user = self.user
-                    oto.save()
-                    if getattr(form.instance, oto_str, None) is None:
-                        setattr(form.instance, oto_str, oto)
-            if oto_2_rem:
-                for oto in oto_2_rem:
-                    oto.delete()
+            self.form_valid_save_otos(oto_2_save, form)
+            self.form_valid_delete_otos(oto_2_rem, form)
         if kwargs:
             for key, val in kwargs.items():
                 if isinstance(val, Model):
@@ -659,7 +676,6 @@ class GoutHelperAidMixin:
             oto_2_save, oto_2_rem = self.post_process_oto_forms(
                 oto_forms=oto_forms,
                 req_otos=self.req_otos,
-                query_obj=self.user if self.user else form.instance,
             )
             ma_2_save, ma_2_rem = self.post_process_ma_forms(
                 ma_forms=ma_forms,
@@ -1112,7 +1128,6 @@ menopause status to evaluate their flare."
         self,
         oto_forms: dict[str, "ModelForm"],
         req_otos: list[str],
-        query_obj: Union["MedAllergyAidHistoryModel", User],
     ) -> tuple[list[Model], list[Model]]:
         """Method to process the forms for the OneToOne objects for the post() method."""
 
@@ -1129,8 +1144,6 @@ menopause status to evaluate their flare."
                         oto_2_save.append(onetoone)
                     else:
                         onetoone = oto_form.instance
-                    if getattr(query_obj, object_attr, None) is None:
-                        setattr(query_obj, object_attr, onetoone)
                 # If EmptyRelatedModel exception is raised by the related model's form save() method,
                 # Check if the related model exists and delete it if it does
                 except EmptyRelatedModel:
@@ -1141,14 +1154,6 @@ menopause status to evaluate their flare."
                         if hasattr(oto_form, "required_fields"):
                             for field in oto_form.required_fields:
                                 setattr(oto_form.instance, field, oto_form.initial[field])
-                        # Set the object attr to None so it is reflected in the QuerySet fed to update in form_valid()
-                        if not self.user:
-                            setattr(query_obj, object_attr, None)
-                        else:
-                            if object_attr != "urate":
-                                setattr(query_obj, object_attr, None)
-                            else:
-                                setattr(self.object, object_attr, None)
                         oto_2_rem.append(oto_form.instance)
         return oto_2_save, oto_2_rem
 
@@ -1178,7 +1183,8 @@ menopause status to evaluate their flare."
 
     @cached_property
     def user(self) -> User | None:
-        """Method that returns the User object from the username kwarg."""
+        """Method that returns the User object from the username kwarg
+        and sets the user attr on the view."""
         username = self.kwargs.get("username", None)
         if username:
             try:
