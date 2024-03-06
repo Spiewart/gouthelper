@@ -2,7 +2,6 @@ import pytest  # pylint:disable=E0401  # type: ignore
 from django.test import TestCase  # pylint:disable=E0401  # type: ignore
 from factory.faker import faker  # pylint:disable=E0401  # type: ignore
 
-from ...medhistorydetails.choices import Stages
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
 from ..choices import FlareFreqs, FlareNums, Indications
@@ -15,12 +14,6 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-def del_aid_cps(aid: UltDecisionAid) -> None:
-    """Remove all related medhistorys and medhistorydetails from an Ult instance.
-    Meant to clear cached_properties for testing."""
-    aid._assign_medhistorys()
-
-
 class TestUltDecisionAid(TestCase):
     def setUp(self):
         for _ in range(10):
@@ -30,7 +23,77 @@ class TestUltDecisionAid(TestCase):
         for ult in Ult.related_objects.select_related("user").all():
             if not ult.user:
                 aid = UltDecisionAid(ult)
-                self.assertEqual(aid.ult, ult)
+                self.assertEqual(aid.ult, ult)  # pylint:disable=no-member
+                if ult.ckd:
+                    self.assertEqual(aid.ckd, ult.ckd)
+                else:
+                    self.assertIsNone(aid.ckd)
+                if ult.ckddetail:
+                    self.assertEqual(aid.ckddetail, ult.ckddetail)
+                else:
+                    self.assertIsNone(aid.ckddetail)
+                if ult.baselinecreatinine:
+                    self.assertEqual(aid.baselinecreatinine, ult.baselinecreatinine)
+                else:
+                    self.assertIsNone(aid.baselinecreatinine)
+                if ult.erosions:
+                    self.assertEqual(aid.erosions, ult.erosions)
+                else:
+                    self.assertIsNone(aid.erosions)
+                if ult.hyperuricemia:
+                    self.assertEqual(aid.hyperuricemia, ult.hyperuricemia)
+                else:
+                    self.assertIsNone(aid.hyperuricemia)
+                if ult.tophi:
+                    self.assertEqual(aid.tophi, ult.tophi)
+                else:
+                    self.assertIsNone(aid.tophi)
+                if ult.uratestones:
+                    self.assertEqual(aid.uratestones, ult.uratestones)
+                else:
+                    self.assertIsNone(aid.uratestones)
+
+    def test___init__with_user(self):
+        for psp in Pseudopatient.objects.ult_qs().all():
+            if hasattr(psp, "ult"):
+                aid = UltDecisionAid(psp)
+                self.assertEqual(aid.ult, psp.ult)  # pylint:disable=no-member
+                if psp.ult.ckd:
+                    self.assertEqual(aid.ckd, psp.ckd)
+                else:
+                    self.assertIsNone(aid.ckd)
+                if psp.ckddetail:
+                    self.assertEqual(aid.ckddetail, psp.ckddetail)
+                else:
+                    self.assertIsNone(aid.ckddetail)
+                if psp.baselinecreatinine:
+                    self.assertEqual(aid.baselinecreatinine, psp.baselinecreatinine)
+                else:
+                    self.assertIsNone(aid.baselinecreatinine)
+                if psp.erosions:
+                    self.assertEqual(aid.erosions, psp.erosions)
+                else:
+                    self.assertIsNone(aid.erosions)
+                if psp.hyperuricemia:
+                    self.assertEqual(aid.hyperuricemia, psp.hyperuricemia)
+                else:
+                    self.assertIsNone(aid.hyperuricemia)
+                if psp.tophi:
+                    self.assertEqual(aid.tophi, psp.tophi)
+                else:
+                    self.assertIsNone(aid.tophi)
+                if psp.uratestones:
+                    self.assertEqual(aid.uratestones, psp.uratestones)
+                else:
+                    self.assertIsNone(aid.uratestones)
+
+    def test___init_with_ult_with_user(self):
+        for psp in Pseudopatient.objects.ult_qs().all():
+            if hasattr(psp, "ult"):
+                ult = psp.ult
+                ult.medhistorys_qs = psp.medhistorys_qs
+                aid = UltDecisionAid(ult)
+                self.assertEqual(aid.ult, psp.ult)  # pylint:disable=no-member
                 if ult.ckd:
                     self.assertEqual(aid.ckd, ult.ckd)
                 else:
@@ -80,7 +143,7 @@ class TestUltDecisionAid(TestCase):
                 self.assertEqual(indication, Indications.CONDITIONAL)
             elif ult.num_flares == FlareNums.ONE and ult.uratestones:
                 self.assertEqual(indication, Indications.CONDITIONAL)
-            elif ult.num_flares == FlareNums.ONE and ult.ckd and ult.ckddetail.stage == Stages.THREE:
+            elif ult.num_flares == FlareNums.ONE and ult.ckd and ult.ckd3:
                 self.assertEqual(indication, Indications.CONDITIONAL)
             else:
                 self.assertEqual(indication, Indications.NOTINDICATED)

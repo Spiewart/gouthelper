@@ -155,8 +155,7 @@ class Ult(
         return (
             self.num_flares == FlareNums.ONE
             and not (self.ckd3 or self.erosions or self.hyperuricemia or self.tophi or self.uratestones)
-            or self.num_flares == FlareNums.ZERO
-            and not (self.erosions or self.tophi)
+            or (self.num_flares == FlareNums.ZERO and not (self.erosions or self.tophi))
         )
 
     @cached_property
@@ -179,7 +178,7 @@ class Ult(
         """Method that returns True if a Ult indicates that the patient
         has only had a single gout flare but does have a secondary
         medical conditions that conditionally indicates ULT."""
-        return self.num_flares == FlareNums.ONE and (self.ckd3) or self.hyperuricemia or self.uratestones
+        return self.num_flares == FlareNums.ONE and self.ckd3 or self.hyperuricemia or self.uratestones
 
     @cached_property
     def frequentflares(self) -> bool:
