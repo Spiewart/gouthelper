@@ -32,10 +32,11 @@ def medhistory_attr(
     medhistory: MedHistoryTypes | list[MedHistoryTypes],
     obj: "GoutHelperAidModel",
     select_related: str | list[str] = None,
+    mh_get=medhistorys_get,
 ) -> Union[bool, "MedHistory"]:
     """Method that consolidates the Try / Except logic for getting a MedHistory."""
     try:
-        return medhistorys_get(obj.medhistorys_qs, medhistory)
+        return mh_get(obj.medhistorys_qs, medhistory)
     except AttributeError as exc:
         if isinstance(medhistory, MedHistoryTypes):
             if hasattr(obj, "user") and obj.user:
@@ -56,7 +57,7 @@ def medhistory_attr(
                 qs = qs.select_related(*select_related)
             else:
                 raise TypeError("select_related must be a str or list[str].") from exc
-        return medhistorys_get(qs.all(), medhistory)
+        return mh_get(qs.all(), medhistory)
 
 
 def medhistorys_get_cvdiseases_str(

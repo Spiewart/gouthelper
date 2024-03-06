@@ -456,7 +456,7 @@ class TestUltAidPseudopatientCreate(TestCase):
 
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.all():
-            with self.assertNumQueries(4):
+            with self.assertNumQueries(3):
                 kwargs = {"username": pseudopatient.username}
                 qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                 self.assertTrue(isinstance(qs, QuerySet))
@@ -477,9 +477,10 @@ class TestUltAidPseudopatientCreate(TestCase):
                 self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                 if qs_obj.dateofbirth:
                     self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                self.assertTrue(hasattr(qs_obj, "defaultulttrtsettings"))
-                if qs_obj.defaultulttrtsettings:
+                if hasattr(qs_obj, "defaultulttrtsettings"):
                     self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                else:
+                    self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
                 self.assertTrue(hasattr(qs_obj, "ethnicity"))
                 self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                 self.assertTrue(hasattr(qs_obj, "gender"))
@@ -917,7 +918,7 @@ class TestUltAidPseudopatientDetail(TestCase):
 
     def test__get_queryset(self):
         for ultaid in UltAid.objects.filter(user__isnull=False).select_related("user"):
-            with self.assertNumQueries(4):
+            with self.assertNumQueries(3):
                 qs = self.view(kwargs={"username": ultaid.user.username}).get_queryset()
                 self.assertTrue(isinstance(qs, QuerySet))
                 qs_obj = qs.first()
@@ -937,9 +938,10 @@ class TestUltAidPseudopatientDetail(TestCase):
                 self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                 if qs_obj.dateofbirth:
                     self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                self.assertTrue(hasattr(qs_obj, "defaultulttrtsettings"))
-                if qs_obj.defaultulttrtsettings:
+                if hasattr(qs_obj, "defaultulttrtsettings"):
                     self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                else:
+                    self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
                 self.assertTrue(hasattr(qs_obj, "ethnicity"))
                 self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                 self.assertTrue(hasattr(qs_obj, "gender"))
@@ -1222,7 +1224,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.select_related("ultaid").all():
             if hasattr(pseudopatient, "ultaid"):
-                with self.assertNumQueries(4):
+                with self.assertNumQueries(3):
                     kwargs = {"username": pseudopatient.username}
                     qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                     self.assertTrue(isinstance(qs, QuerySet))
@@ -1245,9 +1247,10 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                     if qs_obj.dateofbirth:
                         self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                    self.assertTrue(hasattr(qs_obj, "defaultulttrtsettings"))
-                    if qs_obj.defaultulttrtsettings:
+                    if hasattr(qs_obj, "defaultulttrtsettings"):
                         self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                    else:
+                        self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
                     self.assertTrue(hasattr(qs_obj, "ethnicity"))
                     self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                     self.assertTrue(hasattr(qs_obj, "gender"))

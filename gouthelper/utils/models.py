@@ -6,13 +6,17 @@ from django.db.models.query import QuerySet  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
-from ..defaults.selectors import defaults_defaultulttrtsettings
+from ..defaults.selectors import (
+    defaults_defaultflaretrtsettings,
+    defaults_defaultppxtrtsettings,
+    defaults_defaultulttrtsettings,
+)
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_get_cvdiseases_str
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
-from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments
+from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
 from .helpers.aid_helpers import (
     aids_colchicine_ckd_contra,
@@ -176,12 +180,6 @@ class GoutHelperBaseModel:
                 return medhistorys_get_cvdiseases_str(self.medhistory_set.all())
 
     @cached_property
-    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Method that returns DefaultUltTrtSettings object from the objects user
-        attribute/property or the GoutHelper default if User doesn't exist."""
-        return defaults_defaultulttrtsettings(user=self.user if hasattr(self, "user") else None)
-
-    @cached_property
     def diabetes(self) -> Union["MedHistory", bool]:
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -268,7 +266,11 @@ class GoutHelperBaseModel:
         return aids_hlab5801_contra(
             hlab5801=self.hlab5801,
             ethnicity=self.ethnicity,
-            defaultulttrtsettings=self.defaultulttrtsettings,
+            defaultulttrtsettings=(
+                self.defaulttrtsettings
+                if not isinstance(self, GoutHelperPatientModel)
+                else self.defaulttrtsettings(trttype=TrtTypes.ULT)
+            ),
         )
 
     @cached_property
@@ -375,7 +377,7 @@ class GoutHelperBaseModel:
                 return aids_probenecid_ckd_contra(
                     ckd=ckd,
                     ckddetail=ckd.ckddetail,
-                    defaulttrtsettings=self.defaultulttrtsettings,
+                    defaulttrtsettings=self.defaulttrtsettings,
                 )
             except AttributeError:
                 pass
@@ -472,11 +474,16 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
         """Method that returns the age of the object's user if it exists."""
         return age_calc(date_of_birth=self.dateofbirth.value)
 
-    @cached_property
-    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Method that returns DefaultUltTrtSettings object from the objects user
-        attribute/property or the GoutHelper default if User doesn't exist."""
-        return defaults_defaultulttrtsettings(user=self)
+    def get_defaulttrtsettings(
+        self, trttype: TrtTypes
+    ) -> Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]:
+        """Method that returns the DefaultTrtSettings object for the User's trttype."""
+        if trttype == TrtTypes.FLARE:
+            return defaults_defaultflaretrtsettings(user=self)
+        elif trttype == TrtTypes.PPX:
+            return defaults_defaultppxtrtsettings(user=self)
+        elif trttype == TrtTypes.ULT:
+            return defaults_defaultulttrtsettings(user=self)
 
 
 class DecisionAidRelation(models.Model):

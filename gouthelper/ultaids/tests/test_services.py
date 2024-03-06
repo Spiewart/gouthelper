@@ -5,12 +5,16 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...defaults.models import DefaultUltTrtSettings
+from ...defaults.tests.factories import DefaultUltTrtSettingsFactory
 from ...labs.tests.factories import Hlab5801Factory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...treatments.choices import FebuxostatDoses, Freqs, Treatments, UltChoices
+from ...users.models import Pseudopatient
+from ...users.tests.factories import create_psp
 from ...utils.helpers.aid_helpers import aids_dict_to_json, aids_process_medhistorys
 from ..models import UltAid
+from ..selectors import ultaid_user_qs
 from ..services import UltAidDecisionAid
 from .factories import create_ultaid
 
@@ -23,9 +27,14 @@ class TestUltAidDecisionAid(TestCase):
         for _ in range(4):
             create_ultaid()
         self.empty_ultaid = create_ultaid(mas=None, mhs=None, kwargs={"hlab5801": False})
+        for _ in range(4):
+            ultaid = create_ultaid(user=create_psp(plus=True))
+            DefaultUltTrtSettingsFactory(user=ultaid.user)
+        self.ultaid_with_user = create_ultaid(user=create_psp(plus=True))
+        self.default_defaultulttrtsettings = DefaultUltTrtSettings.objects.filter(user__isnull=True).get()
 
     def test__init_without_user(self):
-        for ultaid in UltAid.related_objects.all():
+        for ultaid in UltAid.related_objects.filter(user__isnull=True).all():
             with CaptureQueriesContext(connection) as context:
                 decisionaid = UltAidDecisionAid(qs=ultaid)
             self.assertEqual(decisionaid.ultaid, ultaid)
@@ -34,6 +43,7 @@ class TestUltAidDecisionAid(TestCase):
                 self.assertEqual(age_calc(ultaid.dateofbirth.value), decisionaid.age)
             else:
                 self.assertIsNone(decisionaid.age)
+            self.assertEqual(decisionaid.defaultsettings, self.default_defaultulttrtsettings)
             if getattr(ultaid, "gender", None):
                 self.assertEqual(ultaid.gender, decisionaid.gender)
             else:
@@ -45,6 +55,72 @@ class TestUltAidDecisionAid(TestCase):
             for medhistory in ultaid.medhistory_set.all():
                 self.assertIn(medhistory, decisionaid.medhistorys)
             for medallergy in ultaid.medallergy_set.all():
+                self.assertIn(medallergy, decisionaid.medallergys)
+
+    def test__init_with_user(self):
+        for user in Pseudopatient.objects.ultaid_qs().all():
+            if hasattr(user, "ultaid"):
+                with CaptureQueriesContext(connection) as context:
+                    decisionaid = UltAidDecisionAid(qs=user)
+                self.assertEqual(decisionaid.user, user)
+                self.assertEqual(decisionaid.ultaid, user.ultaid)
+                if hasattr(user, "defaultulttrtsettings"):
+                    self.assertEqual(len(context.captured_queries), 0)
+                else:
+                    self.assertEqual(len(context.captured_queries), 1)
+                if getattr(user, "dateofbirth", None):
+                    self.assertEqual(age_calc(user.dateofbirth.value), decisionaid.age)
+                else:
+                    self.assertIsNone(decisionaid.age)
+                if hasattr(user, "defaultulttrtsettings"):
+                    self.assertEqual(decisionaid.defaultsettings, user.defaultulttrtsettings)
+                else:
+                    self.assertEqual(decisionaid.defaultsettings, self.default_defaultulttrtsettings)
+                if getattr(user, "gender", None):
+                    self.assertEqual(user.gender, decisionaid.gender)
+                else:
+                    self.assertIsNone(decisionaid.gender)
+                if getattr(user, "hlab5801", None):
+                    self.assertEqual(user.hlab5801, decisionaid.hlab5801)
+                self.assertIsNotNone(decisionaid.ethnicity)
+                self.assertEqual(user.ethnicity, decisionaid.ethnicity)
+                for medhistory in user.medhistorys_qs:
+                    self.assertIn(medhistory, decisionaid.medhistorys)
+                for medallergy in user.medallergys_qs:
+                    self.assertIn(medallergy, decisionaid.medallergys)
+
+    def test__init_with_ultaid_with_user(self):
+        for ultaid in UltAid.objects.select_related("user").filter(user__isnull=False).all():
+            ultaid_qs = ultaid_user_qs(username=ultaid.user.username)
+            user = ultaid_qs.get()
+            ultaid = user.ultaid
+            ultaid.medhistorys_qs = user.medhistorys_qs
+            ultaid.medallergys_qs = user.medallergys_qs
+            ultaid.dateofbirth = user.dateofbirth
+            ultaid.ethnicity = user.ethnicity
+            ultaid.gender = user.gender
+            ultaid.hlab5801 = user.hlab5801 if hasattr(user, "hlab5801") else None
+            with CaptureQueriesContext(connection) as context:
+                decisionaid = UltAidDecisionAid(qs=ultaid)
+            self.assertEqual(decisionaid.user, user)
+            self.assertEqual(decisionaid.ultaid, user.ultaid)
+            if hasattr(user, "defaultulttrtsettings"):
+                self.assertEqual(len(context.captured_queries), 0)
+            else:
+                self.assertEqual(len(context.captured_queries), 1)
+            self.assertEqual(age_calc(user.dateofbirth.value), decisionaid.age)
+            self.assertEqual(decisionaid.ethnicity, user.ethnicity)
+            if hasattr(user, "defaultulttrtsettings"):
+                self.assertEqual(decisionaid.defaultsettings, user.defaultulttrtsettings)
+            else:
+                self.assertEqual(decisionaid.defaultsettings, self.default_defaultulttrtsettings)
+            self.assertEqual(user.gender, decisionaid.gender)
+            if hasattr(user, "hlab5801"):
+                self.assertEqual(user.hlab5801, decisionaid.hlab5801)
+            self.assertEqual(user.ethnicity, decisionaid.ethnicity)
+            for medhistory in user.medhistorys_qs:
+                self.assertIn(medhistory, decisionaid.medhistorys)
+            for medallergy in user.medallergys_qs:
                 self.assertIn(medallergy, decisionaid.medallergys)
 
     def test___create_trts_dict_no_user(self):
@@ -88,10 +164,10 @@ class TestUltAidDecisionAid(TestCase):
 
     def test__defaultulttrtsettings_no_user(self):
         decisionaid = UltAidDecisionAid(qs=self.ultaid)
-        defaultulttrtsettings = decisionaid.defaultulttrtsettings
+        defaultulttrtsettings = decisionaid.defaultsettings
         self.assertEqual(
             defaultulttrtsettings,
-            DefaultUltTrtSettings.objects.filter(user=None).get(),
+            DefaultUltTrtSettings.objects.filter(user__isnull=True).get(),
         )
 
     def test___save_trt_dict_to_decisionaid(self):
@@ -117,7 +193,7 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["dose"], 50)
 
@@ -134,7 +210,7 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["dose"], 50)
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["freq"], Freqs.TIW)
@@ -148,7 +224,7 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["dose"], 100)
 
@@ -175,7 +251,7 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
 
@@ -194,12 +270,12 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertFalse(trt_dict[Treatments.FEBUXOSTAT]["contra"])
 
     def test__process_febuxostat_with_cvd_custom_settings(self):
-        settings = DefaultUltTrtSettings.objects.get()
+        settings = DefaultUltTrtSettings.objects.filter(user__isnull=True).get()
         settings.febu_cv_disease = False
         settings.save()
         ultaid = create_ultaid(mhs=[MedHistoryTypes.HEARTATTACK, MedHistoryTypes.ANGINA], mas=[])
@@ -210,7 +286,7 @@ class TestUltAidDecisionAid(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaultsettings,
         )
         self.assertTrue(trt_dict[Treatments.FEBUXOSTAT]["contra"])
 

@@ -352,7 +352,7 @@ def update_or_create_ckddetail_data(
     ckd_value = data[f"{MedHistoryTypes.CKD}-value"]
     if mh_dets and ckd_value and MedHistoryTypes.CKD in mh_dets:
         if user:
-            if hasattr(user, "ckddetail"):
+            if getattr(user, "ckddetail", None):
                 ckdetail = user.ckddetail
                 update_ckddetail_data(ckdetail, data)
                 data["baselinecreatinine"] = (
@@ -361,7 +361,7 @@ def update_or_create_ckddetail_data(
             else:
                 data.update(**make_ckddetail_data(user=user, **kwargs))
         elif aid_obj:
-            if hasattr(aid_obj, "ckddetail"):
+            if getattr(aid_obj, "ckddetail", None):
                 ckdetail = aid_obj.ckddetail
                 update_ckddetail_data(ckdetail, data)
                 data["baselinecreatinine"] = (
@@ -1187,7 +1187,7 @@ class OneToOneCreatorMixin(CreateAidMixin):
                             oto.value = factory
                             oto.save()
                 elif factory:
-                    if onetoone in self.req_otos or fake.boolean():
+                    if (self.req_otos and onetoone in self.req_otos) or fake.boolean():
                         if onetoone == "urate":
                             oto = factory(user=self.user, **{aid_obj_attr: aid_obj})
                             setattr(self, onetoone, oto)
@@ -1218,7 +1218,7 @@ class OneToOneCreatorMixin(CreateAidMixin):
                     setattr(self, onetoone, factory_obj)
                     setattr(aid_obj, onetoone, factory_obj)
                 elif factory:
-                    if onetoone in self.req_otos or fake.boolean():
+                    if (self.req_otos and onetoone in self.req_otos) or fake.boolean():
                         oto = getattr(aid_obj, onetoone, None)
                         if not oto:
                             # Will raise a TypeError if the object is not a Factory

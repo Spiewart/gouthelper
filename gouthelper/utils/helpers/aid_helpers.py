@@ -1,10 +1,21 @@
 import json
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
-from django.core.serializers.json import DjangoJSONEncoder  # type: ignore
+from django.apps import apps  # pylint: disable=E0401  # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
+from django.core.serializers.json import DjangoJSONEncoder  # pylint: disable=E0401  # type: ignore
+from django.db.models import OneToOneField, QuerySet  # pylint: disable=E0401  # type: ignore
+from django.utils.functional import cached_property  # type: ignore  # pylint: disable=E0401
 
 from ...dateofbirths.helpers import age_calc
 from ...defaults.helpers import defaults_treatments_create_dosing_dict
+from ...defaults.selectors import (
+    defaults_defaultflaretrtsettings,
+    defaults_defaultmedhistorys_trttype,
+    defaults_defaultppxtrtsettings,
+    defaults_defaulttrts_trttype,
+    defaults_defaultulttrtsettings,
+)
 from ...ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ...medhistorydetails.choices import DialysisChoices, Stages
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
@@ -22,15 +33,23 @@ from ...treatments.choices import (
 from .helpers import duration_decimal_parser
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet  # type: ignore
-
     from ...dateofbirths.models import DateOfBirth
     from ...defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
     from ...ethnicitys.models import Ethnicity
+    from ...flareaids.models import FlareAid
+    from ...flares.models import Flare
+    from ...genders.models import Gender
+    from ...goalurates.models import GoalUrate
     from ...labs.models import BaselineCreatinine, Hlab5801
     from ...medallergys.models import MedAllergy
     from ...medhistorydetails.models import CkdDetail, GoutDetail
     from ...medhistorys.models import Ckd, MedHistory
+    from ...ppxaids.models import PpxAid
+    from ...ppxs.models import Ppx
+    from ...ultaids.models import UltAid
+    from ...ults.models import Ult
+
+    User = get_user_model()
 
 
 def aids_assign_baselinecreatinine(
@@ -633,3 +652,184 @@ def aids_process_steroids(
                 if sub_dict["contra"] is False:
                     sub_dict["contra"] = True
     return trt_dict
+
+
+def aids_get_defaultsettings_qs(
+    model: type[Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]],
+    user: Union["User", None] = None,
+) -> QuerySet | None:
+    if model == apps.get_model("flareaids", "FlareAid"):
+        return defaults_defaultflaretrtsettings(user)
+    elif model == apps.get_model("ppxaids", "PpxAid"):
+        return defaults_defaultppxtrtsettings(user)
+    elif model == apps.get_model("ultaids", "UltAid"):
+        return defaults_defaultulttrtsettings(user)
+    else:
+        return None
+
+
+def aid_service_get_oto(
+    qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
+    model_fields: list[Literal["dateofbirth"], Literal["ethnicity"], Literal["gender"]],
+    oto: Literal["dateofbirth"] | Literal["ethnicity"] | Literal["gender"],
+) -> Union["DateOfBirth", "Ethnicity", "Gender", None]:
+    return getattr(qs, oto, None) if oto in model_fields else None
+
+
+def aid_service_check_oto_swap(
+    oto: Literal["dateofbirth"] | Literal["ethnicity"] | Literal["gender"],
+    qs_has_user: bool,
+    model_attr: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"],
+) -> None:
+    if qs_has_user and getattr(model_attr, oto, None):
+        setattr(model_attr, oto, None)
+
+
+class AidService:
+    """Base class for Aid service class methods."""
+
+    def __init__(
+        self,
+        qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"],
+        model: type[Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]],
+    ):
+        if isinstance(qs, QuerySet):
+            self.qs = qs.get()
+        else:
+            self.qs = qs
+        model_attr = model.__name__.lower()
+        model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
+        self.default_settings_class = getattr(model, "defaultsettings", None)
+        self.default_settings_attr = (
+            self.default_settings_class.__name__.lower() if self.default_settings_class else None
+        )
+        if isinstance(self.qs, model):
+            setattr(self, model_attr, self.qs)
+            self.user = self.qs.user
+            self.qs_has_user = True if self.user else False
+        elif isinstance(self.qs, get_user_model()):
+            setattr(self, model_attr, getattr(self.qs, model_attr))
+            self.user = self.qs
+            self.qs_has_user = False
+        else:
+            model_name = model.__class__.__name__
+            raise TypeError(f"f{model_name}DecisionAid requires a {model_name} or User instance.")
+        self.model_attr = getattr(self, model_attr)
+        # If the queryset is a TreatmentAid object with a user or a User,
+        # try to fetch user's default settings for that type of aid
+        self.defaultsettings = (
+            getattr(self.user, self.default_settings_attr, None)
+            if self.default_settings_attr and self.user and hasattr(self.user, self.default_settings_attr)
+            else aids_get_defaultsettings_qs(model, self.user)
+        )
+        self.dateofbirth = aid_service_get_oto(
+            qs=self.qs,
+            model_fields=model_fields,
+            oto="dateofbirth",
+        )
+        self.age = age_calc(self.dateofbirth.value) if self.dateofbirth else None
+        aid_service_check_oto_swap(oto="dateofbirth", qs_has_user=self.qs_has_user, model_attr=self.model_attr)
+        self.ethnicity = aid_service_get_oto(
+            qs=self.qs,
+            model_fields=model_fields,
+            oto="ethnicity",
+        )
+        aid_service_check_oto_swap(oto="ethnicity", qs_has_user=self.qs_has_user, model_attr=self.model_attr)
+        self.gender = aid_service_get_oto(
+            qs=self.qs,
+            model_fields=model_fields,
+            oto="gender",
+        )
+        aid_service_check_oto_swap(oto="gender", qs_has_user=self.qs_has_user, model_attr=self.model_attr)
+        self.medallergys = self.qs.medallergys_qs if hasattr(self.qs, "medallergys_qs") else None
+        if hasattr(self.qs, "medhistorys_qs"):
+            self.medhistorys = self.qs.medhistorys_qs
+            self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+            self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
+        else:
+            self.medhistorys = None
+        # TODO: Add side effects back in at later stage, kept here to avoid breaking other code
+        self.sideeffects = None
+
+    def _update(self, commit=True) -> Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]:
+        """Updates the model object's decisionaid field.
+
+        Args:
+            commit (bool): defaults to True, True will clean/save, False will not
+
+        Returns:
+            str: decisionaid field JSON representation of trt_dict
+        """
+        if commit:
+            self.model_attr.full_clean()
+            self.model_attr.save()
+        return self.model_attr
+
+
+class TreatmentAidService(AidService):
+    """Base class for TreatmentAid service class methods. Adds
+    methods for creating trt_dict, decisionaid_dict, filtering DefaultTrts,
+    and updating the model's decisionaid field."""
+
+    trttype: TrtTypes.FLARE | TrtTypes.PPX | TrtTypes.ULT
+
+    def _create_trts_dict(self):
+        """Returns a dict {Treatments: {dose/freq/duration + contra=False}}."""
+        return aids_create_trts_dosing_dict(default_trts=self.default_trts)
+
+    def _create_decisionaid_dict(self) -> dict:
+        """Returns a trt_dict (dict {Treatments: {dose/freq/duration + contra=False}} with
+        dosing and contraindications for each treatment adjusted for the patient's
+        relevant medical history."""
+        trt_dict = self._create_trts_dict()
+        trt_dict = aids_process_medhistorys(
+            trt_dict=trt_dict,
+            medhistorys=self.medhistorys,
+            ckddetail=self.ckddetail,
+            default_medhistorys=self.default_medhistorys,
+            defaulttrtsettings=self.defaultsettings,
+        )
+        trt_dict = aids_process_medallergys(trt_dict=trt_dict, medallergys=self.medallergys)
+        trt_dict = aids_process_sideeffects(trt_dict=trt_dict, sideeffects=self.sideeffects)
+        return trt_dict
+
+    @cached_property
+    def default_medhistorys(self) -> QuerySet:
+        """Returns a QuerySet of DefaultMedHistorys filtered for the class User and treatment type."""
+        return defaults_defaultmedhistorys_trttype(medhistorys=self.medhistorys, trttype=self.trttype, user=self.user)
+
+    @cached_property
+    def default_trts(self) -> QuerySet:
+        """Returns a QuerySet of DefaultTrts filtered for the class User and treatment type."""
+        return defaults_defaulttrts_trttype(trttype=self.trttype, user=self.user)
+
+    def _save_trt_dict_to_decisionaid(self, decisionaid_dict: dict, commit=True) -> str:
+        """Saves the trt_dict to the model object's decisionaid field as a JSON string.
+
+        Args:
+            decisionaid_dict {dict}: keys = Treatments, vals = dosing + contraindications.
+            commit (bool): defaults to True, True will clean/save, False will not
+
+        Returns:
+            str: decisionaid field JSON representation fo the trt_dict
+        """
+        self.model_attr.decisionaid = aids_dict_to_json(aid_dict=decisionaid_dict)
+        if commit:
+            self.model_attr.full_clean()
+            self.model_attr.save()
+        return self.model_attr.decisionaid
+
+    def _update(self, commit=True) -> Union["FlareAid", "PpxAid", "UltAid"]:
+        """Updates the model object's decisionaid field.
+
+        Args:
+            commit (bool): defaults to True, True will clean/save, False will not
+
+        Returns:
+            Union[FlareAid, PpxAid, UltAid]: model object
+        """
+        decisionaid_dict = self._create_decisionaid_dict()
+        self.model_attr.decisionaid = self._save_trt_dict_to_decisionaid(
+            decisionaid_dict=decisionaid_dict, commit=False
+        )
+        return super()._update(commit=commit)

@@ -12,15 +12,21 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorydetails.choices import Stages
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher
+from ..medhistorys.helpers import medhistory_attr, medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
+from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import FlareFreqs, FlareNums, Indications
+from .managers import UltManager
 from .services import UltDecisionAid
 
 if TYPE_CHECKING:
+    from django.contrib.auth import get_user_model
+
     from ..medhistorys.models import Ckd
+
+    User = get_user_model()
 
 
 class Ult(
@@ -115,45 +121,40 @@ class Ult(
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
+    objects = models.Manager()
+    related_objects = UltManager()
+
+    def __str__(self):
+        if self.user:
+            return f"{self.user.username.capitalize()}'s Ult"
+        else:
+            return f"Ult: created {self.created.date()}"
+
     @classmethod
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return ULT_MEDHISTORYS
 
     @cached_property
-    def ckd(self) -> Union["Ckd", None]:
+    def ckd3(self) -> Union["Ckd", None]:
         """Overwritten to only return Ckd if the stage is III or higher."""
-        try:
-            return medhistorys_get_ckd_3_or_higher(self.medhistorys_qs)  # type: ignore
-        except AttributeError:
-            if not self.user:
-                return medhistorys_get_ckd_3_or_higher(
-                    self.medhistorys.filter(medhistorytype=MedHistoryTypes.CKD).all()
-                )
-            else:
-                return medhistorys_get_ckd_3_or_higher(
-                    self.user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).all()
-                )
+        medhistory_attr(
+            medhistory=MedHistoryTypes.CKD,
+            obj=self,
+            select_related=["ckddetail", "baselinecreatinine"],
+            mh_get=medhistorys_get_ckd_3_or_higher,
+        )
 
     @cached_property
     def conditional_indication(self) -> bool:
         """Method that returns whether or not the Ult
         has a conditional recommendation for ULT."""
-        if self.indication == Indications.CONDITIONAL:
-            return True
-        return False
+        return self.indication == Indications.CONDITIONAL
 
     @cached_property
     def contraindicated(self) -> bool:
         return (
             self.num_flares == FlareNums.ONE
-            and not (
-                self.ckddetail
-                and self.ckddetail.stage >= 3
-                or self.erosions
-                or self.hyperuricemia
-                or self.tophi
-                or self.uratestones
-            )
+            and not (self.ckd3 or self.erosions or self.hyperuricemia or self.tophi or self.uratestones)
             or self.num_flares == FlareNums.ZERO
             and not (self.erosions or self.tophi)
         )
@@ -164,41 +165,33 @@ class Ult(
         has only had a single gout flare and does not have any secondary
         medical conditions that would conditionally indicate ULT. A single gout flare
         in the absence of any additional conditions is a contraindication to ULT."""
-        if (
+        return (
             self.num_flares == FlareNums.ONE
-            and not (self.ckddetail and self.ckddetail.stage >= 3)
+            and not (self.ckd3)
             and not self.hyperuricemia
             and not self.uratestones
             and not self.erosions
             and not self.tophi
-        ):
-            return True
-        return False
+        )
 
     @cached_property
     def firstflare_plus(self) -> bool:
         """Method that returns True if a Ult indicates that the patient
         has only had a single gout flare but does have a secondary
         medical conditions that conditionally indicates ULT."""
-        if (
-            self.num_flares == FlareNums.ONE
-            and (self.ckddetail and self.ckddetail.stage >= 3)
-            or self.hyperuricemia
-            or self.uratestones
-        ):
-            return True
-        return False
+        return self.num_flares == FlareNums.ONE and (self.ckd3) or self.hyperuricemia or self.uratestones
 
     @cached_property
     def frequentflares(self) -> bool:
         """Method that returns True if a Ult indicates the
         patient is having frequent gout flares (2 or more per year)."""
-        if self.freq_flares and self.freq_flares == FlareFreqs.TWOORMORE:
-            return True
-        return False
+        return self.freq_flares and self.freq_flares == FlareFreqs.TWOORMORE
 
     def get_absolute_url(self):
-        return reverse("ults:detail", kwargs={"pk": self.pk})
+        if self.user:
+            return reverse("ults:pseudopatient-detail", kwargs={"username": self.user.username})
+        else:
+            return reverse("ults:detail", kwargs={"pk": self.pk})
 
     @cached_property
     def indicated(self) -> bool:
@@ -224,9 +217,6 @@ class Ult(
             return True
         return False
 
-    def __str__(self):
-        return f"Ult: {Indications(self.indication).label}"
-
     @cached_property
     def strong_indication(self) -> bool:
         """Method that returns whether or not the Ult
@@ -235,15 +225,19 @@ class Ult(
             return True
         return False
 
-    def update_aid(self, decisionaid: UltDecisionAid | None = None, qs: Union["Ult", None] = None) -> "Ult":
+    def update_aid(self, qs: Union["Ult", "User", None] = None) -> "Ult":
         """Updates Ult indication field.
 
         Args:
-            decisionaid (UltDecisionAid, optional): UltDecisionAid object. Defaults to None.
-            qs (Ult, optional): Ult object. Defaults to None.
+            qs (Ult, User, optional): Ult or User object. Defaults to None.
+            Should have related medhistorys prefetched as medhistorys_qs.
 
         Returns:
             Ult: Ult object."""
-        if decisionaid is None:
-            decisionaid = UltDecisionAid(pk=self.pk, qs=qs)
-        return decisionaid._update()
+        if qs is None:
+            if self.user:
+                qs = Pseudopatient.objects.ultaid_qs().filter(username=self.user.username)
+            else:
+                qs = Ult.related_objects.filter(pk=self.pk)
+        decisionaid = UltDecisionAid(qs=qs)
+        return decisionaid._update()  # pylint: disable=W0212 # type: ignore

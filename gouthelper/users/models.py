@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.apps import apps  # type: ignore
-from django.contrib.auth.base_user import BaseUserManager  # type: ignore
 from django.contrib.auth.models import AbstractUser
 from django.db.models import CharField, CheckConstraint, Q
 from django.urls import reverse
@@ -12,58 +11,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..ultaids.selectors import ultaid_user_relations
 from ..utils.models import GoutHelperPatientModel
 from .choices import Roles
+from .helpers import get_user_change
+from .managers import AdminManager, GoutHelperUserManager, PatientManager, ProviderManager, PseudopatientManager
 from .rules import change_user, delete_user, view_user
-
-
-class GoutHelperUserManager(BaseUserManager):
-    """Custom User model manager for GoutHelper. It only overrides the create_superuser method."""
-
-    def create_user(self, username, email, password=None):
-        """Create and save a User with the given email and password."""
-        user = self.model(
-            username=username,
-            email=email,
-        )
-        user.set_password(password)
-        user.save()
-        return user
-
-    def create_superuser(self, email, password, **extra_fields):
-        """Create and save a SuperUser with the given email and password. Set
-        role to ADMIN."""
-        user = self.model(
-            email=email,
-            is_staff=True,
-            is_superuser=True,
-            role=Roles.ADMIN,
-            **extra_fields,
-        )
-        user.set_password(password)
-        user.save()
-        return user
-
-
-def get_user_change(instance, request, **kwargs):
-    # https://django-simple-history.readthedocs.io/en/latest/user_tracking.html
-    """Method for django-simple-history to assign the user who made the change
-    to the HistoricalUser history_user field. Written to deal with the case where
-    the User is deleting his or her own profile and setting the history_user
-    to the User's id will result in an IntegrityError."""
-    # Check if the user is authenticated and the user is the User instance
-    # and if the url for the request is for the User's deletion
-    if request and request.user and request.user.is_authenticated:
-        if request.user == instance and request.path.endswith(reverse("users:delete")):
-            # Set the history_user to None
-            return None
-        else:
-            # Otherwise, return the request.user
-            return request.user
-    else:
-        # Otherwise, return None
-        return None
 
 
 class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
@@ -101,9 +53,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         """Get URL for user's detail view.
 
         Returns:
-            str: URL for user detail.
-
-        """
+            str: URL for user detail."""
         if self.role == Roles.PSEUDOPATIENT:
             return reverse("users:pseudopatient-detail", kwargs={"username": self.username})
         else:
@@ -123,14 +73,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
 
     @cached_property
     def profile(self):
-        if self.role == self.Roles.PATIENT:
-            return getattr(self, "patientprofile", None)
-        elif self.role == self.Roles.PROVIDER:
-            return getattr(self, "providerprofile", None)
-        elif self.role == self.Roles.PSEUDOPATIENT:
-            return getattr(self, "pseudopatientprofile", None)
-        elif self.role == self.Roles.ADMIN:
-            return getattr(self, "adminprofile", None)
+        return getattr(self, f"{self.role.lower()}profile", None)
 
     def save(self, *args, **kwargs):
         # If a new user, set the user's role based off the
@@ -140,41 +83,6 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         self.__class__ = User
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"users.{self.role}")
-
-
-class PatientManager(BaseUserManager):
-    def get_queryset(self, *args, **kwargs):
-        results = super().get_queryset(*args, **kwargs)
-        return results.filter(role=User.Roles.PATIENT)
-
-    def create(self, **kwargs):
-        kwargs.update({"role": Roles.PATIENT})
-        return super().create(**kwargs)
-
-
-class ProviderManager(BaseUserManager):
-    def get_queryset(self, *args, **kwargs):
-        results = super().get_queryset(*args, **kwargs)
-        return results.filter(role=User.Roles.PROVIDER)
-
-
-class PseudopatientManager(BaseUserManager):
-    def get_queryset(self, *args, **kwargs):
-        results = super().get_queryset(*args, **kwargs)
-        return results.filter(role=User.Roles.PSEUDOPATIENT)
-
-    def ultaid_qs(self):
-        return ultaid_user_relations(self.get_queryset())
-
-    def create(self, **kwargs):
-        kwargs.update({"role": Roles.PSEUDOPATIENT})
-        return super().create(**kwargs)
-
-
-class AdminManager(BaseUserManager):
-    def get_queryset(self, *args, **kwargs):
-        results = super().get_queryset(*args, **kwargs)
-        return results.filter(role=User.Roles.ADMIN)
 
 
 class Admin(User):
@@ -192,7 +100,6 @@ class Admin(User):
             "view": view_user,
         }
 
-    # Custom methods for ADMIN Role go here...
     @cached_property
     def profile(self):
         return getattr(self, "adminprofile", None)
@@ -213,7 +120,6 @@ class Patient(User):
     # Ensures queries on the Patient model return only Patients
     objects = PatientManager()
 
-    # Custom methods for Patient Role go here...
     @property
     def cached_property(self):
         return getattr(self, "patientprofile", None)
@@ -234,7 +140,6 @@ class Provider(User):
             "view": view_user,
         }
 
-    # Custom methods for Provider Role go here...
     @cached_property
     def profile(self):
         return getattr(self, "providerprofile", None)
@@ -254,8 +159,6 @@ class Pseudopatient(GoutHelperPatientModel, User):
             "delete": delete_user,
             "view": view_user,
         }
-
-    # Custom methods for Pseudopatient Role go here...
 
     @cached_property
     def profile(self):

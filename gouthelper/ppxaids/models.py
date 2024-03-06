@@ -8,6 +8,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..defaults.models import DefaultPpxTrtSettings
 from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
@@ -20,7 +21,6 @@ from .services import PpxAidDecisionAid
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
-    from ..defaults.models import DefaultPpxTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
     from ..treatments.choices import Treatments
 
@@ -100,6 +100,10 @@ class PpxAid(
     @classmethod
     def aid_treatments(cls) -> list[FlarePpxChoices]:
         return FlarePpxChoices.values
+
+    @classmethod
+    def defaultsettings(cls) -> type[DefaultPpxTrtSettings]:
+        return DefaultPpxTrtSettings
 
     @cached_property
     def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":

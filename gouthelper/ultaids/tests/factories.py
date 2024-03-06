@@ -39,7 +39,7 @@ fake = faker.Faker()
 
 
 class CreateUltAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
-    """Overwritten to add functionality for OneToOnes and HLAb5801."""
+    """Creates data for MedHistory and OneToOne objects related to the UltAid."""
 
     def create(self):
         ma_data = self.create_ma_data()
@@ -64,7 +64,10 @@ def ultaid_data_factory(
         mas: The MedAllergys to create the data for. Pass empty list to not create any.
         mhs: The MedHistorys to create the data for. Pass empty list to not create any.
         mh_dets: The MedHistoryDetails to create the data for.
-        otos: The OneToOne to create the data for."""
+        otos: The OneToOne to create the data for.
+
+    Returns:
+        dict: The data to use to test forms."""
     return CreateUltAidData(
         aid_mas=UltChoices.values,
         aid_mhs=ULTAID_MEDHISTORYS,

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def medhistory_userless_qs() -> "QuerySet":
+def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(Q(medhistorytype__in=ULT_MEDHISTORYS))
@@ -19,15 +19,25 @@ def medhistory_userless_qs() -> "QuerySet":
     ).all()
 
 
-def medhistory_userless_prefetch() -> Prefetch:
+def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
-        "medhistorys",
-        queryset=medhistory_userless_qs(),
+        "medhistory_set",
+        queryset=medhistorys_qs(),
         to_attr="medhistorys_qs",
     )
 
 
+def ult_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.prefetch_related(medhistorys_prefetch())
+
+
 def ult_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("ults.Ult").objects.filter(pk=pk)
-    queryset = queryset.prefetch_related(medhistory_userless_prefetch())
-    return queryset
+    return ult_relations(apps.get_model("ults.Ult").objects.filter(pk=pk))
+
+
+def ult_user_relations(qs: "QuerySet") -> "QuerySet":
+    return ult_relations(qs).select_related("ult")
+
+
+def ult_user_qs(username: str) -> "QuerySet":
+    return ult_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

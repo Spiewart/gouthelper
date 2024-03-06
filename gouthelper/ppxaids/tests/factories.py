@@ -54,6 +54,18 @@ def ppxaid_data_factory(
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
     otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
+    """Method to create data for a PpxAid to test forms.
+
+    Args:
+        user: The user to create the data for (can't have with ppxaid).
+        ppxaid: The PpxAid to create the data for (can't have with user).
+        mas: The MedAllergys to create the data for. Pass empty list to not create any.
+        mhs: The MedHistorys to create the data for. Pass empty list to not create any.
+        mh_dets: The MedHistoryDetails to create the data for.
+        otos: The OneToOne to create the data for.
+
+    Returns:
+        dict: The data to use to test forms."""
     return CreatePpxAidData(
         aid_mas=FlarePpxChoices.values,
         aid_mhs=PPXAID_MEDHISTORYS,

@@ -8,20 +8,20 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..defaults.models import DefaultUltTrtSettings
 from ..defaults.selectors import defaults_defaultulttrtsettings
 from ..medhistorys.lists import ULTAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
+from ..users.models import Pseudopatient
 from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .managers import UltAidManager
-from .selectors import ultaid_userless_qs
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
-    from ..defaults.models import DefaultUltTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
 
     User = get_user_model()
@@ -132,11 +132,19 @@ class UltAid(
             or self.probenecid_allergy
         )
 
+    @classmethod
+    def defaultsettings(cls) -> type["DefaultUltTrtSettings"]:
+        return DefaultUltTrtSettings
+
     @cached_property
     def defaulttrtsettings(self) -> "DefaultUltTrtSettings":
         """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
         GoutHelper DefaultSettings."""
-        return defaults_defaultulttrtsettings(user=None)
+        return (
+            defaults_defaultulttrtsettings(user=self.user)
+            if not self.user or (self.user and not hasattr(self.user, "defaultulttrtsettings"))
+            else self.user.defaultulttrtsettings
+        )
 
     @cached_property
     def erosions(self) -> bool:
@@ -192,8 +200,8 @@ class UltAid(
             UltAid: UltAid object with decisionaid field updated ."""
         if qs is None:
             if self.user:
-                qs = UltAid.objects.ultaid_qs.filter(username=self.user.username)
+                qs = Pseudopatient.objects.ultaid_qs().filter(username=self.user.username)
             else:
-                qs = ultaid_userless_qs(pk=self.pk)
+                qs = UltAid.related_objects.filter(pk=self.pk)
         decisionaid = UltAidDecisionAid(qs=qs)
-        return decisionaid._update()
+        return decisionaid._update()  # pylint: disable=W0212 # type: ignore

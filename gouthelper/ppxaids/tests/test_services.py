@@ -57,9 +57,9 @@ class TestPpxAidMethods(TestCase):
             self.assertEqual(len(context.captured_queries), 4)  # 4 queries for medhistorys
             self.assertEqual(age_calc(ppxaid_qs.dateofbirth.value), decisionaid.age)
             self.assertEqual(ppxaid_qs.gender, decisionaid.gender)
-            self.assertTrue(hasattr(decisionaid, "defaultppxtrtsettings"))
+            self.assertTrue(hasattr(decisionaid, "defaultsettings"))
             self.assertEqual(
-                decisionaid.defaultppxtrtsettings, DefaultPpxTrtSettings.objects.filter(user__isnull=True).get()
+                decisionaid.defaultsettings, DefaultPpxTrtSettings.objects.filter(user__isnull=True).get()
             )
             if ppxaid_qs.ckd:
                 if hasattr(ppxaid_qs.ckd, "baselinecreatinine"):
@@ -91,6 +91,7 @@ class TestPpxAidMethods(TestCase):
         with CaptureQueriesContext(connection) as context:
             decisionaid = PpxAidDecisionAid(qs=qs)
             # QuerySet is 3 queries because the user has a defaultppxtrtsettings
+            print(context.captured_queries)
             self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
             qs = qs.get()
             self.assertTrue(hasattr(decisionaid, "ppxaid"))
@@ -101,8 +102,8 @@ class TestPpxAidMethods(TestCase):
             self.assertEqual(decisionaid.dateofbirth, ppxaid.user.dateofbirth)
             self.assertTrue(decisionaid.age)
             self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
-            self.assertTrue(hasattr(decisionaid, "defaultppxtrtsettings"))
-            self.assertEqual(decisionaid.defaultppxtrtsettings, defaultppxtrtsettings)
+            self.assertTrue(hasattr(decisionaid, "defaultsettings"))
+            self.assertEqual(decisionaid.defaultsettings, defaultppxtrtsettings)
             if hasattr(ppxaid.user, "gender"):
                 self.assertEqual(decisionaid.gender, ppxaid.user.gender)
             self.assertTrue(hasattr(decisionaid, "medallergys"))
