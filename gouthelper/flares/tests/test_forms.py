@@ -29,6 +29,12 @@ class TestFlareForm(TestCase):
         self.form = FlareForm(data=self.flare_data)
         self.factory = RequestFactory()
 
+    def test__about_the_patient_rendered(self):
+        # Create a response without HTMX request
+        response = self.client.get(reverse("flares:create"))
+        # Test that the legend for the About the Patient section is rendered
+        self.assertIn("<legend>About the Patient</legend>", response.rendered_content)
+
     def test__form_fields(self):
         self.assertTrue(isinstance(self.form.fields["crystal_analysis"], forms.TypedChoiceField))
         self.assertEqual(

@@ -62,24 +62,49 @@ class TestUlt(TestCase):
 
     def test__ckd(self):
         for ult in self.ults:
-            if next(iter(mh for mh in ult.medhistorys.all() if mh.medhistorytype == MedHistoryTypes.CKD), None):
-                self.assertTrue(ult.ckd)
+            if getattr(ult, "user"):
+                if next(
+                    iter(mh for mh in ult.user.medhistory_set.all() if mh.medhistorytype == MedHistoryTypes.CKD), None
+                ):
+                    self.assertTrue(ult.ckd)
+                else:
+                    self.assertFalse(ult.ckd)
             else:
-                self.assertFalse(ult.ckd)
+                if next(iter(mh for mh in ult.medhistorys_qs if mh.medhistorytype == MedHistoryTypes.CKD), None):
+                    self.assertTrue(ult.ckd)
+                else:
+                    self.assertFalse(ult.ckd)
 
     def test__ckd3(self):
         for ult in self.ults:
-            if next(
-                iter(
-                    mh
-                    for mh in ult.medhistorys.all()
-                    if mh.medhistorytype == MedHistoryTypes.CKD and mh.ckddetail and mh.ckddetail.stage >= Stages.THREE
-                ),
-                None,
-            ):
-                self.assertTrue(ult.ckd3)
+            if getattr(ult, "user"):
+                if next(
+                    iter(
+                        mh
+                        for mh in ult.user.medhistory_set.select_related("ckddetail").all()
+                        if mh.medhistorytype == MedHistoryTypes.CKD
+                        and mh.ckddetail
+                        and mh.ckddetail.stage >= Stages.THREE
+                    ),
+                    None,
+                ):
+                    self.assertTrue(ult.ckd3)
+                else:
+                    self.assertFalse(ult.ckd3)
             else:
-                self.assertFalse(ult.ckd3)
+                if next(
+                    iter(
+                        mh
+                        for mh in ult.medhistorys_qs
+                        if mh.medhistorytype == MedHistoryTypes.CKD
+                        and hasattr(mh, "ckddetail")
+                        and mh.ckddetail.stage >= Stages.THREE
+                    ),
+                    None,
+                ):
+                    self.assertTrue(ult.ckd3)
+                else:
+                    self.assertFalse(ult.ckd3)
 
     def test__conditional_indication(self):
         for ult in self.ults:
@@ -143,7 +168,7 @@ class TestUlt(TestCase):
 
     def test__multipleflares(self):
         for ult in self.ults:
-            if ult.num_flares == FlareNums.TWOPLUS:
+            if ult.freq_flares == FlareFreqs.ONEORLESS and ult.num_flares == FlareNums.TWOPLUS:
                 self.assertTrue(ult.multipleflares)
             else:
                 self.assertFalse(ult.multipleflares)

@@ -41,7 +41,7 @@ from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, MedHistory, Menopause, Pvd, Stroke
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.test_helpers import medhistory_diff_obj_data, tests_print_response_form_errors
+from ...utils.helpers.tests.helpers import medhistory_diff_obj_data, tests_print_response_form_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare

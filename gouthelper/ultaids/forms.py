@@ -53,18 +53,13 @@ class UltAidForm(
             forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout)
-        # Insert CkdForm
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
-        # Insert XoiInteractionForm
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.XOIINTERACTION)
-        # Insert OrganTransplantForm
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.ORGANTRANSPLANT)
         forms_helper_insert_medallergys(layout=self.helper.layout, treatments=self.medallergys)
-        # Insert AllopurinolHypersensitivityForm
         forms_helper_insert_medhistory(
             layout=self.helper.layout, medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
         )
-        # Insert FebuxostatHypersensitivityForm
         forms_helper_insert_medhistory(
             layout=self.helper.layout, medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
         )

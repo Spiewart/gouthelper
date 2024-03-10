@@ -1,3 +1,4 @@
+import random
 from datetime import timedelta  # type: ignore
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
@@ -26,6 +27,30 @@ def labs_baselinecreatinine_max_value(value: Decimal):
 This would typically mean the patient is on dialysis."
             )
         )
+
+
+def labs_round_decimal(value: Decimal, places: int) -> Decimal:
+    """Method that rounds a Decimal to a given number of places."""
+    if value is not None:
+        # see https://docs.python.org/2/library/decimal.html#decimal.Decimal.quantize for options
+        return value.quantize(Decimal(10) ** -places)
+    return value
+
+
+def labs_eGFR_range_for_stage(
+    stage: Stages,
+) -> tuple[int, int]:
+    """Method that takes a CKD stage and returns the eGFR range for that stage."""
+    if stage == Stages.ONE:
+        return 90, 100
+    elif stage == Stages.TWO:
+        return 60, 89
+    elif stage == Stages.THREE:
+        return 30, 59
+    elif stage == Stages.FOUR:
+        return 15, 29
+    elif stage == Stages.FIVE:
+        return 0, 14
 
 
 def labs_eGFR_calculator(
@@ -78,12 +103,31 @@ def labs_eGFR_calculator(
     return labs_round_decimal(eGFR, 0)
 
 
-def labs_round_decimal(value: Decimal, places: int) -> Decimal:
-    """Method that rounds a Decimal to a given number of places."""
-    if value is not None:
-        # see https://docs.python.org/2/library/decimal.html#decimal.Decimal.quantize for options
-        return value.quantize(Decimal(10) ** -places)
-    return value
+def labs_baselinecreatinine_calculator(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+    creat: Decimal = Decimal(random.uniform(0, 10)),
+) -> Decimal:
+    """Method that calculates a baseline creatinine range based on the a CKD stage,
+    an age, and a Gender.
+
+    Args:
+        stage (Stages enum): CKD stage
+        age (int): age of patient in years
+        gender (Genders enum): gender of the patient
+
+    Returns:
+        Decimal: a baseline creatinine value that falls within the eGFR range for the CKD stage"""
+    min_eGFR, max_eGFR = labs_eGFR_range_for_stage(stage)
+    creat = Decimal(random.uniform(0, 10))
+    eGFR = labs_eGFR_calculator(creat, age, gender)
+    while eGFR < min_eGFR or eGFR > max_eGFR:
+        if eGFR < min_eGFR:
+            return labs_baselinecreatinine_calculator(stage, age, gender, Decimal(random.uniform(0, float(creat))))
+        else:
+            return labs_baselinecreatinine_calculator(stage, age, gender, Decimal(random.uniform(float(creat), 10)))
+    return labs_round_decimal(creat, 2)
 
 
 def labs_stage_calculator(eGFR: Decimal) -> "Stages":

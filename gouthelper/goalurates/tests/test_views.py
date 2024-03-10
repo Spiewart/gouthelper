@@ -19,7 +19,7 @@ from ...ultaids.tests.factories import UltAidFactory
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
-from ...utils.helpers.test_helpers import tests_print_response_form_errors
+from ...utils.helpers.tests.helpers import tests_print_response_form_errors
 from ..choices import GoalUrates
 from ..models import GoalUrate
 from ..selectors import goalurate_user_qs

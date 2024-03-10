@@ -6,7 +6,7 @@ from factory.faker import faker  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
-from ...utils.helpers.test_helpers import MedHistoryCreatorMixin, MedHistoryDataMixin
+from ...utils.helpers.tests.helpers import MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import GoalUrate
 
 if TYPE_CHECKING:
@@ -59,20 +59,27 @@ class CreateGoalUrate(MedHistoryCreatorMixin):
 
 
 def create_goalurate(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     mhs: list[GOALURATE_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> GoalUrate:
     if mhs is None:
-        mhs = GOALURATE_MEDHISTORYS
-        specified = False
+        if user and not isinstance(user, bool):
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).all()
+            )
+        else:
+            mhs = GOALURATE_MEDHISTORYS
+        mhs_specified = False
     else:
-        specified = True
+        mhs_specified = True
     # Call the constructor Class Method
     return CreateGoalUrate(
         mhs=mhs,
         user=user,
-    ).create(mhs_specified=specified, **kwargs)
+    ).create(mhs_specified=mhs_specified, **kwargs)
 
 
 class GoalUrateFactory(DjangoModelFactory):

@@ -34,7 +34,7 @@ from ...medhistorys.models import MedHistory, Xoiinteraction
 from ...treatments.choices import Treatments, UltChoices
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.test_helpers import tests_print_response_form_errors
+from ...utils.helpers.tests.helpers import tests_print_response_form_errors
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
 from ..views import (
@@ -353,9 +353,9 @@ class TestUltAidPseudopatientCreate(TestCase):
                         assert f"{mh.medhistorytype}_form" in response.context_data
                         assert response.context_data[f"{mh.medhistorytype}_form"].instance == mh
                         assert (
-                            response.context_data[
+                            response.context_data[  # pylint: disable=w0212, line-too-long # noqa: E501
                                 f"{mh.medhistorytype}_form"
-                            ].instance._state.adding  # pylint: disable=w0212, line-too-long # noqa: E501
+                            ].instance._state.adding
                             is False
                         )
                         assert response.context_data[f"{mh.medhistorytype}_form"].initial == {
@@ -745,21 +745,21 @@ class TestUltAidPseudopatientCreate(TestCase):
         provider_psp = create_psp(provider=provider)
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
-        # Test that any User can create an anonymous Pseudopatient's PpxAid
+        # Test that any User can create an anonymous Pseudopatient's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}))
         assert response.status_code == 200
-        # Test that an anonymous User can't create a Provider's PpxAid
+        # Test that an anonymous User can't create a Provider's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": provider_psp.username}))
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
-        # Test that an anonymous User can't create an Admin's PpxAid
+        # Test that an anonymous User can't create an Admin's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}))
-        # Test that a Provider can create his or her own Pseudopatient's PpxAid
+        # Test that a Provider can create his or her own Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
         )
         assert response.status_code == 200
-        # Test that a Provider can create an anonymous Pseudopatient's PpxAid
+        # Test that a Provider can create an anonymous Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
         )
@@ -769,19 +769,19 @@ class TestUltAidPseudopatientCreate(TestCase):
             reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
         )
         assert response.status_code == 200
-        # Test that only a Pseudopatient's Provider can add their PpxAid if they have a Provider
+        # Test that only a Pseudopatient's Provider can add their UltAid if they have a Provider
         response = self.client.get(
             reverse("ultaids:pseudopatient-create", kwargs={"username": provider_psp.username}),
         )
         assert response.status_code == 403
         self.client.force_login(provider)
-        # Test that a Provider can't create another provider's Pseudopatient's PpxAid
+        # Test that a Provider can't create another provider's Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
-        # Test that an Admin can create an anonymous Pseudopatient's PpxAid
+        # Test that an Admin can create an anonymous Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}),
         )
@@ -1489,21 +1489,21 @@ class TestUltAidPseudopatientUpdate(TestCase):
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         create_ultaid(user=admin_psp)
-        # Test that any User can create an anonymous Pseudopatient's PpxAid
+        # Test that any User can create an anonymous Pseudopatient's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}))
         assert response.status_code == 200
-        # Test that an anonymous User can't create a Provider's PpxAid
+        # Test that an anonymous User can't create a Provider's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-update", kwargs={"username": provider_psp.username}))
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
-        # Test that an anonymous User can't create an Admin's PpxAid
+        # Test that an anonymous User can't create an Admin's UltAid
         response = self.client.get(reverse("ultaids:pseudopatient-update", kwargs={"username": admin_psp.username}))
-        # Test that a Provider can create his or her own Pseudopatient's PpxAid
+        # Test that a Provider can create his or her own Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}),
         )
         assert response.status_code == 200
-        # Test that a Provider can create an anonymous Pseudopatient's PpxAid
+        # Test that a Provider can create an anonymous Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}),
         )
@@ -1513,19 +1513,19 @@ class TestUltAidPseudopatientUpdate(TestCase):
             reverse("ultaids:pseudopatient-update", kwargs={"username": admin_psp.username}),
         )
         assert response.status_code == 200
-        # Test that only a Pseudopatient's Provider can add their PpxAid if they have a Provider
+        # Test that only a Pseudopatient's Provider can add their UltAid if they have a Provider
         response = self.client.get(
             reverse("ultaids:pseudopatient-update", kwargs={"username": provider_psp.username}),
         )
         assert response.status_code == 403
         self.client.force_login(provider)
-        # Test that a Provider can't create another provider's Pseudopatient's PpxAid
+        # Test that a Provider can't create another provider's Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-update", kwargs={"username": admin_psp.username}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
-        # Test that an Admin can create an anonymous Pseudopatient's PpxAid
+        # Test that an Admin can create an anonymous Pseudopatient's UltAid
         response = self.client.get(
             reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}),
         )

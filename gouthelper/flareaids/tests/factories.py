@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any, Union
 
-import pytest  # type: ignore
-from factory.django import DjangoModelFactory  # type: ignore
+import pytest  # pylint: disable=E0401  # type: ignore
+from factory.django import DjangoModelFactory  # pylint: disable=E0401  # type: ignore
 from factory.faker import faker
 
 from ...dateofbirths.tests.factories import DateOfBirthFactory
@@ -10,7 +10,7 @@ from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
-from ...utils.helpers.test_helpers import (
+from ...utils.helpers.tests.helpers import (
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,
@@ -21,7 +21,7 @@ from ...utils.helpers.test_helpers import (
 from ..models import FlareAid
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model  # type: ignore
+    from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
 
     User = get_user_model()
 
@@ -102,7 +102,7 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
 
 
 def create_flareaid(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     mas: list[FlarePpxChoices.values] | None = None,
     mhs: list[FLAREAID_MEDHISTORYS] | None = None,
     **kwargs,
@@ -117,7 +117,14 @@ def create_flareaid(
     else:
         mas_specified = True
     if mhs is None:
-        mhs = FLAREAID_MEDHISTORYS
+        if user and not isinstance(user, bool):
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all()
+            )
+        else:
+            mhs = FLAREAID_MEDHISTORYS
         mhs_specified = False
     else:
         mhs_specified = True

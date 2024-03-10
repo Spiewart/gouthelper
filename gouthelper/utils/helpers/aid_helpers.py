@@ -690,13 +690,16 @@ class AidService:
 
     def __init__(
         self,
-        qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"],
+        qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
         model: type[Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]],
     ):
         if isinstance(qs, QuerySet):
             self.qs = qs.get()
         else:
             self.qs = qs
+        print("in init aid service")
+        print(qs)
+        print(getattr(qs, "dateofbirth", None))
         model_attr = model.__name__.lower()
         model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
         self.default_settings_class = getattr(model, "defaultsettings", None)
@@ -727,7 +730,14 @@ class AidService:
             model_fields=model_fields,
             oto="dateofbirth",
         )
-        self.age = age_calc(self.dateofbirth.value) if self.dateofbirth else None
+        print("printing DoB in init")
+        print(self.dateofbirth)
+        print(self.dateofbirth is None)
+        print(type(self.dateofbirth))
+        if self.dateofbirth is not None:
+            self.age = age_calc(self.dateofbirth.value)
+        else:
+            self.age = None
         aid_service_check_oto_swap(oto="dateofbirth", qs_has_user=self.qs_has_user, model_attr=self.model_attr)
         self.ethnicity = aid_service_get_oto(
             qs=self.qs,

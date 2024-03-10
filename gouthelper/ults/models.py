@@ -137,7 +137,7 @@ class Ult(
     @cached_property
     def ckd3(self) -> Union["Ckd", None]:
         """Overwritten to only return Ckd if the stage is III or higher."""
-        medhistory_attr(
+        return medhistory_attr(
             medhistory=MedHistoryTypes.CKD,
             obj=self,
             select_related=["ckddetail", "baselinecreatinine"],
@@ -204,9 +204,7 @@ class Ult(
         """Method that returns True if a Ult indicates the
         has only one flare per year but has a history of more than 1 gout flare,
         which is a conditional indication for ULT."""
-        if self.freq_flares and self.freq_flares == FlareFreqs.ONEORLESS and self.num_flares == FlareNums.TWOPLUS:
-            return True
-        return False
+        return self.freq_flares and self.freq_flares == FlareFreqs.ONEORLESS and self.num_flares == FlareNums.TWOPLUS
 
     @cached_property
     def noflares(self) -> bool:

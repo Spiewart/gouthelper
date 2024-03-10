@@ -13,7 +13,7 @@ from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...treatments.choices import UltChoices
-from ...utils.helpers.test_helpers import (
+from ...utils.helpers.tests.helpers import (
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,
@@ -107,7 +107,7 @@ class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 
 def create_ultaid(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     mas: list[UltChoices.values] | None = None,
     mhs: list[ULTAID_MEDHISTORYS] | None = None,
     **kwargs,
@@ -123,7 +123,11 @@ def create_ultaid(
         mas_specified = True
     if mhs is None:
         if user:
-            mhs = user.medhistorys_qs if hasattr(user, "medhistorys_qs") else user.medhistory_set.all()
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=ULTAID_MEDHISTORYS).all()
+            )
         else:
             mhs = ULTAID_MEDHISTORYS
         mhs_specified = False

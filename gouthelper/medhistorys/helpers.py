@@ -77,7 +77,8 @@ def medhistorys_get_cvdiseases_str(
 
 
 def medhistorys_get_ckd_3_or_higher(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]
+    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
+    mhtype: MedHistoryTypes = MedHistoryTypes.CKD,
 ) -> Union[bool, "MedHistory"]:
     """Method that iterates over a list of medhistorys and returns one
     whose medhistorytype field is CKD and that has an associated ckddetail
@@ -94,7 +95,7 @@ def medhistorys_get_ckd_3_or_higher(
             [
                 medhistory
                 for medhistory in medhistorys
-                if medhistory.medhistorytype == MedHistoryTypes.CKD
+                if medhistory.medhistorytype == mhtype
                 and hasattr(medhistory, "ckddetail")
                 and medhistory.ckddetail.stage >= medhistory.ckddetail.Stages.THREE
             ]

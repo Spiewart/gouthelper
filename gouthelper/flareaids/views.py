@@ -12,7 +12,7 @@ from django.views.generic import (  # pylint: disable=E0401  # type: ignore
     TemplateView,
     UpdateView,
 )
-from rules.contrib.views import (  # pylint: disable=E0401  # type: ignore
+from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignore
     AutoPermissionRequiredMixin,
     PermissionRequiredMixin,
 )
@@ -117,7 +117,7 @@ class FlareAidBase:
 
 
 class FlareAidCreate(FlareAidBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
-    """Creates a new FlareAid"""
+    """View to create a new FlareAid without a user."""
 
     permission_required = "flareaids.can_add_flareaid"
     success_message = "FlareAid successfully created."

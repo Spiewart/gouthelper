@@ -10,45 +10,48 @@ from django.forms import BaseModelFormSet  # pylint: disable=e0401 # type: ignor
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
-from ...dateofbirths.helpers import age_calc
-from ...dateofbirths.models import DateOfBirth
-from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...ethnicitys.choices import Ethnicitys
-from ...ethnicitys.models import Ethnicity
-from ...ethnicitys.tests.factories import EthnicityFactory
-from ...genders.choices import Genders
-from ...genders.models import Gender
-from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
-from ...labs.models import Hlab5801, Lab, Urate
-from ...labs.tests.factories import Hlab5801Factory, UrateFactory
-from ...medallergys.models import MedAllergy
-from ...medallergys.tests.factories import MedAllergyFactory
-from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
-from ...medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
-from ...medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
-from ...medhistorys.helpers import medhistory_attr
-from ...medhistorys.lists import OTHER_NSAID_CONTRAS
-from ...medhistorys.models import MedHistory
-from ...medhistorys.tests.factories import MedHistoryFactory
-from ...treatments.choices import NsaidChoices, Treatments
-from ...users.tests.factories import create_psp
-from .data_helpers import create_baselinecreatinine_value, make_ckddetail_kwargs
-from .helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
+from ....dateofbirths.helpers import age_calc
+from ....dateofbirths.models import DateOfBirth
+from ....dateofbirths.tests.factories import DateOfBirthFactory
+from ....ethnicitys.choices import Ethnicitys
+from ....ethnicitys.models import Ethnicity
+from ....ethnicitys.tests.factories import EthnicityFactory
+from ....genders.choices import Genders
+from ....genders.models import Gender
+from ....genders.tests.factories import GenderFactory
+from ....labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
+from ....labs.models import Hlab5801, Lab, Urate
+from ....labs.tests.factories import Hlab5801Factory, UrateFactory
+from ....medallergys.models import MedAllergy
+from ....medallergys.tests.factories import MedAllergyFactory
+from ....medhistorydetails.choices import DialysisDurations, Stages
+from ....medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
+from ....medhistorydetails.tests.helpers import (
+    update_or_create_ckddetail_data,
+    update_or_create_ckddetail_kwargs,
+    update_or_create_goutdetail_data,
+)
+from ....medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
+from ....medhistorys.helpers import medhistory_attr
+from ....medhistorys.lists import OTHER_NSAID_CONTRAS
+from ....medhistorys.models import MedHistory
+from ....medhistorys.tests.factories import MedHistoryFactory
+from ....treatments.choices import NsaidChoices, Treatments
+from ....users.tests.factories import create_psp
+from ..helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
 
 if TYPE_CHECKING:
     import uuid
 
     from django.http import HttpResponse  # type: ignore
 
-    from ...flareaids.models import FlareAid
-    from ...flares.models import Flare
-    from ...goalurates.models import GoalUrate
-    from ...medhistorydetails.models import CkdDetail, GoutDetail
-    from ...ppxaids.models import PpxAid
-    from ...ppxs.models import Ppx
-    from ...ultaids.models import UltAid
-    from ...ults.models import Ult
+    from ....flareaids.models import FlareAid
+    from ....flares.models import Flare
+    from ....goalurates.models import GoalUrate
+    from ....ppxaids.models import PpxAid
+    from ....ppxs.models import Ppx
+    from ....ultaids.models import UltAid
+    from ....ults.models import Ult
 
 
 User = get_user_model()
@@ -143,108 +146,6 @@ def get_mh_val(medhistory: MedHistoryTypes, bool_mhs: MedHistoryTypes) -> bool |
         return get_True_or_empty_str()
 
 
-def make_goutdetail_kwargs(
-    mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
-    goutdetail: Union["GoutDetail", None] = None,
-) -> dict[str, Any]:
-    goutdetail_kwargs = mh_dets.get(MedHistoryTypes.GOUT, None) if mh_dets else {}
-    flaring_kwarg = goutdetail_kwargs.get("flaring", None) if goutdetail_kwargs else None
-    hyperuricemic_kwarg = goutdetail_kwargs.get("hyperuricemic", None) if goutdetail_kwargs else None
-    on_ppx_kwarg = goutdetail_kwargs.get("on_ppx", None) if goutdetail_kwargs else None
-    on_ult_kwarg = goutdetail_kwargs.get("on_ult", None) if goutdetail_kwargs else None
-    goutdetail_kwargs.update(
-        {
-            "flaring": flaring_kwarg
-            if flaring_kwarg
-            else goutdetail.flaring
-            if goutdetail
-            else get_bool_or_empty_str(),
-            "hyperuricemic": hyperuricemic_kwarg
-            if hyperuricemic_kwarg
-            else goutdetail.hyperuricemic
-            if goutdetail
-            else get_bool_or_empty_str(),
-            "on_ppx": on_ppx_kwarg if on_ppx_kwarg else goutdetail.on_ppx if goutdetail else fake.boolean(),
-            "on_ult": on_ult_kwarg if on_ult_kwarg else goutdetail.on_ult if goutdetail else fake.boolean(),
-        }
-    )
-    return goutdetail_kwargs
-
-
-def make_ckddetail_data(
-    user: User = None,
-    dateofbirth: "str" = None,
-    gender: int = None,
-    dialysis: bool | None = None,
-    dialysis_duration: DialysisDurations | None = None,
-    dialysis_type: DialysisChoices | None = None,
-    stage: Stages | None = None,
-    baselinecreatinine: Decimal | None = None,
-) -> dict:
-    if user and dateofbirth is not None or user and gender is not None:
-        raise ValueError("Calling this function with both a user and demographic information. Not allowed.")
-    elif baselinecreatinine and not user and (gender is None or dateofbirth is None):
-        raise ValueError(
-            "Calling this function with a baselinecreatinine and no user or demographic information. Not allowed."
-        )
-    data = {}
-    dialysis_value = dialysis if dialysis is not None else fake.boolean()
-    data["dialysis"] = dialysis_value
-    if dialysis_value:
-        data["dialysis_duration"] = dialysis_duration if dialysis_duration else random.choice(ModDialysisDurations)
-        data["dialysis_type"] = dialysis_type if dialysis_type else random.choice(DialysisChoices.values)
-    else:
-        data["dialysis_duration"] = ""
-        data["dialysis_type"] = ""
-        if stage:
-            data["stage"] = stage
-            if baselinecreatinine:
-                data["baselinecreatinine"] = baselinecreatinine
-            elif fake.boolean():
-                bc_value = create_baselinecreatinine_value()
-                data["baselinecreatinine"] = bc_value
-        elif baselinecreatinine:
-            data["baselinecreatinine"] = baselinecreatinine
-            calc_stage = labs_stage_calculator(
-                eGFR=labs_eGFR_calculator(
-                    creatinine=baselinecreatinine,
-                    age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
-                    gender=gender if not user else user.gender.value,
-                )
-            )
-            if fake.boolean():
-                data["stage"] = calc_stage
-        else:
-            # 50/50 chance of having baseline creatinine
-            if fake.boolean() and (dateofbirth and gender or user):
-                bc_value = create_baselinecreatinine_value()
-                data["baselinecreatinine"] = bc_value
-                # 50/50 chance of having a stage
-                if fake.boolean():
-                    data["stage"] = labs_stage_calculator(
-                        eGFR=labs_eGFR_calculator(
-                            creatinine=bc_value,
-                            age=(dateofbirth if not user else age_calc(user.dateofbirth.value)),
-                            gender=gender if not user else user.gender.value,
-                        )
-                    )
-            else:
-                # Then there is just a stage
-                data["stage"] = random.choice(ModStages)
-    return data
-
-
-def make_goutdetail_data(**kwargs) -> dict:
-    """Method that creates data for a GoutDetail object."""
-    data = {}
-    stub = GoutDetailFactory.stub()
-    fields = [attr for attr in dir(stub) if not attr.startswith("_") and not attr == "medhistory"]
-    for field in fields:
-        attr_kwarg = kwargs.get(field, None) if kwargs else None
-        data.update({field: attr_kwarg if attr_kwarg else getattr(stub, field)})
-    return data
-
-
 def get_menopause_val(age: int, gender: int) -> bool:
     """Method that takes an age and gender and returns a Menopause value.
     Can be used as data in a form or as a bool when figuring out whether or not
@@ -295,119 +196,12 @@ def medhistory_diff_obj_data(
     return mh_data_count - mh_count
 
 
-def update_ckddetail_data(ckddetail: "CkdDetail", data: dict) -> None:
-    """Method that updates a data dictionary with CkdDetail values from a
-    CkdDetail object."""
-    data.update(
-        {
-            "dialysis": ckddetail.dialysis,
-            "dialysis_duration": ckddetail.dialysis_duration if ckddetail.dialysis_duration else "",
-            "dialysis_type": ckddetail.dialysis_type if ckddetail.dialysis_type else "",
-            "stage": ckddetail.stage,
-        }
-    )
-
-
-def update_goutdetail_data(goutdetail: "GoutDetail", data: dict, **kwargs) -> None:
-    """Updates a data dictionary with GoutDetail values from a GoutDetail object."""
-    flaring_kwarg = kwargs.get("flaring", None) if kwargs else None
-    hyperuricemic_kwarg = kwargs.get("hyperuricemic", None) if kwargs else None
-    on_ppx_kwarg = kwargs.get("on_ppx", None) if kwargs else None
-    on_ult_kwarg = kwargs.get("on_ult", None) if kwargs else None
-    data.update(
-        {
-            "flaring": flaring_kwarg
-            if flaring_kwarg
-            else goutdetail.flaring
-            if goutdetail.flaring is not None
-            else "",
-            "hyperuricemic": hyperuricemic_kwarg
-            if hyperuricemic_kwarg
-            else goutdetail.hyperuricemic
-            if goutdetail.hyperuricemic is not None
-            else "",
-            "on_ppx": on_ppx_kwarg
-            if on_ppx_kwarg
-            else goutdetail.on_ppx
-            if goutdetail.on_ppx is not None
-            else fake.boolean(),
-            "on_ult": on_ult_kwarg
-            if on_ult_kwarg
-            else goutdetail.on_ult
-            if goutdetail.on_ult is not None
-            else fake.boolean(),
-        }
-    )
-
-
-def update_or_create_ckddetail_data(
-    data: dict,
-    user: User | None = None,
-    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
-    mh_dets: list[MedHistoryTypes] | None = None,
-    dateofbirth: DateOfBirth | None = None,
-    gender: Gender | None = None,
-    **kwargs,
-) -> None:
-    ckd_value = data[f"{MedHistoryTypes.CKD}-value"]
-    if mh_dets and ckd_value and MedHistoryTypes.CKD in mh_dets:
-        if user:
-            if getattr(user, "ckddetail", None):
-                ckdetail = user.ckddetail
-                update_ckddetail_data(ckdetail, data)
-                data["baselinecreatinine"] = (
-                    user.baselinecreatinine.value if getattr(user, "baselinecreatinine") else ""
-                )
-            else:
-                data.update(**make_ckddetail_data(user=user, **kwargs))
-        elif aid_obj:
-            if getattr(aid_obj, "ckddetail", None):
-                ckdetail = aid_obj.ckddetail
-                update_ckddetail_data(ckdetail, data)
-                data["baselinecreatinine"] = (
-                    aid_obj.baselinecreatinine.value if getattr(aid_obj, "baselinecreatinine") else ""
-                )
-            else:
-                data.update(**make_ckddetail_data(dateofbirth=aid_obj.dateofbirth, gender=aid_obj.gender, **kwargs))
-        else:
-            data.update(**make_ckddetail_data(dateofbirth=dateofbirth, gender=gender, **kwargs))
-
-
-def update_or_create_goutdetail_data(
-    data: dict,
-    user: User | None = None,
-    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
-    req_mh_dets: list[MedHistoryTypes] | None = None,
-    mh_dets: list[MedHistoryTypes] | None = None,
-) -> None:
-    print("working on goutdetail")
-    if user:
-        gout_value = True
-    else:
-        gout_value = data[f"{MedHistoryTypes.GOUT}-value"]
-    print(gout_value)
-    if req_mh_dets and gout_value and MedHistoryTypes.GOUT in req_mh_dets:
-        if user:
-            if hasattr(user, "goutdetail"):
-                goutdetail = user.goutdetail
-                update_goutdetail_data(goutdetail, data, **make_goutdetail_kwargs(mh_dets, goutdetail))
-            else:
-                data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
-        elif aid_obj:
-            if hasattr(aid_obj, "goutdetail"):
-                goutdetail = aid_obj.goutdetail
-                update_goutdetail_data(goutdetail, data, **make_goutdetail_kwargs(mh_dets, goutdetail))
-            else:
-                data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
-        else:
-            data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
-
-
 def set_oto_from_obj(
     self_obj: Any,
     data_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", User],
     oto: str,
     oto_data: Any | None = None,
+    req_otos: list[str] | None = None,
 ) -> None:
     """Method that takes an object and a string of a onetoone field name and sets
     the class attribute to the value of the object's onetoone field."""
@@ -423,7 +217,14 @@ def set_oto_from_obj(
             else:
                 setattr(self_obj, oto, oto_data if oto_data else getattr(data_obj, oto).value)
             return
-    setattr(self_obj, oto, oto_data if oto_data else None)
+        elif req_otos and oto in req_otos:
+            set_oto(self_obj, oto, req_otos)
+            return
+    setattr(
+        self_obj,
+        oto,
+        oto_data if oto_data else set_oto(self_obj, oto, req_otos) if req_otos and oto in req_otos else None,
+    )
 
 
 def set_oto(
@@ -436,7 +237,8 @@ def set_oto(
     is in the req_otos list."""
     if (req_otos and onetoone in req_otos) or fake.boolean():
         if onetoone == "dateofbirth":
-            self_obj.dateofbirth = age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
+            self_obj.age = age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
+            self_obj.dateofbirth = self_obj.age
         elif onetoone == "ethnicity":
             self_obj.ethnicity = random.choice(Ethnicitys.values)
         elif onetoone == "gender":
@@ -556,11 +358,31 @@ class DataMixin:
                 raise ValueError(f"{self.aid_obj} does not belong to {self.user}. Something wrong.")
             elif self.aid_obj.user and not self.user:
                 self.user = self.aid_obj.user
+        self.ckd = (
+            getattr(self.user, "ckd", None)
+            if self.user
+            else getattr(self.aid_obj, "ckd", None)
+            if self.aid_obj
+            else None
+        )
+        if self.ckd:
+            self.baselinecreatinine = getattr(self.ckd, "baselinecreatinine", None)
+            self.ckddetail = getattr(self.ckd, "ckddetail", None)
+        else:
+            self.baselinecreatinine = None
+            self.ckddetail = None
+        self.dateofbirth = self.user.dateofbirth if self.user else self.aid_obj.dateofbirth if self.aid_obj else None
+        if self.dateofbirth:
+            self.age = age_calc(self.dateofbirth.value)
+        else:
+            self.age = None
+        self.gender = self.user.gender if self.user else self.aid_obj.gender if self.aid_obj else None
         self.aid_mas = aid_mas
         self.aid_mhs = aid_mhs
         self.aid_labs = aid_labs
         self.aid_otos = aid_otos
-        self.req_otos = req_otos
+        self.otos = otos
+        self.req_otos = req_otos if req_otos is not None else []
         self.user_otos = user_otos
         self.mas = mas
         self.mhs = mhs
@@ -578,12 +400,20 @@ class DataMixin:
             else False
         )
         if self.ckddetail_bool:
-            self.ckddetail_kwargs = make_ckddetail_kwargs(self.mh_dets)
+            self.ckddetail_kwargs = update_or_create_ckddetail_kwargs(
+                age=self.age,
+                baselinecreatinine_obj=self.baselinecreatinine,
+                gender=self.gender,
+                pre_save=True,
+                **self.mh_dets.get(MedHistoryTypes.CKD, {})
+                if self.mh_dets and MedHistoryTypes.CKD in self.mh_dets
+                else {},
+            )
             add_ckddetail_req_otos(self.ckddetail_kwargs, self.req_otos)
         if self.aid_otos:
             rel_obj = user if user else aid_obj.user if aid_obj and aid_obj.user else aid_obj if aid_obj else None
             for onetoone in self.aid_otos:
-                if otos and onetoone in otos:
+                if self.otos and onetoone in self.otos:
                     if user and self.user_otos and onetoone in self.user_otos:
                         raise ValueError(f"{onetoone} for {user} doesn't belong in the data.")
                     else:
@@ -592,9 +422,26 @@ class DataMixin:
                 # They will not be added to the data but sub-classes when they are in user_otos
                 # and there is a user.
                 elif rel_obj:
-                    set_oto_from_obj(self, rel_obj, onetoone, otos.get(onetoone, None) if otos else None)
+                    set_oto_from_obj(
+                        self_obj=self,
+                        data_obj=rel_obj,
+                        oto=onetoone,
+                        oto_data=self.otos.get(onetoone, None) if otos else None,
+                        req_otos=self.req_otos,
+                    )
                 else:
                     set_oto(self, onetoone, self.req_otos)
+        if self.ckddetail_bool:
+            self.ckddetail_kwargs = update_or_create_ckddetail_kwargs(
+                age=self.age,
+                baselinecreatinine_obj=self.baselinecreatinine,
+                gender=self.gender,
+                **(
+                    self.mh_dets.get(MedHistoryTypes.CKD, {})
+                    if self.mh_dets and MedHistoryTypes.CKD in self.mh_dets
+                    else {}
+                ),
+            )
 
 
 class LabDataMixin(DataMixin):
@@ -747,7 +594,7 @@ class MedHistoryDataMixin(DataMixin):
             # GoutPatient is a Male or Female, and if the latter how old he or she is in order to
             # correctly generate or not a Menopause MedHistory
             elif medhistory == MedHistoryTypes.MENOPAUSE:
-                data.update(make_menopause_data(age=self.dateofbirth, gender=self.gender))
+                data.update(make_menopause_data(age=self.age, gender=self.gender))
             else:
                 if medhistory == MedHistoryTypes.CKD:
                     data[f"{medhistory}-value"] = self.ckd_bool
@@ -759,11 +606,10 @@ class MedHistoryDataMixin(DataMixin):
                 if self.ckddetail_bool:
                     update_or_create_ckddetail_data(
                         data,
-                        self.user,
-                        self.aid_obj,
-                        self.aid_mh_dets,
-                        self.dateofbirth,
-                        self.gender,
+                        age=self.age,
+                        baselinecreatinine_obj=self.baselinecreatinine,
+                        ckddetail_obj=self.ckddetail,
+                        gender=self.gender,
                         **self.ckddetail_kwargs,
                     )
             if medhistory == MedHistoryTypes.GOUT:
@@ -1013,10 +859,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                         # Set the MedHistory's appropriate FK to the Aid object
                         if getattr(medhistory, aid_obj_attr) != aid_obj:
                             setattr(medhistory, aid_obj_attr, aid_obj)
-                            try:
-                                medhistory.save()
-                            except IntegrityError as exc:
-                                raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.") from exc
+                            medhistory.save()
                         else:
                             raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.")
                     aid_obj.medhistorys_qs.append(medhistory)

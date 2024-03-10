@@ -2,15 +2,15 @@ import random
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Union
 
-import factory  # type: ignore
-import factory.fuzzy  # type: ignore
-import pytest  # type: ignore
-from django.contrib.auth import get_user_model
-from django.db import transaction
-from django.db.utils import IntegrityError
-from django.utils import timezone
-from factory.django import DjangoModelFactory  # type: ignore
-from factory.faker import faker  # type: ignore
+import factory  # pylint: disable=E0401  # type: ignore
+import factory.fuzzy  # pylint: disable=E0401  # type: ignore
+import pytest  # pylint: disable=E0401  # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
+from django.db import transaction  # pylint: disable=E0401  # type: ignore
+from django.db.utils import IntegrityError  # pylint: disable=E0401  # type: ignore
+from django.utils import timezone  # pylint: disable=E0401  # type: ignore
+from factory.django import DjangoModelFactory  # pylint: disable=E0401  # type: ignore
+from factory.faker import faker  # pylint: disable=E0401  # type: ignore
 
 from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
@@ -22,7 +22,7 @@ from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...utils.helpers.test_helpers import (
+from ...utils.helpers.tests.helpers import (
     MedHistoryCreatorMixin,
     MedHistoryDataMixin,
     OneToOneCreatorMixin,
@@ -208,23 +208,30 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
 
 
 def create_flare(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     mhs: list[FLARE_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> Flare:
     """Creates a Flare with the given user, onetoones, and medhistorys."""
     if mhs is None:
-        mhs = FLARE_MEDHISTORYS
-        specified = False
+        if user and not isinstance(user, bool):
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS).all()
+            )
+        else:
+            mhs = FLARE_MEDHISTORYS
+        mhs_specified = False
     else:
-        specified = True
+        mhs_specified = True
     # Call the constructor Class Method
     return CreateFlare(
         mhs=mhs,
         otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
         req_otos=["dateofbirth", "gender"],
         user=user,
-    ).create(mhs_specified=specified, **kwargs)
+    ).create(mhs_specified=mhs_specified, **kwargs)
 
 
 class FlareFactory(DjangoModelFactory):

@@ -22,6 +22,12 @@ class TestPpxAidForm(TestCase):
     def test___init__with_medallergys_sets_medallergys(self):
         assert self.form.medallergys == FlarePpxChoices.values
 
+    def test__about_the_patient_rendered(self):
+        # Create a response without HTMX request
+        response = self.client.get(reverse("ppxaids:create"))
+        # Test that the legend for the About the Patient section is rendered
+        self.assertIn("<legend>About the Patient</legend>", response.rendered_content)
+
     def test__forms_for_related_models_inserted_without_user(self):
         # Test that dateofbirth, gender, cvdiseases, nsaid_contras,
         # CKD, colchicine_interaction, diabetes organ transplant,

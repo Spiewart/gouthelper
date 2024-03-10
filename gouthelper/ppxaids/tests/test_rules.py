@@ -1,7 +1,7 @@
-import pytest
+import pytest  # pylint: disable=E0401, E0013, E0015  # type: ignore
 import rules
-from django.contrib.auth.models import AnonymousUser
-from django.test import TestCase
+from django.contrib.auth.models import AnonymousUser  # pylint: disable=E0401  # type: ignore
+from django.test import TestCase  # pylint: disable=E0401  # type: ignore
 
 from ...users.choices import Roles
 from ...users.tests.factories import UserFactory, create_psp

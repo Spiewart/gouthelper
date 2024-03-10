@@ -1130,7 +1130,6 @@ menopause status to evaluate their flare."
         req_otos: list[str],
     ) -> tuple[list[Model], list[Model]]:
         """Method to process the forms for the OneToOne objects for the post() method."""
-
         oto_2_save: list[Model] = []
         oto_2_rem: list[Model] = []
         for oto_form_str, oto_form in oto_forms.items():

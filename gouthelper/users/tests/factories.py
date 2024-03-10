@@ -22,13 +22,13 @@ from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
+from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
-from ...utils.helpers.data_helpers import make_ckddetail_kwargs
 from ..choices import Roles
 from ..models import Pseudopatient
 
@@ -96,11 +96,14 @@ def set_psp_dateofbirth_attr(
     psp: Pseudopatient,
 ) -> None:
     if dateofbirth:
-        psp.dateofbirth = create_psp_dateofbirth(dateofbirth, psp)
+        psp.dateofbirth = create_psp_dateofbirth(
+            psp,
+            dateofbirth,
+        )
     elif dateofbirth is False:
         psp.dateofbirth = None
     else:
-        psp.dateofbirth = create_psp_dateofbirth(DateOfBirthFactory(user=psp), psp)
+        psp.dateofbirth = create_psp_dateofbirth(psp)
 
 
 def create_and_set_ckddetail(
@@ -108,9 +111,14 @@ def create_and_set_ckddetail(
     psp: Pseudopatient,
     medhistory: MedHistory,
 ) -> None:
-    ckddetail_kwargs = make_ckddetail_kwargs(mh_dets)
-    bc_kwarg = ckddetail_kwargs.pop("baselinecreatinine", None)
-    setattr(psp, "ckddetail", CkdDetailFactory(medhistory=medhistory, **ckddetail_kwargs))
+    ckddetail_kwargs = mh_dets.get(MedHistoryTypes.CKD, {}) if mh_dets else {}
+    kwargs = update_or_create_ckddetail_kwargs(
+        age=age_calc(psp.dateofbirth.value if hasattr(psp, "dateofbirth") else None),
+        gender=psp.gender.value if hasattr(psp, "gender") else None,
+        **ckddetail_kwargs,
+    )
+    bc_kwarg = kwargs.pop("baselinecreatinine", None)
+    setattr(psp, "ckddetail", CkdDetailFactory(medhistory=medhistory, **kwargs))
     if bc_kwarg:
         setattr(psp, "baselinecreatinine", BaselineCreatinineFactory(medhistory=medhistory, value=bc_kwarg))
 
@@ -134,10 +142,12 @@ def create_and_set_pseudopatientprofile(
 
 
 def create_psp_dateofbirth(
-    dateofbirth: DateOfBirth | date | None,
     psp: Pseudopatient,
+    dateofbirth: DateOfBirth | date | None = None,
 ) -> DateOfBirth:
-    if isinstance(dateofbirth, (str, date)):
+    if not dateofbirth:
+        return DateOfBirthFactory(user=psp)
+    elif isinstance(dateofbirth, (str, date)):
         with transaction.atomic():
             try:
                 return DateOfBirthFactory(user=psp, value=dateofbirth)

@@ -12,7 +12,7 @@ from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPX_MEDHISTORYS
-from ...utils.helpers.test_helpers import LabCreatorMixin, LabDataMixin, MedHistoryCreatorMixin, MedHistoryDataMixin
+from ...utils.helpers.tests.helpers import LabCreatorMixin, LabDataMixin, MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import Ppx
 
 if TYPE_CHECKING:
@@ -108,7 +108,7 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
 
 
 def create_ppx(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     labs: list[Lab, Decimal] | None = None,
     **kwargs,
 ) -> Ppx:

@@ -28,7 +28,10 @@ def medhistorys_prefetch() -> Prefetch:
 
 
 def ult_relations(qs: "QuerySet") -> "QuerySet":
-    return qs.prefetch_related(medhistorys_prefetch())
+    return qs.select_related(
+        "dateofbirth",
+        "gender",
+    ).prefetch_related(medhistorys_prefetch())
 
 
 def ult_userless_qs(pk: "UUID") -> "QuerySet":

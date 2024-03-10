@@ -287,11 +287,11 @@ LOGGING = {
         }
     },
     "loggers": {
-        "rules": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-            "propagate": True,
-        },
+        # "rules": {
+        # "handlers": ["console"],  # noqa
+        # "level": "DEBUG",
+        # "propagate": True,
+        # },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }

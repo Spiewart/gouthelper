@@ -27,7 +27,7 @@ from ...medhistorys.tests.factories import GoutFactory
 from ...ults.choices import Indications
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.test_helpers import count_data_deleted, tests_print_response_form_errors
+from ...utils.helpers.tests.helpers import count_data_deleted, tests_print_response_form_errors
 from ..models import Ppx
 from ..selectors import ppx_user_qs, ppx_userless_qs
 from ..views import (

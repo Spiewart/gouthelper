@@ -31,7 +31,7 @@ from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import ColchicineDoses, FlarePpxChoices, NsaidChoices, Treatments
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.test_helpers import (
+from ...utils.helpers.tests.helpers import (
     form_data_colchicine_contra,
     form_data_nsaid_contra,
     medallergy_diff_obj_data,

@@ -10,7 +10,7 @@ from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
-from ...utils.helpers.test_helpers import (
+from ...utils.helpers.tests.helpers import (
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,
@@ -115,7 +115,7 @@ class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 
 def create_ppxaid(
-    user: Union["User", None] = None,
+    user: Union["User", bool, None] = None,
     mas: list[FlarePpxChoices.values, "MedAllergy"] | None = None,
     mhs: list[PPXAID_MEDHISTORYS, "MedHistory"] | None = None,
     **kwargs,
@@ -130,7 +130,14 @@ def create_ppxaid(
     else:
         mas_specified = True
     if mhs is None:
-        mhs = PPXAID_MEDHISTORYS
+        if user and not isinstance(user, bool):
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS).all()
+            )
+        else:
+            mhs = PPXAID_MEDHISTORYS
         mhs_specified = False
     else:
         mhs_specified = True
