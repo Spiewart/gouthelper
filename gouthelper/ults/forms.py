@@ -3,7 +3,7 @@ from crispy_forms.layout import HTML, Div, Fieldset, Layout  # pylint:disable=E0
 from django import forms  # pylint:disable=E0401 # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
+from ..utils.forms import (
     forms_helper_insert_about_the_patient,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_gender,

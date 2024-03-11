@@ -13,7 +13,7 @@ from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.helpers import medhistorys_get
 from ...medhistorys.tests.factories import MenopauseFactory
-from ...utils.helpers.helpers import calculate_duration
+from ...utils.helpers import calculate_duration
 from ..choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
 from ..helpers import (
     flares_abnormal_duration,

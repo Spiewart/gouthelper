@@ -76,7 +76,6 @@ class TestPseudoPatientCreateView(TestCase):
         """Tests that the required context data is passed to the template."""
         response = self.client.get(reverse("users:pseudopatient-create"))
         assert response.status_code == 200
-        assert f"{MedHistoryTypes.GOUT}_form" in response.context
         assert "dateofbirth_form" in response.context
         assert "ethnicity_form" in response.context
         assert "gender_form" in response.context

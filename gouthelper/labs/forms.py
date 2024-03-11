@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
-from ..utils.forms import make_custom_datetimefield
+from ..utils.forms import forms_make_custom_datetimefield
 from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
 from .models import BaselineCreatinine, Hlab5801, Urate
 
@@ -156,7 +156,7 @@ class Hlab5801Form(BaseLabForm):
 
 class UrateForm(LabForm):
     prefix = "urate"
-    formfield_callback = make_custom_datetimefield
+    formfield_callback = forms_make_custom_datetimefield
 
     class Meta:
         model = Urate
@@ -226,7 +226,7 @@ PpxUrateFormSet = forms.modelformset_factory(
     Urate,
     UrateForm,
     # Converts all the datetime fields to just date fields
-    formfield_callback=make_custom_datetimefield,
+    formfield_callback=forms_make_custom_datetimefield,
     can_delete=True,
     extra=1,
 )

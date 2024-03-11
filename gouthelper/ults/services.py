@@ -4,7 +4,7 @@ from django.apps import apps  # pylint: disable=E0401 # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=E0401 # type: ignore
 
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.helpers.aid_helpers import AidService
+from ..utils.services import AidService
 from .choices import FlareFreqs, FlareNums, Indications
 
 if TYPE_CHECKING:

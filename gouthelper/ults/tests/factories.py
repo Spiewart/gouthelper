@@ -12,12 +12,7 @@ from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULT_MEDHISTORYS
-from ...utils.helpers.tests.helpers import (
-    MedHistoryCreatorMixin,
-    MedHistoryDataMixin,
-    OneToOneCreatorMixin,
-    OneToOneDataMixin,
-)
+from ...utils.factories import MedHistoryCreatorMixin, MedHistoryDataMixin, OneToOneCreatorMixin, OneToOneDataMixin
 from ..choices import FlareFreqs, FlareNums
 from ..models import Ult
 

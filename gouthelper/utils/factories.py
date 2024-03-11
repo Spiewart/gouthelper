@@ -6,52 +6,49 @@ from typing import TYPE_CHECKING, Any, Literal, Union
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
 from django.db import IntegrityError, transaction  # pylint: disable=e0401 # type: ignore
 from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
-from django.forms import BaseModelFormSet  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
-from ....dateofbirths.helpers import age_calc
-from ....dateofbirths.models import DateOfBirth
-from ....dateofbirths.tests.factories import DateOfBirthFactory
-from ....ethnicitys.choices import Ethnicitys
-from ....ethnicitys.models import Ethnicity
-from ....ethnicitys.tests.factories import EthnicityFactory
-from ....genders.choices import Genders
-from ....genders.models import Gender
-from ....genders.tests.factories import GenderFactory
-from ....labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
-from ....labs.models import Hlab5801, Lab, Urate
-from ....labs.tests.factories import Hlab5801Factory, UrateFactory
-from ....medallergys.models import MedAllergy
-from ....medallergys.tests.factories import MedAllergyFactory
-from ....medhistorydetails.choices import DialysisDurations, Stages
-from ....medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
-from ....medhistorydetails.tests.helpers import (
+from ..dateofbirths.helpers import age_calc
+from ..dateofbirths.models import DateOfBirth
+from ..dateofbirths.tests.factories import DateOfBirthFactory
+from ..ethnicitys.choices import Ethnicitys
+from ..ethnicitys.models import Ethnicity
+from ..ethnicitys.tests.factories import EthnicityFactory
+from ..genders.choices import Genders
+from ..genders.models import Gender
+from ..genders.tests.factories import GenderFactory
+from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
+from ..labs.models import Hlab5801, Lab, Urate
+from ..labs.tests.factories import Hlab5801Factory, UrateFactory
+from ..medallergys.models import MedAllergy
+from ..medallergys.tests.factories import MedAllergyFactory
+from ..medhistorydetails.choices import DialysisDurations, Stages
+from ..medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
+from ..medhistorydetails.tests.helpers import (
     update_or_create_ckddetail_data,
     update_or_create_ckddetail_kwargs,
     update_or_create_goutdetail_data,
 )
-from ....medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
-from ....medhistorys.helpers import medhistory_attr
-from ....medhistorys.lists import OTHER_NSAID_CONTRAS
-from ....medhistorys.models import MedHistory
-from ....medhistorys.tests.factories import MedHistoryFactory
-from ....treatments.choices import NsaidChoices, Treatments
-from ....users.tests.factories import create_psp
-from ..helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
+from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistory_attr
+from ..medhistorys.lists import OTHER_NSAID_CONTRAS
+from ..medhistorys.models import MedHistory
+from ..medhistorys.tests.factories import MedHistoryFactory
+from ..treatments.choices import NsaidChoices, Treatments
+from ..users.tests.factories import create_psp
+from .helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
 
 if TYPE_CHECKING:
     import uuid
 
-    from django.http import HttpResponse  # type: ignore
-
-    from ....flareaids.models import FlareAid
-    from ....flares.models import Flare
-    from ....goalurates.models import GoalUrate
-    from ....ppxaids.models import PpxAid
-    from ....ppxs.models import Ppx
-    from ....ultaids.models import UltAid
-    from ....ults.models import Ult
+    from ..flareaids.models import FlareAid
+    from ..flares.models import Flare
+    from ..goalurates.models import GoalUrate
+    from ..ppxaids.models import PpxAid
+    from ..ppxs.models import Ppx
+    from ..ultaids.models import UltAid
+    from ..ults.models import Ult
 
 
 User = get_user_model()
@@ -371,12 +368,20 @@ class DataMixin:
         else:
             self.baselinecreatinine = None
             self.ckddetail = None
-        self.dateofbirth = self.user.dateofbirth if self.user else self.aid_obj.dateofbirth if self.aid_obj else None
+        self.dateofbirth = (
+            self.user.dateofbirth
+            if self.user
+            else getattr(self.aid_obj, "dateofbirth", None)
+            if self.aid_obj
+            else None
+        )
         if self.dateofbirth:
             self.age = age_calc(self.dateofbirth.value)
         else:
             self.age = None
-        self.gender = self.user.gender if self.user else self.aid_obj.gender if self.aid_obj else None
+        self.gender = (
+            self.user.gender if self.user else getattr(self.aid_obj, "gender", None) if self.aid_obj else None
+        )
         self.aid_mas = aid_mas
         self.aid_mhs = aid_mhs
         self.aid_labs = aid_labs
@@ -405,9 +410,11 @@ class DataMixin:
                 baselinecreatinine_obj=self.baselinecreatinine,
                 gender=self.gender,
                 pre_save=True,
-                **self.mh_dets.get(MedHistoryTypes.CKD, {})
-                if self.mh_dets and MedHistoryTypes.CKD in self.mh_dets
-                else {},
+                **(
+                    self.mh_dets.get(MedHistoryTypes.CKD, {})
+                    if self.mh_dets and MedHistoryTypes.CKD in self.mh_dets
+                    else {}
+                ),
             )
             add_ckddetail_req_otos(self.ckddetail_kwargs, self.req_otos)
         if self.aid_otos:
@@ -909,12 +916,16 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                         ):
                                             create_ckddetail(
                                                 medhistory=new_mh,
-                                                dateofbirth=self.user.dateofbirth.value
-                                                if getattr(self.user, "dateofbirth", None)
-                                                else None,
-                                                gender=self.user.gender.value
-                                                if getattr(self.user, "gender", None)
-                                                else None,
+                                                dateofbirth=(
+                                                    self.user.dateofbirth.value
+                                                    if getattr(self.user, "dateofbirth", None)
+                                                    else None
+                                                ),
+                                                gender=(
+                                                    self.user.gender.value
+                                                    if getattr(self.user, "gender", None)
+                                                    else None
+                                                ),
                                                 **ckddetail_kwargs if ckddetail_kwargs else {},
                                             )
                                 else:
@@ -927,12 +938,14 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                         ):
                                             create_ckddetail(
                                                 medhistory=new_mh,
-                                                dateofbirth=aid_obj.dateofbirth.value
-                                                if getattr(aid_obj, "dateofbirth", None)
-                                                else None,
-                                                gender=aid_obj.gender.value
-                                                if getattr(aid_obj, "gender", None)
-                                                else None,
+                                                dateofbirth=(
+                                                    aid_obj.dateofbirth.value
+                                                    if getattr(aid_obj, "dateofbirth", None)
+                                                    else None
+                                                ),
+                                                gender=(
+                                                    aid_obj.gender.value if getattr(aid_obj, "gender", None) else None
+                                                ),
                                                 **ckddetail_kwargs if ckddetail_kwargs else {},
                                             )
                             elif medhistory == MedHistoryTypes.GOUT and not getattr(new_mh, "goutdetail", None):
@@ -984,13 +997,17 @@ class OneToOneCreatorMixin(CreateAidMixin):
                         model_fact = (
                             DateOfBirthFactory
                             if isinstance(factory, date)
-                            else EthnicityFactory
-                            if isinstance(factory, Ethnicitys)
-                            else UrateFactory
-                            if isinstance(factory, Decimal)
-                            else GenderFactory
-                            if isinstance(factory, Genders)
-                            else Hlab5801Factory
+                            else (
+                                EthnicityFactory
+                                if isinstance(factory, Ethnicitys)
+                                else (
+                                    UrateFactory
+                                    if isinstance(factory, Decimal)
+                                    else GenderFactory
+                                    if isinstance(factory, Genders)
+                                    else Hlab5801Factory
+                                )
+                            )
                         )
                         try:
                             model_fact(value=factory, user=self.user)
@@ -1008,13 +1025,17 @@ class OneToOneCreatorMixin(CreateAidMixin):
                             model_fact = (
                                 DateOfBirthFactory
                                 if isinstance(factory, date)
-                                else EthnicityFactory
-                                if isinstance(factory, Ethnicitys)
-                                else UrateFactory
-                                if isinstance(factory, Decimal)
-                                else GenderFactory
-                                if isinstance(factory, Genders)
-                                else Hlab5801Factory
+                                else (
+                                    EthnicityFactory
+                                    if isinstance(factory, Ethnicitys)
+                                    else (
+                                        UrateFactory
+                                        if isinstance(factory, Decimal)
+                                        else GenderFactory
+                                        if isinstance(factory, Genders)
+                                        else Hlab5801Factory
+                                    )
+                                )
                             )
                             try:
                                 model_fact(value=factory, user=self.user)
@@ -1049,13 +1070,17 @@ class OneToOneCreatorMixin(CreateAidMixin):
                     model_fact = (
                         DateOfBirthFactory
                         if isinstance(factory, date)
-                        else EthnicityFactory
-                        if isinstance(factory, Ethnicitys)
-                        else UrateFactory
-                        if isinstance(factory, Decimal)
-                        else GenderFactory
-                        if isinstance(factory, Genders)
-                        else Hlab5801Factory
+                        else (
+                            EthnicityFactory
+                            if isinstance(factory, Ethnicitys)
+                            else (
+                                UrateFactory
+                                if isinstance(factory, Decimal)
+                                else GenderFactory
+                                if isinstance(factory, Genders)
+                                else Hlab5801Factory
+                            )
+                        )
                     )
                     factory_obj = model_fact(value=factory)
                     setattr(self, onetoone, factory_obj)
@@ -1113,28 +1138,3 @@ def form_data_nsaid_contra(data: dict) -> Contraindications | None:
         return Contraindications.ABSOLUTE
     else:
         return None
-
-
-def tests_print_response_form_errors(response: Union["HttpResponse", None] = None) -> None:
-    """Will print errors for all forms and formsets in the context_data."""
-
-    if response and hasattr(response, "context_data"):
-        for key, val in response.context_data.items():
-            if key.endswith("_form") or key == "form":
-                if getattr(val, "errors", None):
-                    print("printing form errors")
-                    print(key, val.errors)
-            elif val and isinstance(val, BaseModelFormSet):
-                non_form_errors = val.non_form_errors()
-                if non_form_errors:
-                    print("printing non form errors")
-                    print(key, non_form_errors)
-                # Check if the formset has forms and iterate over them if so
-                if val.forms:
-                    for form in val.forms:
-                        if getattr(form, "errors", None):
-                            print("printing formset form errors")
-                            print(form.instance.pk)
-                            print(form.instance.date_drawn)
-                            print(form.instance.value)
-                            print(key, form.errors)

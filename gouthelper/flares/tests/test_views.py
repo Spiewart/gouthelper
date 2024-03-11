@@ -41,7 +41,8 @@ from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, MedHistory, Menopause, Pvd, Stroke
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.tests.helpers import medhistory_diff_obj_data, tests_print_response_form_errors
+from ...utils.factories import medhistory_diff_obj_data
+from ...utils.forms import forms_print_response_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
@@ -744,7 +745,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.user.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert Flare.objects.filter(user=self.user).exists()
         flare = Flare.objects.last()
@@ -771,7 +772,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Assert that the medhistorys were created
@@ -803,7 +804,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Assert that the medhistorys were created
@@ -830,7 +831,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the medhistorys were not changed
         self.assertTrue(MedHistory.objects.filter(user=psp).exists())
@@ -850,7 +851,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         self.assertTrue(Urate.objects.filter(user=self.psp).exists())
         flare = Flare.objects.get()
@@ -872,7 +873,7 @@ class TestFlarePseudopatientCreate(TestCase):
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         assert response.status_code == 200
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         # Assert that the form has an error on the urate_check field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
@@ -898,7 +899,7 @@ class TestFlarePseudopatientCreate(TestCase):
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
         assert response.status_code == 200
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         # Assert that the form has an error on the aspiration field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
@@ -935,7 +936,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the flare was created
         self.assertTrue(Flare.objects.filter(user=self.psp).exists())
@@ -974,7 +975,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         flare = Flare.objects.filter(user=psp).order_by("created").last()
@@ -1015,7 +1016,7 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the flare was created
         self.assertTrue(Flare.objects.filter(user=self.psp).exists())
@@ -2012,7 +2013,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("flares:pseudopatient-update", kwargs={"username": user.username, "pk": flare.pk}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
             # Assert that the medhistorys were updated correctly
             for mh in medhistorys:
@@ -2050,7 +2051,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the urate was created
         flare.refresh_from_db()
@@ -2075,7 +2076,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the urate was updated
         flare.refresh_from_db()
@@ -2101,7 +2102,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         # Assert that the urate was updated
         flare.refresh_from_db()
@@ -2125,7 +2126,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
         )
         assert response.status_code == 200
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         # Assert that the form has an error on the urate_check field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
@@ -2151,7 +2152,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
         )
         assert response.status_code == 200
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         # Assert that the form has an error on the aspiration field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
@@ -2189,7 +2190,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a high likelihood and prevalence
@@ -2222,7 +2223,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": flare.user.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a moderate likelihood and prevalence
@@ -2261,7 +2262,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a low likelihood and prevalence
@@ -2482,7 +2483,7 @@ class TestFlareUpdate(TestCase):
         """Test that a POST request to the view redirects to the Flare DetailView."""
         data = flare_data_factory()
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         updated_url_str = reverse("flares:detail", kwargs={"pk": self.flare.pk})
         updated_url_str += "?updated=True"
@@ -2500,7 +2501,7 @@ class TestFlareUpdate(TestCase):
             mh_diff = medhistory_diff_obj_data(flare, data, FLARE_MEDHISTORYS)
             # Post the data
             response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             self.assertEqual(response.status_code, 302)
             # Assert that the number of MedHistory objects in the Flare's medhistory_set changed correctly
             self.assertEqual(flare.medhistory_set.count(), mh_count + mh_diff)
@@ -2515,7 +2516,7 @@ class TestFlareUpdate(TestCase):
 
             # Post the data
             response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             self.assertEqual(response.status_code, 302)
 
             self.flare.refresh_from_db()
@@ -2571,7 +2572,7 @@ menopause status to evaluate their flare.",
         response = self.client.post(reverse("flares:update", kwargs={"pk": self.flare.pk}), data=self.flare_data)
         self.assertEqual(response.status_code, 200)
         # Assert that the UrateForm has an error
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
             response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"

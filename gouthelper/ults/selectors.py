@@ -34,12 +34,16 @@ def ult_relations(qs: "QuerySet") -> "QuerySet":
     ).prefetch_related(medhistorys_prefetch())
 
 
-def ult_userless_qs(pk: "UUID") -> "QuerySet":
-    return ult_relations(apps.get_model("ults.Ult").objects.filter(pk=pk))
+def ult_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return ult_relations(qs=qs).select_related("user")
 
 
 def ult_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ult_relations(qs).select_related("ult")
+    return ult_relations(qs).select_related("pseudopatientprofile", "ult")
+
+
+def ult_userless_qs(pk: "UUID") -> "QuerySet":
+    return ult_userless_relations(apps.get_model("ults.Ult").objects.filter(pk=pk))
 
 
 def ult_user_qs(username: str) -> "QuerySet":

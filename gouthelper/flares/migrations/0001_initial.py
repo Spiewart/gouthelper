@@ -3,7 +3,7 @@
 from django.db import migrations, models
 import django.db.models.deletion
 import django_extensions.db.fields
-import gouthelper.utils.helpers.helpers
+import gouthelper.utils.helpers
 import multiselectfield.db.fields
 import rules.contrib.models
 import simple_history.models
@@ -59,7 +59,7 @@ class Migration(migrations.Migration):
                 (
                     "date_started",
                     models.DateField(
-                        default=gouthelper.utils.helpers.helpers.now_date,
+                        default=gouthelper.utils.helpers.now_date,
                         help_text="What day did this flare start?",
                         verbose_name="Date Flare Started",
                     ),
@@ -183,7 +183,7 @@ class Migration(migrations.Migration):
                 (
                     "date_started",
                     models.DateField(
-                        default=gouthelper.utils.helpers.helpers.now_date,
+                        default=gouthelper.utils.helpers.now_date,
                         help_text="What day did this flare start?",
                         verbose_name="Date Flare Started",
                     ),

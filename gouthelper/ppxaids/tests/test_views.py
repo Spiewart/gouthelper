@@ -31,12 +31,8 @@ from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import ColchicineDoses, FlarePpxChoices, Freqs, NsaidChoices, Treatments
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.tests.helpers import (
-    form_data_colchicine_contra,
-    form_data_nsaid_contra,
-    medhistory_diff_obj_data,
-    tests_print_response_form_errors,
-)
+from ...utils.factories import form_data_colchicine_contra, form_data_nsaid_contra, medhistory_diff_obj_data
+from ...utils.forms import forms_print_response_errors
 from ..models import PpxAid
 from ..selectors import ppxaid_user_qs
 from ..views import (
@@ -92,7 +88,7 @@ class TestPpxAidCreate(TestCase):
         # Count the number of PpxAid objects before the POST
         ppxaid_count = PpxAid.objects.count()
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that a PpxAid was created
@@ -107,7 +103,7 @@ class TestPpxAidCreate(TestCase):
         # Create some fake post() data with CKD and POST it
         self.ppxaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
 
         self.assertEqual(response.status_code, 302)
 
@@ -127,7 +123,7 @@ class TestPpxAidCreate(TestCase):
         self.ppxaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         self.ppxaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertEqual(MedHistory.objects.count(), medhistory_count + 2)
@@ -153,7 +149,7 @@ class TestPpxAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that a CkdDetail was created
@@ -177,7 +173,7 @@ class TestPpxAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("ppxaids:create"), self.ppxaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertEqual(BaselineCreatinine.objects.count(), baselinecreatinine_count + 1)
@@ -628,7 +624,7 @@ class TestPpxAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ppxaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert PpxAid.objects.filter(user=self.user).exists()
         ppxaid = PpxAid.objects.last()
@@ -791,7 +787,7 @@ class TestPpxAidPseudopatientCreate(TestCase):
             response = self.client.post(
                 reverse("ppxaids:pseudopatient-create", kwargs={"username": user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
             # Get the PpxAid
             ppxaid = PpxAid.objects.get(user=user)
@@ -1356,7 +1352,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ppxaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1377,7 +1373,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ppxaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1459,7 +1455,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("ppxaids:pseudopatient-update", kwargs={"username": user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
             # Get the PpxAid
             ppxaid = PpxAid.objects.get(user=user)
@@ -1606,7 +1602,7 @@ class TestPpxAidUpdate(TestCase):
 
             response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
 
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             self.assertEqual(response.status_code, 302)
 
             # Iterate over the data and check the medallergy values are reflected in the updated ppxaid
@@ -1628,7 +1624,7 @@ class TestPpxAidUpdate(TestCase):
 
             response = self.client.post(reverse("ppxaids:update", kwargs={"pk": ppxaid.pk}), data)
 
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             self.assertEqual(response.status_code, 302)
 
             # Iterate over data and check medhistory values are reflected in the updated ppxaid

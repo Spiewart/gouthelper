@@ -7,21 +7,21 @@ from django.core.serializers.json import DjangoJSONEncoder  # pylint: disable=E0
 from django.db.models import OneToOneField, QuerySet  # pylint: disable=E0401  # type: ignore
 from django.utils.functional import cached_property  # type: ignore  # pylint: disable=E0401
 
-from ...dateofbirths.helpers import age_calc
-from ...defaults.helpers import defaults_treatments_create_dosing_dict
-from ...defaults.selectors import (
+from ..dateofbirths.helpers import age_calc
+from ..defaults.helpers import defaults_treatments_create_dosing_dict
+from ..defaults.selectors import (
     defaults_defaultflaretrtsettings,
     defaults_defaultmedhistorys_trttype,
     defaults_defaultppxtrtsettings,
     defaults_defaulttrts_trttype,
     defaults_defaultulttrtsettings,
 )
-from ...ethnicitys.helpers import ethnicitys_hlab5801_risk
-from ...medhistorydetails.choices import DialysisChoices, Stages
-from ...medhistorys.choices import Contraindications, MedHistoryTypes
-from ...medhistorys.dicts import CVD_CONTRAS
-from ...medhistorys.helpers import medhistorys_get
-from ...treatments.choices import (
+from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
+from ..medhistorydetails.choices import DialysisChoices, Stages
+from ..medhistorys.choices import Contraindications, MedHistoryTypes
+from ..medhistorys.dicts import CVD_CONTRAS
+from ..medhistorys.helpers import medhistorys_get
+from ..treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
     Freqs,
@@ -33,21 +33,21 @@ from ...treatments.choices import (
 from .helpers import duration_decimal_parser
 
 if TYPE_CHECKING:
-    from ...dateofbirths.models import DateOfBirth
-    from ...defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
-    from ...ethnicitys.models import Ethnicity
-    from ...flareaids.models import FlareAid
-    from ...flares.models import Flare
-    from ...genders.models import Gender
-    from ...goalurates.models import GoalUrate
-    from ...labs.models import BaselineCreatinine, Hlab5801
-    from ...medallergys.models import MedAllergy
-    from ...medhistorydetails.models import CkdDetail, GoutDetail
-    from ...medhistorys.models import Ckd, MedHistory
-    from ...ppxaids.models import PpxAid
-    from ...ppxs.models import Ppx
-    from ...ultaids.models import UltAid
-    from ...ults.models import Ult
+    from ..dateofbirths.models import DateOfBirth
+    from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
+    from ..ethnicitys.models import Ethnicity
+    from ..flareaids.models import FlareAid
+    from ..flares.models import Flare
+    from ..genders.models import Gender
+    from ..goalurates.models import GoalUrate
+    from ..labs.models import BaselineCreatinine, Hlab5801
+    from ..medallergys.models import MedAllergy
+    from ..medhistorydetails.models import CkdDetail, GoutDetail
+    from ..medhistorys.models import Ckd, MedHistory
+    from ..ppxaids.models import PpxAid
+    from ..ppxs.models import Ppx
+    from ..ultaids.models import UltAid
+    from ..ults.models import Ult
 
     User = get_user_model()
 
@@ -697,12 +697,9 @@ class AidService:
             self.qs = qs.get()
         else:
             self.qs = qs
-        print("in init aid service")
-        print(qs)
-        print(getattr(qs, "dateofbirth", None))
         model_attr = model.__name__.lower()
         model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
-        self.default_settings_class = getattr(model, "defaultsettings", None)
+        self.default_settings_class = getattr(model, "defaultsettings", None)()
         self.default_settings_attr = (
             self.default_settings_class.__name__.lower() if self.default_settings_class else None
         )
@@ -730,10 +727,6 @@ class AidService:
             model_fields=model_fields,
             oto="dateofbirth",
         )
-        print("printing DoB in init")
-        print(self.dateofbirth)
-        print(self.dateofbirth is None)
-        print(type(self.dateofbirth))
         if self.dateofbirth is not None:
             self.age = age_calc(self.dateofbirth.value)
         else:

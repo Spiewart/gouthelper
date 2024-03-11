@@ -9,7 +9,7 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..utils.fields import GoutHelperMarkdownField
-from ..utils.helpers.helpers import now_date
+from ..utils.helpers import now_date
 from ..utils.models import GoutHelperModel
 from .choices import StatusChoices
 

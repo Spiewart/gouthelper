@@ -6,7 +6,7 @@ from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
-from ...utils.helpers.aid_helpers import aids_json_to_trt_dict
+from ...utils.services import aids_json_to_trt_dict
 from ..models import PpxAid
 from .factories import create_ppxaid
 

@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
+from ..utils.forms import (
     forms_helper_insert_about_the_patient,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_ethnicity,

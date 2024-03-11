@@ -31,13 +31,13 @@ from ...medhistorys.tests.factories import MedHistoryFactory
 from ...treatments.choices import ColchicineDoses, FlarePpxChoices, NsaidChoices, Treatments
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.tests.helpers import (
+from ...utils.factories import (
     form_data_colchicine_contra,
     form_data_nsaid_contra,
     medallergy_diff_obj_data,
     medhistory_diff_obj_data,
-    tests_print_response_form_errors,
 )
+from ...utils.forms import forms_print_response_errors
 from ..models import FlareAid
 from ..selectors import flareaid_user_qs
 from ..views import (
@@ -91,7 +91,7 @@ class TestFlareAidCreate(TestCase):
 
     def test__successful_post(self):
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertTrue(FlareAid.objects.order_by("created").last())
         self.assertEqual(response.status_code, 302)
 
@@ -101,7 +101,7 @@ class TestFlareAidCreate(TestCase):
 
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
 
@@ -118,7 +118,7 @@ class TestFlareAidCreate(TestCase):
         self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
         self.flareaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
         self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
@@ -144,7 +144,7 @@ class TestFlareAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(CkdDetail.objects.count(), ckddetail_count + 1)
         self.assertTrue(FlareAid.objects.order_by("created").last().ckddetail)
@@ -165,7 +165,7 @@ class TestFlareAidCreate(TestCase):
             }
         )
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that a BaselineCreatinine was created
@@ -505,7 +505,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flareaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert FlareAid.objects.filter(user=self.user).exists()
         flareaid = FlareAid.objects.last()
@@ -668,7 +668,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             response = self.client.post(
                 reverse("flareaids:pseudopatient-create", kwargs={"username": user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
             # Get the FlareAid
             flareaid = FlareAid.objects.get(user=user)
@@ -1248,7 +1248,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1270,7 +1270,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1352,7 +1352,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("flareaids:pseudopatient-update", kwargs={"username": user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
             # Get the FlareAid
             flareaid = FlareAid.objects.get(user=user)
@@ -1582,7 +1582,7 @@ class TestFlareAidUpdate(TestCase):
             f"medallergy_{Treatments.COLCHICINE}": True,
         }
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(flareaid.medallergy_set.filter(treatment=Treatments.COLCHICINE).exists())
 
@@ -1606,7 +1606,7 @@ class TestFlareAidUpdate(TestCase):
             f"medallergy_{Treatments.NAPROXEN}": True,
         }
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), flareaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertTrue(flareaid.medallergy_set.filter(treatment=Treatments.PREDNISONE).exists())
@@ -1628,7 +1628,7 @@ class TestFlareAidUpdate(TestCase):
         # Post the data
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
         self.assertEqual(response.status_code, 302)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
 
         # Assert that the medallergy was deleted
         self.assertEqual(MedAllergy.objects.count(), ma_count + ma_diff)
@@ -1646,7 +1646,7 @@ class TestFlareAidUpdate(TestCase):
 
         # POST the data
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Assert that the medhistory number changed correctly
@@ -1666,7 +1666,7 @@ class TestFlareAidUpdate(TestCase):
 
         # Post the data
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Assert that the correct number of medhistorys were created/deleted
@@ -1686,7 +1686,7 @@ class TestFlareAidUpdate(TestCase):
 
         # Post the data
         response = self.client.post(reverse("flareaids:update", kwargs={"pk": flareaid.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Assert that the number of medhistorys was increased or decreased correctly by the view

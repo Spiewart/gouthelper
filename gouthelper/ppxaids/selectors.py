@@ -5,7 +5,6 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
-from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -41,23 +40,27 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
+def ppxaid_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "gender",
+    ).prefetch_related(
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+    )
+
+
+def ppxaid_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return ppxaid_relations(qs).select_related("user")
+
+
+def ppxaid_user_relations(qs: "QuerySet") -> "QuerySet":
+    return ppxaid_relations(qs).select_related("defaultppxtrtsettings", "pseudopatientprofile", "ppxaid")
+
+
 def ppxaid_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("ppxaids.PpxAid").objects.filter(pk=pk)
-    # Try to fetch the user to check if a redirect to a Pseudopatient view is needed
-    queryset = queryset.select_related("user")
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+    return ppxaid_userless_relations(apps.get_model("ppxaids.ppxaid").objects.filter(pk=pk))
 
 
 def ppxaid_user_qs(username: str) -> "QuerySet":
-    queryset = Pseudopatient.objects.filter(username=username)
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("ppxaid")
-    queryset = queryset.select_related("defaultppxtrtsettings")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+    return ppxaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

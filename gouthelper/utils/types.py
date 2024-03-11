@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..labs.models import Urate
     from ..medallergys.models import MedAllergy
     from ..medhistorys.models import MedHistory
-    from ..utils.forms import OneToOneForm
+    from .forms_2 import OneToOneForm
 
 
 class MedAllergyAidHistoryModel(MedAllergyAidModel, MedHistoryAidModel):

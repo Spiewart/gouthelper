@@ -5,7 +5,6 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
-from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def medhistory_qs() -> "QuerySet":
+def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(Q(medhistorytype__in=PPX_MEDHISTORYS))
@@ -21,10 +20,10 @@ def medhistory_qs() -> "QuerySet":
     ).all()
 
 
-def medhistory_prefetch() -> Prefetch:
+def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
-        queryset=medhistory_qs(),
+        queryset=medhistorys_qs(),
         to_attr="medhistorys_qs",
     )
 
@@ -37,16 +36,24 @@ def urates_prefetch() -> Prefetch:
     )
 
 
-def ppx_user_qs(username: str) -> "QuerySet":
-    queryset = Pseudopatient.objects.filter(username=username)
-    queryset = queryset.select_related("ppx")
-    queryset = queryset.prefetch_related(medhistory_prefetch())
-    queryset = queryset.prefetch_related(urates_prefetch())
-    return queryset
+def ppx_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.prefetch_related(
+        medhistorys_prefetch(),
+        urates_prefetch(),
+    )
+
+
+def ppx_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return ppx_relations(qs).select_related("user")
+
+
+def ppx_user_relations(qs: "QuerySet") -> "QuerySet":
+    return ppx_relations(qs).select_related("pseudopatientprofile", "ppx")
 
 
 def ppx_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("ppxs.Ppx").objects.filter(pk=pk)
-    queryset = queryset.prefetch_related(medhistory_prefetch())
-    queryset = queryset.prefetch_related(urates_prefetch())
-    return queryset
+    return ppx_userless_relations(apps.get_model("ppxs.ppx").objects.filter(pk=pk))
+
+
+def ppx_user_qs(username: str) -> "QuerySet":
+    return ppx_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

@@ -1,11 +1,11 @@
 from django.db.models import Manager, QuerySet  # type: ignore
 
-from .selectors import ult_relations
+from .selectors import ult_userless_relations
 
 
 class UltQuerySet(QuerySet):
     def related_objects(self) -> QuerySet:
-        return ult_relations(self)
+        return ult_userless_relations(self)
 
 
 class UltManager(Manager):

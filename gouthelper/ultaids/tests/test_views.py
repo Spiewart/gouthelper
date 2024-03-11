@@ -34,7 +34,7 @@ from ...medhistorys.models import MedHistory, Xoiinteraction
 from ...treatments.choices import Treatments, UltChoices
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.tests.helpers import tests_print_response_form_errors
+from ...utils.forms import forms_print_response_errors
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
 from ..views import (
@@ -84,7 +84,7 @@ class TestUltAidCreate(TestCase):
 
         # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the UltAid and Hlab5801 objects were created
@@ -102,7 +102,7 @@ class TestUltAidCreate(TestCase):
 
         # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the UltAid and Hlab5801 objects were created
@@ -120,7 +120,7 @@ class TestUltAidCreate(TestCase):
 
         # Post the data to the view and make sure it responds correctly
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the UltAid and Hlab5801 objects were created
@@ -142,7 +142,7 @@ class TestUltAidCreate(TestCase):
             f"{MedHistoryTypes.XOIINTERACTION}-value": True,
         }
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(UltAid.objects.exists())
         ultaid = UltAid.objects.get()
@@ -515,7 +515,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                 response = self.client.post(
                     reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
                 )
-                tests_print_response_form_errors(response)
+                forms_print_response_errors(response)
                 assert response.status_code == 302
                 assert UltAid.objects.filter(user=self.user).exists()
                 ultaid = UltAid.objects.get(user=self.user)
@@ -542,7 +542,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                 response = self.client.post(
                     reverse("ultaids:pseudopatient-create", kwargs={"username": user.username}), data=data
                 )
-                tests_print_response_form_errors(response)
+                forms_print_response_errors(response)
                 assert response.status_code == 302
                 assert (
                     response.url
@@ -564,7 +564,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                 response = self.client.post(
                     reverse("ultaids:pseudopatient-create", kwargs={"username": user.username}), data=data
                 )
-                tests_print_response_form_errors(response)
+                forms_print_response_errors(response)
                 assert response.status_code == 302
                 assert (
                     response.url
@@ -592,7 +592,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -625,7 +625,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -644,7 +644,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Hlab5801.objects.filter(user=self.user).exists())
 
@@ -655,7 +655,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertFalse(Hlab5801.objects.get(user=self.user).value)
@@ -667,7 +667,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertTrue(Hlab5801.objects.get(user=self.user).value)
@@ -680,7 +680,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertFalse(Hlab5801.objects.get(user=self.user).value)
@@ -693,7 +693,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertTrue(Hlab5801.objects.get(user=self.user).value)
@@ -1276,22 +1276,6 @@ class TestUltAidPseudopatientUpdate(TestCase):
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
 
-    def test__post_sets_object_user(self):
-        """Test that the post() method for the view sets the
-        user on the object."""
-        for user in Pseudopatient.objects.select_related("ultaid").all():
-            if hasattr(user, "ultaid"):
-                data = ultaid_data_factory(user=self.user)
-                response = self.client.post(
-                    reverse("ultaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
-                )
-                tests_print_response_form_errors(response)
-                assert response.status_code == 302
-                assert UltAid.objects.filter(user=self.user).exists()
-                ultaid = UltAid.objects.get(user=self.user)
-                assert ultaid.user
-                assert ultaid.user == self.user
-
     def test__post_creates_medhistorydetails(self):
         """Test that the view creates the User's MedHistoryDetails objects."""
         # Create user without ckd
@@ -1313,7 +1297,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1347,7 +1331,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
@@ -1367,7 +1351,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Hlab5801.objects.filter(user=self.user).exists())
 
@@ -1383,7 +1367,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": user_without_hlab5801.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertTrue(Hlab5801.objects.filter(user=user_without_hlab5801).exists())
@@ -1400,7 +1384,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": user_without_hlab5801.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=user_without_hlab5801).exists())
         self.assertTrue(Hlab5801.objects.get(user=user_without_hlab5801).value)
@@ -1417,7 +1401,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertFalse(Hlab5801.objects.get(user=self.user).value)
@@ -1434,7 +1418,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ultaids:pseudopatient-update", kwargs={"username": self.user.username}), ultaid_data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Hlab5801.objects.filter(user=self.user).exists())
         self.assertTrue(Hlab5801.objects.get(user=self.user).value)
@@ -1545,7 +1529,7 @@ class TestUltAidUpdate(TestCase):
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": ""})
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Hlab5801.objects.all())
         ultaid.refresh_from_db()
@@ -1559,7 +1543,7 @@ class TestUltAidUpdate(TestCase):
         self.assertIsNone(UltAid.objects.get().hlab5801)
         ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": False})
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         ultaid.refresh_from_db()
         self.assertTrue(Hlab5801.objects.all())
@@ -1575,7 +1559,7 @@ class TestUltAidUpdate(TestCase):
         self.assertIsNone(UltAid.objects.get().hlab5801)
         ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": True})
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         ultaid.refresh_from_db()
         self.assertTrue(Hlab5801.objects.all())
@@ -1591,7 +1575,7 @@ class TestUltAidUpdate(TestCase):
         self.assertEqual(UltAid.objects.get().hlab5801, Hlab5801.objects.get())
         ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": False})
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertTrue(Hlab5801.objects.all())
@@ -1609,7 +1593,7 @@ class TestUltAidUpdate(TestCase):
         ultaid_data = ultaid_data_factory(ultaid=ultaid, otos={"hlab5801": True})
 
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         self.assertTrue(Hlab5801.objects.all())

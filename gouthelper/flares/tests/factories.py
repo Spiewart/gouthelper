@@ -22,7 +22,7 @@ from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.tests.factories import MedHistoryFactory
-from ...utils.helpers.tests.helpers import (
+from ...utils.factories import (
     MedHistoryCreatorMixin,
     MedHistoryDataMixin,
     OneToOneCreatorMixin,

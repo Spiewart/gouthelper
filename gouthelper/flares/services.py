@@ -7,7 +7,7 @@ from django.db.models.query import QuerySet
 from ..dateofbirths.helpers import age_calc
 from ..medhistorys.choices import CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
-from ..utils.helpers.aid_helpers import aids_assign_baselinecreatinine, aids_assign_ckddetail
+from ..utils.services import aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .helpers import (
     flares_calculate_likelihood,
     flares_calculate_prevalence,

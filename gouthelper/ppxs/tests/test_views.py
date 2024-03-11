@@ -27,7 +27,8 @@ from ...medhistorys.tests.factories import GoutFactory
 from ...ults.choices import Indications
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
-from ...utils.helpers.tests.helpers import count_data_deleted, tests_print_response_form_errors
+from ...utils.factories import count_data_deleted
+from ...utils.forms import forms_print_response_errors
 from ..models import Ppx
 from ..selectors import ppx_user_qs, ppx_userless_qs
 from ..views import (
@@ -138,7 +139,7 @@ class TestPpxCreate(TestCase):
         ppx_data = ppx_data_factory()
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Assert that the number of Ppx, Gout, and GoutDetail objects has increased by 1
@@ -171,7 +172,7 @@ class TestPpxCreate(TestCase):
         # POST the data
         response = self.client.post(reverse("ppxs:create"), data)
         # NOTE: Will print errors for all forms in the context_data.
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Get the new ppx and its urates
@@ -517,7 +518,7 @@ class TestPpxPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ppxs:pseudopatient-create", kwargs={"username": self.user.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         assert Ppx.objects.filter(user=self.user).exists()
@@ -621,7 +622,7 @@ class TestPpxPseudopatientCreate(TestCase):
             response = self.client.post(
                 reverse("ppxs:pseudopatient-create", kwargs={"username": user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
 
             # Get the Ppx
@@ -1261,7 +1262,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             response = self.client.post(
                 reverse("ppxs:pseudopatient-update", kwargs={"username": ppx.user.username}), data=data
             )
-            tests_print_response_form_errors(response)
+            forms_print_response_errors(response)
             assert response.status_code == 302
 
             # Refresh the ppx from the db
@@ -1378,7 +1379,7 @@ class TestPpxUpdate(TestCase):
         )
         # POST the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
 
         self.assertEqual(response.status_code, 302)
 
@@ -1399,7 +1400,7 @@ class TestPpxUpdate(TestCase):
 
         # POST the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         ppx = Ppx.objects.order_by("created").last()
@@ -1416,7 +1417,7 @@ class TestPpxUpdate(TestCase):
 
         # Post the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the urates were deleted
@@ -1431,7 +1432,7 @@ class TestPpxUpdate(TestCase):
 
         # Post the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the urates were deleted
@@ -1454,7 +1455,7 @@ class TestPpxUpdate(TestCase):
 
         # Test that a partially filled out Urate form returns a 200 status code
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 200)
 
         # Test that the response contains the erroneous UrateForm with errors
@@ -1484,7 +1485,7 @@ class TestPpxUpdate(TestCase):
 
         # POST the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         # Test that the GoutDetail object attrs are correct

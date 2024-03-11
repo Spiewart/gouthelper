@@ -18,7 +18,7 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
-from ...utils.helpers.aid_helpers import aids_dict_to_json
+from ...utils.services import aids_dict_to_json
 from ..models import FlareAid
 from ..selectors import flareaid_user_qs, flareaid_userless_qs
 from ..services import FlareAidDecisionAid

@@ -6,7 +6,7 @@ from factory.faker import faker  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
-from ...utils.helpers.tests.helpers import MedHistoryCreatorMixin, MedHistoryDataMixin
+from ...utils.factories import MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import GoalUrate
 
 if TYPE_CHECKING:

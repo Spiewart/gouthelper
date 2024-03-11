@@ -12,7 +12,7 @@ from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPX_MEDHISTORYS
-from ...utils.helpers.tests.helpers import LabCreatorMixin, LabDataMixin, MedHistoryCreatorMixin, MedHistoryDataMixin
+from ...utils.factories import LabCreatorMixin, LabDataMixin, MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import Ppx
 
 if TYPE_CHECKING:

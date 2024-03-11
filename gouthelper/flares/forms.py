@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
+from ..utils.forms import (
     forms_helper_insert_about_the_patient,
     forms_helper_insert_cvdiseases,
     forms_helper_insert_dateofbirth,

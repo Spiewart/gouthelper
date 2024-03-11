@@ -10,7 +10,7 @@ from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
-from ...utils.helpers.tests.helpers import (
+from ...utils.factories import (
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,

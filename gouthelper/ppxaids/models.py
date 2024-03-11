@@ -13,9 +13,10 @@ from ..defaults.selectors import defaults_defaultppxtrtsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices
-from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
+from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
-from .selectors import ppxaid_user_qs, ppxaid_userless_qs
+from ..utils.services import aids_json_to_trt_dict, aids_options
+from .managers import PpxAidManager
 from .services import PpxAidDecisionAid
 
 if TYPE_CHECKING:
@@ -79,6 +80,9 @@ class PpxAid(
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
+
+    objects = models.Manager()
+    related_objects = PpxAidManager()
 
     def __str__(self):
         if self.user:
@@ -163,8 +167,8 @@ class PpxAid(
             PpxAid: PpxAid object."""
         if qs is None:
             if self.user:
-                qs = ppxaid_user_qs(username=self.user.username)
+                qs = Pseudopatient.objects.ppxaid_qs().filter(username=self.user.username)
             else:
-                qs = ppxaid_userless_qs(pk=self.pk)
+                qs = PpxAid.related_objects.filter(pk=self.pk)
         decisionaid = PpxAidDecisionAid(qs=qs)
         return decisionaid._update()

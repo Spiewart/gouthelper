@@ -51,11 +51,20 @@ def test__ppxaid_data_factory():
                         assert data["dialysis_duration"] in DialysisDurations.values
                     else:
                         assert "stage" in data or "baselinecreatinine-value" in data
-                        if "stage" in data:
+                        stage_data = data.get("stage", None)
+                        bc_data = data.get("baselinecreatinine-value", None)
+                        if stage_data:
+                            if stage_data != "":
+                                assert stage_data in Stages.values
+                            else:
+                                assert stage_data == ""
+                        if bc_data:
+                            if bc_data != "":
+                                assert isinstance(bc_data, Decimal)
+                            else:
+                                assert bc_data == ""
                             assert data["stage"] in Stages.values
-                        if "baselinecreatinine-value" in data:
-                            assert isinstance(data["baselinecreatinine-value"], Decimal)
-                        if "stage" in data and "baselinecreatinine-value" in data:
+                        if stage_data and stage_data != "" and bc_data and bc_data != "":
                             assert data["stage"] == labs_stage_calculator(
                                 labs_eGFR_calculator(
                                     data["baselinecreatinine-value"],

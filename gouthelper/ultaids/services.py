@@ -4,7 +4,7 @@ from django.apps import apps  # type: ignore  # pylint: disable=E0401
 from django.contrib.auth import get_user_model  # type: ignore  # pylint: disable=E0401
 
 from ..treatments.choices import TrtTypes, UltChoices
-from ..utils.helpers.aid_helpers import TreatmentAidService, aids_process_hlab5801
+from ..utils.services import TreatmentAidService, aids_process_hlab5801
 
 if TYPE_CHECKING:
     from ..ultaids.models import UltAid

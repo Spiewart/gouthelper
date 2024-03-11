@@ -12,7 +12,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...treatments.choices import FebuxostatDoses, Freqs, Treatments, UltChoices
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
-from ...utils.helpers.aid_helpers import aids_dict_to_json, aids_process_medhistorys
+from ...utils.services import aids_dict_to_json, aids_process_medhistorys
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
 from ..services import UltAidDecisionAid

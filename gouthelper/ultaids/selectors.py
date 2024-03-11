@@ -52,12 +52,16 @@ def ultaid_relations(qs: "QuerySet") -> "QuerySet":
     )
 
 
+def ultaid_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return ultaid_relations(qs).select_related("user")
+
+
 def ultaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ultaid_relations(qs).select_related("defaultulttrtsettings", "ultaid")
+    return ultaid_relations(qs).select_related("defaultulttrtsettings", "pseudopatientprofile", "ultaid")
 
 
 def ultaid_userless_qs(pk: "UUID") -> "QuerySet":
-    return ultaid_relations(apps.get_model("ultaids.UltAid").objects.filter(pk=pk))
+    return ultaid_userless_relations(apps.get_model("ultaids.UltAid").objects.filter(pk=pk))
 
 
 def ultaid_user_qs(username: str) -> "QuerySet":

@@ -24,7 +24,7 @@ from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
-from ..utils.helpers.helpers import get_or_create_qs_attr
+from ..utils.helpers import get_or_create_qs_attr
 
 if TYPE_CHECKING:
     from datetime import date

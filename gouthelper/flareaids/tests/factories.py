@@ -10,7 +10,7 @@ from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
-from ...utils.helpers.tests.helpers import (
+from ...utils.factories import (
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,

@@ -12,8 +12,9 @@ from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, Treatments
-from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.services import aids_json_to_trt_dict, aids_options
+from .managers import FlareAidManager
 from .selectors import flareaid_user_qs, flareaid_userless_qs
 from .services import FlareAidDecisionAid
 
@@ -78,6 +79,9 @@ class FlareAid(
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
+
+    objects = models.Manager()
+    related_objects = FlareAidManager()
 
     def __str__(self):
         if self.user:

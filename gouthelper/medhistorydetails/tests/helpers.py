@@ -9,7 +9,6 @@ from ...labs.helpers import labs_baselinecreatinine_calculator, labs_eGFR_calcul
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
-from ...utils.helpers.tests.helpers import get_bool_or_empty_str
 
 if TYPE_CHECKING:
     from ...flareaids.models import FlareAid
@@ -31,6 +30,11 @@ ModDialysisDurations = DialysisDurations.values
 ModDialysisDurations.remove("")
 ModStages = Stages.values
 ModStages.remove(None)
+
+
+# Written again here to avoid circular import.
+def get_bool_or_empty_str() -> bool | str:
+    return fake.boolean() if fake.boolean() else ""
 
 
 def check_ckddetail_kwargs_or_data(
@@ -252,11 +256,11 @@ def update_or_create_ckddetail_kwargs(
     dialysis_type: DialysisChoices | None = None,
     gender: Union["Genders", None] = None,
     stage: Stages | None = None,
-    double_check: bool = True,
     pre_save: bool = False,
 ) -> dict[str, Any]:
     """Method that returns a dict of kwargs for a CkdDetail object."""
 
+    kwargs = {}
     # If there are no kwargs, create kwargs from CkdDetail and BaselineCreatinine objects
     # if they exist. Otherwise, create random kwargs.
     if (
@@ -267,104 +271,91 @@ def update_or_create_ckddetail_kwargs(
         and stage is None
     ):
         if not ckddetail_obj and not baselinecreatinine_obj:
-            kwargs = create_random_ckddetail_kwargs(age=age, gender=gender, pre_save=pre_save)
-            check_ckddetail_kwargs_or_data(age=age, gender=gender, pre_save=pre_save, **kwargs)
-            return kwargs
+            kwargs.update(create_random_ckddetail_kwargs(age=age, gender=gender, pre_save=pre_save))
         else:
             # Make CkdDetail kwargs from CkdDetail object
-            kwargs = {
-                "baselinecreatinine": baselinecreatinine_obj.value if baselinecreatinine_obj else None,
-                "dialysis": ckddetail_obj.dialysis if ckddetail_obj else None,
-                "dialysis_duration": ckddetail_obj.dialysis_duration if ckddetail_obj else None,
-                "dialysis_type": ckddetail_obj.dialysis_type if ckddetail_obj else None,
-                "stage": ckddetail_obj.stage if ckddetail_obj else None,
-            }
-            check_ckddetail_kwargs_or_data(age=age, gender=gender, pre_save=pre_save, **kwargs)
-            return kwargs
-
-    # If there are kwargs, make sure there are no conflicts between the kwargs.
-    check_ckddetail_kwargs_or_data(
-        age=age,
-        baselinecreatinine=baselinecreatinine,
-        dialysis=dialysis if dialysis else ckddetail_obj.dialysis if ckddetail_obj else None,
-        dialysis_duration=dialysis_duration,
-        dialysis_type=dialysis_type,
-        gender=gender,
-        stage=stage,
-        pre_save=pre_save,
-    )
-
-    # Set the kwargs.
-    dialysis = (
-        dialysis
-        if dialysis is not None
-        else ckddetail_obj.dialysis
-        if ckddetail_obj and stage is None and not baselinecreatinine
-        else fake.boolean()
-        if (stage is None and not baselinecreatinine)
-        else False
-    )
-    stage = (
-        labs_stage_calculator(
-            labs_eGFR_calculator(
-                creatinine=baselinecreatinine,
-                age=age,
-                gender=gender,
+            kwargs.update(
+                {
+                    "baselinecreatinine": baselinecreatinine_obj.value if baselinecreatinine_obj else None,
+                    "dialysis": ckddetail_obj.dialysis if ckddetail_obj else None,
+                    "dialysis_duration": ckddetail_obj.dialysis_duration if ckddetail_obj else None,
+                    "dialysis_type": ckddetail_obj.dialysis_type if ckddetail_obj else None,
+                    "stage": ckddetail_obj.stage if ckddetail_obj else None,
+                }
+            )
+    else:
+        # Set the kwargs.
+        dialysis = (
+            dialysis
+            if dialysis is not None
+            else ckddetail_obj.dialysis
+            if ckddetail_obj and stage is None and not baselinecreatinine
+            else fake.boolean()
+            if (stage is None and not baselinecreatinine)
+            else False
+        )
+        stage = (
+            labs_stage_calculator(
+                labs_eGFR_calculator(
+                    creatinine=baselinecreatinine,
+                    age=age,
+                    gender=gender,
+                )
+            )
+            if baselinecreatinine and not pre_save
+            else Stages.FIVE
+            if dialysis
+            else stage
+        )
+        baselinecreatinine = (
+            baselinecreatinine
+            if isinstance(baselinecreatinine, Decimal)
+            else (
+                create_baselinecreatinine_value(stage, age, gender)
+                if (stage and age and gender and baselinecreatinine is True and not pre_save)
+                else baselinecreatinine
             )
         )
-        if baselinecreatinine and not pre_save
-        else Stages.FIVE
-        if dialysis
-        else stage
-    )
-    baselinecreatinine = (
-        baselinecreatinine
-        if isinstance(baselinecreatinine, Decimal)
-        else (
-            create_baselinecreatinine_value(stage, age, gender)
-            if (stage and age and gender and baselinecreatinine is True and not pre_save)
-            else baselinecreatinine
+        dialysis_duration = (
+            dialysis_duration
+            if dialysis_duration is not None
+            else ckddetail_obj.dialysis_duration
+            if (ckddetail_obj and ckddetail_obj.dialysis_duration is not None and dialysis)
+            else random.choice(ModDialysisDurations)
+            if dialysis
+            else None
         )
-    )
-    dialysis_duration = (
-        dialysis_duration
-        if dialysis_duration is not None
-        else ckddetail_obj.dialysis_duration
-        if (ckddetail_obj and ckddetail_obj.dialysis_duration is not None and dialysis)
-        else random.choice(ModDialysisDurations)
-        if dialysis
-        else None
-    )
-    dialysis_type = (
-        dialysis_type
-        if dialysis_type is not None
-        else ckddetail_obj.dialysis_type
-        if (ckddetail_obj and ckddetail_obj.dialysis_type is not None and dialysis)
-        else random.choice(DialysisChoices.values)
-        if dialysis
-        else None
-    )
+        dialysis_type = (
+            dialysis_type
+            if dialysis_type is not None
+            else ckddetail_obj.dialysis_type
+            if (ckddetail_obj and ckddetail_obj.dialysis_type is not None and dialysis)
+            else random.choice(DialysisChoices.values)
+            if dialysis
+            else None
+        )
+        kwargs.update(
+            {
+                "baselinecreatinine": baselinecreatinine,
+                "dialysis": dialysis,
+                "dialysis_duration": dialysis_duration,
+                "dialysis_type": dialysis_type,
+                "stage": stage,
+            }
+        )
 
-    # Double check the kwargs to make sure they are still valid if the double_check argument is True.
-    if double_check and not pre_save:
+    # Double check kwargs for validity if not calling the function pre_save.
+    # Avoids raising ValueErrors when generating placeholder kwargs for other
+    # methods that trigger creation of OneToOnes, i.e. DateOfBirth and Gender.
+    if not pre_save:
         check_ckddetail_kwargs_or_data(
             age=age,
-            baselinecreatinine=baselinecreatinine,
-            dialysis=dialysis,
-            dialysis_duration=dialysis_duration,
-            dialysis_type=dialysis,
             gender=gender,
-            stage=stage,
             pre_save=pre_save,
+            **kwargs,
         )
 
-    return {
-        "baselinecreatinine": baselinecreatinine,
-        "dialysis": dialysis,
-        "dialysis_duration": dialysis_duration,
-        "dialysis_type": dialysis_type,
-        "stage": stage,
-    }
+    return kwargs
 
 
 def update_or_create_goutdetail_data(

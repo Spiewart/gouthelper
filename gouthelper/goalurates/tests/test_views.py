@@ -19,7 +19,7 @@ from ...ultaids.tests.factories import UltAidFactory
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
-from ...utils.helpers.tests.helpers import tests_print_response_form_errors
+from ...utils.forms import forms_print_response_errors
 from ..choices import GoalUrates
 from ..models import GoalUrate
 from ..selectors import goalurate_user_qs
@@ -131,7 +131,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": False,
         }
         response = self.client.post(reverse("goalurates:create"), data=data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
@@ -144,7 +144,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:create"), data=data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         erosions = Erosions.objects.first()
@@ -158,7 +158,7 @@ class TestGoalUrateCreate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:ultaid-create", kwargs={"ultaid": self.ultaid.id}), data=data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.order_by("created").last()
         self.assertTrue(goal_urate.ultaid)
@@ -220,7 +220,7 @@ class TestGoalUrateDetail(TestCase):
 
 class TestGoalUrateUpdate(TestCase):
     def setUp(self):
-        self.goalurate = create_goalurate(medhistorys=[*GOALURATE_MEDHISTORYS])
+        self.goalurate = create_goalurate(mhs=[*GOALURATE_MEDHISTORYS])
         self.view: GoalUrateUpdate = GoalUrateUpdate
         self.request = RequestFactory().get(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}))
         self.request.htmx = False
@@ -289,7 +289,7 @@ class TestGoalUrateUpdate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": False,
         }
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}), data=data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         goal_urate = GoalUrate.objects.first()
         self.assertEqual(response.url, reverse("goalurates:detail", kwargs={"pk": goal_urate.id}) + "?updated=True")
@@ -307,7 +307,7 @@ class TestGoalUrateUpdate(TestCase):
             f"{MedHistoryTypes.TOPHI}-value": True,
         }
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(goalurate.medhistory_set.all())
         self.assertTrue(goalurate.medhistory_set.get(medhistorytype=MedHistoryTypes.EROSIONS))
@@ -440,7 +440,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username}), data=data
         )
-        tests_print_response_form_errors(response)
+        forms_print_response_errors(response)
         assert response.status_code == 302
         assert GoalUrate.objects.filter(user=self.anon_psp).exists()
         goalurate = GoalUrate.objects.last()
@@ -662,7 +662,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         # but with medhistorys that should update the value to 5
         gu = create_goalurate(
             user=self.empty_psp,
-            medhistorys=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
+            mhs=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
             goal_urate=GoalUrates.SIX,
         )
         # Test that the goal_urate is six and that the correct medhistorys are created
@@ -686,7 +686,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         # goal urate is 6
         gu = create_goalurate(
             user=self.empty_psp,
-            medhistorys=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
+            mhs=[MedHistoryTypes.EROSIONS, MedHistoryTypes.TOPHI],
             goal_urate=GoalUrates.SIX,
         )
         # Test that the goal_urate is six and that the correct medhistorys are created

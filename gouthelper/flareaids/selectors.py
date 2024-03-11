@@ -5,7 +5,6 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
-from ..users.models import Pseudopatient
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -41,23 +40,30 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
-def flareaid_user_qs(username: str) -> "QuerySet":
-    queryset = Pseudopatient.objects.filter(username=username)
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("flareaid")
-    queryset = queryset.select_related("defaultflaretrtsettings")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+def flareaid_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "gender",
+    ).prefetch_related(
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+    )
+
+
+def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return flareaid_relations(qs).select_related("user")
+
+
+def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":
+    return flareaid_relations(qs).select_related(
+        "flareaid",
+        "defaultflaretrtsettings",
+    )
 
 
 def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("flareaids.FlareAid").objects.filter(pk=pk)
-    # Try to fetch the user to check if a redirect to a Pseudopatient view is needed
-    queryset = queryset.select_related("user")
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    queryset = queryset.prefetch_related(medallergys_prefetch())
-    return queryset
+    return flareaid_userless_relations(apps.get_model("flareaids.FlareAid").objects.filter(pk=pk))
+
+
+def flareaid_user_qs(username: str) -> "QuerySet":
+    return flareaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

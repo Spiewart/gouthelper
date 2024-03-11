@@ -20,7 +20,7 @@ class TestUltManager(TestCase):
     def test__related_objects(self):
         self.assertEqual(Ult.objects.count(), 10)
         with self.assertNumQueries(2):
-            for ult in Ult.related_objects.select_related("user").all():
+            for ult in Ult.related_objects.all():
                 if ult.user:
                     self.assertIsNone(ult.dateofbirth)
                     self.assertIsNone(ult.gender)

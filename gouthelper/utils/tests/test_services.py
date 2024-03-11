@@ -4,33 +4,33 @@ from decimal import Decimal
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ....dateofbirths.tests.factories import DateOfBirthFactory
-from ....defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultTrt, DefaultUltTrtSettings
-from ....defaults.selectors import (
+from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultTrt, DefaultUltTrtSettings
+from ...defaults.selectors import (
     defaults_defaultflaretrtsettings,
     defaults_defaultmedhistorys_trttype,
     defaults_defaultppxtrtsettings,
     defaults_defaultulttrtsettings,
 )
-from ....ethnicitys.choices import Ethnicitys
-from ....ethnicitys.tests.factories import EthnicityFactory
-from ....flareaids.tests.factories import create_flareaid
-from ....labs.tests.factories import BaselineCreatinineFactory, Hlab5801Factory
-from ....medallergys.models import MedAllergy
-from ....medallergys.tests.factories import MedAllergyFactory
-from ....medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
-from ....medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
-from ....medhistorys.choices import Contraindications, MedHistoryTypes
-from ....medhistorys.models import MedHistory
-from ....medhistorys.tests.factories import (
+from ...ethnicitys.choices import Ethnicitys
+from ...ethnicitys.tests.factories import EthnicityFactory
+from ...flareaids.tests.factories import create_flareaid
+from ...labs.tests.factories import BaselineCreatinineFactory, Hlab5801Factory
+from ...medallergys.models import MedAllergy
+from ...medallergys.tests.factories import MedAllergyFactory
+from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFactory
+from ...medhistorys.choices import Contraindications, MedHistoryTypes
+from ...medhistorys.models import MedHistory
+from ...medhistorys.tests.factories import (
     ChfFactory,
     CkdFactory,
     GastricbypassFactory,
     GoutFactory,
     HeartattackFactory,
 )
-from ....ppxaids.tests.factories import create_ppxaid
-from ....treatments.choices import (
+from ...ppxaids.tests.factories import create_ppxaid
+from ...treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
     FebuxostatDoses,
@@ -40,9 +40,9 @@ from ....treatments.choices import (
     Treatments,
     TrtTypes,
 )
-from ....ultaids.services import UltAidDecisionAid
-from ....ultaids.tests.factories import create_ultaid
-from ..aid_helpers import (
+from ...ultaids.services import UltAidDecisionAid
+from ...ultaids.tests.factories import create_ultaid
+from ..services import (
     aids_assign_baselinecreatinine,
     aids_assign_ckddetail,
     aids_assign_goutdetail,
@@ -497,7 +497,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaultulttrtsettings,
+            defaulttrtsettings=decisionaid.defaulttrtsettings,  # pylint:disable=E1101 # type: ignore
         )
         febu_dict = trt_dict[Treatments.FEBUXOSTAT]
         self.assertEqual(febu_dict["dose"], Decimal("40"))

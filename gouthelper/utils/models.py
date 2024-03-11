@@ -18,7 +18,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from .helpers.aid_helpers import (
+from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
     aids_probenecid_ckd_contra,

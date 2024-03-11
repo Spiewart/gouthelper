@@ -28,7 +28,7 @@ class TestPseudopatientQuerySet(TestCase):
         """Test that the pseudopatient_qs returns the correct QuerySet."""
         qs = pseudopatient_qs(self.pseudopatient.username)
         assert isinstance(qs, QuerySet)
-        with CaptureQueriesContext(connection) as queries:
+        with self.assertNumQueries(2):
             qs = qs.get()
             assert isinstance(qs, Pseudopatient)
             assert qs.pseudopatientprofile == self.pseudopatientprofile
@@ -39,7 +39,6 @@ class TestPseudopatientQuerySet(TestCase):
             assert self.pseudopatient.ckd in qs.medhistorys_qs
             assert self.pseudopatient.gout in qs.medhistorys_qs
             assert self.pseudopatient.heartattack in qs.medhistorys_qs
-        assert len(queries) == 2
         with CaptureQueriesContext(connection) as queries:
             assert qs.ckd.ckddetail == self.ckddetail
             assert qs.gout.goutdetail == self.goutdetail

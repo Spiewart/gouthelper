@@ -4,7 +4,7 @@ import autoslug.fields
 from django.db import migrations, models
 import django_extensions.db.fields
 import gouthelper.utils.fields
-import gouthelper.utils.helpers.helpers
+import gouthelper.utils.helpers
 import markdownfield.models
 import rules.contrib.models
 import simple_history.models
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
                         default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True
                     ),
                 ),
-                ("published_date", models.DateField(default=gouthelper.utils.helpers.helpers.now_date)),
+                ("published_date", models.DateField(default=gouthelper.utils.helpers.now_date)),
                 ("slug", autoslug.fields.AutoSlugField(editable=False, populate_from="title", unique=True)),
                 (
                     "status",
@@ -87,7 +87,7 @@ class Migration(migrations.Migration):
                     django_extensions.db.fields.ModificationDateTimeField(auto_now=True, verbose_name="modified"),
                 ),
                 ("id", models.UUIDField(db_index=True, default=uuid.uuid4, editable=False)),
-                ("published_date", models.DateField(default=gouthelper.utils.helpers.helpers.now_date)),
+                ("published_date", models.DateField(default=gouthelper.utils.helpers.now_date)),
                 ("slug", autoslug.fields.AutoSlugField(editable=False, populate_from="title")),
                 (
                     "status",

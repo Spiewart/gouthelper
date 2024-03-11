@@ -20,9 +20,10 @@ from ..labs.selectors import dated_urates, urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
+from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .helpers import ppxs_check_urate_hyperuricemic_discrepant, ppxs_urate_hyperuricemic_discrepancy_str
-from .selectors import ppx_user_qs, ppx_userless_qs
+from .managers import PpxManager
 from .services import PpxDecisionAid
 
 if TYPE_CHECKING:
@@ -65,6 +66,9 @@ class Ppx(
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
+
+    objects = models.Manager()
+    related_objects = PpxManager()
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -217,9 +221,9 @@ class Ppx(
             Ppx: Ppx object."""
         if qs is None:
             if self.user:
-                qs = ppx_user_qs(username=self.user.username)
+                qs = Pseudopatient.objects.ppx_qs().filter(username=self.user.username)
             else:
-                qs = ppx_userless_qs(pk=self.pk)
+                qs = Ppx.related_objects.filter(pk=self.pk)
         decisionaid = PpxDecisionAid(qs=qs)
         return decisionaid._update()
 

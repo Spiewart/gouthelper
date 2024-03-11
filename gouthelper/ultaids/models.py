@@ -15,8 +15,8 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..users.models import Pseudopatient
-from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.services import aids_json_to_trt_dict, aids_options
 from .managers import UltAidManager
 
 if TYPE_CHECKING:

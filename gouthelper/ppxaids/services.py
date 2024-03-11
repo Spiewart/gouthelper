@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import QuerySet  # type: ignore
 
 from ..treatments.choices import FlarePpxChoices, TrtTypes
-from ..utils.helpers.aid_helpers import TreatmentAidService, aids_process_nsaids, aids_process_steroids
+from ..utils.services import TreatmentAidService, aids_process_nsaids, aids_process_steroids
 
 if TYPE_CHECKING:
     from .models import PpxAid

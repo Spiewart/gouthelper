@@ -88,36 +88,32 @@ class TestPpxAidMethods(TestCase):
             BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
         defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=ppxaid.user)
         qs = ppxaid_user_qs(username=ppxaid.user.username)
-        with CaptureQueriesContext(connection) as context:
-            decisionaid = PpxAidDecisionAid(qs=qs)
+        with self.assertNumQueries(3):
             # QuerySet is 3 queries because the user has a defaultppxtrtsettings
-            print(context.captured_queries)
-            self.assertEqual(len(context.captured_queries), 3)  # 3 queries for medhistorys
             qs = qs.get()
-            self.assertTrue(hasattr(decisionaid, "ppxaid"))
-            self.assertEqual(decisionaid.ppxaid, ppxaid)
-            self.assertTrue(hasattr(decisionaid, "user"))
-            self.assertEqual(decisionaid.user, ppxaid.user)
-            self.assertTrue(hasattr(decisionaid, "dateofbirth"))
-            self.assertEqual(decisionaid.dateofbirth, ppxaid.user.dateofbirth)
-            self.assertTrue(decisionaid.age)
-            self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
-            self.assertTrue(hasattr(decisionaid, "defaultsettings"))
-            self.assertEqual(decisionaid.defaultsettings, defaultppxtrtsettings)
-            if hasattr(ppxaid.user, "gender"):
-                self.assertEqual(decisionaid.gender, ppxaid.user.gender)
-            self.assertTrue(hasattr(decisionaid, "medallergys"))
-            self.assertEqual(decisionaid.medallergys, qs.medallergys_qs)
-            self.assertTrue(hasattr(decisionaid, "medhistorys"))
-            self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
-            self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
-            self.assertEqual(
-                decisionaid.baselinecreatinine, BaselineCreatinine.objects.get(medhistory=ppxaid.user.ckd)
-            )
-            self.assertTrue(hasattr(decisionaid, "ckddetail"))
-            self.assertEqual(decisionaid.ckddetail, ppxaid.ckddetail)
-            self.assertTrue(hasattr(decisionaid, "sideeffects"))
-            self.assertEqual(decisionaid.sideeffects, None)
+            decisionaid = PpxAidDecisionAid(qs=qs)
+        self.assertTrue(hasattr(decisionaid, "ppxaid"))
+        self.assertEqual(decisionaid.ppxaid, ppxaid)  # pylint: disable=no-member
+        self.assertTrue(hasattr(decisionaid, "user"))
+        self.assertEqual(decisionaid.user, ppxaid.user)
+        self.assertTrue(hasattr(decisionaid, "dateofbirth"))
+        self.assertEqual(decisionaid.dateofbirth, ppxaid.user.dateofbirth)
+        self.assertTrue(decisionaid.age)
+        self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
+        self.assertTrue(hasattr(decisionaid, "defaultsettings"))
+        self.assertEqual(decisionaid.defaultsettings, defaultppxtrtsettings)
+        if hasattr(ppxaid.user, "gender"):
+            self.assertEqual(decisionaid.gender, ppxaid.user.gender)
+        self.assertTrue(hasattr(decisionaid, "medallergys"))
+        self.assertEqual(decisionaid.medallergys, qs.medallergys_qs)
+        self.assertTrue(hasattr(decisionaid, "medhistorys"))
+        self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
+        self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
+        self.assertEqual(decisionaid.baselinecreatinine, BaselineCreatinine.objects.get(medhistory=ppxaid.user.ckd))
+        self.assertTrue(hasattr(decisionaid, "ckddetail"))
+        self.assertEqual(decisionaid.ckddetail, ppxaid.ckddetail)
+        self.assertTrue(hasattr(decisionaid, "sideeffects"))
+        self.assertEqual(decisionaid.sideeffects, None)
 
     def test__default_medhistorys(self):
         empty_defaults = self.empty_decisionaid.default_medhistorys

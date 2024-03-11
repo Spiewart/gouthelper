@@ -1,5 +1,8 @@
 from django.contrib.auth.base_user import BaseUserManager  # pylint:disable=E0401, E0013, E0015 # type: ignore
 
+from ..flareaids.selectors import flareaid_user_relations
+from ..ppxaids.selectors import ppxaid_user_relations
+from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
 from .choices import Roles
@@ -59,6 +62,15 @@ class PseudopatientManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
         results = super().get_queryset(*args, **kwargs)
         return results.filter(role=Roles.PSEUDOPATIENT)
+
+    def flareaid_qs(self):
+        return flareaid_user_relations(self.get_queryset())
+
+    def ppxaid_qs(self):
+        return ppxaid_user_relations(self.get_queryset())
+
+    def ppx_qs(self):
+        return ppx_user_relations(self.get_queryset())
 
     def ultaid_qs(self):
         return ultaid_user_relations(self.get_queryset())

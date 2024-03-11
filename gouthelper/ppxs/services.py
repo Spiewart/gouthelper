@@ -11,7 +11,7 @@ from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
-from ..utils.helpers.aid_helpers import aids_assign_goutdetail
+from ..utils.services import aids_assign_goutdetail
 
 if TYPE_CHECKING:
     from ..medhistorydetails.models import GoutDetail
