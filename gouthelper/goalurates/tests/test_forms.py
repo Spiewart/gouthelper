@@ -3,7 +3,7 @@ from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
-from ...ultaids.tests.factories import UltAidFactory
+from ...ultaids.tests.factories import create_ultaid
 from ..forms import GoalUrateForm
 
 pytestmark = pytest.mark.django_db
@@ -28,7 +28,7 @@ class TestGoalUrateForm(TestCase):
 
     def test__about_the_patient_not_rendered_with_htmx(self):
         # Create a UltAid
-        ultaid = UltAidFactory()
+        ultaid = create_ultaid()
         # Create headers with HTMX request
         headers = {"HTTP_HX-Request": "true"}
         # Create request with headers

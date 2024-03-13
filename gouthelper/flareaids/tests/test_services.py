@@ -251,7 +251,7 @@ class TestFlareAidMethods(TestCase):
         """Test that for the DecisionAid, if the user has custom settings that set nsaids_equivalent to True,
         the decisionaid_dict will contraindicate all NSAIDs together."""
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
-        flareaid = create_flareaid(medallergys=[medallergy])
+        flareaid = create_flareaid(mas=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         for nsaid in NsaidChoices:
@@ -263,7 +263,7 @@ class TestFlareAidMethods(TestCase):
         practice to default to."""
         DefaultFlareTrtSettings.objects.filter(user=None).update(nsaids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
-        flareaid = create_flareaid(medallergys=[medallergy], medhistorys=[])
+        flareaid = create_flareaid(mas=[medallergy], mhs=[])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         for nsaid in NsaidChoices:
@@ -276,7 +276,7 @@ class TestFlareAidMethods(TestCase):
         """Test that for the DecisionAid, if the user has custom settings that set steroids_equivalent to True,
         the decisionaid_dict will contraindicate steroids together."""
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
-        flareaid = create_flareaid(medallergys=[medallergy], medhistorys=[])
+        flareaid = create_flareaid(mas=[medallergy], mhs=[])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])
@@ -288,7 +288,7 @@ class TestFlareAidMethods(TestCase):
         practice to default to."""
         DefaultFlareTrtSettings.objects.filter(user=None).update(steroids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
-        flareaid = create_flareaid(medallergys=[medallergy])
+        flareaid = create_flareaid(mas=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])

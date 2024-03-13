@@ -44,8 +44,8 @@ class TestFlareAidUserlessQuerySet(TestCase):
         self.flareaid = create_flareaid(
             dateofbirth=self.dateofbirth,
             gender=self.gender,
-            medhistorys=[self.ckd],
-            medallergys=[self.medallergy],
+            mhs=[self.ckd],
+            mas=[self.medallergy],
         )
 
     def test__queryset_returns_correctly(self):
@@ -87,8 +87,8 @@ class TestFlareAidUserQuerySet(TestCase):
         self.medallergy = MedAllergyFactory(user=self.user, treatment=FlarePpxChoices.COLCHICINE)
         self.flareaid = create_flareaid(
             user=self.user,
-            medhistorys=[self.ckd],
-            medallergys=[self.medallergy],
+            mhs=[self.ckd],
+            mas=[self.medallergy],
         )
 
     def test__queryset_returns_correctly(self):

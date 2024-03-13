@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
+from ..flares.selectors import flares_prefetch
+from ..labs.selectors import urates_prefetch
+from ..medallergys.selectors import medallergys_prefetch
 from ..medhistorys.choices import MedHistoryTypes
-from .models import Pseudopatient
-
-User = get_user_model()
+from ..medhistorys.selectors import medhistorys_prefetch
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
@@ -68,7 +68,8 @@ def pseudopatient_profile_medhistory_prefetch() -> Prefetch:
 
 def pseudopatient_qs(username: str) -> "QuerySet":
     return (
-        Pseudopatient.objects.filter(username=username)
+        apps.get_model("users.Pseudopatient")
+        .objects.filter(username=username)
         .select_related(
             "pseudopatientprofile",
             "dateofbirth",
@@ -83,7 +84,8 @@ def pseudopatient_qs(username: str) -> "QuerySet":
 
 def pseudopatient_profile_qs(username: str) -> "QuerySet":
     return (
-        Pseudopatient.objects.filter(username=username)
+        apps.get_model("users.Pseudopatient")
+        .objects.filter(username=username)
         .select_related(
             "pseudopatientprofile",
             "dateofbirth",
@@ -93,4 +95,25 @@ def pseudopatient_profile_qs(username: str) -> "QuerySet":
         .prefetch_related(
             pseudopatient_profile_medhistory_prefetch(),
         )
+    )
+
+
+def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "ethnicity",
+        "flareaid",
+        "gender",
+        "goalurate",
+        "hlab5801",
+        "ppxaid",
+        "ppx",
+        "pseudopatientprofile",
+        "ultaid",
+        "ult",
+    ).prefetch_related(
+        flares_prefetch(),
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+        urates_prefetch(),
     )

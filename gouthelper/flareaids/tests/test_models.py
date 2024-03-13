@@ -16,7 +16,7 @@ class TestFlareAid(TestCase):
         self.flareaid = create_flareaid()
         self.settings = DefaultFlareTrtSettings.objects.get(user=None)
         self.user_flareaid = create_flareaid(user=True)
-        self.empty_flareaid = create_flareaid(medhistorys=[], medallergys=[])
+        self.empty_flareaid = create_flareaid(mhs=[], mas=[])
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")

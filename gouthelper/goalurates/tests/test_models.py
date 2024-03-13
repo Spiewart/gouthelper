@@ -36,7 +36,7 @@ class TestGoalUrateMethods(TestCase):
         )
 
     def test__update_with_user_lowers_goal_urate(self):
-        goal_urate = create_goalurate(medhistorys=[], user=True)
+        goal_urate = create_goalurate(mhs=[], user=True)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
         TophiFactory(user=goal_urate.user)
         goal_urate.update_aid()
@@ -44,7 +44,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
     def test__update_with_user_raises_goal_urate(self):
-        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, medhistorys=[MedHistoryTypes.TOPHI], user=True)
+        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, mhs=[MedHistoryTypes.TOPHI], user=True)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
         goal_urate.refresh_from_db()
         goal_urate.user.medhistory_set.all().delete()
@@ -54,7 +54,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__update_without_user_lowers_goal_urate(self):
-        goal_urate = create_goalurate(medhistorys=[])
+        goal_urate = create_goalurate(mhs=[])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
         TophiFactory(goalurate=goal_urate)
         goal_urate.update_aid()
@@ -62,7 +62,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
     def test__update_without_user_raises_goal_urate(self):
-        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, medhistorys=[MedHistoryTypes.TOPHI])
+        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, mhs=[MedHistoryTypes.TOPHI])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
         goal_urate.medhistory_set.all().delete()
         goal_urate.refresh_from_db()
@@ -70,7 +70,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__update_without_user_lowers_goal_urate_with_qs(self):
-        goal_urate = create_goalurate(medhistorys=[])
+        goal_urate = create_goalurate(mhs=[])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
         TophiFactory(goalurate=goal_urate)
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
@@ -80,7 +80,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
 
     def test__update_without_user_raises_goal_urate_with_qs(self):
-        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, medhistorys=[MedHistoryTypes.TOPHI])
+        goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, mhs=[MedHistoryTypes.TOPHI])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
         goal_urate.medhistory_set.all().delete()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
@@ -90,6 +90,6 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__update_with_qs_5_queries(self):
-        goal_urate = create_goalurate(medhistorys=[MedHistoryTypes.TOPHI])
+        goal_urate = create_goalurate(mhs=[MedHistoryTypes.TOPHI])
         with self.assertNumQueries(6):
             goal_urate.update_aid(qs=goalurate_userless_qs(goal_urate.pk).get())

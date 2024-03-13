@@ -4,11 +4,13 @@ from django.contrib.auth.base_user import BaseUserManager  # pylint:disable=E040
 
 from ..flareaids.selectors import flareaid_user_relations
 from ..flares.selectors import flare_user_relations
+from ..goalurates.selectors import goalurate_user_relations
 from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
 from .choices import Roles
+from .selectors import pseudopatient_relations
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -69,11 +71,17 @@ class PseudopatientManager(BaseUserManager):
         results = super().get_queryset(*args, **kwargs)
         return results.filter(role=Roles.PSEUDOPATIENT)
 
+    def all_related_objects(self):
+        return pseudopatient_relations(self.get_queryset())
+
     def flareaid_qs(self):
         return flareaid_user_relations(self.get_queryset())
 
     def flares_qs(self, flare_pk: Union["UUID", None] = None):
         return flare_user_relations(self.get_queryset(), **{"flare_pk": flare_pk} if flare_pk else {})
+
+    def goalurate_qs(self):
+        return goalurate_user_relations(self.get_queryset())
 
     def ppxaid_qs(self):
         return ppxaid_user_relations(self.get_queryset())

@@ -4,8 +4,7 @@ from django.db.models import QuerySet  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
-from ...medhistorydetails.tests.factories import CkdDetailFactory
-from ...medhistorys.tests.factories import CkdFactory, HeartattackFactory
+from ...medhistorys.choices import MedHistoryTypes
 from ...users.models import Pseudopatient
 from ..selectors import pseudopatient_qs
 from .factories import create_psp
@@ -15,14 +14,14 @@ pytestmark = pytest.mark.django_db
 
 class TestPseudopatientQuerySet(TestCase):
     def setUp(self):
-        self.pseudopatient = create_psp()
-        self.pseudopatient.ckd = CkdFactory(user=self.pseudopatient)
-        self.pseudopatient.heartattack = HeartattackFactory(user=self.pseudopatient)
-        self.pseudopatientprofile = self.pseudopatient.profile
-        self.dateofbirth = self.pseudopatient.dateofbirth
-        self.ethnicity = self.pseudopatient.ethnicity
-        self.gender = self.pseudopatient.gender
-        self.ckddetail = CkdDetailFactory(medhistory=self.pseudopatient.ckd)
+        self.pseudopatient = create_psp(
+            medhistorys=[
+                MedHistoryTypes.CKD,
+                MedHistoryTypes.HEARTATTACK,
+            ],
+            mh_dets={MedHistoryTypes.CKD: True},
+        )
+        self.pseudopatient = Pseudopatient.objects.all_related_objects().get(pk=self.pseudopatient.pk)
 
     def test__qs_returns_correctly(self):
         """Test that the pseudopatient_qs returns the correct QuerySet."""
@@ -31,16 +30,16 @@ class TestPseudopatientQuerySet(TestCase):
         with self.assertNumQueries(2):
             qs = qs.get()
             assert isinstance(qs, Pseudopatient)
-            assert qs.pseudopatientprofile == self.pseudopatientprofile
-            assert qs.dateofbirth == self.dateofbirth
-            assert qs.ethnicity == self.ethnicity
-            assert qs.gender == self.gender
+            assert qs.pseudopatientprofile == self.pseudopatient.pseudopatientprofile
+            assert qs.dateofbirth == self.pseudopatient.dateofbirth
+            assert qs.ethnicity == self.pseudopatient.ethnicity
+            assert qs.gender == self.pseudopatient.gender
             assert hasattr(qs, "medhistorys_qs")
             assert self.pseudopatient.ckd in qs.medhistorys_qs
             assert self.pseudopatient.gout in qs.medhistorys_qs
             assert self.pseudopatient.heartattack in qs.medhistorys_qs
 
         with CaptureQueriesContext(connection) as queries:
-            assert qs.ckd.ckddetail == self.ckddetail
-            assert qs.gout.goutdetail == self.goutdetail
+            assert qs.ckd.ckddetail == self.pseudopatient.ckddetail
+            assert qs.gout.goutdetail == self.pseudopatient.goutdetail
         assert len(queries) == 0

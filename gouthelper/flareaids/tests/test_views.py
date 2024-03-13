@@ -1483,7 +1483,7 @@ class TestFlareAidDetail(TestCase):
         self.content_qs = Content.objects.filter(
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.FLAREAID, slug__isnull=False
         ).all()
-        self.flareaid = create_flareaid(medallergys=[], medhistorys=[])
+        self.flareaid = create_flareaid(mas=[], mhs=[])
 
     def test__contents(self):
         self.assertTrue(self.view().contents)
@@ -1571,7 +1571,7 @@ class TestFlareAidUpdate(TestCase):
         assert isinstance(response, HttpResponse)
 
     def test__post_unchanged_medallergys(self):
-        flareaid = create_flareaid(medallergys=[Treatments.COLCHICINE])
+        flareaid = create_flareaid(mas=[Treatments.COLCHICINE])
         flareaid_data = {
             "dateofbirth-value": age_calc(flareaid.dateofbirth.value),
             "gender-value": "",
@@ -1589,7 +1589,7 @@ class TestFlareAidUpdate(TestCase):
     def test__post_add_medallergys(self):
         """Test that the view creates the User's MedAllergy object."""
         # Create a FlareAid with a single medallergy
-        flareaid = create_flareaid(medallergys=[Treatments.COLCHICINE])
+        flareaid = create_flareaid(mas=[Treatments.COLCHICINE])
 
         # Count the medallergys
         ma_count = MedAllergy.objects.count()
@@ -1616,7 +1616,7 @@ class TestFlareAidUpdate(TestCase):
     def test__post_delete_medallergys(self):
         """Test that the view deletes the User's MedAllergy object."""
         # Create a FlareAid and a MedAllergy
-        flareaid = create_flareaid(medallergys=[Treatments.COLCHICINE])
+        flareaid = create_flareaid(mas=[Treatments.COLCHICINE])
 
         # Create fake data
         data = flareaid_data_factory()
@@ -1635,7 +1635,7 @@ class TestFlareAidUpdate(TestCase):
 
     def test__post_unchanged_medhistorys(self):
         # Create a FlareAid with a single medhistory
-        flareaid = create_flareaid(medhistorys=[MedHistoryTypes.COLCHICINEINTERACTION])
+        flareaid = create_flareaid(mhs=[MedHistoryTypes.COLCHICINEINTERACTION])
 
         # Create some fake data
         data = flareaid_data_factory()
@@ -1655,7 +1655,7 @@ class TestFlareAidUpdate(TestCase):
     def test__post_delete_medhistorys(self):
         """Test that the view deletes the User's MedHistory object."""
         # Create a FlareAid and a MedHistory and add the new medhistory to the FlareAid
-        flareaid = create_flareaid(medhistorys=[MedHistoryTypes.COLCHICINEINTERACTION])
+        flareaid = create_flareaid(mhs=[MedHistoryTypes.COLCHICINEINTERACTION])
 
         # Create fake data
         data = flareaid_data_factory()

@@ -15,7 +15,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import ErosionsForm, TophiForm
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
-from ...ultaids.tests.factories import UltAidFactory
+from ...ultaids.tests.factories import create_ultaid
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
@@ -67,7 +67,7 @@ class TestGoalUrateCreate(TestCase):
         self.request.htmx = False
         self.request.user = AnonymousUser()
         self.response = self.view.as_view()(self.request)
-        self.ultaid = UltAidFactory()
+        self.ultaid = create_ultaid()
 
     def test__view_attrs(self):
         self.assertEqual(self.view.model, GoalUrate)
@@ -226,7 +226,7 @@ class TestGoalUrateUpdate(TestCase):
         self.request.htmx = False
         self.request.user = AnonymousUser()
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
-        self.ultaid = UltAidFactory()
+        self.ultaid = create_ultaid()
         self.factory = RequestFactory()
 
     def test__get_context_data(self):
@@ -397,7 +397,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
                 assert f"{mhtype}_form" in response.context_data
                 if mhtype not in user.medhistory_set.values_list("medhistorytype", flat=True):
                     assert response.context_data[f"{mhtype}_form"].instance._state.adding is True
-                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": False}
+                    assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
             assert "ckddetail_form" not in response.context_data
             assert "goutdetail_form" not in response.context_data
 

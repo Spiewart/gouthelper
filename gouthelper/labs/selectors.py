@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import DateField  # type: ignore
+from django.db.models import DateField, Prefetch  # type: ignore
 from django.db.models.functions import Coalesce  # type: ignore
 from django.utils import timezone  # type: ignore
 
@@ -27,6 +27,24 @@ def dated_urates(queryset: "QuerySet") -> "QuerySet":
     # Order by date
     queryset = queryset.order_by("-date")
     return queryset
+
+
+def urates_qs() -> "QuerySet":
+    """QuerySet for Urate objects."""
+    return apps.get_model("labs.Urate").objects.select_related("flare").all()
+
+
+def urates_prefetch(dated: bool = True) -> Prefetch:
+    """Prefetch for Urate objects."""
+    if dated:
+        queryset = dated_urates(urates_qs())
+    else:
+        queryset = apps.get_model("labs.Urate").objects.all()
+    return Prefetch(
+        "urate_set",
+        queryset=queryset,
+        to_attr="urates_qs",
+    )
 
 
 def urates_dated_qs() -> "QuerySet":

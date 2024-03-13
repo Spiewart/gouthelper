@@ -115,7 +115,7 @@ def create_and_set_ckddetail(
     kwargs = update_or_create_ckddetail_kwargs(
         age=age_calc(psp.dateofbirth.value if hasattr(psp, "dateofbirth") else None),
         gender=psp.gender.value if hasattr(psp, "gender") else None,
-        **ckddetail_kwargs,
+        **ckddetail_kwargs if not isinstance(ckddetail_kwargs, bool) else {},
     )
     bc_kwarg = kwargs.pop("baselinecreatinine", None)
     setattr(psp, "ckddetail", CkdDetailFactory(medhistory=medhistory, **kwargs))
@@ -146,7 +146,11 @@ def create_psp_dateofbirth(
     dateofbirth: DateOfBirth | date | None = None,
 ) -> DateOfBirth:
     if not dateofbirth:
-        return DateOfBirthFactory(user=psp)
+        with transaction.atomic():
+            try:
+                return DateOfBirthFactory(user=psp)
+            except IntegrityError:
+                return psp.dateofbirth
     elif isinstance(dateofbirth, (str, date)):
         with transaction.atomic():
             try:
@@ -314,7 +318,13 @@ def create_psp(
             for medhistory in medhistorys:
                 if isinstance(medhistory, MedHistoryTypes):
                     # pop the medhistory from the list
-                    medhistorytypes.remove(medhistory)
+                    try:
+                        medhistorytypes.remove(medhistory)
+                    except ValueError as e:
+                        if medhistory == MedHistoryTypes.GOUT:
+                            raise ValueError("You don't need to put Gout in the medhistorys list.") from e
+                        else:
+                            raise e
                     new_mh = MedHistoryFactory(user=psp, medhistorytype=medhistory)
                     setattr(psp, medhistory, new_mh)
                     if medhistory == MedHistoryTypes.CKD and (

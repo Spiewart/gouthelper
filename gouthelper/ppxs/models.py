@@ -92,7 +92,7 @@ class Ppx(
         else:
             return labs_urates_months_at_goal(
                 urates=self.get_dated_urates(),
-                goutdetail=self.goutdetail if self.goutdetail else None,  # type: ignore
+                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
                 goal_urate=self.goalurate,
                 commit=False,
             )
@@ -107,7 +107,7 @@ class Ppx(
     def flaring(self) -> bool | None:
         """Method that returns Gout MedHistory object's GoutDetail object's flaring
         attribute."""
-        return self.goutdetail.flaring if self.goutdetail else None
+        return self.goutdetail.flaring if self.goutdetail else None  # pylint: disable=W0125, E1101
 
     def get_absolute_url(self):
         if self.user:
@@ -129,7 +129,7 @@ class Ppx(
     def hyperuricemic(self) -> bool | None:
         """Method that returns Gout MedHistory object's GoutDetail object's hyperuricemic
         attribute."""
-        return self.goutdetail.hyperuricemic if self.goutdetail else None
+        return self.goutdetail.hyperuricemic if self.goutdetail else None  # pylint: disable=W0125, E1101
 
     @cached_property
     def indicated(self) -> bool:
@@ -142,14 +142,14 @@ class Ppx(
         if hasattr(self, "urates_qs"):
             return labs_urates_last_at_goal(
                 urates=self.urates_qs,
-                goutdetail=self.goutdetail if self.goutdetail else None,
+                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
                 goal_urate=self.goalurate,
                 commit=False,
             )
         else:
             return labs_urates_last_at_goal(
                 urates=dated_urates(self.urate_set).all(),
-                goutdetail=self.goutdetail if self.goutdetail else None,
+                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
                 goal_urate=self.goalurate,
                 commit=False,
             )
@@ -158,13 +158,13 @@ class Ppx(
     def on_ppx(self) -> bool:
         """Method that returns Gout MedHistory object's GoutDetail object's on_ppx
         attribute."""
-        return self.goutdetail.on_ppx if self.goutdetail else False
+        return self.goutdetail.on_ppx if self.goutdetail else False  # pylint: disable=W0125, E1101
 
     @cached_property
     def on_ult(self) -> bool:
         """Method that returns Gout MedHistory object's GoutDetail object's on_ult
         attribute."""
-        return self.goutdetail.on_ult if self.goutdetail else False
+        return self.goutdetail.on_ult if self.goutdetail else False  # pylint: disable=W0125, E1101
 
     @cached_property
     def recent_urate(self) -> bool:
@@ -225,7 +225,7 @@ class Ppx(
             else:
                 qs = Ppx.related_objects.filter(pk=self.pk)
         decisionaid = PpxDecisionAid(qs=qs)
-        return decisionaid._update()
+        return decisionaid._update()  # pylint: disable=W0212
 
     @cached_property
     def urates_discrepant(self) -> bool:
@@ -238,7 +238,7 @@ class Ppx(
             discrepant (i.e. hyperuricemic is True but the last urate was at goal),
             False if not.
         """
-        if self.goutdetail:  # type: ignore
+        if self.goutdetail:  # pylint: disable=W0125
             if hasattr(self, "urates_qs"):
                 if self.urates_qs:
                     return ppxs_check_urate_hyperuricemic_discrepant(

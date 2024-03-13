@@ -9,9 +9,10 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
+from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import GoalUrates
-from .selectors import goalurate_user_qs, goalurate_userless_qs
+from .managers import GoalUrateManager
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -73,6 +74,9 @@ class GoalUrate(
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
+    objects = models.Manager()
+    related_objects = GoalUrateManager()
+
     def __str__(self):
         if self.user:
             gu_str = f"{self.user}'s "
@@ -98,9 +102,9 @@ class GoalUrate(
         depending on whether or not tophi or erosions are present."""
         if not qs:
             if self.user:
-                qs = goalurate_user_qs(self.user.username).get()
+                qs = Pseudopatient.objects.goalurate_qs().get(username=self.user.username)
             else:
-                qs = goalurate_userless_qs(self.pk).get()
+                qs = GoalUrate.related_objects.get(pk=self.pk)
         updated = False
         if qs.medhistorys_qs and self.goal_urate != GoalUrates.FIVE:
             self.goal_urate = GoalUrates.FIVE

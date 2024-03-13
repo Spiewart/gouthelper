@@ -9,9 +9,16 @@ from ...defaults.tests.factories import (
 )
 from ...flareaids.models import FlareAid
 from ...flareaids.tests.factories import create_flareaid
+from ...flares.models import Flare
+from ...flares.tests.factories import create_flare
+from ...goalurates.models import GoalUrate
 from ...goalurates.tests.factories import create_goalurate
+from ...labs.models import Urate
+from ...medhistorydetails.models import GoutDetail
 from ...ppxaids.models import PpxAid
 from ...ppxaids.tests.factories import create_ppxaid
+from ...ppxs.models import Ppx
+from ...ppxs.tests.factories import create_ppx
 from ...ultaids.models import UltAid
 from ...ultaids.tests.factories import create_ultaid
 from ...ults.models import Ult
@@ -33,15 +40,21 @@ class TestPseudopatientManager(TestCase):
             if fake.boolean():
                 DefaultFlareTrtSettingsFactory(user=psp)
             if fake.boolean():
+                create_flare(user=psp)
+                if fake.boolean():
+                    create_flare(user=psp)
+            if fake.boolean():
+                create_goalurate(user=psp)
+            if fake.boolean():
                 create_ppxaid(user=psp)
             if fake.boolean():
                 DefaultPpxTrtSettingsFactory(user=psp)
             if fake.boolean():
+                create_ppx(user=psp)
+            if fake.boolean():
                 create_ultaid(user=psp)
             if fake.boolean():
                 DefaultUltTrtSettingsFactory(user=psp)
-            if fake.boolean():
-                create_goalurate(user=psp)
             if fake.boolean():
                 create_ult(user=psp)
 
@@ -62,6 +75,34 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medhistorys_qs"))
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
+    def test__flares_qs(self):
+        with self.assertNumQueries(3):
+            for psp in Pseudopatient.objects.flares_qs().all():
+                self.assertTrue(hasattr(psp, "flares_qs"))
+                self.assertTrue(psp.dateofbirth)
+                self.assertTrue(psp.gender)
+                self.assertTrue(hasattr(psp, "medhistorys_qs"))
+                for flare in psp.flares_qs:
+                    self.assertTrue(isinstance(flare, Flare))
+                    if flare.urate:
+                        self.assertTrue(isinstance(flare.urate, Urate))
+        for psp in Pseudopatient.objects.flares_qs().all():
+            if psp.flares_qs and len(psp.flares_qs) <= 1:
+                with self.assertNumQueries(3):
+                    psp_flare_qs = Pseudopatient.objects.flares_qs(flare_pk=psp.flares_qs[0].pk).get(pk=psp.pk)
+                    self.assertTrue(isinstance(psp_flare_qs, Pseudopatient))
+                    self.assertTrue(hasattr(psp_flare_qs, "flare_qs"))
+                    self.assertEqual(psp_flare_qs.flare_qs[0], psp.flares_qs[0])
+
+    def test__goalurate_qs(self):
+        with self.assertNumQueries(2):
+            for psp in Pseudopatient.objects.goalurate_qs().filter(goalurate__isnull=False):
+                self.assertTrue(hasattr(psp, "goalurate"))
+                self.assertTrue(isinstance(psp.goalurate, GoalUrate))
+                self.assertTrue(hasattr(psp, "medhistorys_qs"))
+                for mh in psp.medhistorys_qs:
+                    self.assertTrue(mh.medhistorytype in GoalUrate.aid_medhistorys())
+
     def test__ppxaid_qs(self):
         with self.assertNumQueries(3):
             for psp in Pseudopatient.objects.ppxaid_qs().all():
@@ -78,6 +119,22 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(psp.gender)
                     self.assertTrue(hasattr(psp, "medhistorys_qs"))
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
+
+    def test__ppx_qs(self):
+        for psp in Pseudopatient.objects.ppx_qs().filter(ppx__isnull=False).all():
+            with self.assertNumQueries(3):
+                self.assertTrue(psp.ppx)
+                self.assertTrue(isinstance(psp.ppx, Ppx))
+                self.assertTrue(psp.dateofbirth)
+                self.assertTrue(psp.ethnicity)
+                self.assertTrue(psp.gender)
+                self.assertTrue(hasattr(psp, "medhistorys_qs"))
+                self.assertTrue(hasattr(psp, "goutdetail"))
+                self.assertTrue(isinstance(psp.goutdetail, GoutDetail))
+                self.assertTrue(hasattr(psp, "urates_qs"))
+                for urate in psp.urates_qs:
+                    self.assertTrue(isinstance(urate, Urate))
+                    self.assertEqual(urate.user, psp)
 
     def test__ultaid_qs(self):
         with self.assertNumQueries(3):

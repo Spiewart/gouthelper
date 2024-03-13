@@ -12,10 +12,10 @@ from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, Treatments
+from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from ..utils.services import aids_json_to_trt_dict, aids_options
 from .managers import FlareAidManager
-from .selectors import flareaid_user_qs, flareaid_userless_qs
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
@@ -168,8 +168,8 @@ class FlareAid(
             FlareAid: FlareAid object."""
         if qs is None:
             if self.user:
-                qs = flareaid_user_qs(username=self.user.username)
+                qs = Pseudopatient.objects.flareaid_qs().filter(username=self.user.username)
             else:
-                qs = flareaid_userless_qs(pk=self.pk)
+                qs = FlareAid.related_objects.filter(pk=self.pk)
         decisionaid = FlareAidDecisionAid(qs=qs)
         return decisionaid._update()

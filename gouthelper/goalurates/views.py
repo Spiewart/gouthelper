@@ -14,10 +14,10 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
 from ..ultaids.models import UltAid
+from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
-from .selectors import goalurate_user_qs, goalurate_userless_qs
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
@@ -172,7 +172,7 @@ class GoalUrateDetail(GoalUrateDetailBase):
         return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return goalurate_userless_qs(self.kwargs["pk"])
+        return GoalUrate.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class GoalUratePatientBase(GoalUrateBase):
@@ -186,7 +186,7 @@ class GoalUratePatientBase(GoalUrateBase):
     req_otos = []
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
-        return goalurate_user_qs(username=username)
+        return Pseudopatient.objects.goalurate_qs().filter(username=username)
 
 
 class GoalUratePseudopatientCreate(
@@ -288,7 +288,7 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
         return goalurate
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return goalurate_user_qs(self.kwargs["username"])
+        return Pseudopatient.objects.goalurate_qs().filter(username=self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> GoalUrate:
         """Gets the GoalUrate, sets the user attr, and also transfers the user's
@@ -374,7 +374,7 @@ class GoalUrateUpdate(GoalUrateBase, GoutHelperAidMixin, AutoPermissionRequiredM
         return self.object
 
     def get_queryset(self):
-        return goalurate_userless_qs(self.kwargs["pk"])
+        return GoalUrate.related_objects.filter(pk=self.kwargs["pk"])
 
     def get_template_names(self) -> list[str]:
         if self.request.htmx:

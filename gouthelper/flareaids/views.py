@@ -59,10 +59,10 @@ from ..medhistorys.models import (
     Stroke,
 )
 from ..treatments.choices import FlarePpxChoices
+from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidMixin
 from .forms import FlareAidForm
 from .models import FlareAid
-from .selectors import flareaid_user_qs, flareaid_userless_qs
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
@@ -207,7 +207,7 @@ class FlareAidDetail(FlareAidDetailBase):
         return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return flareaid_userless_qs(self.kwargs["pk"])
+        return FlareAid.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class FlareAidPatientBase(FlareAidBase):
@@ -220,7 +220,7 @@ class FlareAidPatientBase(FlareAidBase):
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return flareaid_user_qs(username=username)
+        return Pseudopatient.objects.flareaid_qs().filter(username=username)
 
 
 class FlareAidPseudopatientCreate(
@@ -324,7 +324,7 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         return flareaid
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return flareaid_user_qs(self.kwargs["username"])
+        return Pseudopatient.objects.flareaid_qs().filter(username=self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> FlareAid:
         self.user: "User" = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore
@@ -393,7 +393,7 @@ class FlareAidUpdate(FlareAidBase, GoutHelperAidMixin, AutoPermissionRequiredMix
     success_message = "FlareAid successfully updated."
 
     def get_queryset(self):
-        return flareaid_userless_qs(self.kwargs["pk"])
+        return FlareAid.related_objects.filter(pk=self.kwargs["pk"])
 
     def get_permission_object(self):
         return self.object

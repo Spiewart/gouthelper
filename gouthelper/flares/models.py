@@ -30,7 +30,6 @@ from .helpers import (
     flares_uncommon_joints,
 )
 from .managers import FlareManager
-from .selectors import flare_userless_qs
 from .services import FlareDecisionAid
 
 if TYPE_CHECKING:
@@ -381,8 +380,8 @@ monosodium urate crystals on polarized microscopy?"
         returns: [Flare]: [Flare object]"""
         if qs is None:
             if self.user:
-                qs = Pseudopatient.flares_qs(flare_pk=self.pk)
+                qs = Pseudopatient.objects.flares_qs(flare_pk=self.pk).get()
             else:
-                qs = flare_userless_qs(pk=self.pk)
+                qs = Flare.related_objects.get(pk=self.pk)
         decisionaid = FlareDecisionAid(qs=qs)
         return decisionaid._update()  # pylint: disable=W0212

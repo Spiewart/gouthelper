@@ -235,9 +235,9 @@ class FlarePatientBase(FlareBase):
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
             username=username
-        )  # pylint:disable=E1101
+        )
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):

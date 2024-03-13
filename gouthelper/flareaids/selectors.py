@@ -55,10 +55,7 @@ def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return flareaid_relations(qs).select_related(
-        "flareaid",
-        "defaultflaretrtsettings",
-    )
+    return flareaid_relations(qs).select_related("flareaid", "defaultflaretrtsettings", "pseudopatientprofile")
 
 
 def flareaid_userless_qs(pk: "UUID") -> "QuerySet":

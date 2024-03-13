@@ -132,7 +132,7 @@ def create_flareaid(
     return CreateFlareAid(
         mas=mas,
         mhs=mhs,
-        mh_dets=[MedHistoryTypes.CKD],
+        mh_dets={MedHistoryTypes.CKD: {}},
         otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_otos=["dateofbirth"],
         user=user,

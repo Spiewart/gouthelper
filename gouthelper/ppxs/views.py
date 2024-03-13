@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Literal  # pylint: disable=e0401, e0015 # type: ignore
+from typing import TYPE_CHECKING, Any, Literal  # pylint: disable=E0401, E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
 from django.contrib import messages  # pylint: disable=e0401 # pylint: disable=e0401 # type: ignore
@@ -26,10 +26,10 @@ from ..medhistorydetails.forms import GoutDetailPpxForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
+from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidMixin
 from .forms import PpxForm
 from .models import Ppx
-from .selectors import ppx_user_qs, ppx_userless_qs
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
@@ -165,7 +165,7 @@ class PpxDetail(PpxDetailBase):
         return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return ppx_userless_qs(self.kwargs["pk"])
+        return Ppx.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class PpxPatientBase(PpxBase):
@@ -175,7 +175,7 @@ class PpxPatientBase(PpxBase):
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return ppx_user_qs(username=username)
+        return Pseudopatient.objects.ppx_qs().filter(username=username)
 
     @cached_property
     def urate_formset_qs(self):
@@ -275,7 +275,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
         return ppx
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return ppx_user_qs(self.kwargs["username"])
+        return Pseudopatient.objects.ppx_qs().filter(username=self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> Ppx:
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201
@@ -355,7 +355,7 @@ class PpxUpdate(PpxBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, Update
         return self.object
 
     def get_queryset(self):
-        return ppx_userless_qs(self.kwargs["pk"])
+        return Ppx.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
         (

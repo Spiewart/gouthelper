@@ -12,7 +12,7 @@ pytestmark = pytest.mark.django_db
 
 class TestGoalUrateUserlessQuerySet(TestCase):
     def setUp(self):
-        self.goalurate = create_goalurate(medhistorys=[*GOALURATE_MEDHISTORYS])
+        self.goalurate = create_goalurate(mhs=[*GOALURATE_MEDHISTORYS])
 
     def test_goalurate_userless_qs(self):
         """Test that the goalurate_userless_qs returns a queryset."""
@@ -28,7 +28,7 @@ class TestGoalUrateUserlessQuerySet(TestCase):
 
 class TestGoalUrateUserQuerySet(TestCase):
     def setUp(self):
-        self.user_goalurate = create_goalurate(medhistorys=[*GOALURATE_MEDHISTORYS], user=True)
+        self.user_goalurate = create_goalurate(mhs=[*GOALURATE_MEDHISTORYS], user=True)
 
     def test_goalurate_user_qs(self):
         """Test that the goalurate_user_qs returns a queryset."""
