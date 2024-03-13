@@ -28,9 +28,8 @@ from ...medhistorys.tests.factories import (
     StrokeFactory,
 )
 from ...users.models import Pseudopatient
-from ...users.tests.factories import PseudopatientPlusFactory
 from ..models import Flare
-from ..selectors import flare_user_qs, flare_userless_qs, user_flares
+from ..selectors import flare_userless_qs, flares_user_qs
 from .factories import create_flare
 
 pytestmark = pytest.mark.django_db
@@ -41,7 +40,7 @@ class TestFlareUserlessQuerySet(TestCase):
         self.ckd = CkdFactory()
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))
         self.dateofbirth = DateOfBirthFactory()
-        self.gender = GenderFactory()
+        self.gender = GenderFactory(value=Genders.FEMALE)
         self.ckddetail = CkdDetailFactory(
             medhistory=self.ckd,
             stage=labs_stage_calculator(
@@ -81,7 +80,6 @@ class TestFlareUserlessQuerySet(TestCase):
             dateofbirth=self.dateofbirth,
             gender=self.gender,
             urate=self.urate,
-            menopause=False,
         )
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
@@ -126,18 +124,18 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertIsNone(queryset.urate)
 
 
-class TestFlareUserQuerySet(TestCase):
+class TestFlaresUserQuerySet(TestCase):
     def setUp(self):
         self.psps = []
         for _ in range(5):
             flare = create_flare(user=True)
             self.psps.append(flare.user)
 
-    def test__queryset_returns_correctly(self):
-        """Test that the flare_user_qs() returns the correct QuerySet"""
+    def test__queryset_returns_correctly_with_pk(self):
+        """Test that the flares_user_qs() returns the correct QuerySet"""
         for psp in self.psps:
             with CaptureQueriesContext(connection) as queries:
-                qs = flare_user_qs(psp.username, psp.flare_set.last().pk).get()
+                qs = flares_user_qs(psp.username, psp.flare_set.last().pk).get()
             self.assertEqual(len(queries.captured_queries), 4)
             self.assertEqual(qs.flare_set.get(), psp.flare_set.last())
             self.assertEqual(qs.dateofbirth, psp.dateofbirth)
@@ -148,39 +146,17 @@ class TestFlareUserQuerySet(TestCase):
                 if mh in FLARE_MEDHISTORYS:
                     self.assertIn(mh, qs.medhistorys_qs)
 
-
-class TestUserFlaresQuerySet(TestCase):
-    """Test the user_flares() selector method."""
-
-    def setUp(self):
-        self.psp = PseudopatientPlusFactory()
-        for _ in range(5):
-            create_flare(user=self.psp)
-        self.empty_psp = PseudopatientPlusFactory()
-
-    def test__qs(self):
+    def test__queryset_returns_correctly_without_pk(self):
         """Test that the queryset returns the correct objects and
         number of queries."""
-        with CaptureQueriesContext(connection) as queries:
-            qs = user_flares(self.psp.username)
-            self.assertTrue(isinstance(qs, QuerySet))
-            qs = qs.get()
-        self.assertEqual(len(queries.captured_queries), 2)
-        self.assertTrue(isinstance(qs, Pseudopatient))
-        self.assertEqual(qs, self.psp)
-        self.assertTrue(hasattr(qs, "flares_qs"))
-        psp_flares = Flare.objects.filter(user=self.psp).all()
-        for flare in psp_flares:
-            assert flare in qs.flares_qs
-        for flare in qs.flares_qs:
-            assert flare in psp_flares
-        # Repeat for the empty Pseudopatient
-        with CaptureQueriesContext(connection) as queries:
-            qs = user_flares(self.empty_psp.username)
-            self.assertTrue(isinstance(qs, QuerySet))
-            qs = qs.get()
-        self.assertEqual(len(queries.captured_queries), 2)
-        self.assertTrue(isinstance(qs, Pseudopatient))
-        self.assertEqual(qs, self.empty_psp)
-        self.assertTrue(hasattr(qs, "flares_qs"))
-        self.assertFalse(getattr(qs, "flares_qs"))
+        for psp in Pseudopatient.objects.flares_qs().all():
+            with self.assertNumQueries(3):
+                qs = flares_user_qs(psp.username).get()
+                self.assertTrue(isinstance(qs, Pseudopatient))
+                self.assertTrue(getattr(qs, "dateofbirth", None))
+                self.assertTrue(getattr(qs, "gender", None))
+                self.assertTrue(hasattr(qs, "flares_qs"))
+                for flare in qs.flares_qs:
+                    self.assertTrue(isinstance(flare, Flare))
+                    self.assertIsNone(getattr(flare, "dateofbirth", None))
+                    self.assertIsNone(getattr(flare, "gender", None))

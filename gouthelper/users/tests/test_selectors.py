@@ -39,6 +39,7 @@ class TestPseudopatientQuerySet(TestCase):
             assert self.pseudopatient.ckd in qs.medhistorys_qs
             assert self.pseudopatient.gout in qs.medhistorys_qs
             assert self.pseudopatient.heartattack in qs.medhistorys_qs
+
         with CaptureQueriesContext(connection) as queries:
             assert qs.ckd.ckddetail == self.ckddetail
             assert qs.gout.goutdetail == self.goutdetail

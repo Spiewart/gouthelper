@@ -2,12 +2,12 @@ from decimal import Decimal
 
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
-from django.db.models import Q
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
@@ -19,7 +19,7 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
 from ..choices import Likelihoods, Prevalences
-from ..selectors import flare_user_qs, flare_userless_qs
+from ..selectors import flare_userless_qs, flares_user_qs
 from ..services import FlareDecisionAid
 from .factories import create_flare
 
@@ -52,7 +52,7 @@ class TestFlareMethods(TestCase):
         )
         self.flare_userless = create_flare(
             dateofbirth=self.userless_dateofbirth,
-            gender=self.userless_gender,
+            gender=Genders.FEMALE,
             urate=self.userless_urate,
             mhs=[
                 MedHistoryTypes.ANGINA,
@@ -71,7 +71,7 @@ class TestFlareMethods(TestCase):
         self.assertEqual(decisionaid.flare, self.flare_userless)
         self.assertEqual(decisionaid.dateofbirth, self.flare_userless.dateofbirth)
         self.assertEqual(age_calc(self.flare_userless.dateofbirth.value), decisionaid.age)
-        self.assertEqual(self.userless_gender, decisionaid.gender)
+        self.assertEqual(Genders.FEMALE, decisionaid.gender.value)
         flare_mhs = self.flare_userless.medhistory_set.all()
         for medhistory in flare_mhs:
             self.assertIn(medhistory, decisionaid.medhistorys)
@@ -83,39 +83,40 @@ class TestFlareMethods(TestCase):
         self.assertEqual(decisionaid.menopause, medhistorys_get(flare_mhs, MedHistoryTypes.MENOPAUSE))
 
     def test__init__with_user(self):
-        for psp in Pseudopatient.objects.filter(Q(flare__isnull=False)):
-            flare = psp.flare_set.last()
-            with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareDecisionAid(qs=flare_user_qs(username=psp.username))
-            self.assertEqual(len(context.captured_queries), 2)
-            self.assertEqual(decisionaid.flare, flare)
-            self.assertEqual(decisionaid.dateofbirth, psp.dateofbirth)
-            self.assertIsNone(decisionaid.flare.dateofbirth)
-            self.assertEqual(age_calc(psp.dateofbirth.value), decisionaid.age)
-            self.assertEqual(decisionaid.gender, psp.gender)
-            for mh in psp.medhistory_set.all():
-                if mh in FLARE_MEDHISTORYS:
-                    self.assertIn(mh, decisionaid.medhistorys)
-            urate = psp.urate_set.last()
-            self.assertEqual(decisionaid.urate, urate)
-            self.assertEqual(decisionaid.baselinecreatinine, psp.baselinecreatinine)
-            self.assertEqual(decisionaid.ckddetail, psp.ckddetail)
-            self.assertEqual(decisionaid.ckd, psp.ckd)
-            self.assertEqual(decisionaid.gout, psp.gout)
-            self.assertEqual(decisionaid.menopause, psp.menopause)
-            self.assertEqual(decisionaid.cvdiseases, psp.cvdiseases)
+        for psp in Pseudopatient.objects.flares_qs().all():
+            if psp.flares_qs:
+                psp.flare_qs = psp.flares[0]
+                with CaptureQueriesContext(connection) as context:
+                    decisionaid = FlareDecisionAid(qs=psp)
+                self.assertEqual(len(context.captured_queries), 2)
+                self.assertEqual(decisionaid.flare, psp.flare)
+                self.assertEqual(decisionaid.dateofbirth, psp.dateofbirth)
+                self.assertIsNone(decisionaid.flare.dateofbirth)
+                self.assertEqual(age_calc(psp.dateofbirth.value), decisionaid.age)
+                self.assertEqual(decisionaid.gender, psp.gender)
+                for mh in psp.medhistory_set.all():
+                    if mh in FLARE_MEDHISTORYS:
+                        self.assertIn(mh, decisionaid.medhistorys)
+                urate = psp.urate_set.last()
+                self.assertEqual(decisionaid.urate, urate)
+                self.assertEqual(decisionaid.baselinecreatinine, psp.baselinecreatinine)
+                self.assertEqual(decisionaid.ckddetail, psp.ckddetail)
+                self.assertEqual(decisionaid.ckd, psp.ckd)
+                self.assertEqual(decisionaid.gout, psp.gout)
+                self.assertEqual(decisionaid.menopause, psp.menopause)
+                self.assertEqual(decisionaid.cvdiseases, psp.cvdiseases)
 
     def test__init__with_flare_with_user(self):
         """Test that the __init__method removes dateofbirth and gender from the Flare
         object when it has a user to avoid saving a Flare to the database with either of
         these fields an a user, which will raise an IntegrityError."""
-        user = Pseudopatient.objects.first()
+        user = Pseudopatient.objects.flares_qs().first()
         flare = create_flare(user=user)
         self.assertIsNone(flare.dateofbirth)
         self.assertIsNone(flare.gender)
         flare.dateofbirth = flare.user.dateofbirth
         flare.gender = flare.user.gender
-        decisionaid = FlareDecisionAid(qs=flare_user_qs(username=flare.user.username, flare_pk=flare.pk))
+        decisionaid = FlareDecisionAid(qs=flares_user_qs(username=flare.user.username, flare_pk=flare.pk))
         self.assertIsNone(decisionaid.flare.dateofbirth)
         self.assertIsNone(decisionaid.flare.gender)
         self.assertEqual(decisionaid.dateofbirth, flare.user.dateofbirth)

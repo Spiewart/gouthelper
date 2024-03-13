@@ -62,7 +62,7 @@ ModStages.remove(None)
 
 
 def create_medhistory_atomic(
-    medhistory: MedHistoryTypes,
+    medhistorytype: MedHistoryTypes,
     user: User | None = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
     aid_obj_attr: str | None = None,
@@ -73,7 +73,7 @@ def create_medhistory_atomic(
     with transaction.atomic():
         try:
             return MedHistoryFactory(
-                medhistorytype=medhistory,
+                medhistorytype=medhistorytype,
                 user=user,
                 **{aid_obj_attr: aid_obj} if not user else {},
             )

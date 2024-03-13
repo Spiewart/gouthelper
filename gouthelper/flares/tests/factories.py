@@ -6,8 +6,6 @@ import factory  # pylint: disable=E0401  # type: ignore
 import factory.fuzzy  # pylint: disable=E0401  # type: ignore
 import pytest  # pylint: disable=E0401  # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
-from django.db import transaction  # pylint: disable=E0401  # type: ignore
-from django.db.utils import IntegrityError  # pylint: disable=E0401  # type: ignore
 from django.utils import timezone  # pylint: disable=E0401  # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=E0401  # type: ignore
 from factory.faker import faker  # pylint: disable=E0401  # type: ignore
@@ -21,12 +19,13 @@ from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...medhistorys.tests.factories import MedHistoryFactory
+from ...medhistorys.models import MedHistory
 from ...utils.factories import (
     MedHistoryCreatorMixin,
     MedHistoryDataMixin,
     OneToOneCreatorMixin,
     OneToOneDataMixin,
+    create_medhistory_atomic,
     create_or_append_mhs_qs,
     get_menopause_val,
 )
@@ -58,19 +57,13 @@ def flare_data_factory(
     otos: dict[str:Any] | None = None,
 ) -> dict[str, str]:
     data = CreateFlareData(
-        aid_mas=None,
         aid_mhs=FLARE_MEDHISTORYS,
-        aid_labs=None,
-        mas=None,
         mhs=mhs,
         bool_mhs=[
             MedHistoryTypes.CKD,
             MedHistoryTypes.GOUT,
             MedHistoryTypes.MENOPAUSE,
         ],
-        req_mhs=None,
-        aid_mh_dets=None,
-        mh_dets=None,
         aid_otos=["dateofbirth", "gender", "urate"],
         otos=otos,
         req_otos=["dateofbirth", "gender"],
@@ -134,6 +127,28 @@ def get_random_joints():
     )
 
 
+def check_menopause_gender(gender: Genders) -> bool:
+    if gender == Genders.MALE:
+        raise ValueError("Men cannot have a menopause MedHistory")
+
+
+def get_menopause_from_list_of_mhs(mhs: list[MedHistory, MedHistoryTypes] | None) -> MedHistory | None:
+    return next(
+        iter(
+            [
+                mh
+                for mh in mhs
+                if isinstance(mh, MedHistoryTypes)
+                and mh == MedHistoryTypes.MENOPAUSE
+                or isinstance(mh, MedHistory)
+                and mh.medhistorytype == MedHistoryTypes.MENOPAUSE
+                if mhs
+            ]
+        ),
+        None,
+    )
+
+
 class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
     """Inherits from Mixins to create OneToOne and MedHistory objects for a Flare."""
 
@@ -175,32 +190,24 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         # Process menopause here
         age = age_calc(flare.dateofbirth.value if not flare.user else flare.user.dateofbirth.value)
         gender = flare.gender.value if not flare.user else flare.user.gender.value
-        menopause = get_menopause_val(age=age, gender=gender)
-        if menopause and menopause_kwarg is not False:
-            with transaction.atomic():
-                try:
-                    create_or_append_mhs_qs(
-                        flare,
-                        MedHistoryFactory.create(
-                            medhistorytype=MedHistoryTypes.MENOPAUSE,
-                            flare=flare if not flare.user else None,
-                            user=flare.user,
-                        ),
-                    )
-                except IntegrityError:
-                    pass
-        elif menopause_kwarg:
-            if gender == Genders.FEMALE:
-                create_or_append_mhs_qs(
-                    flare,
-                    MedHistoryFactory.create(
-                        medhistorytype=MedHistoryTypes.MENOPAUSE,
-                        flare=flare if not flare.user else None,
-                        user=flare.user,
-                    ),
-                )
-            else:
-                raise ValueError("Men cannot have a menopause MedHistory.")
+        menopause_mh = get_menopause_from_list_of_mhs(self.mhs) if mhs_specified else None
+        if menopause_mh and isinstance(menopause_mh, MedHistory):
+            check_menopause_gender(gender=gender)
+            if menopause_mh.flare != flare:
+                menopause_mh.flare = flare
+                menopause_mh.save()
+            create_or_append_mhs_qs(flare, menopause_mh)
+        elif (
+            (menopause_mh or get_menopause_val(age=age, gender=gender)) and menopause_kwarg is not False
+        ) or menopause_kwarg:
+            check_menopause_gender(gender=gender)
+            menopause = create_medhistory_atomic(
+                medhistorytype=MedHistoryTypes.MENOPAUSE,
+                user=self.user,
+                aid_obj=flare,
+                aid_obj_attr="flare",
+            )
+            create_or_append_mhs_qs(flare, menopause)
         # Create the MedHistorys related to the Flare
         self.create_mhs(flare, specified=mhs_specified)
         # Return the Flare

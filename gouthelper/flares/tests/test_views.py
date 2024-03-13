@@ -46,7 +46,7 @@ from ...utils.forms import forms_print_response_errors
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
-from ..selectors import flare_user_qs, user_flares
+from ..selectors import flares_user_qs
 from ..views import (
     FlareAbout,
     FlareBase,
@@ -1232,7 +1232,7 @@ class TestFlarePseudopatientDetail(TestCase):
         assert not getattr(flare, "dateofbirth")
         assert not getattr(flare, "gender")
         assert not hasattr(flare, "medhistorys_qs")
-        view.assign_flare_attrs_from_user(flare=flare, user=flare_user_qs(self.psp.username, flare.pk).get())
+        view.assign_flare_attrs_from_user(flare=flare, user=flares_user_qs(self.psp.username, flare.pk).get())
         assert getattr(flare, "dateofbirth") == self.psp.dateofbirth
         assert getattr(flare, "gender") == self.psp.gender
         assert hasattr(flare, "medhistorys_qs")
@@ -1361,7 +1361,7 @@ class TestFlarePseudopatientDetail(TestCase):
             diagnosed=False,
             urate=None,
         )
-        flare.update_aid(qs=flare_user_qs(psp.username, flare.pk))
+        flare.update_aid(qs=flares_user_qs(psp.username, flare.pk))
         flare.refresh_from_db()
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
         self.assertEqual(flare.prevalence, Prevalences.LOW)
@@ -1493,7 +1493,7 @@ class TestFlarePseudopatientList(TestCase):
         # Create a view
         view = self.view()
         # Set the user with the qs so that the related queries are populated on the user
-        view.user = user_flares(self.psp.username).get()
+        view.user = flares_user_qs(self.psp.username).get()
         kwargs = {"username": self.psp.username}
         # Setup the view
         view.setup(request, **kwargs)
@@ -1514,12 +1514,12 @@ class TestFlarePseudopatientList(TestCase):
         # Create a view
         view = self.view()
         # Set the user with the qs so that the related queries are populated on the user
-        view.user = user_flares(self.psp.username).get()
+        view.user = flares_user_qs(self.psp.username).get()
         kwargs = {"username": self.psp.username}
         # Setup the view
         view.setup(request, **kwargs)
         # Call the get_context_data() method
-        qs = user_flares(self.psp.username).get()
+        qs = flares_user_qs(self.psp.username).get()
         view.object_list = qs.flares_qs
         context = view.get_context_data(**kwargs)
         # Assert that the context has the correct keys
@@ -1941,7 +1941,6 @@ class TestFlarePseudopatientUpdate(TestCase):
             oto_2_save, oto_2_rem = view.post_process_oto_forms(
                 oto_forms=onetoone_forms,
                 req_otos=view.req_otos,
-                query_obj=user,
             )
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
             for onetoone in view.onetoones:

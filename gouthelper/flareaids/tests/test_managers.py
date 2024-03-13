@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-class TestUltAidManager(TestCase):
+class TestFlareAidManager(TestCase):
     def setUp(self):
         for _ in range(10):
             create_flareaid(user=create_psp() if fake.boolean() else None)

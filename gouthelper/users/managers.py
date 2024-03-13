@@ -1,11 +1,17 @@
+from typing import TYPE_CHECKING, Union
+
 from django.contrib.auth.base_user import BaseUserManager  # pylint:disable=E0401, E0013, E0015 # type: ignore
 
 from ..flareaids.selectors import flareaid_user_relations
+from ..flares.selectors import flare_user_relations
 from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
 from .choices import Roles
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 
 class AdminManager(BaseUserManager):
@@ -65,6 +71,9 @@ class PseudopatientManager(BaseUserManager):
 
     def flareaid_qs(self):
         return flareaid_user_relations(self.get_queryset())
+
+    def flares_qs(self, flare_pk: Union["UUID", None] = None):
+        return flare_user_relations(self.get_queryset(), **{"flare_pk": flare_pk} if flare_pk else {})
 
     def ppxaid_qs(self):
         return ppxaid_user_relations(self.get_queryset())

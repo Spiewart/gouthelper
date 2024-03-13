@@ -52,15 +52,19 @@ def flare_relations(qs: "QuerySet") -> "QuerySet":
 
 def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
     """QuerySet to fetch all the related objects for a Flare without the User."""
-    return qs.select_related(
+    return flare_relations(qs).select_related(
         "urate",
         "user",
     )
 
 
 def flare_user_relations(qs: "QuerySet", flare_pk: Union["UUID", None] = None) -> "QuerySet":
-    return qs.select_related("pseudopatientprofile").prefetch_related(
-        flares_prefetch(pk=flare_pk),
+    return (
+        flare_relations(qs)
+        .select_related("pseudopatientprofile")
+        .prefetch_related(
+            flares_prefetch(pk=flare_pk),
+        )
     )
 
 
@@ -68,7 +72,7 @@ def flare_userless_qs(pk: "UUID") -> "QuerySet":
     return flare_userless_relations(apps.get_model("flares.Flare").objects.filter(pk=pk))
 
 
-def flare_user_qs(username: str, flare_pk: Union["UUID"]) -> "QuerySet":
+def flares_user_qs(username: str, flare_pk: Union["UUID", None] = None) -> "QuerySet":
     """QuerySet for a Pseudopatient and all the necessary related objects to
     create or update a Flare. If a flare_pk is provided, the Flare object will
     be fetched and added to the QuerySet."""
@@ -77,9 +81,3 @@ def flare_user_qs(username: str, flare_pk: Union["UUID"]) -> "QuerySet":
         apps.get_model("users.Pseudopatient").objects.filter(username=username),
         flare_pk,
     )
-
-
-def user_flares(username: str) -> "QuerySet":
-    """QuerySet to fetch all the flares for a User
-    and return both the User and the Flares."""
-    return flare_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))

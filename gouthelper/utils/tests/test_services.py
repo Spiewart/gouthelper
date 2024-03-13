@@ -497,7 +497,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
             medhistorys=decisionaid.medhistorys,
             ckddetail=decisionaid.ckddetail,
             default_medhistorys=decisionaid.default_medhistorys,
-            defaulttrtsettings=decisionaid.defaulttrtsettings,  # pylint:disable=E1101 # type: ignore
+            defaulttrtsettings=decisionaid.defaultsettings,  # pylint:disable=E1101 # type: ignore
         )
         febu_dict = trt_dict[Treatments.FEBUXOSTAT]
         self.assertEqual(febu_dict["dose"], Decimal("40"))

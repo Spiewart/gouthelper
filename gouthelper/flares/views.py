@@ -45,7 +45,6 @@ from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidMixin
 from .forms import FlareForm
 from .models import Flare
-from .selectors import flare_user_qs, flare_userless_qs, user_flares
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
@@ -216,7 +215,7 @@ class FlareDetail(FlareDetailBase):
         return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return flare_userless_qs(self.kwargs["pk"])
+        return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class FlarePatientBase(FlareBase):
@@ -236,7 +235,9 @@ class FlarePatientBase(FlareBase):
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return flare_user_qs(username=username, flare_pk=self.kwargs.get("pk"))
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(
+            username=username
+        )  # pylint:disable=E1101
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):
@@ -263,7 +264,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
         return self.user
 
     def get_queryset(self):
-        return user_flares(username=self.kwargs["username"])
+        return Pseudopatient.objects.flares_qs().filter(username=self.kwargs["username"])
 
 
 class FlarePseudopatientCreate(
@@ -358,10 +359,7 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView):
         return reverse("flares:pseudopatient-list", kwargs={"username": self.object.user.username})
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return flare_user_qs(
-            username=self.kwargs["username"],
-            flare_pk=self.kwargs["pk"],
-        )
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(username=self.kwargs["username"])
 
 
 class FlarePseudopatientDetail(FlareDetailBase):
@@ -398,10 +396,7 @@ class FlarePseudopatientDetail(FlareDetailBase):
         return flare
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return flare_user_qs(
-            username=self.kwargs["username"],
-            flare_pk=self.kwargs["pk"],
-        )
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(username=self.kwargs["username"])
 
     def get_object(self, *args, **kwargs) -> Flare:
         try:
@@ -509,7 +504,7 @@ class FlareUpdate(FlareBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, Up
         return initial
 
     def get_queryset(self):
-        return flare_userless_qs(self.kwargs["pk"])
+        return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
         (

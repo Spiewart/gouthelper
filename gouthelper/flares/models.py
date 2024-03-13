@@ -18,6 +18,7 @@ from ..genders.choices import Genders
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
+from ..users.models import Pseudopatient
 from ..utils.helpers import calculate_duration, now_date
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import Likelihoods, LimitedJointChoices, Prevalences
@@ -28,7 +29,8 @@ from .helpers import (
     flares_get_likelihood_str,
     flares_uncommon_joints,
 )
-from .selectors import flare_user_qs, flare_userless_qs
+from .managers import FlareManager
+from .selectors import flare_userless_qs
 from .services import FlareDecisionAid
 
 if TYPE_CHECKING:
@@ -216,7 +218,9 @@ monosodium urate crystals on polarized microscopy?"
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
+
     objects = models.Manager()
+    related_objects = FlareManager()
 
     @cached_property
     def abnormal_duration(self) -> bool:
@@ -377,8 +381,8 @@ monosodium urate crystals on polarized microscopy?"
         returns: [Flare]: [Flare object]"""
         if qs is None:
             if self.user:
-                qs = flare_user_qs(username=self.user.username, flare_pk=self.pk)
+                qs = Pseudopatient.flares_qs(flare_pk=self.pk)
             else:
                 qs = flare_userless_qs(pk=self.pk)
         decisionaid = FlareDecisionAid(qs=qs)
-        return decisionaid._update()
+        return decisionaid._update()  # pylint: disable=W0212

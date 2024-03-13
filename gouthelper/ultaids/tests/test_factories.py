@@ -209,7 +209,10 @@ class TestUltAidDataFactory(TestCase):
             self.assertIn("ethnicity-value", data)
             self.assertEqual(data["ethnicity-value"], (self.ultaid_no_user.ethnicity.value))
             if data.get("gender-value", None):
-                self.assertEqual(data["gender-value"], self.ultaid_no_user.gender.value)
+                if self.ultaid_no_user.gender:
+                    self.assertEqual(data["gender-value"], self.ultaid_no_user.gender.value)
+                else:
+                    self.assertTrue(isinstance(data["gender-value"], int))
 
     def test__with_ultaid_with_medallergys_medhistorys(self):
         for _ in range(10):

@@ -699,9 +699,9 @@ class AidService:
             self.qs = qs
         model_attr = model.__name__.lower()
         model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
-        self.default_settings_class = getattr(model, "defaultsettings", None)()
+        self.default_settings_class = getattr(model, "defaultsettings", None)
         self.default_settings_attr = (
-            self.default_settings_class.__name__.lower() if self.default_settings_class else None
+            self.default_settings_class().__name__.lower() if self.default_settings_class else None
         )
         if isinstance(self.qs, model):
             setattr(self, model_attr, self.qs)
