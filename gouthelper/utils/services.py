@@ -10,11 +10,11 @@ from django.utils.functional import cached_property  # type: ignore  # pylint: d
 from ..dateofbirths.helpers import age_calc
 from ..defaults.helpers import defaults_treatments_create_dosing_dict
 from ..defaults.selectors import (
-    defaults_defaultflaretrtsettings,
     defaults_defaultmedhistorys_trttype,
-    defaults_defaultppxtrtsettings,
     defaults_defaulttrts_trttype,
-    defaults_defaultulttrtsettings,
+    defaults_flareaidsettings,
+    defaults_ppxaidsettings,
+    defaults_ultaidsettings,
 )
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ..medhistorydetails.choices import DialysisChoices, Stages
@@ -34,7 +34,7 @@ from .helpers import duration_decimal_parser
 
 if TYPE_CHECKING:
     from ..dateofbirths.models import DateOfBirth
-    from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
+    from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
     from ..ethnicitys.models import Ethnicity
     from ..flareaids.models import FlareAid
     from ..flares.models import Flare
@@ -106,7 +106,7 @@ def aids_assign_goutdetail(
 def aids_colchicine_ckd_contra(
     ckd: Union["Ckd", None],
     ckddetail: Union["CkdDetail", None],
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings"],
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings"],
 ) -> Contraindications | None:
     """Method that takes an Aid/User/Ultplan's Ckd and CkdDetail and determines
     whether or not colchicine should be contraindicated, dose-adjusted, or neither.
@@ -114,8 +114,8 @@ def aids_colchicine_ckd_contra(
     Args:
         ckd (Ckd): Ckd object.
         ckddetail (CkdDetail): CkdDetail object.
-        defaulttrtsettings (Union[DefaultFlareTrtSettings, DefaultPpxTrtSettings]): DefaultFlareTrtSettings or \
-DefaultPpxTrtSettings object.
+        defaulttrtsettings (Union[FlareAidSettings, PpxAidSettings]): FlareAidSettings or \
+PpxAidSettings object.
 
     Returns:
         Union[Contraindications, None]: Contraindications enum or None.
@@ -154,7 +154,7 @@ def aids_dict_to_json(aid_dict: dict) -> str:
 
 def aids_dose_adjust_allopurinol_ckd(
     trt_dict: dict,
-    defaulttrtsettings: "DefaultUltTrtSettings",
+    defaulttrtsettings: "UltAidSettings",
     dialysis: DialysisChoices | None,
     stage: Stages | None,
 ) -> dict:
@@ -170,7 +170,7 @@ def aids_dose_adjust_allopurinol_ckd(
 
     Args:
         trt_dict (dict): Dictionary of Treatments.
-        defaulttrtsettings (DefaultUltTrtSettings): DefaultUltTrtSettings object.
+        defaulttrtsettings (UltAidSettings): UltAidSettings object.
         dialysis (Union[DialysisChoices, None]): DialysisChoices enum or None.
         stage (Union[Literal[3], Literal[4], Literal[5], None]): CKD stage enum or None.
 
@@ -207,7 +207,7 @@ def aids_dose_adjust_allopurinol_ckd(
 def aids_dose_adjust_colchicine(
     trt_dict: dict,
     aid_type: TrtTypes,
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings"],
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings"],
 ) -> dict:
     """Method that takes a trt_dict and renally adjusts the dosing for Colchicine.
     Checks if the default_settings dictates the dose is adjusted or whether the frequency
@@ -216,7 +216,7 @@ def aids_dose_adjust_colchicine(
     Args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
         aid_type (trttypes): TrtTypes enum to determine how to set the Colchicine dosing.
-        defaulttrtsettings (Union[DefaultFlareTrtSettings, DefaultPpxTrtSettings]
+        defaulttrtsettings (Union[FlareAidSettings, PpxAidSettings]
 
     Returns:
         dict: {TrtTypes: {TrtInfo}} with colchicine dosing adjusted.
@@ -246,7 +246,7 @@ def aids_dose_adjust_colchicine(
 
 def aids_dose_adjust_febuxostat_ckd(
     trt_dict: dict,
-    defaulttrtsettings: "DefaultUltTrtSettings",
+    defaulttrtsettings: "UltAidSettings",
 ) -> dict:
     """Method that dose adjusts febuxostat for the presence of CKD.
 
@@ -256,7 +256,7 @@ def aids_dose_adjust_febuxostat_ckd(
 
     Args:
         trt_dict (dict): Dictionary of Treatments.
-        defaulttrtsettings (DefaultUltTrtSettings): DefaultUltTrtSettings object.
+        defaulttrtsettings (UltAidSettings): UltAidSettings object.
 
     Returns:
         dict: Dictionary of Treatments, potentially with dose adjustments.
@@ -269,16 +269,16 @@ def aids_dose_adjust_febuxostat_ckd(
 def aids_hlab5801_contra(
     hlab5801: Union["Hlab5801", None],
     ethnicity: Union["Ethnicity", None],
-    defaultulttrtsettings: "DefaultUltTrtSettings",
+    ultaidsettings: "UltAidSettings",
 ) -> bool:
-    """Method that takes optional Hlab5801, Ethnicity, and DefaultUltTrtSettings
+    """Method that takes optional Hlab5801, Ethnicity, and UltAidSettings
     objects and returns a bool indicating whether or not allopurinol should be
     contraindicated.
 
     Args:
         hlab5801 [optional]: Hlab5801 object
         ethnicity [optional]: Ethnicity object
-        defaultultrtsettings [optional]: DefaultUltTrtSettings object
+        defaultultrtsettings [optional]: UltAidSettings object
 
     Returns:
         bool: True if allopurinol should be contraindicated, False if not.
@@ -289,9 +289,9 @@ def aids_hlab5801_contra(
             ethnicity
             and (ethnicitys_hlab5801_risk(ethnicity=ethnicity))
             and not hlab5801
-            and not defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801
+            and not ultaidsettings.allo_risk_ethnicity_no_hlab5801
         )
-        or (not ethnicity and not hlab5801 and not defaultulttrtsettings.allo_no_ethnicity_no_hlab5801)
+        or (not ethnicity and not hlab5801 and not ultaidsettings.allo_no_ethnicity_no_hlab5801)
     ):
         return True
     return False
@@ -368,17 +368,17 @@ def aids_process_hlab5801(
     trt_dict: dict,
     hlab5801: Union["Hlab5801", None],
     ethnicity: Union["Ethnicity", None],
-    defaultulttrtsettings: "DefaultUltTrtSettings",
+    ultaidsettings: "UltAidSettings",
 ) -> dict:
     """Method that processes a Hlab5801, ethnicity for User/UltAid/Ultplan and
-    determines whether or not allopurinol is contraindicated per the DefaultUltTrtSettings.
+    determines whether or not allopurinol is contraindicated per the UltAidSettings.
     Modifies trt_dict required *arg and returns the modified dict.
 
     Args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
         hlab5801 (Hlab5801): Hlab5801 object.
         ethnicity (Ethnicity): Ethnicity object.
-        defaultulttrtsettings (DefaultUltTrtSettings): DefaultUltTrtSettings object.
+        ultaidsettings (UltAidSettings): UltAidSettings object.
 
     Returns:
         trt_dict (dict): {TrtTypes: {TrtInfo}} with Allopurinol contraindicated if True.
@@ -387,7 +387,7 @@ def aids_process_hlab5801(
     if aids_hlab5801_contra(
         hlab5801=hlab5801,
         ethnicity=ethnicity,
-        defaultulttrtsettings=defaultulttrtsettings,
+        ultaidsettings=ultaidsettings,
     ):
         if trt_dict[Treatments.ALLOPURINOL]["contra"] is False:
             trt_dict[Treatments.ALLOPURINOL]["contra"] = True
@@ -399,7 +399,7 @@ def aids_process_medhistorys(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
     ckddetail: Union["CkdDetail", None],
     default_medhistorys: "QuerySet",
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"],
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"],
 ) -> dict:
     """Method that takes a trt_dict, cross-references a QuerySet of MedHistorys
     and a queryset of DefaultMedHistorys, and adds MedHistorys and Contraindications to
@@ -412,8 +412,8 @@ def aids_process_medhistorys(
         medhistorys (QuerySet): QuerySet of MedHistory objects.
         ckddetail (CkdDetail or None): CkdDetail object or None
         default_medhistorys (QuerySet): QuerySet of DefaultMedHistory objects.
-        defaulttrtsettings (DefaultFlare/Ppx/UltTrtSettings): DefaultFlareTrtSettings or \
-DefaultPpxTrtSettings or DefaultUltTrtSettings object.
+        defaulttrtsettings (DefaultFlare/Ppx/UltTrtSettings): FlareAidSettings or \
+PpxAidSettings or UltAidSettings object.
 
     Returns:
         dict: {TrtTypes: {treatment dosing + "contra": True/False}}
@@ -533,7 +533,7 @@ def aids_process_medallergys(trt_dict: dict, medallergys: Union[list["MedAllergy
 def aids_process_nsaids(
     trt_dict: dict,
     dateofbirth: Union["DateOfBirth", None],
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings"],
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings"],
 ) -> dict:
     """Method that applies NSAID contraindications to all NSAIDs in the trt_dict.
     Checks if that the defaulttrtsettings.nsaids_equivalent is True, first, if not
@@ -541,7 +541,7 @@ def aids_process_nsaids(
 
     Args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
-        defaulttrtsettings: DefaultFlareTrtSettings or DefaultPpxTrtSettings
+        defaulttrtsettings: FlareAidSettings or PpxAidSettings
 
     Returns:
         trt_dict (dict): {TrtTypes: {TrtInfo}} with "contras" "sideeffects and "allergys" dicts
@@ -576,7 +576,7 @@ def aids_process_nsaids(
 def aids_probenecid_ckd_contra(
     ckd: Union["Ckd", None],
     ckddetail: Union["CkdDetail", None],
-    defaulttrtsettings: "DefaultUltTrtSettings",
+    defaulttrtsettings: "UltAidSettings",
 ) -> bool:
     """Method that checks CKD status (stage) and returns True if probenecid should be
     contraindicated. False if not.
@@ -584,7 +584,7 @@ def aids_probenecid_ckd_contra(
     Args:
         ckd (Ckd or None): Ckd object or None
         ckddetail (CkdDetail or None): CkdDetail object or None
-        defaulttrtsettings (DefaultUltTrtSettings or None): DefaultUltTrtSettings object
+        defaulttrtsettings (UltAidSettings or None): UltAidSettings object
 
     Returns:
         bool: True if probenecid should be contraindicated, False if not.
@@ -626,7 +626,7 @@ def aids_process_sideeffects(trt_dict: dict, sideeffects: Union["QuerySet", None
 
 def aids_process_steroids(
     trt_dict: dict,
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings"],
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings"],
 ) -> dict:
     """Method that applies steroid contraindications to all steroids in the trt_dict.
     Checks if that the defaulttrtsettings.steroids_equivalent is True, first, if not
@@ -634,7 +634,7 @@ def aids_process_steroids(
 
     Args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
-        defaulttrtsettings: DefaultFlareTrtSettings or DefaultPpxTrtSettings
+        defaulttrtsettings: FlareAidSettings or PpxAidSettings
 
     Returns:
         trt_dict (dict): {TrtTypes: {TrtInfo}} with "contras" "sideeffects and "allergys" dicts
@@ -659,11 +659,11 @@ def aids_get_defaultsettings_qs(
     user: Union["User", None] = None,
 ) -> QuerySet | None:
     if model == apps.get_model("flareaids", "FlareAid"):
-        return defaults_defaultflaretrtsettings(user)
+        return defaults_flareaidsettings(user)
     elif model == apps.get_model("ppxaids", "PpxAid"):
-        return defaults_defaultppxtrtsettings(user)
+        return defaults_ppxaidsettings(user)
     elif model == apps.get_model("ultaids", "UltAid"):
-        return defaults_defaultulttrtsettings(user)
+        return defaults_ultaidsettings(user)
     else:
         return None
 

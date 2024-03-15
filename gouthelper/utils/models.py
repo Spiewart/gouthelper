@@ -6,11 +6,7 @@ from django.db.models.query import QuerySet  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
-from ..defaults.selectors import (
-    defaults_defaultflaretrtsettings,
-    defaults_defaultppxtrtsettings,
-    defaults_defaultulttrtsettings,
-)
+from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
@@ -27,7 +23,7 @@ from .services import (
 
 if TYPE_CHECKING:
     from ..dateofbirths.models import DateOfBirth
-    from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
+    from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
     from ..ethnicitys.models import Ethnicity
     from ..labs.models import BaselineCreatinine, Hlab5801
     from ..medallergys.models import MedAllergy
@@ -45,7 +41,7 @@ class GoutHelperBaseModel:
         abstract = True
 
     dateofbirth: Union["DateOfBirth", None]
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]
     ethnicity: Union["Ethnicity", None]
     hlab5801: Union["Hlab5801", None]
     medallergys_qs: list["MedAllergy"]
@@ -266,7 +262,7 @@ class GoutHelperBaseModel:
         return aids_hlab5801_contra(
             hlab5801=self.hlab5801,
             ethnicity=self.ethnicity,
-            defaultulttrtsettings=(
+            ultaidsettings=(
                 self.defaulttrtsettings
                 if not isinstance(self, GoutHelperPatientModel)
                 else self.defaulttrtsettings(trttype=TrtTypes.ULT)
@@ -365,9 +361,9 @@ class GoutHelperBaseModel:
     @cached_property
     def probenecid_ckd_contra(self) -> bool:
         """Property method that implements aids_probenecid_ckd_contra with the Aid
-        model object's optional Ckd, CkdDetail, and DefaultUltTrtSettings to
+        model object's optional Ckd, CkdDetail, and UltAidSettings to
         determines if Probenecid is contraindicated. Written to not query for
-        DefaultUltTrtSettings if it is not needed.
+        UltAidSettings if it is not needed.
 
         Returns: bool
         """
@@ -458,7 +454,7 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
         abstract = True
 
     dateofbirth: Union["DateOfBirth", None]
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]
     ethnicity: Union["Ethnicity", None]
     hlab5801: Union["Hlab5801", None]
     medallergys_qs: list["MedAllergy"]
@@ -476,14 +472,14 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
 
     def get_defaulttrtsettings(
         self, trttype: TrtTypes
-    ) -> Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]:
+    ) -> Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]:
         """Method that returns the DefaultTrtSettings object for the User's trttype."""
         if trttype == TrtTypes.FLARE:
-            return defaults_defaultflaretrtsettings(user=self)
+            return defaults_flareaidsettings(user=self)
         elif trttype == TrtTypes.PPX:
-            return defaults_defaultppxtrtsettings(user=self)
+            return defaults_ppxaidsettings(user=self)
         elif trttype == TrtTypes.ULT:
-            return defaults_defaultulttrtsettings(user=self)
+            return defaults_ultaidsettings(user=self)
 
 
 class DecisionAidRelation(models.Model):

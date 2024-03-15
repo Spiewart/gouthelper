@@ -7,12 +7,12 @@ from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
-from ...defaults.models import DefaultFlareTrtSettings, DefaultMedHistory, DefaultTrt
+from ...defaults.models import DefaultMedHistory, DefaultTrt, FlareAidSettings
 from ...defaults.selectors import defaults_defaultmedhistorys_trttype
 from ...defaults.tests.factories import (
     DefaultColchicineFlareFactory,
-    DefaultFlareTrtSettingsFactory,
     DefaultMedHistoryFactory,
+    FlareAidSettingsFactory,
 )
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
@@ -59,14 +59,14 @@ class TestFlareAidMethods(TestCase):
                 self.assertIn(ma, decisionaid.medallergys)
             self.assertIsNone(decisionaid.user)
             self.assertIsNone(decisionaid.sideeffects)
-            self.assertTrue(isinstance(decisionaid.defaultsettings, DefaultFlareTrtSettings))
+            self.assertTrue(isinstance(decisionaid.defaultsettings, FlareAidSettings))
             self.assertIsNone(decisionaid.defaultsettings.user)  # type: ignore
 
     def test__init_with_user(self):
         """Test that the __init__ method sets the attrs on the service class correctly
         when there is a user and that the custom settings are set correctly."""
         for fa in self.fas_user:
-            custom_settings = DefaultFlareTrtSettingsFactory(user=fa.user)
+            custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
             self.assertEqual(len(context.captured_queries), 3)
@@ -109,7 +109,7 @@ class TestFlareAidMethods(TestCase):
         """Test that __init__() still sets the attrs correctly when called with an object, typically
         by an evaluated QuerySet or decorated with a _qs attrs from a view."""
         for fa in self.fas_user:
-            custom_settings = DefaultFlareTrtSettingsFactory(user=fa.user)
+            custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username).get())
             self.assertEqual(len(context.captured_queries), 3)
@@ -261,7 +261,7 @@ class TestFlareAidMethods(TestCase):
         """Test that for the DecisionAid, if the user has custom settings that set nsaids_equivalent to False,
         the decisionaid_dict will contraindicate each NSAID independently. Clinical note: this is probably not a good
         practice to default to."""
-        DefaultFlareTrtSettings.objects.filter(user=None).update(nsaids_equivalent=False)
+        FlareAidSettings.objects.filter(user=None).update(nsaids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
         flareaid = create_flareaid(mas=[medallergy], mhs=[])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
@@ -286,7 +286,7 @@ class TestFlareAidMethods(TestCase):
         """Test that for the DecisionAid, if the user has custom settings that set steroids_equivalent to False,
         the decisionaid_dict will contraindicate steroids independently. Clinical note: this is probably not a good
         practice to default to."""
-        DefaultFlareTrtSettings.objects.filter(user=None).update(steroids_equivalent=False)
+        FlareAidSettings.objects.filter(user=None).update(steroids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
         flareaid = create_flareaid(mas=[medallergy])
         decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))

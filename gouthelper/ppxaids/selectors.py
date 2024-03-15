@@ -55,7 +55,7 @@ def ppxaid_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ppxaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ppxaid_relations(qs).select_related("defaultppxtrtsettings", "pseudopatientprofile", "ppxaid")
+    return ppxaid_relations(qs).select_related("ppxaidsettings", "pseudopatientprofile", "ppxaid")
 
 
 def ppxaid_userless_qs(pk: "UUID") -> "QuerySet":

@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...defaults.models import DefaultFlareTrtSettings
+from ...defaults.models import FlareAidSettings
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
@@ -14,7 +14,7 @@ pytestmark = pytest.mark.django_db
 class TestFlareAid(TestCase):
     def setUp(self):
         self.flareaid = create_flareaid()
-        self.settings = DefaultFlareTrtSettings.objects.get(user=None)
+        self.settings = FlareAidSettings.objects.get(user=None)
         self.user_flareaid = create_flareaid(user=True)
         self.empty_flareaid = create_flareaid(mhs=[], mas=[])
 
@@ -41,8 +41,8 @@ class TestFlareAid(TestCase):
         self.assertEqual(ats, FlarePpxChoices.values)
 
     def test__defaulttrtsettings(self):
-        self.assertIsInstance(self.flareaid.defaulttrtsettings, DefaultFlareTrtSettings)
-        self.assertEqual(self.flareaid.defaulttrtsettings, DefaultFlareTrtSettings.objects.get(user=None))
+        self.assertIsInstance(self.flareaid.defaulttrtsettings, FlareAidSettings)
+        self.assertEqual(self.flareaid.defaulttrtsettings, FlareAidSettings.objects.get(user=None))
 
     def test__get_absolute_url(self):
         self.assertEqual(self.flareaid.get_absolute_url(), f"/flareaids/{self.flareaid.id}/")

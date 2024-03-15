@@ -8,8 +8,8 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..defaults.models import DefaultPpxTrtSettings
-from ..defaults.selectors import defaults_defaultppxtrtsettings
+from ..defaults.models import PpxAidSettings
+from ..defaults.selectors import defaults_ppxaidsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices
@@ -106,14 +106,14 @@ class PpxAid(
         return FlarePpxChoices.values
 
     @classmethod
-    def defaultsettings(cls) -> type[DefaultPpxTrtSettings]:
-        return DefaultPpxTrtSettings
+    def defaultsettings(cls) -> type[PpxAidSettings]:
+        return PpxAidSettings
 
     @cached_property
-    def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":
-        """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
+    def defaulttrtsettings(self) -> "PpxAidSettings":
+        """Uses defaults_flareaidsettings to fetch the DefaultSettings for the user or
         GoutHelper DefaultSettings."""
-        return defaults_defaultppxtrtsettings(user=self.user)
+        return defaults_ppxaidsettings(user=self.user)
 
     def get_absolute_url(self):
         if self.user:
@@ -127,9 +127,7 @@ class PpxAid(
         return aids_options(trt_dict=self.aid_dict)
 
     @cached_property
-    def recommendation(
-        self, ppx_settings: Union["DefaultPpxTrtSettings", None] = None
-    ) -> tuple["Treatments", None] | None:
+    def recommendation(self, ppx_settings: Union["PpxAidSettings", None] = None) -> tuple["Treatments", None] | None:
         """Returns {dict} of PpxAid's PPx Treatment recommendation {treatment: dosing}."""
         if not ppx_settings:
             ppx_settings = self.defaulttrtsettings

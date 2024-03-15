@@ -41,6 +41,6 @@ class UltAidDecisionAid(TreatmentAidService):
             trt_dict=trt_dict,
             hlab5801=self.hlab5801,
             ethnicity=self.ethnicity,
-            defaultulttrtsettings=self.defaultsettings,
+            ultaidsettings=self.defaultsettings,
         )
         return trt_dict

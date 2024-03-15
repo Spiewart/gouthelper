@@ -2,7 +2,7 @@
 object is a UltAid object
 hlab5801 is a hlab5801 object
 ethnicity is an ethnicity object
-defaultulttrtsettings is a DefaultUltTrtSettings object -->
+ultaidsettings is a UltAidSettings object -->
 {% load project_tags %}
 
 {% if hlab5801_contra %}
@@ -12,7 +12,7 @@ defaultulttrtsettings is a DefaultUltTrtSettings object -->
     </li>
   {% elif object is None %}
     {% if ethnicity is not None %}
-      {% if ethnicity and ethnicity|risk_ethnicity and not defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801 %}
+      {% if ethnicity and ethnicity|risk_ethnicity and not ultaidsettings.allo_risk_ethnicity_no_hlab5801 %}
         <li>
           <a class="samepage-link" href="#hlab5801">HLA-B*58:01</a> unknown
           <ul>

@@ -5,12 +5,12 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultTrt, DefaultUltTrtSettings
+from ...defaults.models import DefaultTrt, FlareAidSettings, PpxAidSettings, UltAidSettings
 from ...defaults.selectors import (
-    defaults_defaultflaretrtsettings,
     defaults_defaultmedhistorys_trttype,
-    defaults_defaultppxtrtsettings,
-    defaults_defaultulttrtsettings,
+    defaults_flareaidsettings,
+    defaults_ppxaidsettings,
+    defaults_ultaidsettings,
 )
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import EthnicityFactory
@@ -131,7 +131,7 @@ class TestAidsColchicineCkdContra(TestCase):
     def setUp(self):
         self.ckd = CkdFactory()
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.TWO)
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
 
     def test__no_ckd_returns_None(self):
         self.assertIsNone(
@@ -216,7 +216,7 @@ class TestAidsDictToJson(TestCase):
 
 class TestAidsDoseAdjustAllopurinolCkd(TestCase):
     def setUp(self):
-        self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=None)
+        self.ultaidsettings = defaults_ultaidsettings(user=None)
         self.userless_ultaid = create_ultaid(mas=[], mhs=[])
 
     def test_ckd_no_stage(self):
@@ -226,7 +226,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=None)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
             trt_dict=trt_dict,
-            defaulttrtsettings=self.defaultulttrtsettings,
+            defaulttrtsettings=self.ultaidsettings,
             dialysis=dialysis,
             stage=stage,
         )
@@ -243,7 +243,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         _, dialysis, stage = aids_xois_ckd_contra(ckd=ckd, ckddetail=ckddetail)
         adj_dict = aids_dose_adjust_allopurinol_ckd(
             trt_dict=trt_dict,
-            defaulttrtsettings=self.defaultulttrtsettings,
+            defaulttrtsettings=self.ultaidsettings,
             dialysis=dialysis,
             stage=stage,
         )
@@ -252,7 +252,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.QDAY)
 
     def test_ckd_stage_4_custom_ulttrt_settings(self):
-        custom_defaults = DefaultUltTrtSettings.objects.get()
+        custom_defaults = UltAidSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
         ckd = CkdFactory(ultaid=self.userless_ultaid)
@@ -273,7 +273,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.QOTHERDAY)
 
     def test_ckd_stage_5_custom_ulttrt_settings(self):
-        custom_defaults = DefaultUltTrtSettings.objects.get()
+        custom_defaults = UltAidSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
         ckd = CkdFactory(ultaid=self.userless_ultaid)
@@ -294,7 +294,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.BIW)
 
     def test_hemodialysis(self):
-        custom_defaults = DefaultUltTrtSettings.objects.get()
+        custom_defaults = UltAidSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
         ckd = CkdFactory(ultaid=self.userless_ultaid)
@@ -321,7 +321,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
         self.assertEqual(allo_dict["freq"], Freqs.TIW)
 
     def test_peritoneal_dialysis(self):
-        custom_defaults = DefaultUltTrtSettings.objects.get()
+        custom_defaults = UltAidSettings.objects.get()
         custom_defaults.allo_ckd_fixed_dose = False
         custom_defaults.save()
         ckd = CkdFactory(ultaid=self.userless_ultaid)
@@ -349,7 +349,7 @@ class TestAidsDoseAdjustAllopurinolCkd(TestCase):
 
 class TestAidsDoseAdjustColchicine(TestCase):
     def setUp(self):
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
 
     def test__flare_dose_is_cut_in_half(self):
         trt_dict = aids_create_trts_dosing_dict(default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all())
@@ -438,7 +438,7 @@ class TestAidsDoseAdjustColchicine(TestCase):
 
 class TestAidsDoseAdjustFebuxostatCkd(TestCase):
     def setUp(self):
-        self.defaultulttrtsettings = defaults_defaultulttrtsettings(user=None)
+        self.ultaidsettings = defaults_ultaidsettings(user=None)
         self.ultaid = create_ultaid(mas=[], mhs=[])
 
     def test__ckd_no_stage(self):
@@ -451,7 +451,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         self.assertIsNone(stage)
         adj_dict = aids_dose_adjust_febuxostat_ckd(
             trt_dict=trt_dict,
-            defaulttrtsettings=self.defaultulttrtsettings,
+            defaulttrtsettings=self.ultaidsettings,
         )
         febu_dict = adj_dict[Treatments.FEBUXOSTAT]
         self.assertEqual(febu_dict["dose_adj"], FebuxostatDoses.TWENTY)
@@ -477,7 +477,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         self.assertEqual(stage, Stages.FOUR)
         adj_dict = aids_dose_adjust_febuxostat_ckd(
             trt_dict=trt_dict,
-            defaulttrtsettings=self.defaultulttrtsettings,
+            defaulttrtsettings=self.ultaidsettings,
         )
         febu_dict = adj_dict[Treatments.FEBUXOSTAT]
         self.assertEqual(febu_dict["dose_adj"], FebuxostatDoses.TWENTY)
@@ -485,7 +485,7 @@ class TestAidsDoseAdjustFebuxostatCkd(TestCase):
         self.assertEqual(febu_dict["freq"], Freqs.QDAY)
 
     def test__ckd_custom_ult_default_doesnt_reduce_dose(self):
-        custom_settings = DefaultUltTrtSettings.objects.get()
+        custom_settings = UltAidSettings.objects.get()
         custom_settings.febu_ckd_initial_dose = FebuxostatDoses.FORTY
         custom_settings.save()
         ckd = CkdFactory(ultaid=self.ultaid)
@@ -626,7 +626,7 @@ class TestAidsProcessFebuxostatCkdContraindication(TestCase):
 
 class TestAidsProcessHlab5801(TestCase):
     def setUp(self):
-        self.default_ult_trt_settings = defaults_defaultulttrtsettings(user=None)
+        self.default_ult_trt_settings = defaults_ultaidsettings(user=None)
         # self.default_ult_trt_settings.allo_no_ethnicity_no_hlab5801 = False
         # self.default_ult_trt_settings.save()
         self.ultaid = create_ultaid(mas=None, mhs=None)
@@ -641,14 +641,14 @@ class TestAidsProcessHlab5801(TestCase):
             aids_hlab5801_contra(
                 ethnicity=None,
                 hlab5801=hlab5801,
-                defaultulttrtsettings=self.default_ult_trt_settings,
+                ultaidsettings=self.default_ult_trt_settings,
             )
         )
         trt_dict = aids_process_hlab5801(
             trt_dict=trt_dict,
             ethnicity=None,
             hlab5801=hlab5801,
-            defaultulttrtsettings=self.default_ult_trt_settings,
+            ultaidsettings=self.default_ult_trt_settings,
         )
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["contra"], True)
 
@@ -661,14 +661,14 @@ class TestAidsProcessHlab5801(TestCase):
             aids_hlab5801_contra(
                 ethnicity=self.ultaid.ethnicity,
                 hlab5801=None,
-                defaultulttrtsettings=self.default_ult_trt_settings,
+                ultaidsettings=self.default_ult_trt_settings,
             )
         )
         trt_dict = aids_process_hlab5801(
             trt_dict=trt_dict,
             ethnicity=self.ultaid.ethnicity,
             hlab5801=None,
-            defaultulttrtsettings=self.default_ult_trt_settings,
+            ultaidsettings=self.default_ult_trt_settings,
         )
         self.assertEqual(trt_dict[Treatments.ALLOPURINOL]["contra"], True)
 
@@ -689,14 +689,14 @@ class TestAidsProcessHlab5801(TestCase):
             aids_hlab5801_contra(
                 ethnicity=ethnicity,
                 hlab5801=None,
-                defaultulttrtsettings=self.default_ult_trt_settings,
+                ultaidsettings=self.default_ult_trt_settings,
             )
         )
         trt_dict = aids_process_hlab5801(
             trt_dict=trt_dict,
             ethnicity=ethnicity,
             hlab5801=None,
-            defaultulttrtsettings=self.default_ult_trt_settings,
+            ultaidsettings=self.default_ult_trt_settings,
         )
         self.assertFalse(trt_dict[Treatments.ALLOPURINOL]["contra"])
 
@@ -755,7 +755,7 @@ class TestAidsProcessMedAllergys(TestCase):
             medhistorys=self.medhistorys,
             ckddetail=None,
             default_medhistorys=self.default_medhistorys_ppx,
-            defaulttrtsettings=DefaultPpxTrtSettings.objects.get(),
+            defaulttrtsettings=PpxAidSettings.objects.get(),
         )
         self.ppx_trt_dict = aids_process_medallergys(
             trt_dict=self.ppx_trt_dict,
@@ -771,7 +771,7 @@ class TestAidsProcessMedAllergys(TestCase):
             medhistorys=self.medhistorys,
             ckddetail=None,
             default_medhistorys=self.default_medhistorys_ult,
-            defaulttrtsettings=DefaultUltTrtSettings.objects.get(),
+            defaulttrtsettings=UltAidSettings.objects.get(),
         )
         self.ult_trt_dict = aids_process_medallergys(
             trt_dict=self.ult_trt_dict,
@@ -808,7 +808,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
     def test__ckd_without_ckddetail_is_absolute_contraindication_no_user(self):
         self.ckd = CkdFactory()
         self.medhistorys = MedHistory.objects.filter().all()
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.PPX,
@@ -836,7 +836,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
             dialysis_duration=DialysisDurations.MORETHANYEAR,
         )
         self.medhistorys = MedHistory.objects.filter().all()
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -859,7 +859,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
         self.ckd = CkdFactory()
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.FOUR)
         self.medhistorys = MedHistory.objects.filter().all()
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -881,7 +881,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
         self.ckd = CkdFactory()
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.THREE)
         self.medhistorys = [self.ckd]
-        self.defaulttrtsettings = DefaultFlareTrtSettings.objects.get()
+        self.defaulttrtsettings = FlareAidSettings.objects.get()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -908,7 +908,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
         self.ckd = CkdFactory()
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.THREE)
         self.medhistorys = MedHistory.objects.filter().all()
-        self.defaulttrtsettings = DefaultPpxTrtSettings.objects.get()
+        self.defaulttrtsettings = PpxAidSettings.objects.get()
         self.defaulttrtsettings.colch_ckd = False
         self.defaulttrtsettings.save()
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
@@ -932,7 +932,7 @@ class TestAidsProcessColchicineCkdContraindications(TestCase):
 class TestAidsOptions(TestCase):
     def test__returns_unchanged_dict(self):
         self.medhistorys = MedHistory.objects.none()
-        self.defaulttrtsettings = defaults_defaultppxtrtsettings(user=None)
+        self.defaulttrtsettings = defaults_ppxaidsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -954,7 +954,7 @@ class TestAidsOptions(TestCase):
 
     def test__returns_dict_modified_for_comorbs(self):
         self.medhistorys = [HeartattackFactory()]
-        self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
+        self.defaulttrtsettings = defaults_flareaidsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -976,7 +976,7 @@ class TestAidsOptions(TestCase):
 
     def test__returns_dict_modified_only_allergy(self):
         self.medhistorys = MedHistory.objects.none()
-        self.defaulttrtsettings = defaults_defaultulttrtsettings(user=None)
+        self.defaulttrtsettings = defaults_ultaidsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.ULT,
@@ -1003,7 +1003,7 @@ class TestAidsOptions(TestCase):
 class TestAidsProcessNsaids(TestCase):
     def test__returns_unchanged_dictionary(self):
         self.medhistorys = MedHistory.objects.none()
-        self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
+        self.defaulttrtsettings = defaults_flareaidsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys, trttype=TrtTypes.FLARE, user=None
         )
@@ -1018,7 +1018,7 @@ class TestAidsProcessNsaids(TestCase):
     def test__returns_ibuprofen_allergy_for_all_nsaids(self):
         self.medallergys = [MedAllergyFactory(treatment=Treatments.IBUPROFEN)]
         self.medhistorys = MedHistory.objects.none()
-        self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
+        self.defaulttrtsettings = defaults_flareaidsettings(user=None)
         self.default_medhistorys = defaults_defaultmedhistorys_trttype(
             medhistorys=self.medhistorys,
             trttype=TrtTypes.FLARE,
@@ -1036,7 +1036,7 @@ class TestAidsProcessNsaids(TestCase):
 
     def test__default_settings_nsaid_contra_age_over_65(self):
         dateofbirth = DateOfBirthFactory(value=date.today() - timedelta(days=64 * 365))
-        self.defaulttrtsettings = defaults_defaultflaretrtsettings(user=None)
+        self.defaulttrtsettings = defaults_flareaidsettings(user=None)
         self.trt_dict = aids_create_trts_dosing_dict(
             default_trts=DefaultTrt.objects.filter(trttype=TrtTypes.FLARE).all()
         )
@@ -1047,7 +1047,7 @@ class TestAidsProcessNsaids(TestCase):
             self.assertFalse(mod_trt_dict[nsaid]["contra"])
         dateofbirth.value = date.today() - timedelta(days=70 * 365)
         dateofbirth.save()
-        default_flare_trt_settings = DefaultFlareTrtSettings.objects.get()
+        default_flare_trt_settings = FlareAidSettings.objects.get()
         default_flare_trt_settings.nsaid_age = False
         default_flare_trt_settings.save()
         self.trt_dict = aids_create_trts_dosing_dict(

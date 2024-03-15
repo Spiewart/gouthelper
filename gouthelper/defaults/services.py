@@ -3,19 +3,19 @@ from ..treatments.dicts import treatments_get_default_dosing
 
 
 def create_or_update_default_settings(apps, schema_editor):
-    """Method that creates or updates DefaultSettings, DefaultFlareTrtSettings,
-    DefaultPpxTrtSettings, and DefaultUltTrtSettings GoutHelper default objects
+    """Method that creates or updates DefaultSettings, FlareAidSettings,
+    PpxAidSettings, and UltAidSettings GoutHelper default objects
     in the database."""
-    DefaultFlareTrtSettings = apps.get_model("defaults", "DefaultFlareTrtSettings")
-    DefaultPpxTrtSettings = apps.get_model("defaults", "DefaultPpxTrtSettings")
-    DefaultUltTrtSettings = apps.get_model("defaults", "DefaultUltTrtSettings")
-    DefaultFlareTrtSettings.objects.update_or_create(
+    FlareAidSettings = apps.get_model("defaults", "FlareAidSettings")
+    PpxAidSettings = apps.get_model("defaults", "PpxAidSettings")
+    UltAidSettings = apps.get_model("defaults", "UltAidSettings")
+    FlareAidSettings.objects.update_or_create(
         user=None,
     )
-    DefaultPpxTrtSettings.objects.update_or_create(
+    PpxAidSettings.objects.update_or_create(
         user=None,
     )
-    DefaultUltTrtSettings.objects.update_or_create(
+    UltAidSettings.objects.update_or_create(
         user=None,
     )
 

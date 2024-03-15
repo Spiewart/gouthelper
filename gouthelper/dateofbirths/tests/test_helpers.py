@@ -5,7 +5,7 @@ from dateutil import parser
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...defaults.selectors import defaults_defaultflaretrtsettings, defaults_defaultppxtrtsettings
+from ...defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings
 from ..helpers import age_calc, dateofbirths_get_nsaid_contra, yearsago
 from .factories import DateOfBirthFactory
 
@@ -21,8 +21,8 @@ class TestDateOfBirthsGetNsaidContra(TestCase):
     def setUp(self):
         # Declare attrs for *args for dateofbirths_get_nsaid_contra
         self.dateofbirth = DateOfBirthFactory()
-        self.flare_trt_settings = defaults_defaultflaretrtsettings(user=None)
-        self.ppx_trt_settings = defaults_defaultppxtrtsettings(user=None)
+        self.flare_trt_settings = defaults_flareaidsettings(user=None)
+        self.ppx_trt_settings = defaults_ppxaidsettings(user=None)
 
     def test__nsaid_age_False_returns_False_over_65_flaretrtsettings(self):
         self.dateofbirth.value = timezone.now() - timedelta(days=66 * 365)

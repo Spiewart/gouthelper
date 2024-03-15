@@ -5,7 +5,7 @@ from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
-from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
+from ...defaults.tests.factories import PpxAidSettingsFactory
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
@@ -101,7 +101,7 @@ class TestPpxAidUserQuerySet(TestCase):
 
     def setUp(self):
         self.user_ppx = create_ppxaid(user=True)
-        self.defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=self.user_ppx.user)
+        self.ppxaidsettings = PpxAidSettingsFactory(user=self.user_ppx.user)
 
     def test__queryset_returns_correctly(self):
         with CaptureQueriesContext(connection) as queries:
@@ -112,8 +112,8 @@ class TestPpxAidUserQuerySet(TestCase):
             self.assertEqual(len(queries.captured_queries), 3)
             self.assertTrue(hasattr(queryset, "ppxaid"))
             self.assertEqual(queryset.ppxaid, self.user_ppx)
-            self.assertTrue(hasattr(queryset, "defaultppxtrtsettings"))
-            self.assertEqual(queryset.defaultppxtrtsettings, self.defaultppxtrtsettings)
+            self.assertTrue(hasattr(queryset, "ppxaidsettings"))
+            self.assertEqual(queryset.ppxaidsettings, self.ppxaidsettings)
             self.assertTrue(hasattr(queryset, "dateofbirth"))
             self.assertEqual(queryset.dateofbirth, self.user_ppx.user.dateofbirth)
             if hasattr(queryset, "gender"):

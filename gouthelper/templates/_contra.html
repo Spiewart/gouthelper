@@ -2,7 +2,7 @@
 
 {% block heading %}
   {% if id == "hlab5801" %}
-    {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801 %}
+    {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.ultaidsettings.allo_risk_ethnicity_no_hlab5801 %}
       <li>
         <a class="samepage-link" href="#hlab5801">HLA-B*58:01</a> unknown
       </li>
@@ -44,7 +44,7 @@
     </ul>
   {% elif id == "hlab5801" %}
     <ul>
-      {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801 %}
+      {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.ultaidsettings.allo_risk_ethnicity_no_hlab5801 %}
         <ul>
           <li>Ethnicity ({{ ethnicity.value }}) high prevalence</li>
         </ul>

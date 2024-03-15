@@ -1,8 +1,8 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...defaults.models import DefaultPpxTrtSettings
-from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
+from ...defaults.models import PpxAidSettings
+from ...defaults.tests.factories import PpxAidSettingsFactory
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
@@ -53,11 +53,11 @@ class TestPpxAidMethods(TestCase):
 
     def test__defaulttrtsettings(self):
         """Test the defaulttrtsettings cached_property."""
-        gouthelper_default = DefaultPpxTrtSettings.objects.get()
+        gouthelper_default = PpxAidSettings.objects.get()
         self.assertEqual(self.ppxaid.defaulttrtsettings, gouthelper_default)
-        self.assertTrue(isinstance(self.ppxaid.defaulttrtsettings, DefaultPpxTrtSettings))
+        self.assertTrue(isinstance(self.ppxaid.defaulttrtsettings, PpxAidSettings))
         self.assertEqual(self.user_ppxaid.defaulttrtsettings, gouthelper_default)
-        user_defaults = DefaultPpxTrtSettingsFactory(user=self.user_ppxaid.user)
+        user_defaults = PpxAidSettingsFactory(user=self.user_ppxaid.user)
         # Need to delete the attr for a cached_property
         delattr(self.user_ppxaid, "defaulttrtsettings")
         self.assertEqual(self.user_ppxaid.defaulttrtsettings, user_defaults)

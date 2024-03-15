@@ -12,39 +12,39 @@ if TYPE_CHECKING:
     from ..users.models import User
 
 
-def defaults_defaultflaretrtsettings(user: Union["User", None]) -> Any:
+def defaults_flareaidsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    GoutHelper's default DefaultFlareTrtSettings.
+    GoutHelper's default FlareAidSettings.
 
-    Returns: DefaultFlareTrtSettings object"""
+    Returns: FlareAidSettings object"""
     return (
-        apps.get_model("defaults.DefaultFlareTrtSettings")
+        apps.get_model("defaults.FlareAidSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
         .order_by("user", "modified", "created")
         .first()
     )
 
 
-def defaults_defaultppxtrtsettings(user: Union["User", None]) -> Any:
+def defaults_ppxaidsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    GoutHelper's default DefaultPpxTrtSettings.
+    GoutHelper's default PpxAidSettings.
 
-    Returns: DefaultPpxTrtSettings object"""
+    Returns: PpxAidSettings object"""
     return (
-        apps.get_model("defaults.DefaultPpxTrtSettings")
+        apps.get_model("defaults.PpxAidSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
         .order_by("user", "modified", "created")
         .first()
     )
 
 
-def defaults_defaultulttrtsettings(user: Union["User", None]) -> Any:
+def defaults_ultaidsettings(user: Union["User", None]) -> Any:
     """Method that takes an optional User object and returns a QuerySet fetching the User's or
-    GoutHelper's default DefaultUltTrtSettings.
+    GoutHelper's default UltAidSettings.
 
-    Returns: DefaultUltTrtSettings object"""
+    Returns: UltAidSettings object"""
     return (
-        apps.get_model("defaults.DefaultUltTrtSettings")
+        apps.get_model("defaults.UltAidSettings")
         .objects.filter(Q(user=user) | Q(user__isnull=True))
         .order_by("user", "modified", "created")
         .first()

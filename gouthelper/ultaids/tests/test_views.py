@@ -15,7 +15,7 @@ from ...contents.choices import Tags
 from ...contents.models import Content
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
-from ...defaults.models import DefaultUltTrtSettings
+from ...defaults.models import UltAidSettings
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.models import Ethnicity
 from ...ethnicitys.tests.factories import EthnicityFactory
@@ -477,10 +477,10 @@ class TestUltAidPseudopatientCreate(TestCase):
                 self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                 if qs_obj.dateofbirth:
                     self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                if hasattr(qs_obj, "defaultulttrtsettings"):
-                    self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                if hasattr(qs_obj, "ultaidsettings"):
+                    self.assertTrue(isinstance(qs_obj.ultaidsettings, UltAidSettings))
                 else:
-                    self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
+                    self.assertFalse(hasattr(qs_obj, "ultaidsettings"))
                 self.assertTrue(hasattr(qs_obj, "ethnicity"))
                 self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                 self.assertTrue(hasattr(qs_obj, "gender"))
@@ -938,10 +938,10 @@ class TestUltAidPseudopatientDetail(TestCase):
                 self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                 if qs_obj.dateofbirth:
                     self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                if hasattr(qs_obj, "defaultulttrtsettings"):
-                    self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                if hasattr(qs_obj, "ultaidsettings"):
+                    self.assertTrue(isinstance(qs_obj.ultaidsettings, UltAidSettings))
                 else:
-                    self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
+                    self.assertFalse(hasattr(qs_obj, "ultaidsettings"))
                 self.assertTrue(hasattr(qs_obj, "ethnicity"))
                 self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                 self.assertTrue(hasattr(qs_obj, "gender"))
@@ -1247,10 +1247,10 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     self.assertTrue(hasattr(qs_obj, "dateofbirth"))
                     if qs_obj.dateofbirth:
                         self.assertTrue(isinstance(qs_obj.dateofbirth, DateOfBirth))
-                    if hasattr(qs_obj, "defaultulttrtsettings"):
-                        self.assertTrue(isinstance(qs_obj.defaultulttrtsettings, DefaultUltTrtSettings))
+                    if hasattr(qs_obj, "ultaidsettings"):
+                        self.assertTrue(isinstance(qs_obj.ultaidsettings, UltAidSettings))
                     else:
-                        self.assertFalse(hasattr(qs_obj, "defaultulttrtsettings"))
+                        self.assertFalse(hasattr(qs_obj, "ultaidsettings"))
                     self.assertTrue(hasattr(qs_obj, "ethnicity"))
                     self.assertTrue(isinstance(qs_obj.ethnicity, Ethnicity))
                     self.assertTrue(hasattr(qs_obj, "gender"))

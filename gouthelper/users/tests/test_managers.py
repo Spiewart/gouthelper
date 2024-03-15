@@ -2,11 +2,7 @@ import pytest  # pylint: disable=E0401 # type: ignore
 from django.test import TestCase  # pylint: disable=E0401 # type: ignore
 from factory.faker import faker  # type: ignore
 
-from ...defaults.tests.factories import (
-    DefaultFlareTrtSettingsFactory,
-    DefaultPpxTrtSettingsFactory,
-    DefaultUltTrtSettingsFactory,
-)
+from ...defaults.tests.factories import FlareAidSettingsFactory, PpxAidSettingsFactory, UltAidSettingsFactory
 from ...flareaids.models import FlareAid
 from ...flareaids.tests.factories import create_flareaid
 from ...flares.models import Flare
@@ -39,7 +35,7 @@ class TestPseudopatientManager(TestCase):
             if fake.boolean():
                 create_flareaid(user=psp)
             if fake.boolean():
-                create_onetoone_factory_atomic(DefaultFlareTrtSettingsFactory, **{"user": psp})
+                create_onetoone_factory_atomic(FlareAidSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_flare(user=psp)
                 if fake.boolean():
@@ -49,13 +45,13 @@ class TestPseudopatientManager(TestCase):
             if fake.boolean():
                 create_ppxaid(user=psp)
             if fake.boolean():
-                create_onetoone_factory_atomic(DefaultPpxTrtSettingsFactory, **{"user": psp})
+                create_onetoone_factory_atomic(PpxAidSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_ppx(user=psp)
             if fake.boolean():
                 create_ultaid(user=psp)
             if fake.boolean():
-                create_onetoone_factory_atomic(DefaultUltTrtSettingsFactory, **{"user": psp})
+                create_onetoone_factory_atomic(UltAidSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_ult(user=psp)
 
@@ -67,10 +63,10 @@ class TestPseudopatientManager(TestCase):
                         self.assertTrue(isinstance(psp.flareaid, FlareAid))
                     else:
                         self.assertIsNone(getattr(psp, "flareaid", None))
-                    if hasattr(psp, "defaultflaretrtsettings"):
-                        self.assertTrue(psp.defaultflaretrtsettings)
+                    if hasattr(psp, "flareaidsettings"):
+                        self.assertTrue(psp.flareaidsettings)
                     else:
-                        self.assertIsNone(getattr(psp, "defaultflaretrtsettings", None))
+                        self.assertIsNone(getattr(psp, "flareaidsettings", None))
                     self.assertTrue(psp.dateofbirth)
                     self.assertTrue(psp.gender)
                     self.assertTrue(hasattr(psp, "medhistorys_qs"))
@@ -112,10 +108,10 @@ class TestPseudopatientManager(TestCase):
                         self.assertTrue(isinstance(psp.ppxaid, PpxAid))
                     else:
                         self.assertIsNone(getattr(psp, "ppxaid", None))
-                    if hasattr(psp, "defaultppxtrtsettings"):
-                        self.assertTrue(psp.defaultppxtrtsettings)
+                    if hasattr(psp, "ppxaidsettings"):
+                        self.assertTrue(psp.ppxaidsettings)
                     else:
-                        self.assertIsNone(getattr(psp, "defaultppxtrtsettings", None))
+                        self.assertIsNone(getattr(psp, "ppxaidsettings", None))
                     self.assertTrue(psp.dateofbirth)
                     self.assertTrue(psp.gender)
                     self.assertTrue(hasattr(psp, "medhistorys_qs"))
@@ -145,10 +141,10 @@ class TestPseudopatientManager(TestCase):
                         self.assertTrue(isinstance(psp.ultaid, UltAid))
                     else:
                         self.assertIsNone(getattr(psp, "ultaid", None))
-                    if hasattr(psp, "defaultulttrtsettings"):
-                        self.assertTrue(psp.defaultulttrtsettings)
+                    if hasattr(psp, "ultaidsettings"):
+                        self.assertTrue(psp.ultaidsettings)
                     else:
-                        self.assertIsNone(getattr(psp, "defaultulttrtsettings", None))
+                        self.assertIsNone(getattr(psp, "ultaidsettings", None))
                     if hasattr(psp, "goalurate"):
                         self.assertTrue(psp.goalurate)
                     else:

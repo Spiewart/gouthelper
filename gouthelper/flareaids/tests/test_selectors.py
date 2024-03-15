@@ -8,7 +8,7 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...defaults.tests.factories import DefaultFlareTrtSettingsFactory
+from ...defaults.tests.factories import FlareAidSettingsFactory
 from ...genders.tests.factories import GenderFactory
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
@@ -71,7 +71,7 @@ class TestFlareAidUserlessQuerySet(TestCase):
 class TestFlareAidUserQuerySet(TestCase):
     def setUp(self):
         self.user = create_psp()
-        self.custom_settings = DefaultFlareTrtSettingsFactory(user=self.user)
+        self.custom_settings = FlareAidSettingsFactory(user=self.user)
         self.ckd = CkdFactory(user=self.user)
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))
         self.ckddetail = CkdDetailFactory(
@@ -106,5 +106,5 @@ class TestFlareAidUserQuerySet(TestCase):
             self.assertIn(self.medallergy, queryset.medallergys_qs)
             self.assertIn(self.ckd, queryset.medhistorys_qs)
             self.assertIn(self.ckddetail, [getattr(mh, "ckddetail") for mh in queryset.medhistorys_qs])
-            self.assertEqual(queryset.defaultflaretrtsettings, self.custom_settings)
+            self.assertEqual(queryset.flareaidsettings, self.custom_settings)
         self.assertEqual(len(queries.captured_queries), 3)

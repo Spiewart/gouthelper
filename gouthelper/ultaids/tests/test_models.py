@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...defaults.models import DefaultUltTrtSettings
+from ...defaults.models import UltAidSettings
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import EthnicityFactory
 from ...goalurates.tests.factories import create_goalurate
@@ -126,7 +126,7 @@ class TestUltAid(TestCase):
     def test__defaulttrtsettings(self):
         self.assertEqual(
             self.ultaid.defaulttrtsettings,
-            DefaultUltTrtSettings.objects.get(),
+            UltAidSettings.objects.get(),
         )
 
     def test__erosions(self):

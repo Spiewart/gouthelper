@@ -9,8 +9,8 @@ from django.utils import timezone  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...defaults.models import DefaultPpxTrtSettings
-from ...defaults.tests.factories import DefaultPpxTrtSettingsFactory
+from ...defaults.models import PpxAidSettings
+from ...defaults.tests.factories import PpxAidSettingsFactory
 from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.choices import Stages
@@ -58,9 +58,7 @@ class TestPpxAidMethods(TestCase):
             self.assertEqual(age_calc(ppxaid_qs.dateofbirth.value), decisionaid.age)
             self.assertEqual(ppxaid_qs.gender, decisionaid.gender)
             self.assertTrue(hasattr(decisionaid, "defaultsettings"))
-            self.assertEqual(
-                decisionaid.defaultsettings, DefaultPpxTrtSettings.objects.filter(user__isnull=True).get()
-            )
+            self.assertEqual(decisionaid.defaultsettings, PpxAidSettings.objects.filter(user__isnull=True).get())
             if ppxaid_qs.ckd:
                 if hasattr(ppxaid_qs.ckd, "baselinecreatinine"):
                     self.assertEqual(ppxaid_qs.ckd.baselinecreatinine, decisionaid.baselinecreatinine)
@@ -86,10 +84,10 @@ class TestPpxAidMethods(TestCase):
             CkdFactory(user=ppxaid.user)
         if not hasattr(ppxaid.user.ckd, "baselinecreatinine"):
             BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
-        defaultppxtrtsettings = DefaultPpxTrtSettingsFactory(user=ppxaid.user)
+        ppxaidsettings = PpxAidSettingsFactory(user=ppxaid.user)
         qs = ppxaid_user_qs(username=ppxaid.user.username)
         with self.assertNumQueries(3):
-            # QuerySet is 3 queries because the user has a defaultppxtrtsettings
+            # QuerySet is 3 queries because the user has a ppxaidsettings
             qs = qs.get()
             decisionaid = PpxAidDecisionAid(qs=qs)
         self.assertTrue(hasattr(decisionaid, "ppxaid"))
@@ -101,7 +99,7 @@ class TestPpxAidMethods(TestCase):
         self.assertTrue(decisionaid.age)
         self.assertEqual(decisionaid.age, age_calc(ppxaid.user.dateofbirth.value))
         self.assertTrue(hasattr(decisionaid, "defaultsettings"))
-        self.assertEqual(decisionaid.defaultsettings, defaultppxtrtsettings)
+        self.assertEqual(decisionaid.defaultsettings, ppxaidsettings)
         if hasattr(ppxaid.user, "gender"):
             self.assertEqual(decisionaid.gender, ppxaid.user.gender)
         self.assertTrue(hasattr(decisionaid, "medallergys"))
@@ -252,7 +250,7 @@ class TestPpxAidMethods(TestCase):
 
     def test__colchicine_freq_reduced_ckd_3_custom_user_settings(self):
         """Test that a PpxAid that has colchicine as an option alters the frequency
-        of dosing when indicated by the CKD stage and custom DefaultPpxTrtSettings."""
+        of dosing when indicated by the CKD stage and custom PpxAidSettings."""
         # Create a PpxAid for which colchicine is an option
 
         ppxaid = create_ppxaid(mhs=[], mas=[])
@@ -268,9 +266,9 @@ class TestPpxAidMethods(TestCase):
         ckd = CkdFactory(ppxaid=ppxaid)
         CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
 
-        # Modify the GoutHelper default DefaultPpxTrtSettings to have colchicine
+        # Modify the GoutHelper default PpxAidSettings to have colchicine
         # frequency be adjusted for CKD, not the dose
-        default_ppx_trt_settings = DefaultPpxTrtSettings.objects.get()
+        default_ppx_trt_settings = PpxAidSettings.objects.get()
         default_ppx_trt_settings.colch_dose_adjust = False
         default_ppx_trt_settings.save()
 

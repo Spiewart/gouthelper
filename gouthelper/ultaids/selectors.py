@@ -57,7 +57,7 @@ def ultaid_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ultaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ultaid_relations(qs).select_related("defaultulttrtsettings", "pseudopatientprofile", "ultaid")
+    return ultaid_relations(qs).select_related("ultaidsettings", "pseudopatientprofile", "ultaid")
 
 
 def ultaid_userless_qs(pk: "UUID") -> "QuerySet":
