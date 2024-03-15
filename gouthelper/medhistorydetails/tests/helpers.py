@@ -125,7 +125,8 @@ def create_random_ckddetail_kwargs(
             else:
                 kwargs.update({"stage": None})
         else:
-            kwargs.update({"baselinecreatinine": None, "stage": random.choice(ModStages)})
+            bc_val = (fake.boolean()) if pre_save else None
+            kwargs.update({"baselinecreatinine": bc_val, "stage": random.choice(ModStages)})
     return kwargs
 
 

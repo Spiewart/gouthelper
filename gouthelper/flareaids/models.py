@@ -8,6 +8,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..defaults.models import DefaultFlareTrtSettings
 from ..defaults.selectors import defaults_defaultflaretrtsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
@@ -21,7 +22,6 @@ from .services import FlareAidDecisionAid
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
-    from ..defaults.models import DefaultFlareTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
 
     User = get_user_model()
@@ -104,11 +104,19 @@ class FlareAid(
     def aid_treatments(cls) -> list[FlarePpxChoices]:
         return FlarePpxChoices.values
 
+    @classmethod
+    def defaultsettings(cls) -> type[DefaultFlareTrtSettings]:
+        return DefaultFlareTrtSettings
+
     @cached_property
-    def defaulttrtsettings(self) -> "DefaultFlareTrtSettings":
-        """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        GoutHelper DefaultSettings."""
-        return defaults_defaultflaretrtsettings(user=self.user)
+    def defaulttrtsettings(self) -> DefaultFlareTrtSettings:
+        """Returns a DefaultFlareTrtSettings object based on whether the FlareAid has a user
+        field or not and whether or not the user has a related defaultflaretrtsettings if so."""
+        return (
+            self.user.defaultflaretrtsettings
+            if (self.user and hasattr(self.user, "defaultflaretrtsettings"))
+            else defaults_defaultflaretrtsettings(user=self.user)
+        )
 
     def get_absolute_url(self):
         if self.user:
@@ -122,9 +130,7 @@ class FlareAid(
         return aids_options(trt_dict=self.aid_dict)
 
     @cached_property
-    def recommendation(
-        self, flare_settings: Union["DefaultFlareTrtSettings", None] = None
-    ) -> tuple[Treatments, dict] | None:
+    def recommendation(self, flare_settings: DefaultFlareTrtSettings | None = None) -> tuple[Treatments, dict] | None:
         """Returns {dict} of FlareAid's Flare Treatment recommendation {treatment: dosing}."""
         if not flare_settings:
             flare_settings = self.defaulttrtsettings

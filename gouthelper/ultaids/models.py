@@ -133,13 +133,13 @@ class UltAid(
         )
 
     @classmethod
-    def defaultsettings(cls) -> type["DefaultUltTrtSettings"]:
+    def defaultsettings(cls) -> type[DefaultUltTrtSettings]:
         return DefaultUltTrtSettings
 
     @cached_property
-    def defaulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
-        GoutHelper DefaultSettings."""
+    def defaulttrtsettings(self) -> DefaultUltTrtSettings:
+        """Returns a DefaultUltTrtSettings object based on whether the FlareAid has a user
+        field or not and whether or not the user has a related defaultulttrtsettings if so."""
         return (
             defaults_defaultulttrtsettings(user=self.user)
             if not self.user or (self.user and not hasattr(self.user, "defaultulttrtsettings"))

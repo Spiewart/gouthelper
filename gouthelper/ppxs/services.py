@@ -11,7 +11,7 @@ from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
-from ..utils.services import aids_assign_goutdetail
+from ..utils.services import AidService, aids_assign_goutdetail
 
 if TYPE_CHECKING:
     from ..medhistorydetails.models import GoutDetail
@@ -21,29 +21,18 @@ if TYPE_CHECKING:
 User = get_user_model()
 
 
-class PpxDecisionAid:
+class PpxDecisionAid(AidService):
     """Class method for creating/updating Ppx indication field."""
 
     def __init__(
         self,
         qs: Union["Ppx", User, QuerySet] = None,
     ):
-        Ppx = apps.get_model("ppxs.Ppx")
-        if isinstance(qs, QuerySet):
-            qs = qs.get()
-        if isinstance(qs, Ppx):
-            self.ppx = qs
-            self.user = qs.user
-        elif isinstance(qs, User):
-            self.ppx = qs.ppx
-            self.user = qs
-        else:
-            raise TypeError("PpxDecisionAid requires a Ppx or User instance.")
-        self.medhistorys = qs.medhistorys_qs
+        super().__init__(qs=qs, model=apps.get_model(app_label="ppxs", model_name="Ppx"))
         self.gout = medhistorys_get(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
         self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None
         self._check_for_gout_and_detail()
-        self.urates = qs.urates_qs
+        self.urates = self.qs.urates_qs
         # Process the urates to figure out if the Urates indicate that the patient
         # has been at goal uric acid for the past 6 months or longer
         self.at_goal: bool = False
@@ -85,9 +74,9 @@ class PpxDecisionAid:
         Returns: Indications enum
         """
         # First check if the patient is on or starting ULT
-        if self.goutdetail and (self.goutdetail.on_ult or self.ppx.starting_ult):
+        if self.goutdetail and (self.goutdetail.on_ult or self.model_attr.starting_ult):
             # If the patient is on ULT but isn't starting ULT
-            if self.ppx.starting_ult is False:
+            if self.model_attr.starting_ult is False:
                 # Check if their is a "conditional" indication for prophylaxis
                 # This is not guidelines-based, rather GoutHelper-based
                 # The rationale is that if they are on ULT and still hyperuricemic or flaring,
@@ -127,8 +116,5 @@ class PpxDecisionAid:
         Returns:
             ppx: Ppx object
         """
-        self.ppx.indication = self._get_indication()
-        if commit:
-            self.ppx.full_clean()
-            self.ppx.save()
-        return self.ppx
+        self.model_attr.indication = self._get_indication()
+        return super()._update(commit=commit)

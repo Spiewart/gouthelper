@@ -1,5 +1,5 @@
 import random
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Union
 
 import factory  # pylint: disable=E0401  # type: ignore
@@ -25,9 +25,9 @@ from ...utils.factories import (
     MedHistoryDataMixin,
     OneToOneCreatorMixin,
     OneToOneDataMixin,
-    create_medhistory_atomic,
     create_or_append_mhs_qs,
     get_menopause_val,
+    get_or_create_medhistory_atomic,
 )
 from ..models import Flare
 
@@ -171,7 +171,9 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
         if not flare.date_ended and fake.boolean() and not ("date_ended" in kwargs and kwargs["date_ended"] is None):
             # Get the difference between the date_started and the current date to avoid
             # creating a date_ended that is in the future
-            date_diff = timezone.now().date() - flare.date_started
+            date_diff = timezone.now().date() - (
+                flare.date_started.date() if isinstance(flare.date_started, datetime) else flare.date_started
+            )
             if fake.boolean():
                 if fake.boolean():
                     flare.date_ended = fake.date_between_dates(
@@ -201,7 +203,7 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
             (menopause_mh or get_menopause_val(age=age, gender=gender)) and menopause_kwarg is not False
         ) or menopause_kwarg:
             check_menopause_gender(gender=gender)
-            menopause = create_medhistory_atomic(
+            menopause = get_or_create_medhistory_atomic(
                 medhistorytype=MedHistoryTypes.MENOPAUSE,
                 user=self.user,
                 aid_obj=flare,

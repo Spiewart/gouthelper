@@ -16,11 +16,11 @@ class TestMedAllergyAttr(TestCase):
     def setUp(self):
         self.trt_mas = [Treatments.COLCHICINE, Treatments.NAPROXEN, Treatments.CELECOXIB]
         # Create DecisionAid objects with MedAllergys and/or a User with MedAllergys
-        self.ppxaid = create_ppxaid(medallergys=self.trt_mas)
-        self.user_ppxaid = create_ppxaid(medallergys=self.trt_mas, user=True)
+        self.ppxaid = create_ppxaid(mas=self.trt_mas)
+        self.user_ppxaid = create_ppxaid(mas=self.trt_mas, user=True)
         self.user = self.user_ppxaid.user
-        self.empty_ppxaid = create_ppxaid(medallergys=[])
-        self.empty_user_ppxaid = create_ppxaid(medallergys=[], user=True)
+        self.empty_ppxaid = create_ppxaid(mas=[])
+        self.empty_user_ppxaid = create_ppxaid(mas=[], user=True)
         self.empty_user = self.empty_user_ppxaid.user
 
     def test__medallergys_qs(self):

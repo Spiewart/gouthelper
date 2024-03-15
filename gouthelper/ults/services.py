@@ -4,7 +4,7 @@ from django.apps import apps  # pylint: disable=E0401 # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=E0401 # type: ignore
 
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.services import AidService
+from ..utils.services import AidService, aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .choices import FlareFreqs, FlareNums, Indications
 
 if TYPE_CHECKING:
@@ -24,6 +24,8 @@ class UltDecisionAid(AidService):
     ):
         super().__init__(qs=qs, model=apps.get_model(app_label="ults", model_name="Ult"))
         self._assign_medhistorys()
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
 
     ckd: Union["MedHistory", None]
     ckddetail: Union["CkdDetail", None]

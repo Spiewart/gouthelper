@@ -4,6 +4,7 @@ from django.test import TestCase
 
 from ...users.choices import Roles
 from ...users.tests.factories import UserFactory, create_psp
+from .factories import PatientProfileFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -12,6 +13,7 @@ class TestCanViewProfile(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.patient = UserFactory(role=Roles.PATIENT)
+        PatientProfileFactory(user=self.patient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider

@@ -5,11 +5,9 @@ from django.db.utils import IntegrityError  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...medhistorys.choices import MedHistoryTypes
-from ...medhistorys.tests.factories import CkdFactory
 from ..choices import Abnormalitys, Units
 from ..helpers import labs_eGFR_calculator, labs_stage_calculator
-from ..models import BaselineCreatinine, Urate
+from ..models import Urate
 from .factories import BaselineCreatinineFactory, Hlab5801Factory, UrateFactory
 
 pytestmark = pytest.mark.django_db
@@ -33,13 +31,6 @@ class TestLabBase(TestCase):
             self.baselinecreatinine,
             self.urate,
         ]
-
-    def test__baselincreatinine_constraint_labtype_valid(self):
-        baselinecreatinine = BaselineCreatinineFactory()
-        baselinecreatinine.labtype = "hoofinpoofin"
-        with self.assertRaises(IntegrityError) as context:
-            baselinecreatinine.save()
-        self.assertTrue("labtype_valid" in str(context.exception))
 
     def test__baselinecreatinine_constraint_units_upper_lower_limits_valid(self):
         baselinecreatinine = BaselineCreatinineFactory()
@@ -80,24 +71,10 @@ class TestBaselineLab(TestCase):
     def test__str__without_user(self):
         assert (
             self.baselinecreatinine.__str__()
-            == "Baseline Creatinine"
+            == "Baseline Creatinine: "
             + str(self.baselinecreatinine.value)
             + f" {getattr(Units, self.baselinecreatinine.units).label}"
         )
-
-    def test__save(self):
-        baselinecreatinine = BaselineCreatinine(medhistory=CkdFactory(), value=Decimal("2.20"))
-        # Assert the fields set by set_fields are False (not set)
-        self.assertFalse(baselinecreatinine.labtype)
-        self.assertFalse(baselinecreatinine.lower_limit)
-        self.assertFalse(baselinecreatinine.upper_limit)
-        self.assertFalse(baselinecreatinine.units)
-        baselinecreatinine.save()
-        # Assert the fields set by set_fields are True (set)
-        self.assertTrue(baselinecreatinine.labtype)
-        self.assertTrue(baselinecreatinine.lower_limit)
-        self.assertTrue(baselinecreatinine.upper_limit)
-        self.assertTrue(baselinecreatinine.units)
 
 
 class TestLab(TestCase):
@@ -134,21 +111,13 @@ class TestLab(TestCase):
         self.assertEqual(self.urate_lab.__str__(), self.urate.__str__())
         self.assertEqual(
             self.baselinecreatinine.__str__(),
-            f"Baseline {self.baselinecreatinine.labtype.label}: \
+            f"Baseline Creatinine: \
 {(self.baselinecreatinine.value).quantize(Decimal('1.00'))} {self.baselinecreatinine.units.label}",
         )
         self.assertEqual(
             self.urate.__str__(),
-            f"{self.urate.labtype.label}: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
+            f"Urate: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
         )
-
-    def test__medhistorytypes_returns_correct_medhistorys(self):
-        self.assertEqual(self.urate_lab.medhistorytypes(), [MedHistoryTypes.GOUT])
-        self.assertEqual(self.urate.medhistorytypes(), [MedHistoryTypes.GOUT])
-
-    def test__get_medhistorytypes_returns_correct_medhistorytype(self):
-        self.assertEqual(self.urate.get_medhistorytype(), MedHistoryTypes.GOUT)
-        self.assertEqual(self.urate_lab.get_medhistorytype(), MedHistoryTypes.GOUT)
 
     def test__var_x_high(self):
         self.assertFalse(self.urate.var_x_high(Decimal("10.0")))
@@ -172,7 +141,7 @@ class TestBaselineCreatinine(TestCase):
     def test___str__(self):
         self.assertEqual(
             self.baselinecreatinine.__str__(),
-            f"Baseline {self.baselinecreatinine.labtype.label}: \
+            f"Baseline Creatinine: \
 {(self.baselinecreatinine.value).quantize(Decimal('1.00'))} {self.baselinecreatinine.units.label}",
         )
 
@@ -190,14 +159,8 @@ class TestUrate(TestCase):
     def test__str__(self):
         self.assertEqual(
             self.urate.__str__(),
-            f"{self.urate.labtype.label}: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
+            f"Urate: {(self.urate.value).quantize(Decimal('1.0'))} {self.urate.units.label}",
         )
-
-    def test__get_medhistorytype(self):
-        self.assertEqual(self.urate.get_medhistorytype(), MedHistoryTypes.GOUT)
-
-    def test__medhistorytypes(self):
-        self.assertEqual(self.urate.medhistorytypes(), [MedHistoryTypes.GOUT])
 
 
 class TestHlab5801(TestCase):

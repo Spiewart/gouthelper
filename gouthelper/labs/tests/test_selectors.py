@@ -4,7 +4,7 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...flares.tests.factories import FlareFactory
+from ...flares.tests.factories import create_flare
 from ..models import Urate
 from ..selectors import dated_urates, urates_dated_qs
 from .factories import UrateFactory
@@ -18,7 +18,9 @@ class TestUrateUserlessQuerySet(TestCase):
         self.urate2 = UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=23))
         self.urate3 = UrateFactory(value=7.0, date_drawn=timezone.now() - timedelta(days=190))
         self.urate4 = UrateFactory(value=8.0, date_drawn=timezone.now() - timedelta(days=365))
-        self.flare = FlareFactory(date_started=timezone.now() - timedelta(days=150), urate=UrateFactory(value=15.0))
+        self.flare = create_flare(
+            date_started=(timezone.now() - timedelta(days=150)).date(), urate=UrateFactory(value=15.0)
+        )
         self.urate5 = self.flare.urate
 
     def test__all_urates_fetched(self):
@@ -41,7 +43,7 @@ class TestUrateUserlessQuerySet(TestCase):
         # assert that the date is the date_drawn if it exists, otherwise is the Flare.date_started
         self.assertEqual(qs[0].date, self.urate1.date_drawn)
         self.assertEqual(qs[1].date, self.urate2.date_drawn)
-        self.assertEqual(qs[2].date.date(), self.urate5.flare.date_started.date())
+        self.assertEqual(qs[2].date.date(), self.urate5.flare.date_started)
         self.assertEqual(qs[3].date, self.urate3.date_drawn)
         self.assertEqual(qs[4].date, self.urate4.date_drawn)
 
@@ -65,9 +67,9 @@ class TestDatedUrates(TestCase):
         urate2 = UrateFactory(value=6.0)
         urate3 = UrateFactory(value=7.0)
         # Create a few flares and assign urates to the flares urate attr
-        FlareFactory(date_started=timezone.now() - timedelta(days=150), urate=urate1)
-        FlareFactory(date_started=timezone.now() - timedelta(days=23), urate=urate2)
-        FlareFactory(date_started=timezone.now() - timedelta(days=190), urate=urate3)
+        create_flare(date_started=(timezone.now() - timedelta(days=150)).date(), urate=urate1)
+        create_flare(date_started=(timezone.now() - timedelta(days=23)).date(), urate=urate2)
+        create_flare(date_started=(timezone.now() - timedelta(days=190)).date(), urate=urate3)
         # Test that the queryset is annotated with flare.date_started
         qs = Urate.objects.all()
         qs = dated_urates(qs)
@@ -81,9 +83,9 @@ class TestDatedUrates(TestCase):
         urate2 = UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=22))
         urate3 = UrateFactory(value=7.0)
         # Create a few flares and assign urates to the flares urate attr
-        FlareFactory(date_started=timezone.now() - timedelta(days=150), urate=urate1)
-        FlareFactory(date_started=timezone.now() - timedelta(days=23), urate=urate2)
-        FlareFactory(date_started=timezone.now() - timedelta(days=190), urate=urate3)
+        create_flare(date_started=timezone.now() - timedelta(days=150), urate=urate1)
+        create_flare(date_started=timezone.now() - timedelta(days=23), urate=urate2)
+        create_flare(date_started=timezone.now() - timedelta(days=190), urate=urate3)
         # Test that the queryset is annotated with flare.date_started
         # and that flare.date_started takes precedence over urate.date_drawn
         qs = Urate.objects.all()

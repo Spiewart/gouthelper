@@ -4,7 +4,12 @@ from django.apps import apps  # type: ignore  # pylint: disable=E0401
 from django.contrib.auth import get_user_model  # type: ignore  # pylint: disable=E0401
 
 from ..treatments.choices import TrtTypes, UltChoices
-from ..utils.services import TreatmentAidService, aids_process_hlab5801
+from ..utils.services import (
+    TreatmentAidService,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
+    aids_process_hlab5801,
+)
 
 if TYPE_CHECKING:
     from ..ultaids.models import UltAid
@@ -23,6 +28,8 @@ class UltAidDecisionAid(TreatmentAidService):
         self.hlab5801 = self.qs.hlab5801 if hasattr(self.qs, "hlab5801") else None
         if self.qs_has_user:
             setattr(self.model_attr, "hlab5801", None)
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
 
     UltChoices = UltChoices
     trttype = TrtTypes.ULT

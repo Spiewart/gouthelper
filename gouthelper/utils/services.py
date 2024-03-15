@@ -685,6 +685,22 @@ def aid_service_check_oto_swap(
         setattr(model_attr, oto, None)
 
 
+def get_service_object(
+    model_attr: Literal["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"],
+    qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
+) -> str:
+    if model_attr != "flare":
+        return getattr(qs, model_attr)
+    else:
+        model_obj = getattr(qs, f"{model_attr}_qs")
+        if isinstance(model_obj, QuerySet):
+            return model_obj[0]
+        elif isinstance(model_obj, list):
+            return model_obj[0]
+        else:
+            return model_obj
+
+
 class AidService:
     """Base class for Aid service class methods."""
 
@@ -693,11 +709,12 @@ class AidService:
         qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
         model: type[Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]],
     ):
+        self.model = model
         if isinstance(qs, QuerySet):
             self.qs = qs.get()
         else:
             self.qs = qs
-        model_attr = model.__name__.lower()
+        model_attr = self.model.__name__.lower()
         model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
         self.default_settings_class = getattr(model, "defaultsettings", None)
         self.default_settings_attr = (
@@ -708,7 +725,7 @@ class AidService:
             self.user = self.qs.user
             self.qs_has_user = True if self.user else False
         elif isinstance(self.qs, get_user_model()):
-            setattr(self, model_attr, getattr(self.qs, model_attr))
+            setattr(self, model_attr, get_service_object(model_attr=model_attr, qs=self.qs))
             self.user = self.qs
             self.qs_has_user = False
         else:
@@ -747,8 +764,6 @@ class AidService:
         self.medallergys = self.qs.medallergys_qs if hasattr(self.qs, "medallergys_qs") else None
         if hasattr(self.qs, "medhistorys_qs"):
             self.medhistorys = self.qs.medhistorys_qs
-            self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
-            self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
         else:
             self.medhistorys = None
         # TODO: Add side effects back in at later stage, kept here to avoid breaking other code
@@ -774,6 +789,7 @@ class TreatmentAidService(AidService):
     methods for creating trt_dict, decisionaid_dict, filtering DefaultTrts,
     and updating the model's decisionaid field."""
 
+    ckddetail: Union["CkdDetail", None]
     trttype: TrtTypes.FLARE | TrtTypes.PPX | TrtTypes.ULT
 
     def _create_trts_dict(self):

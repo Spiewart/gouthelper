@@ -1,11 +1,17 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union  # pylint: disable=E0013, E0015 # type: ignore
 
-from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from django.db.models import QuerySet  # type: ignore
+from django.apps import apps  # pylint: disable=E0401 # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=E0401 # type: ignore
+from django.db.models import QuerySet  # pylint: disable=E0401 # type: ignore
 
 from ..treatments.choices import FlarePpxChoices, TrtTypes
-from ..utils.services import TreatmentAidService, aids_process_nsaids, aids_process_steroids
+from ..utils.services import (
+    TreatmentAidService,
+    aids_assign_baselinecreatinine,
+    aids_assign_ckddetail,
+    aids_process_nsaids,
+    aids_process_steroids,
+)
 
 if TYPE_CHECKING:
     from .models import PpxAid
@@ -19,6 +25,8 @@ class PpxAidDecisionAid(TreatmentAidService):
         qs: Union["PpxAid", User, QuerySet] = None,
     ):
         super().__init__(qs=qs, model=apps.get_model(app_label="ppxaids", model_name="PpxAid"))
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
 
     FlarePpxChoices = FlarePpxChoices
     trttype = TrtTypes.PPX

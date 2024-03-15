@@ -1,4 +1,3 @@
-import math
 from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
@@ -60,6 +59,18 @@ def flares_calculate_prevalence_points(
     Returns:
         float: points for prevalence
     """
+    print("gender")
+    print(gender)
+    print("onset")
+    print(onset)
+    print("redness")
+    print(redness)
+    print("joints")
+    print(joints)
+    print("medhistorys")
+    print(medhistorys)
+    print("urate")
+    print(urate)
     points = 0.0
     if gender.value == Genders.MALE:
         points += 2.0
@@ -77,6 +88,8 @@ def flares_calculate_prevalence_points(
         points += 1.5
     if urate and urate.value > Decimal("5.88"):
         points += 3.5
+    print("prevalence points")
+    print(points)
     return points
 
 
@@ -143,6 +156,14 @@ def flares_calculate_likelihood(
     Returns:
         Likelihoods: enum representing the likelihood of a flare being gout
     """
+    print("less_likelys")
+    print(less_likelys)
+    print("diagnosed")
+    print(diagnosed)
+    print("crystal_analysis")
+    print(crystal_analysis)
+    print("prevalence")
+    print(prevalence)
     # Check if the flare was diagnosed by a clinician
     if diagnosed and crystal_analysis is True:
         # If the clinician performed and aspiration and found gout, then
@@ -156,10 +177,13 @@ def flares_calculate_likelihood(
         # more or less likely than if the flare was not diagnosed by a clinician
     # Set baseline likelihood based on the presence or absence of less likelys
     elif less_likelys:
+        print("found less likelys")
         # If there are less likely gout factors
         # reduce the likelihood dependent on the prevalence
         return Likelihoods.EQUIVOCAL if prevalence == Prevalences.HIGH else Likelihoods.UNLIKELY
     else:
+        print("defaulting back to this")
+        print(prevalence)
         # Otherwise set the likelihood based on the prevalence
         return (
             Likelihoods.LIKELY
@@ -183,10 +207,9 @@ def flares_calculate_prevalence(
     Returns:
         Prevalences: enum representing the prevalence of gout in a population
     """
-    prevalence_points = math.floor(prevalence_points)
     if prevalence_points >= 8:
         return Prevalences.HIGH
-    elif prevalence_points >= 4 and prevalence_points < 8:
+    elif prevalence_points > 4 and prevalence_points < 8:
         return Prevalences.MEDIUM
     else:
         return Prevalences.LOW

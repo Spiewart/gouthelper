@@ -33,13 +33,13 @@ class TestMedHistoryAttr(TestCase):
     def setUp(self):
         # Create the different types of object that the function will work with, for testing
         # PpxAid is used because the factory was ready at the time I wrote this test
-        self.ppxaid = create_ppxaid(medhistorys=[MedHistoryTypes.CKD])
+        self.ppxaid = create_ppxaid(mhs=[MedHistoryTypes.CKD])
         self.ppxaid_ckd = self.ppxaid.medhistory_set.get(medhistorytype=MedHistoryTypes.CKD)
-        self.user_ppxaid = create_ppxaid(user=True, medhistorys=[MedHistoryTypes.CKD])
+        self.user_ppxaid = create_ppxaid(user=True, mhs=[MedHistoryTypes.CKD])
         self.user = self.user_ppxaid.user
         self.user_ckd = self.user.medhistory_set.get(medhistorytype=MedHistoryTypes.CKD)
-        self.empty_ppxaid = create_ppxaid(medhistorys=[])
-        self.empty_user_ppxaid = create_ppxaid(user=True, medhistorys=[])
+        self.empty_ppxaid = create_ppxaid(mhs=[])
+        self.empty_user_ppxaid = create_ppxaid(user=True, mhs=[])
         self.empty_user = self.empty_user_ppxaid.user
 
     def test__medhistorys_qs(self):

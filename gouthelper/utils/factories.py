@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
-from django.db import IntegrityError, transaction  # pylint: disable=e0401 # type: ignore
+from django.db import IntegrityError  # pylint: disable=e0401 # type: ignore
 from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
@@ -34,10 +34,10 @@ from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..medhistorys.models import MedHistory
-from ..medhistorys.tests.factories import MedHistoryFactory
 from ..treatments.choices import NsaidChoices, Treatments
 from ..users.tests.factories import create_psp
-from .helpers import get_or_create_attr, get_or_create_qs_attr, get_qs_or_set
+from .db_helpers import get_or_create_attr, get_or_create_medhistory_atomic
+from .helpers import get_or_create_qs_attr, get_qs_or_set
 
 if TYPE_CHECKING:
     import uuid
@@ -59,30 +59,6 @@ ModDialysisDurations = DialysisDurations.values
 ModDialysisDurations.remove("")
 ModStages = Stages.values
 ModStages.remove(None)
-
-
-def create_medhistory_atomic(
-    medhistorytype: MedHistoryTypes,
-    user: User | None = None,
-    aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
-    aid_obj_attr: str | None = None,
-):
-    if not aid_obj_attr:
-        aid_obj_attr = aid_obj.__class__.__name__.lower()
-
-    with transaction.atomic():
-        try:
-            return MedHistoryFactory(
-                medhistorytype=medhistorytype,
-                user=user,
-                **{aid_obj_attr: aid_obj} if not user else {},
-            )
-        except IntegrityError as exc:
-            # Check if duplicate key error is due to the MedHistory already existing
-            if "already exists" in str(exc):
-                pass
-            else:
-                raise exc
 
 
 def create_or_append_mhs_qs(
@@ -224,6 +200,22 @@ def set_oto_from_obj(
     )
 
 
+def oto_random_age() -> int:
+    return age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
+
+
+def oto_random_ethnicity() -> Ethnicitys:
+    return random.choice(Ethnicitys.values)
+
+
+def oto_random_gender() -> Genders:
+    return random.choice(Genders.values)
+
+
+def oto_random_urate_or_None() -> Decimal | None:
+    return fake_urate_decimal() if fake.boolean() else None
+
+
 def set_oto(
     self_obj: Any,
     onetoone: str,
@@ -234,16 +226,16 @@ def set_oto(
     is in the req_otos list."""
     if (req_otos and onetoone in req_otos) or fake.boolean():
         if onetoone == "dateofbirth":
-            self_obj.age = age_calc(fake.date_of_birth(minimum_age=18, maximum_age=100))
+            self_obj.age = oto_random_age()
             self_obj.dateofbirth = self_obj.age
         elif onetoone == "ethnicity":
-            self_obj.ethnicity = random.choice(Ethnicitys.values)
+            self_obj.ethnicity = oto_random_ethnicity()
         elif onetoone == "gender":
-            self_obj.gender = random.choice(Genders.values)
+            self_obj.gender = oto_random_gender()
         elif onetoone == "hlab5801":
             self_obj.hlab5801 = fake.boolean() if fake.boolean() else None
         elif onetoone == "urate":
-            self_obj.urate = fake_urate_decimal() if fake.boolean() else None
+            self_obj.urate = oto_random_urate_or_None()
     else:
         setattr(self_obj, onetoone, None)
 
@@ -875,7 +867,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     if medhistory == MedHistoryTypes.MENOPAUSE:
                         continue
                     if specified:
-                        new_mh = create_medhistory_atomic(
+                        new_mh = get_or_create_medhistory_atomic(
                             medhistory,
                             user=self.user,
                             aid_obj=aid_obj,
@@ -885,14 +877,14 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                         if self.user and medhistory == MedHistoryTypes.GOUT:
                             new_mh = getattr(self.user, "gout")
                             if not new_mh:
-                                new_mh = create_medhistory_atomic(
+                                new_mh = get_or_create_medhistory_atomic(
                                     medhistory,
                                     user=self.user,
                                     aid_obj=aid_obj,
                                     aid_obj_attr=aid_obj_attr,
                                 )
                         else:
-                            new_mh = create_medhistory_atomic(
+                            new_mh = get_or_create_medhistory_atomic(
                                 medhistory,
                                 user=self.user,
                                 aid_obj=aid_obj,

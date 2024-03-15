@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import pytest  # type: ignore
@@ -273,7 +274,7 @@ class TestFlareHelpers(TestCase):
     def test__flares_calculate_prevalence_points_high_urate(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
@@ -566,7 +567,7 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
@@ -592,7 +593,7 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
@@ -612,7 +613,7 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
@@ -635,7 +636,7 @@ Physician evaluation is recommended.",
     ):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.FEMALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             dateofbirth=dateofbirth,
@@ -655,7 +656,7 @@ Physician evaluation is recommended.",
     def test__flares_flares_likelihood_calculator_long_flare_lowers_likelihood(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             date_ended=None,
@@ -679,7 +680,7 @@ Physician evaluation is recommended.",
     def test__flares_flares_likelihood_calculator_short_flare_lowers_likelihood(self):
         dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 30))
         gender = GenderFactory(value=Genders.MALE)
-        urate = UrateFactory(value=10.0)
+        urate = UrateFactory(value=Decimal("10.0"))
         flare = create_flare(
             crystal_analysis=None,
             date_ended=timezone.now().date(),
@@ -693,6 +694,7 @@ Physician evaluation is recommended.",
             urate=urate,
             mhs=[MedHistoryTypes.CHF],
         )
+        print(flare.urate)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
         flare.date_started = (timezone.now() - timedelta(days=2)).date()

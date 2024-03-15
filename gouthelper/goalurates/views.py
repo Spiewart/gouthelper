@@ -77,8 +77,11 @@ class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin
         return kwargs
 
     def get_permission_object(self):
-        ultaid = self.kwargs.get("ultaid", None)
-        return ultaid if ultaid else None
+        ultaid_kwarg = self.kwargs.get("ultaid", None)
+        self.ultaid = (  # pylint: disable=W0201
+            UltAid.objects.select_related("user").get(pk=ultaid_kwarg) if ultaid_kwarg else None
+        )
+        return self.ultaid.user if self.ultaid else None
 
     def get_template_names(self) -> list[str]:
         if self.request.htmx:
@@ -108,8 +111,7 @@ class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin
         if errors:
             return errors
         else:
-            ultaid_kwarg = self.kwargs.get("ultaid", None)
-            kwargs = {"ultaid": UltAid.objects.get(pk=ultaid_kwarg) if ultaid_kwarg else None}
+            kwargs = {"ultaid": self.ultaid}
             if self.request.htmx:
                 kwargs.update({"htmx": HttpResponseClientRefresh()})
             return self.form_valid(

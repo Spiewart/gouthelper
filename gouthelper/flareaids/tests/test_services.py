@@ -59,8 +59,8 @@ class TestFlareAidMethods(TestCase):
                 self.assertIn(ma, decisionaid.medallergys)
             self.assertIsNone(decisionaid.user)
             self.assertIsNone(decisionaid.sideeffects)
-            self.assertTrue(isinstance(decisionaid.defaultflaretrtsettings, DefaultFlareTrtSettings))
-            self.assertIsNone(decisionaid.defaultflaretrtsettings.user)  # type: ignore
+            self.assertTrue(isinstance(decisionaid.defaultsettings, DefaultFlareTrtSettings))
+            self.assertIsNone(decisionaid.defaultsettings.user)  # type: ignore
 
     def test__init_with_user(self):
         """Test that the __init__ method sets the attrs on the service class correctly
@@ -82,7 +82,7 @@ class TestFlareAidMethods(TestCase):
             for ma in fa.user.medallergy_set.filter(treatment__in=FlarePpxChoices.values).all():
                 self.assertIn(ma, decisionaid.medallergys)
             self.assertIsNone(decisionaid.sideeffects)
-            self.assertEqual(decisionaid.defaultflaretrtsettings, custom_settings)
+            self.assertEqual(decisionaid.defaultsettings, custom_settings)
 
     def test__init_with_flareaid_with_user(self):
         """Test that when the Class Method is called with a FlareAid that has a User,
@@ -125,7 +125,7 @@ class TestFlareAidMethods(TestCase):
             for ma in fa.user.medallergy_set.filter(treatment__in=FlarePpxChoices.values).all():
                 self.assertIn(ma, decisionaid.medallergys)
             self.assertIsNone(decisionaid.sideeffects)
-            self.assertEqual(decisionaid.defaultflaretrtsettings, custom_settings)
+            self.assertEqual(decisionaid.defaultsettings, custom_settings)
 
     def test__init_with_wrong_Type_raises_TypeError(self):
         with self.assertRaises(TypeError):

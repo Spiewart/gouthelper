@@ -1,7 +1,7 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...ppxaids.tests.factories import PpxAidFactory
+from ...ppxaids.tests.factories import create_ppxaid
 from ..choices import Treatments
 from ..helpers import treatments_stringify_trt_tuple
 
@@ -10,7 +10,7 @@ pytestmark = pytest.mark.django_db
 
 class TestTreatmentsStringifyTrtTuple(TestCase):
     def setUp(self):
-        self.ppxaid = PpxAidFactory(medhistorys=[], medallergys=[])
+        self.ppxaid = create_ppxaid(mhs=[], mas=[])
         self.trt = next(iter(self.ppxaid.options))
         self.dosing = self.ppxaid.options[self.trt]
 

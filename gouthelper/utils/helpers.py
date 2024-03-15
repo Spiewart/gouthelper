@@ -52,36 +52,6 @@ def duration_decimal_parser(json_dict):
     return json_dict
 
 
-def get_or_create_attr(obj: Any, attr: str, attr_obj: Any, commit: bool = False) -> Any:
-    """Method that takes any object, a string, and an object and creates an
-    attr on the object if it doesn't already exist. If the attr is already
-    set, it returns the attr. If commit is True, it saves the object.
-
-    Args:
-        obj: Any
-        attr: str
-        attr_obj: Any
-        commit: bool
-
-    Returns:
-        Any: attr on obj
-
-    Raises:
-        ValueError: If the attr already exists on the object and is not equal to attr_obj.
-    """
-
-    if not getattr(obj, attr, None):
-        setattr(obj, attr, attr_obj)
-        if commit:
-            obj.save()
-        return getattr(obj, attr)
-    else:
-        obj_attr = getattr(obj, attr)
-        if obj_attr and obj_attr != attr_obj:
-            raise ValueError(f"{attr} already exists ({obj_attr}) on {obj} and is not equal to {attr_obj}.")
-        return obj_attr
-
-
 def get_or_create_qs_attr(obj: Any, name: str) -> list:
     """Method that takes any object and a string and creates an empty list
     attr on the object if it doesn't already exist. Adds an "s" to the end
@@ -114,7 +84,7 @@ def get_qs_or_set(obj: Any, name: str) -> Union[list, "QuerySet"]:
 def normalize_fraction(d):
     # https://stackoverflow.com/questions/11227620/drop-trailing-zeros-from-decimal
     normalized = d.normalize()
-    sign, digit, exponent = normalized.as_tuple()
+    _, _, exponent = normalized.as_tuple()  # sign, digit, exponent
     return normalized if exponent <= 0 else normalized.quantize(1)
 
 

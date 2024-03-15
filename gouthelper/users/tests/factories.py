@@ -25,10 +25,10 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
-from ...medhistorys.tests.factories import MedHistoryFactory
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
+from ...utils.db_helpers import get_or_create_medhistory_atomic
 from ..choices import Roles
 from ..models import Pseudopatient
 
@@ -150,6 +150,10 @@ def create_psp_dateofbirth(
             try:
                 return DateOfBirthFactory(user=psp)
             except IntegrityError:
+                if dateofbirth and psp.dateofbirth.value != dateofbirth:
+                    psp.dateofbirth.value = dateofbirth
+                    psp.dateofbirth.full_clean()
+                    psp.dateofbirth.save()
                 return psp.dateofbirth
     elif isinstance(dateofbirth, (str, date)):
         with transaction.atomic():
@@ -170,11 +174,16 @@ def create_psp_ethnicity(
     ethnicity: Ethnicitys | None,
     psp: Pseudopatient,
 ) -> Ethnicity:
-    if isinstance(ethnicity, (str, Ethnicitys)):
+    if isinstance(ethnicity, (str, Ethnicitys)) or ethnicity is None:
+        ethnicity_factory_kwargs = {"value": ethnicity} if ethnicity else {}
         with transaction.atomic():
             try:
-                return EthnicityFactory(user=psp, value=ethnicity)
+                return EthnicityFactory(user=psp, **ethnicity_factory_kwargs)
             except IntegrityError:
+                if ethnicity and psp.ethnicity.value != ethnicity:
+                    psp.ethnicity.value = ethnicity
+                    psp.ethnicity.full_clean()
+                    psp.ethnicity.save()
                 return psp.ethnicity
     elif isinstance(ethnicity, Ethnicity):
         if ethnicity.user != psp:
@@ -212,6 +221,10 @@ def create_psp_gender(
             try:
                 return GenderFactory(user=psp, value=gender)
             except IntegrityError:
+                if gender and psp.gender.value != gender:
+                    psp.gender.value = gender
+                    psp.gender.full_clean()
+                    psp.gender.save()
                 return psp.gender
     elif gender is not None and isinstance(gender, Gender):
         if gender.user != psp:
@@ -226,12 +239,10 @@ def set_psp_ethnicity_attr(
     ethnicity: Ethnicitys | None,
     psp: Pseudopatient,
 ) -> None:
-    if ethnicity:
-        psp.ethnicity = create_psp_ethnicity(ethnicity, psp)
-    elif ethnicity is False:
+    if ethnicity is False:
         psp.ethnicity = None
     else:
-        psp.ethnicity = create_psp_ethnicity(EthnicityFactory(user=psp), psp)
+        psp.ethnicity = create_psp_ethnicity(ethnicity, psp)
 
 
 def set_psp_gender_attr(
@@ -239,15 +250,16 @@ def set_psp_gender_attr(
     psp: Pseudopatient,
     menopause: bool = False,
 ) -> None:
-    if gender:
-        psp.gender = create_psp_gender(gender, psp)
-    elif gender is False:
+    print("setting gender")
+    print(gender)
+    if gender is not None and gender is False:
         psp.gender = None
     else:
-        gender_kwargs = {}
         if menopause:
-            gender_kwargs.update({"value": Genders.FEMALE})
-        psp.gender = create_psp_gender(GenderFactory(user=psp, **gender_kwargs), psp)
+            gender = Genders.FEMALE
+        elif gender is None:
+            gender = Genders(GenderFactory.stub().value)
+        psp.gender = create_psp_gender(gender, psp)
 
 
 def create_psp(
@@ -280,16 +292,7 @@ def create_psp(
     medhistorytypes.remove(MedHistoryTypes.GOUT)
     medhistorytypes.remove(MedHistoryTypes.MENOPAUSE)
     # Create a Gout MedHistory and GoutDetail, as all Pseudopatients have Gout
-    with transaction.atomic():
-        try:
-            gout = MedHistoryFactory(
-                user=psp,
-                medhistorytype=MedHistoryTypes.GOUT,
-            )
-        except IntegrityError:
-            gout = None
-    if not gout:
-        gout = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.GOUT)
+    gout = get_or_create_medhistory_atomic(medhistorytype=MedHistoryTypes.GOUT, user=psp)
     with transaction.atomic():
         try:
             if ppx_indicated is not None:
@@ -305,14 +308,14 @@ def create_psp(
             pass
     if hasattr(psp, "gender'") and psp.gender.value == Genders.FEMALE and hasattr(psp, "dateofbirth"):
         if menopause:
-            MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+            get_or_create_medhistory_atomic(psp, MedHistoryTypes.MENOPAUSE)
         else:
             age = age_calc(psp.dateofbirth.value)
             # If age < 40, there is no Menopause MedHistory
             if age >= 40 and age < 60 and fake.boolean():
-                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+                get_or_create_medhistory_atomic(psp, MedHistoryTypes.MENOPAUSE)
             elif age >= 60:
-                MedHistoryFactory(user=psp, medhistorytype=MedHistoryTypes.MENOPAUSE)
+                get_or_create_medhistory_atomic(psp, MedHistoryTypes.MENOPAUSE)
     if medhistorys or plus or mh_dets:
         if medhistorys:
             for medhistory in medhistorys:
@@ -325,7 +328,7 @@ def create_psp(
                             raise ValueError("You don't need to put Gout in the medhistorys list.") from e
                         else:
                             raise e
-                    new_mh = MedHistoryFactory(user=psp, medhistorytype=medhistory)
+                    new_mh = get_or_create_medhistory_atomic(medhistory, psp)
                     setattr(psp, medhistory, new_mh)
                     if medhistory == MedHistoryTypes.CKD and (
                         (mh_dets and mh_dets.get(MedHistoryTypes.CKD, None)) or fake.boolean()
@@ -344,7 +347,7 @@ def create_psp(
             for _ in range(0, random.randint(0, 10)):
                 # Create a random MedHistoryType, popping the value from the list
                 medhistory = medhistorytypes.pop(random.randint(0, len(medhistorytypes) - 1))
-                new_mh = MedHistoryFactory(user=psp, medhistorytype=medhistory)
+                new_mh = get_or_create_medhistory_atomic(medhistory, psp)
                 setattr(psp, medhistory, new_mh)
                 if medhistory == MedHistoryTypes.CKD and (
                     (mh_dets and mh_dets.get(MedHistoryTypes.CKD, None)) or fake.boolean()

@@ -28,7 +28,7 @@ class TestCreateUlt(TestCase):
     def test__FlareFreqs_are_random(self):
         for freq in FlareFreqs.values:
             self.assertTrue(Ult.related_objects.filter(freq_flares=freq).exists())
-            self.assertTrue(Ult.related_objects.filter(ult__freq_flares=freq).exists())
+            self.assertTrue(Pseudopatient.objects.ult_qs().filter(ult__freq_flares=freq).exists())
 
     def test__FlareNums_are_random(self):
         for num in FlareNums.values:

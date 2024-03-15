@@ -254,8 +254,8 @@ class TestUltAidDataFactory(TestCase):
                 self.assertTrue(isinstance(data["dateofbirth-value"], int))
             self.assertIn("ethnicity-value", data)
             self.assertEqual(data["ethnicity-value"], (self.ultaid_no_user.ethnicity.value))
-            if data.get("gender-value", None):
-                self.assertEqual(data["gender-value"], self.ultaid_no_user.gender.value)
+            if data.get("gender-value", None) and data["gender-value"] != "":
+                self.assertIn(data["gender-value"], Genders.values)
 
     def test__with_ultaid_with_otos(self):
         for _ in range(10):

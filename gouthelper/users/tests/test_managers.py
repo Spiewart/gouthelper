@@ -23,6 +23,7 @@ from ...ultaids.models import UltAid
 from ...ultaids.tests.factories import create_ultaid
 from ...ults.models import Ult
 from ...ults.tests.factories import create_ult
+from ...utils.db_helpers import create_onetoone_factory_atomic
 from ..models import Pseudopatient
 from .factories import create_psp
 
@@ -38,7 +39,7 @@ class TestPseudopatientManager(TestCase):
             if fake.boolean():
                 create_flareaid(user=psp)
             if fake.boolean():
-                DefaultFlareTrtSettingsFactory(user=psp)
+                create_onetoone_factory_atomic(DefaultFlareTrtSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_flare(user=psp)
                 if fake.boolean():
@@ -48,13 +49,13 @@ class TestPseudopatientManager(TestCase):
             if fake.boolean():
                 create_ppxaid(user=psp)
             if fake.boolean():
-                DefaultPpxTrtSettingsFactory(user=psp)
+                create_onetoone_factory_atomic(DefaultPpxTrtSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_ppx(user=psp)
             if fake.boolean():
                 create_ultaid(user=psp)
             if fake.boolean():
-                DefaultUltTrtSettingsFactory(user=psp)
+                create_onetoone_factory_atomic(DefaultUltTrtSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_ult(user=psp)
 

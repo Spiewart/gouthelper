@@ -21,7 +21,11 @@ def anon_user(_, obj):
     # Check if the permission object is a User
     if isinstance(obj, User):
         # If so, check if the User has a profile and if the profile has a provider
-        return getattr(obj, "profile", False) and not getattr(obj.profile, "provider", None)
+        return (
+            (obj.role == Roles.PSEUDOPATIENT or obj.role == Roles.PATIENT)
+            and getattr(obj, "profile", False)
+            and not getattr(obj.profile, "provider", None)
+        )
     # If not, check if the permission object is None
     else:
         return True if obj is None else False
@@ -49,7 +53,7 @@ def is_anon_obj(_, obj):
 @rules.predicate
 def no_user(_, obj):
     """Checks if the request.user is None and that the object's user is None."""
-    return not isinstance(obj, User) and (obj.user is None if hasattr(obj, "user") else True)
+    return getattr(obj, "user", False) is None
 
 
 @rules.predicate
