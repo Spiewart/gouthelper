@@ -248,7 +248,7 @@ class GoalUratePseudopatientCreate(
                 ma_2_rem=None,
                 labs_2_save=None,
                 labs_2_rem=None,
-                kwargs=kwargs,
+                **kwargs,
             )
 
 
@@ -355,7 +355,7 @@ class GoalUratePseudopatientUpdate(
                 ma_2_rem=None,
                 labs_2_save=None,
                 labs_2_rem=None,
-                kwargs=kwargs,
+                **kwargs,
             )
 
 
@@ -421,5 +421,5 @@ class GoalUrateUpdate(GoalUrateBase, GoutHelperAidMixin, AutoPermissionRequiredM
                 ma_2_rem=None,
                 labs_2_save=None,
                 labs_2_rem=None,
-                kwargs=kwargs,
+                **kwargs,
             )

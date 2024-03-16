@@ -15,7 +15,7 @@
     <li>
       <a class="samepage-link" href="#{{ id }}">
         {% if id == "medallergys" %}
-          {% with object|getattribute:allergy as allergy_list %}{{ allergy_list.0 }}{% endwith %}
+          {{ object|getattribute:allergy }}
         {% else %}
           {{ object|getattribute:id }}
         {% endif %}

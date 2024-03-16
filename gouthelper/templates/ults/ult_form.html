@@ -14,26 +14,62 @@
   <h1>Ult</h1>
 {% endblock heading %}
 {% block subheading %}
-  Does a patient need ULT? Tell us about their gout and related medical history to find out.
+  Does
+  {% if patient %}
+    {{ patient }}
+  {% else %}
+    a patient
+  {% endif %}
+  need <a href="{% url 'treatments:about-ult' %}" target="_blank">ULT</a>? Tell us about
+  {% if patient %}
+    {% if patient.gender %}
+      her
+    {% else %}
+      his
+    {% endif %}
+  {% else %}
+    his or her
+  {% endif %}
+  gout and related medical history to find out.
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ults:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:pseudopatient-update' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ults:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:pseudopatient-create' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}

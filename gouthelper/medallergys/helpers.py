@@ -17,7 +17,8 @@ def medallergys_get(
         return next(iter(medallergy for medallergy in medallergys if medallergy.treatment == treatment), None)
     elif isinstance(treatment, list):
         return [medallergy for medallergy in medallergys if medallergy.treatment in treatment]
-    return None
+    else:
+        return None
 
 
 def medallergy_attr(

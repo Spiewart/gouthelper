@@ -7,6 +7,8 @@
   <div class="row">
     <div class="col">
       <h1>UltAid</h1>
+      {% if object.user %}<h5>{{ object.user }}</h5>{% endif %}
+      {{ object.medhistorys_qs }}
     </div>
     <div class="col align-items-center d-flex">
       <a type="button"
@@ -37,7 +39,7 @@
               <div id="goalurate">
                 <a type="button"
                    class="btn btn-primary btn-lg mini-button"
-                   hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
+                   {% if patient %}  {% else %} hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}" {% endif %}
                    hx-target="#goalurate"
                    hx-trigger="click"
                    role="button">Goal Urate</a>

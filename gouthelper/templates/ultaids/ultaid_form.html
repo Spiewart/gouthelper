@@ -19,21 +19,41 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ultaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:pseudopatient-update' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:update' form.instance.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ultaids:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.username %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:pseudopatient-create' view.kwargs.username %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}

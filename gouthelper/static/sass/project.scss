@@ -35,6 +35,14 @@ $red: #b94a48;
   color: $red;
 }
 
+.btn-group.fullwidth {
+  display: flex;
+}
+
+.fullwidth .btn {
+  flex: 1;
+}
+
 .footer-blockquote {
   font-size: 0.8rem;
   margin: 10px;

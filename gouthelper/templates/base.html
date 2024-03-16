@@ -107,7 +107,8 @@
               {% endif %}
               {% if patient %}
                 <li class="nav-item">
-                  <a class="nav-link"
+                  <a class="nav-link active"
+                     aria-current="page"
                      href="{% url 'users:pseudopatient-detail' patient.username %}">{{ patient }}</a>
                 </li>
               {% endif %}
