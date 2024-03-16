@@ -174,18 +174,22 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
             date_diff = timezone.now().date() - (
                 flare.date_started.date() if isinstance(flare.date_started, datetime) else flare.date_started
             )
-            if fake.boolean():
+            if date_diff and fake.boolean():
                 if fake.boolean():
                     flare.date_ended = fake.date_between_dates(
                         date_start=flare.date_started + timedelta(days=1),
                         date_end=flare.date_started
                         + (date_diff if date_diff < timedelta(days=14) else timedelta(days=14)),
-                    )
+                    ) if date_diff > timedelta(days=1) else flare.date_started + date_diff
                 else:
-                    flare.date_ended = fake.date_between_dates(
-                        date_start=flare.date_started + timedelta(days=1),
-                        date_end=flare.date_started
-                        + (date_diff if date_diff < timedelta(days=30) else timedelta(days=30)),
+                    flare.date_ended = (
+                        fake.date_between_dates(
+                            date_start=flare.date_started + timedelta(days=1),
+                            date_end=flare.date_started
+                            + (date_diff if date_diff < timedelta(days=30) else timedelta(days=30)),
+                        )
+                        if date_diff > timedelta(days=1)
+                        else flare.date_started + date_diff
                     )
         # Save the Flare
         flare.save()

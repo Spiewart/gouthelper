@@ -80,4 +80,5 @@ class TestUpdateOrCreateCkdDetailKwargs(TestCase):
                 )
             )
         for stage in ModStages:
+            print(stage)
             self.assertTrue(next(iter(kwargs for kwargs in kwargs_list if kwargs["stage"] == stage), False))

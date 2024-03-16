@@ -22,7 +22,7 @@
   {% endif %}
   need <a href="{% url 'treatments:about-ult' %}" target="_blank">ULT</a>? Tell us about
   {% if patient %}
-    {% if patient.gender %}
+    {% if patient.gender.value %}
       her
     {% else %}
       his

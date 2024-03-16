@@ -31,7 +31,7 @@ class TestFlareMethods(TestCase):
 
     def test__constraint_date_started_not_in_future(self):
         with self.assertRaises(IntegrityError):
-            create_flare(date_started=(timezone.now() + timedelta(days=1)).date())
+            create_flare(date_started=(timezone.now() + timedelta(days=1)).date(), date_ended=None)
 
     def test__constraint_start_end_date_valid(self):
         with self.assertRaises(IntegrityError):

@@ -9,4 +9,4 @@ class Migration(migrations.Migration):
         ("defaults", "0002_initial"),
     ]
 
-    operations = [migrations.RunPython(update_defaults)]
+    operations = []

@@ -8,7 +8,6 @@
     <div class="col">
       <h1>UltAid</h1>
       {% if object.user %}<h5>{{ object.user }}</h5>{% endif %}
-      {{ object.medhistorys_qs }}
     </div>
     <div class="col align-items-center d-flex">
       <a type="button"
@@ -37,12 +36,21 @@
           {% else %}
             <div class="col">
               <div id="goalurate">
+                {% if patient %}
                 <a type="button"
                    class="btn btn-primary btn-lg mini-button"
-                   {% if patient %}  {% else %} hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}" {% endif %}
+                   hx-get="{% url 'goalurates:pseudopatient-create' username=patient.username %}"
                    hx-target="#goalurate"
                    hx-trigger="click"
                    role="button">Goal Urate</a>
+                {% else %}
+                  <a type="button"
+                    class="btn btn-primary btn-lg mini-button"
+                      hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
+                    hx-target="#goalurate"
+                    hx-trigger="click"
+                    role="button">Goal Urate</a>
+                {% endif %}
               </div>
             </div>
           {% endif %}
