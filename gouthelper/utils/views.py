@@ -48,6 +48,32 @@ if TYPE_CHECKING:
 User = get_user_model()
 
 
+def add_patient_to_session(request: "HttpRequest", patient: Pseudopatient | User) -> None:
+    request.session.update({"patient": str(patient), "username": patient.username})
+
+
+def remove_patient_from_session(request: "HttpRequest") -> None:
+    request.session.pop("patient", None)
+    request.session.pop("username", None)
+
+
+def update_session_patient(request: "HttpRequest", patient: Pseudopatient | User | None) -> None:
+    if patient:
+        add_patient_to_session(request, patient)
+    else:
+        remove_patient_from_session(request)
+
+
+class PatientSessionMixin:
+    """Mixin to add a session to a view."""
+
+    def get_context_data(self, **kwargs):
+        """Overwritten to add the patient to the session."""
+        context = super().get_context_data(**kwargs)
+        update_session_patient(self.request, getattr(self, "user", None))
+        return context
+
+
 def validate_form_list(form_list: list["ModelForm"]) -> bool:
     """Method to validate a list of forms.
 
@@ -78,7 +104,7 @@ def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
     return formsets_valid
 
 
-class GoutHelperAidMixin:
+class GoutHelperAidEditMixin(PatientSessionMixin):
     onetoones: dict[str, "FormModelDict"] = {}
     req_otos: list[str] = []
     medallergys: type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"] | list = []
@@ -1200,7 +1226,13 @@ menopause status to evaluate their flare."
             return None
 
 
-class GoutHelperUserMixin(GoutHelperAidMixin):
+class GoutHelperUserDetailMixin(PatientSessionMixin):
+    @cached_property
+    def user(self) -> User | None:
+        return self.object if isinstance(self.object, User) else getattr(self.object, "user", None)
+
+
+class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
     """Overwritten to modify related models around a User, rather than
     a GoutHelper DecisionAid or TreatmentAid object. Also to create a user."""
 

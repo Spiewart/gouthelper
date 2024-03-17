@@ -15,7 +15,7 @@ from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidMixin
+from ..utils.views import GoutHelperAidEditMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
 
@@ -113,7 +113,7 @@ class GoalUrateEditMixin:
 
 
 class GoalUrateCreate(
-    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """Creates a new GoalUrate"""
 
@@ -201,7 +201,7 @@ class GoalUratePatientBase(GoalUrateBase):
 class GoalUratePseudopatientCreate(
     GoalUratePatientBase,
     GoalUrateEditMixin,
-    GoutHelperAidMixin,
+    GoutHelperAidEditMixin,
     PermissionRequiredMixin,
     CreateView,
     SuccessMessageMixin,
@@ -277,7 +277,7 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
 class GoalUratePseudopatientUpdate(
     GoalUratePatientBase,
     GoalUrateEditMixin,
-    GoutHelperAidMixin,
+    GoutHelperAidEditMixin,
     AutoPermissionRequiredMixin,
     UpdateView,
     SuccessMessageMixin,
@@ -296,7 +296,12 @@ class GoalUratePseudopatientUpdate(
 
 
 class GoalUrateUpdate(
-    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    GoalUrateBase,
+    GoalUrateEditMixin,
+    GoutHelperAidEditMixin,
+    AutoPermissionRequiredMixin,
+    UpdateView,
+    SuccessMessageMixin,
 ):
     """Creates a new GoalUrate"""
 

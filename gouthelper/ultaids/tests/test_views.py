@@ -6,7 +6,7 @@ from django.contrib.auth.models import AnonymousUser  # pylint: disable=e0401 # 
 from django.contrib.messages.middleware import MessageMiddleware  # pylint: disable=e0401 # type: ignore
 from django.contrib.sessions.middleware import SessionMiddleware  # pylint: disable=e0401 # type: ignore
 from django.db.models import Q, QuerySet  # pylint: disable=e0401 # type: ignore
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
+from django.http import HttpResponse, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.test import RequestFactory, TestCase  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
@@ -35,6 +35,7 @@ from ...treatments.choices import Treatments, UltChoices
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.forms import forms_print_response_errors
+from ...utils.test_helpers import dummy_get_response
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
 from ..views import (
@@ -239,6 +240,7 @@ class TestUltAidPseudopatientCreate(TestCase):
         view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         view = self.view()
 
@@ -308,6 +310,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -345,6 +348,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -428,6 +432,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -502,6 +507,7 @@ class TestUltAidPseudopatientCreate(TestCase):
                     request.user = user.profile.provider  # type: ignore
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -798,9 +804,6 @@ class TestUltAidPseudopatientDetail(TestCase):
         for _ in range(5):
             create_ultaid(user=create_psp(plus=True))
 
-    def dummy_get_response(self, request: HttpRequest):  # pylint: disable=W0613
-        return None
-
     def test__assign_ultaid_attrs_from_user(self):
         for ultaid in UltAid.objects.filter(user__isnull=False).select_related("user"):
             user = ultaid_user_qs(username=ultaid.user.username).get()
@@ -856,8 +859,8 @@ class TestUltAidPseudopatientDetail(TestCase):
         request.user = user_without_ultaid
         view.setup(request, **kwargs)
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         response = view.dispatch(request, **kwargs)
         self.assertTrue(isinstance(response, HttpResponseRedirect))
@@ -874,8 +877,8 @@ class TestUltAidPseudopatientDetail(TestCase):
         request.user = user_with_ultaid
         view.setup(request, **kwargs)
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         response = view.dispatch(request, **kwargs)
         self.assertTrue(isinstance(response, HttpResponseRedirect))
@@ -1005,6 +1008,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
         view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         view = self.view()
 
@@ -1073,6 +1077,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -1110,6 +1115,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -1193,6 +1199,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -1272,6 +1279,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider  # type: ignore
                 else:
                     request.user = self.anon_user
+                SessionMiddleware(dummy_get_response).process_request(request)
                 kwargs = {"username": user.username}
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200

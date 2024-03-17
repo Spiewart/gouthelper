@@ -8,7 +8,6 @@ from django.contrib.messages.middleware import MessageMiddleware  # pylint: disa
 from django.contrib.sessions.middleware import SessionMiddleware  # pylint: disable=e0401 # type: ignore
 from django.core.exceptions import ObjectDoesNotExist  # pylint: disable=e0401 # type: ignore
 from django.db.models import Q, QuerySet  # pylint: disable=e0401 # type: ignore
-from django.http import HttpRequest  # pylint: disable=e0401 # type: ignore
 from django.test import RequestFactory, TestCase  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
@@ -29,6 +28,7 @@ from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.factories import count_data_deleted
 from ...utils.forms import forms_print_response_errors
+from ...utils.test_helpers import dummy_get_response
 from ..models import Ppx
 from ..selectors import ppx_user_qs, ppx_userless_qs
 from ..views import (
@@ -371,6 +371,7 @@ class TestPpxPseudopatientCreate(TestCase):
         view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         view = self.view()
         view.setup(request, **kwargs)
@@ -419,6 +420,7 @@ class TestPpxPseudopatientCreate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -464,6 +466,7 @@ class TestPpxPseudopatientCreate(TestCase):
             request.user = user.profile.provider
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -480,6 +483,7 @@ class TestPpxPseudopatientCreate(TestCase):
             request.user = user.profile.provider
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -505,6 +509,7 @@ class TestPpxPseudopatientCreate(TestCase):
             request.user = self.user.profile.provider  # type: ignore
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -762,9 +767,6 @@ class TestPpxPseudopatientDetail(TestCase):
         self.assertIn("patient", context)
         self.assertEqual(context["patient"], self.psp)
 
-    def dummy_get_response(self, request: HttpRequest):  # pylint: disable=W0613
-        return None
-
     def test__assign_ppx_attrs_from_user(self):
         """Test that the assign_ppx_attrs_from_user() method for the view
         transfers attributes from the QuerySet, which started with a User,
@@ -827,8 +829,8 @@ class TestPpxPseudopatientDetail(TestCase):
         request.user = self.anon_user
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         view = self.view()
         view.setup(request, username=self.psp.username)
@@ -962,9 +964,6 @@ class TestPpxPseudopatientUpdate(TestCase):
             create_ppx(user=psp)
         self.empty_user = create_psp()
 
-    def dummy_get_response(self, request: HttpRequest):
-        return None
-
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
         self.assertFalse(self.view().ckddetail)
@@ -1002,6 +1001,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         """Test that dispatch() works when the user has a Ppx."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         view = self.view()
         view.setup(request, **kwargs)
@@ -1012,6 +1012,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         """Test get_object() method."""
 
         request = self.factory.get("/fake-url/")
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         view = self.view()
         view.setup(request, **kwargs)
@@ -1062,8 +1063,8 @@ class TestPpxPseudopatientUpdate(TestCase):
                 request.user = self.anon_user
             kwargs = {"username": ppx.user.username}
 
-            SessionMiddleware(self.dummy_get_response).process_request(request)
-            MessageMiddleware(self.dummy_get_response).process_request(request)
+            SessionMiddleware(dummy_get_response).process_request(request)
+            MessageMiddleware(dummy_get_response).process_request(request)
 
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -1112,6 +1113,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             request.user = user.profile.provider
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -1127,6 +1129,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             request.user = user.profile.provider
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -1142,6 +1145,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             request.user = self.user.profile.provider
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200

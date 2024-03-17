@@ -17,7 +17,7 @@ from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm, MenopauseForm
 from ..medhistorys.models import Gout, Menopause
-from ..utils.views import GoutHelperUserMixin
+from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin, remove_patient_from_session
 from .choices import Roles
 from .forms import PseudopatientForm
 from .models import Pseudopatient
@@ -26,7 +26,7 @@ from .selectors import pseudopatient_profile_qs, pseudopatient_qs
 User = get_user_model()
 
 
-class PseudopatientCreateView(GoutHelperUserMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View to create Pseudopatient Users. If called with a provider kwarg in the url,
     assigns provider field to the creating User.
 
@@ -117,7 +117,7 @@ class PseudopatientCreateView(GoutHelperUserMixin, PermissionRequiredMixin, Crea
 pseudopatient_create_view = PseudopatientCreateView.as_view()
 
 
-class PseudopatientUpdateView(GoutHelperUserMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """View to update Pseudopatient Users.
 
     Returns:
@@ -202,11 +202,16 @@ class PseudopatientUpdateView(GoutHelperUserMixin, PermissionRequiredMixin, Upda
                 labs_2_rem=None,
             )
 
+    def get_object(self, queryset=None):
+        qs = super().get_object(queryset)
+        self.user = qs
+        return qs
+
 
 pseudopatient_update_view = PseudopatientUpdateView.as_view()
 
 
-class PseudopatientDetailView(AutoPermissionRequiredMixin, DetailView):
+class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
@@ -219,7 +224,7 @@ class PseudopatientDetailView(AutoPermissionRequiredMixin, DetailView):
 pseudopatient_detail_view = PseudopatientDetailView.as_view()
 
 
-class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHelperUserDetailMixin, ListView):
     """ListView for displaying all of a Provider or Admin's Pseudopatients."""
 
     model = Pseudopatient
@@ -242,9 +247,15 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
 pseudopatient_list_view = PseudopatientListView.as_view()
 
 
-class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMessageMixin, DeleteView):
+class UserDeleteView(
+    LoginRequiredMixin, AutoPermissionRequiredMixin, GoutHelperUserDetailMixin, SuccessMessageMixin, DeleteView
+):
     model = User
     success_message = _("User successfully deleted")
+
+    def form_valid(self, form):
+        remove_patient_from_session(self.request)
+        return super().form_valid(form)
 
     def get_success_message(self, cleaned_data):
         if self.object.role == Roles.PSEUDOPATIENT:

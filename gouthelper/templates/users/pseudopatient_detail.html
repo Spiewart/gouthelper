@@ -22,29 +22,6 @@
            role="button">Delete</a>
       </div>
     </div>
-    <div class="btn-group fullwidth">
-      <a class="btn btn-outline-primary"
-         href="{% url 'flareaids:pseudopatient-detail' object.username %}"
-         role="button">FlareAid</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'flares:pseudopatient-list' object.username %}"
-         role="button">Flares</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'goalurates:pseudopatient-detail' object.username %}"
-         role="button">GoalUrate</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'ppxaids:pseudopatient-detail' object.username %}"
-         role="button">PpxAid</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'ppxs:pseudopatient-detail' object.username %}"
-         role="button">Ppx</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'ultaids:pseudopatient-detail' object.username %}"
-         role="button">UltAid</a>
-      <a class="btn btn-outline-primary"
-         href="{% url 'ults:pseudopatient-detail' object.username %}"
-         role="button">Ult</a>
-    </div>
     <div class="row">
       <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>
       <div class="col-sm-6">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>

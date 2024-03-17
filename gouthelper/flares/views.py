@@ -42,7 +42,7 @@ from ..medhistorys.forms import (
 )
 from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidMixin
+from ..utils.views import GoutHelperAidEditMixin
 from .forms import FlareForm
 from .models import Flare
 
@@ -111,7 +111,7 @@ class FlareBase:
         return form, oto_forms, errors_bool
 
 
-class FlareCreate(FlareBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
@@ -268,7 +268,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
 
 
 class FlarePseudopatientCreate(
-    FlarePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    FlarePatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Flare for a patient."""
 
@@ -412,7 +412,7 @@ class FlarePseudopatientDetail(FlareDetailBase):
 
 
 class FlarePseudopatientUpdate(
-    FlarePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    FlarePatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     permission_required = "flares.can_change_flare"
     success_message = "%(username)s's FlareAid successfully updated."
@@ -483,7 +483,7 @@ class FlarePseudopatientUpdate(
         )
 
 
-class FlareUpdate(FlareBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Flare"""
 
     success_message = "Flare updated successfully!"

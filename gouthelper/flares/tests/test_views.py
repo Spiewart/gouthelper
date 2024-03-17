@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.models import AnonymousUser  # type: ignore
+from django.contrib.sessions.middleware import SessionMiddleware  # type: ignore
 from django.core.exceptions import ObjectDoesNotExist  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
 from django.forms import model_to_dict  # type: ignore
@@ -43,6 +44,7 @@ from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.factories import medhistory_diff_obj_data, oto_random_age, oto_random_gender, oto_random_urate_or_None
 from ...utils.forms import forms_print_response_errors
+from ...utils.test_helpers import dummy_get_response
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..forms import FlareForm
 from ..models import Flare
@@ -241,6 +243,7 @@ class TestFlareCreate(TestCase):
     def test__get_context_data(self):
         request = self.factory.get("/flares/create")
         request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = FlareCreate.as_view()(request)
         self.assertIsInstance(response.context_data, dict)  # type: ignore
         for medhistory in FLARE_MEDHISTORYS:
@@ -659,6 +662,7 @@ class TestFlarePseudopatientCreate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -676,6 +680,7 @@ class TestFlarePseudopatientCreate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -733,6 +738,7 @@ class TestFlarePseudopatientCreate(TestCase):
             request.user = self.user.profile.provider  # type: ignore
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -1667,6 +1673,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -1704,6 +1711,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -1730,6 +1738,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon_user
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -1992,6 +2001,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             request.user = self.user.profile.provider  # type: ignore
         else:
             request.user = self.anon_user
+        SessionMiddleware(dummy_get_response).process_request(request)
         flare = self.user.flare_set.first()
         kwargs = {"username": self.user.username, "pk": flare.pk}
         response = self.view.as_view()(request, **kwargs)
@@ -2433,6 +2443,7 @@ class TestFlareUpdate(TestCase):
         # Test that the context data is correct
         request = self.factory.get(f"/flares/update/{self.flare.pk}")
         request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = FlareUpdate.as_view()(request, pk=self.flare.pk)
         self.assertIsInstance(response.context_data, dict)  # type: ignore
         for medhistory in FLARE_MEDHISTORYS:

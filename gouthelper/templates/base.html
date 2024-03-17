@@ -105,11 +105,35 @@
                   </li>
                 {% endif %}
               {% endif %}
-              {% if patient %}
-                <li class="nav-item">
-                  <a class="nav-link active"
-                     aria-current="page"
-                     href="{% url 'users:pseudopatient-detail' patient.username %}">{{ patient }}</a>
+              {% if request.session.patient %}
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle"
+                     href="#"
+                     id="navbarSupportedContentDropDown"
+                     data-bs-toggle="dropdown"
+                     aria-haspopup="true"
+                     aria-expanded="false">{{ request.session.patient }}</a>
+                  <div class="dropdown-menu"
+                       aria-labelledby="navbarSupportedContentDropDown">
+                    <a class="dropdown-item"
+                       href="{% url 'users:pseudopatient-detail' request.session.username %}">Profile</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item"
+                       href="{% url 'flareaids:pseudopatient-detail' request.session.username %}">FlareAid</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ppxaids:pseudopatient-detail' request.session.username %}">PpxAid</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ultaids:pseudopatient-detail' request.session.username %}">UltAid</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item"
+                       href="{% url 'flares:pseudopatient-list' request.session.username %}">Flares</a>
+                    <a class="dropdown-item"
+                       href="{% url 'goalurates:pseudopatient-detail' request.session.username %}">GoalUrate</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ppxs:pseudopatient-detail' request.session.username %}">Ppx</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ults:pseudopatient-detail' request.session.username %}">Ult</a>
+                  </div>
                 </li>
               {% endif %}
             </ul>

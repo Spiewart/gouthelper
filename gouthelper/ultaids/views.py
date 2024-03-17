@@ -56,7 +56,7 @@ from ..medhistorys.models import (
 )
 from ..treatments.choices import UltChoices
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidMixin
+from ..utils.views import GoutHelperAidEditMixin
 from .forms import UltAidForm
 from .models import UltAid
 
@@ -117,7 +117,7 @@ class UltAidBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
 
 
-class UltAidCreate(UltAidBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Create a new UltAid"""
 
     permission_required = "ultaids.can_add_ultaid"
@@ -234,7 +234,7 @@ class UltAidPatientBase(UltAidBase):
 
 
 class UltAidPseudopatientCreate(
-    UltAidPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    UltAidPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a UltAid for a patient."""
 
@@ -354,7 +354,7 @@ class UltAidPseudopatientDetail(UltAidDetailBase):
 
 
 class UltAidPseudopatientUpdate(
-    UltAidPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    UltAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     """UpdateView for UltAids with a User."""
 
@@ -406,7 +406,7 @@ class UltAidPseudopatientUpdate(
             )
 
 
-class UltAidUpdate(UltAidBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class UltAidUpdate(UltAidBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a UltAid"""
 
     success_message = "UltAid updated successfully!"

@@ -5,7 +5,6 @@ from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import ObjectDoesNotExist  # type: ignore
 from django.db.models import QuerySet  # type: ignore
-from django.http import HttpRequest
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 
@@ -20,6 +19,7 @@ from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
 from ...utils.forms import forms_print_response_errors
+from ...utils.test_helpers import dummy_get_response
 from ..choices import GoalUrates
 from ..models import GoalUrate
 from ..selectors import goalurate_user_qs
@@ -66,6 +66,7 @@ class TestGoalUrateCreate(TestCase):
         # Set the request's htmx attr to False to test the non-htmx code path.
         self.request.htmx = False
         self.request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(self.request)
         self.response = self.view.as_view()(self.request)
         self.ultaid = create_ultaid()
 
@@ -97,6 +98,7 @@ class TestGoalUrateCreate(TestCase):
         request = self.factory.get(reverse("goalurates:ultaid-create", kwargs={"ultaid": self.ultaid.id}))
         request.htmx = False
         request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = self.view.as_view()(request, ultaid=self.ultaid.id)
         self.assertEqual(response.context_data.get("ultaid"), self.ultaid)
 
@@ -122,6 +124,7 @@ class TestGoalUrateCreate(TestCase):
         request = self.factory.get(reverse("goalurates:create"))
         request.htmx = True
         request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = self.view.as_view()(request)
         self.assertEqual(response.template_name, ["goalurates/partials/goalurate_form.html"])
 
@@ -225,6 +228,7 @@ class TestGoalUrateUpdate(TestCase):
         self.request = RequestFactory().get(reverse("goalurates:update", kwargs={"pk": self.goalurate.id}))
         self.request.htmx = False
         self.request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(self.request)
         self.response = self.view.as_view()(self.request, pk=self.goalurate.id)
         self.ultaid = create_ultaid()
         self.factory = RequestFactory()
@@ -331,9 +335,6 @@ class TestGoalUratePseudopatientCreate(TestCase):
         for _ in range(5):
             create_psp(plus=True)
 
-    def dummy_get_response(self, request: HttpRequest):
-        return None
-
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
         self.assertFalse(self.view().ckddetail)
@@ -359,8 +360,8 @@ class TestGoalUratePseudopatientCreate(TestCase):
         view.setup(request, username=self.anon_psp.username)
         # Add messaging middleware
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         # Call the dispatch method
         response = view.dispatch(request, username=self.anon_psp.username)
         # Assert that dispatch() set the object attr on the view
@@ -381,6 +382,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
             else:
                 request.user = self.anon
             request.htmx = False
+            SessionMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -431,6 +433,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         request = self.factory.post("/fake-url/")
         request.htmx = False
         request.user = self.anon
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.anon_psp.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -725,9 +728,6 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             create_goalurate(user=psp)
         self.empty_psp = create_psp(plus=True)
 
-    def dummy_get_response(self, request: HttpRequest):
-        return None
-
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
         self.assertFalse(self.view().ckddetail)
@@ -751,8 +751,8 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # Set up the view
         view.setup(request, username=self.anon_psp.username)
         # Add messaging and session middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         # Call the dispatch method
         response = view.dispatch(request, username=self.anon_psp.username)
         # Assert that dispatch() set the object attr on the view
@@ -770,8 +770,8 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         view = self.view()
         view.setup(request, username=self.empty_psp.username)
         # Add messaging and session middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         response = view.dispatch(request, username=self.empty_psp.username)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
@@ -788,8 +788,8 @@ class TestGoalUratePseudopatientUpdate(TestCase):
                 request.user = self.anon
             request.htmx = False
             # Add messaging and session middleware to the request
-            SessionMiddleware(self.dummy_get_response).process_request(request)
-            MessageMiddleware(self.dummy_get_response).process_request(request)
+            SessionMiddleware(dummy_get_response).process_request(request)
+            MessageMiddleware(dummy_get_response).process_request(request)
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             if not hasattr(user, "goalurate"):
@@ -871,6 +871,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         request = self.factory.post("/fake-url/")
         request.htmx = False
         request.user = self.anon
+        SessionMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.anon_psp.username}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200

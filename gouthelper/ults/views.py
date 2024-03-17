@@ -27,7 +27,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
 from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidMixin
+from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
 from .forms import UltForm
 from .models import Ult
 
@@ -88,7 +88,7 @@ class UltBase:
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
 
 
-class UltCreate(UltBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class UltCreate(UltBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View to create a new Ult without a user."""
 
     permission_required = "ults.can_add_ult"
@@ -155,7 +155,7 @@ class UltDetailBase(AutoPermissionRequiredMixin, DetailView):
         return self.object
 
 
-class UltDetail(UltDetailBase):
+class UltDetail(UltDetailBase, PatientSessionMixin):
     """Overwritten for different url routing/redirecting and assigning the view object."""
 
     def dispatch(self, request, *args, **kwargs):
@@ -195,7 +195,7 @@ class UltPatientBase(UltBase):
 
 
 class UltPseudopatientCreate(
-    UltPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    UltPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Ult for a patient."""
 
@@ -249,7 +249,7 @@ class UltPseudopatientCreate(
             )
 
 
-class UltPseudopatientDetail(UltDetailBase):
+class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
     """DetailView for Ults that have a user."""
 
     def dispatch(self, request, *args, **kwargs):
@@ -304,7 +304,7 @@ class UltPseudopatientDetail(UltDetailBase):
 
 
 class UltPseudopatientUpdate(
-    UltPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    UltPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     """UpdateView for Ults with a User."""
 
@@ -356,7 +356,7 @@ class UltPseudopatientUpdate(
             )
 
 
-class UltUpdate(UltBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class UltUpdate(UltBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ult"""
 
     success_message = "ULT updated successfully."

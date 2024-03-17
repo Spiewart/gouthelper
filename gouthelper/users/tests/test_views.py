@@ -7,7 +7,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import PermissionDenied
-from django.http import HttpRequest, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -28,6 +28,7 @@ from ...medhistorys.forms import GoutForm, MenopauseForm
 from ...medhistorys.models import Gout, Menopause
 from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.models import PseudopatientProfile
+from ...utils.test_helpers import dummy_get_response
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
 from ..models import Pseudopatient, User
@@ -254,6 +255,7 @@ menopause status to evaluate their flare."
         view = PseudopatientCreateView
         request = self.rf.get(reverse("users:pseudopatient-create"))
         request.user = self.provider
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request)
 
     def test__rules_provider_with_provider_kwarg(self):
@@ -265,6 +267,7 @@ menopause status to evaluate their flare."
         kwargs = {"username": self.provider.username}
         request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.provider
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
 
     def test__rules_provider_provider_kwarg_discrepant_denied(self):
@@ -287,6 +290,7 @@ menopause status to evaluate their flare."
         view = PseudopatientCreateView
         request = self.rf.get(reverse("users:pseudopatient-create"))
         request.user = self.admin
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request)
 
     def test__rules_admin_with_provider_kwarg(self):
@@ -298,6 +302,7 @@ menopause status to evaluate their flare."
         kwargs = {"username": self.admin.username}
         request = self.rf.post(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
         request.user = self.admin
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
 
     def test__rules_admin_provider_kwarg_discrepant_denied(self):
@@ -450,6 +455,7 @@ class TestPseudopatientListView(TestCase):
         kwargs = {"username": self.provider.username}
         request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
         request.user = self.provider
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
 
     def test__rules_provider_other_provider_list(self):
@@ -480,6 +486,7 @@ class TestPseudopatientListView(TestCase):
         kwargs = {"username": self.admin.username}
         request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
         request.user = self.admin
+        SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
 
     def test__rules_admin_cannot_see_providers_list(self):
@@ -535,6 +542,7 @@ class TestPseudopatientUpdateView(TestCase):
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
+        SessionMiddleware(dummy_get_response).process_request(request)
         view.kwargs = {"username": self.psp.username}
         view.dispatch(request, **view.kwargs)
         assert view.object == self.psp
@@ -546,6 +554,7 @@ class TestPseudopatientUpdateView(TestCase):
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
+        SessionMiddleware(dummy_get_response).process_request(request)
         view.kwargs = {"username": self.psp.username}
         view.dispatch(request, **view.kwargs)
         assert view.get_permission_object() == self.psp
@@ -704,9 +713,6 @@ class TestUserDeleteView(TestCase):
         self.admin_pseudopatient = create_psp(provider=self.admin)
         self.anon_pseudopatient = create_psp()
 
-    def dummy_get_response(self, request: HttpRequest):
-        return None
-
     def test__get_success_message(self):
         view = UserDeleteView()
         view.object = self.provider
@@ -763,8 +769,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         with pytest.raises(PermissionDenied):
@@ -773,8 +779,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         with pytest.raises(PermissionDenied):
@@ -787,8 +793,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         with pytest.raises(PermissionDenied):
@@ -797,8 +803,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         with pytest.raises(PermissionDenied):
@@ -811,8 +817,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
@@ -820,8 +826,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
@@ -833,8 +839,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         with pytest.raises(PermissionDenied):
@@ -843,8 +849,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         with pytest.raises(PermissionDenied):
@@ -857,8 +863,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         with pytest.raises(PermissionDenied):
@@ -867,8 +873,8 @@ class TestUserDeleteView(TestCase):
         request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         with pytest.raises(PermissionDenied):
@@ -908,16 +914,16 @@ class TestUserDeleteView(TestCase):
 
         request = self.rf.get(f"users/{self.provider.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         assert view.as_view()(request)
 
         request = self.rf.post(f"users/{self.provider.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.provider
         assert view.as_view()(request)
@@ -928,16 +934,16 @@ class TestUserDeleteView(TestCase):
 
         request = self.rf.get(f"users/{self.admin.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         assert view.as_view()(request)
 
         request = self.rf.post(f"users/{self.admin.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.admin
         assert view.as_view()(request)
@@ -948,16 +954,16 @@ class TestUserDeleteView(TestCase):
 
         request = self.rf.get(f"users/{self.patient.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.patient
         assert view.as_view()(request)
 
         request = self.rf.post(f"users/{self.patient.username}/")
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         request.user = self.patient
         assert view.as_view()(request)
@@ -985,9 +991,6 @@ class TestUserUpdateView(TestCase):
         self.admin_pseudopatient.profile.save()
         self.anon_pseudopatient = create_psp()
 
-    def dummy_get_response(self, request: HttpRequest):
-        return None
-
     def test_get_success_url(self):
         view = UserUpdateView()
         request = self.rf.post("/fake-url/")
@@ -1010,8 +1013,8 @@ class TestUserUpdateView(TestCase):
         request = self.rf.get("/fake-url/")
 
         # Add the session/message middleware to the request
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         request.user = self.provider
 
         view.request = request

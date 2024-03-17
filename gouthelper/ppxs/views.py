@@ -27,7 +27,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidMixin
+from ..utils.views import GoutHelperAidEditMixin
 from .forms import PpxForm
 from .models import Ppx
 
@@ -69,7 +69,7 @@ class PpxBase:
     }
 
 
-class PpxCreate(PpxBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new Ppx instance.
     """
@@ -183,7 +183,7 @@ class PpxPatientBase(PpxBase):
 
 
 class PpxPseudopatientCreate(
-    PpxPatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    PpxPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Ppx for a patient."""
 
@@ -288,7 +288,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
 
 
 class PpxPseudopatientUpdate(
-    PpxPatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    PpxPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(username)s's Ppx successfully created."
 
@@ -342,7 +342,7 @@ class PpxPseudopatientUpdate(
             )
 
 
-class PpxUpdate(PpxBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ppx"""
 
     labs = {"urate": (PpxUrateFormSet, UrateFormHelper)}

@@ -6,7 +6,7 @@ from django.contrib.auth.models import AnonymousUser  # pylint: disable=E0401  #
 from django.contrib.messages.middleware import MessageMiddleware  # pylint: disable=e0401 # type: ignore
 from django.contrib.sessions.middleware import SessionMiddleware  # pylint: disable=e0401 # type: ignore
 from django.db.models import Q, QuerySet  # pylint: disable=E0401  # type: ignore
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
+from django.http import HttpResponse, HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
 from django.test import RequestFactory, TestCase  # pylint: disable=E0401  # type: ignore
 from django.urls import reverse  # pylint: disable=E0401  # type: ignore
 
@@ -25,6 +25,7 @@ from ...medhistorys.models import Ckd, Erosions, Hyperuricemia, MedHistory, Toph
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.forms import forms_print_response_errors
+from ...utils.test_helpers import dummy_get_response
 from ..choices import FlareFreqs, FlareNums
 from ..models import Ult
 from ..selectors import ult_user_qs
@@ -67,6 +68,7 @@ class TestUltCreate(TestCase):
     def test__get_context_data(self):
         request = self.factory.get("ults/create")
         request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = UltCreate.as_view()(request)
         self.assertIn("dateofbirth_form", response.context_data)
         self.assertIn("gender_form", response.context_data)
@@ -225,6 +227,7 @@ class TestUltPseudopatientCreate(TestCase):
         request.user = self.anon_user
         kwargs = {"username": self.user.username}
         view = self.view()
+        SessionMiddleware(dummy_get_response).process_request(request)
 
         view.setup(request, **kwargs)
         response = view.dispatch(request, **kwargs)
@@ -288,6 +291,7 @@ class TestUltPseudopatientCreate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
                 for mh in user.medhistory_set.all():
@@ -371,6 +375,7 @@ class TestUltPseudopatientCreate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
                 assert "age" in response.context_data
@@ -428,6 +433,7 @@ class TestUltPseudopatientCreate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
 
@@ -632,9 +638,6 @@ class TestUltPseudopatientDetail(TestCase):
         for _ in range(5):
             create_ult(user=create_psp(plus=True))
 
-    def dummy_get_response(self, request: HttpRequest):  # pylint: disable=W0613
-        return None
-
     def test__assign_ult_attrs_from_user(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
             user = ult_user_qs(username=ult.user.username).get()
@@ -675,8 +678,8 @@ class TestUltPseudopatientDetail(TestCase):
         request.user = user_without_ult
         view.setup(request, **kwargs)
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         response = view.dispatch(request, **kwargs)
         self.assertTrue(isinstance(response, HttpResponseRedirect))
@@ -693,8 +696,8 @@ class TestUltPseudopatientDetail(TestCase):
         request.user = user_with_ult
         view.setup(request, **kwargs)
 
-        SessionMiddleware(self.dummy_get_response).process_request(request)
-        MessageMiddleware(self.dummy_get_response).process_request(request)
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
 
         response = view.dispatch(request, **kwargs)
         self.assertTrue(isinstance(response, HttpResponseRedirect))
@@ -812,6 +815,7 @@ class TestUltPseudopatientUpdate(TestCase):
         view = self.view()
 
         view.setup(request, **kwargs)
+        SessionMiddleware(dummy_get_response).process_request(request)
         response = view.dispatch(request, **kwargs)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(hasattr(view, "user"))
@@ -874,6 +878,7 @@ class TestUltPseudopatientUpdate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
                 for mh in user.medhistory_set.all():
@@ -957,6 +962,7 @@ class TestUltPseudopatientUpdate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
                 assert "age" in response.context_data
@@ -1018,6 +1024,7 @@ class TestUltPseudopatientUpdate(TestCase):
                 else:
                     request.user = self.anon_user
                 kwargs = {"username": user.username}
+                SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
 
