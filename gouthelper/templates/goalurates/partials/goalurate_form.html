@@ -12,28 +12,56 @@
 {% endblock header %}
 {% block content %}
   {% if form.instance.created %}
-    <form class="form-horizontal"
-          method="post"
-          action="{% url 'goalurates:update' form.instance.pk %}">
-      {% csrf_token %}
-      {% crispy form %}
-      <a type="button"
-         class="btn btn-primary btn-lg mini-button"
-         hx-post="{% url 'goalurates:update' object.pk %}"
-         hx-target="#goalurate"
-         hx-trigger="click"
-         role="button">Update</a>
-    </form>
-  {% else %}
-    {% if ultaid %}
+    {% if view.kwargs.username %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'goalurates:ultaid-create' ultaid=ultaid %}">
+            action="{% url 'goalurates:pseudopatient-update' view.kwargs.username %}">
         {% csrf_token %}
         {% crispy form %}
         <a type="button"
            class="btn btn-primary btn-lg mini-button"
-           hx-post="{% url 'goalurates:ultaid-create' ultaid=ultaid %}"
+           hx-post="{% url 'goalurates:pseudopatient-update' view.kwargs.username %}"
+           hx-target="#goalurate"
+           hx-trigger="click"
+           role="button">Update</a>
+      </form>
+    {% else %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'goalurates:update' form.instance.pk %}">
+        {% csrf_token %}
+        {% crispy form %}
+        <a type="button"
+           class="btn btn-primary btn-lg mini-button"
+           hx-post="{% url 'goalurates:update' object.pk %}"
+           hx-target="#goalurate"
+           hx-trigger="click"
+           role="button">Update</a>
+      </form>
+    {% endif %}
+  {% else %}
+    {% if view.kwargs.username %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'goalurates:pseudopatient-create' view.kwargs.username %}">
+        {% csrf_token %}
+        {% crispy form %}
+        <a type="button"
+           class="btn btn-primary btn-lg mini-button"
+           hx-post="{% url 'goalurates:pseudopatient-create' view.kwargs.username %}"
+           hx-target="#goalurate"
+           hx-trigger="click"
+           role="button">Create</a>
+      </form>
+    {% elif ultaid %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'goalurates:ultaid-create' ultaid=ultaid.pk %}">
+        {% csrf_token %}
+        {% crispy form %}
+        <a type="button"
+           class="btn btn-primary btn-lg mini-button"
+           hx-post="{% url 'goalurates:ultaid-create' ultaid=ultaid.pk %}"
            hx-target="#goalurate"
            hx-trigger="click"
            role="button">Create</a>

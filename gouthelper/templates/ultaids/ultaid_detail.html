@@ -32,24 +32,28 @@
           </h3>
           {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Ult" %}
           {% if object.goalurate %}
-            {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate %}
+            {% if patient %}
+              {% include 'goalurates/partials/goalurate_detail.html' with object=object.user %}
+            {% else %}
+              {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate %}
+            {% endif %}
           {% else %}
             <div class="col">
               <div id="goalurate">
                 {% if patient %}
-                <a type="button"
-                   class="btn btn-primary btn-lg mini-button"
-                   hx-get="{% url 'goalurates:pseudopatient-create' username=patient.username %}"
-                   hx-target="#goalurate"
-                   hx-trigger="click"
-                   role="button">Goal Urate</a>
+                  <a type="button"
+                     class="btn btn-primary btn-lg mini-button"
+                     hx-get="{% url 'goalurates:pseudopatient-create' username=patient.username %}"
+                     hx-target="#goalurate"
+                     hx-trigger="click"
+                     role="button">Goal Urate</a>
                 {% else %}
                   <a type="button"
-                    class="btn btn-primary btn-lg mini-button"
-                      hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
-                    hx-target="#goalurate"
-                    hx-trigger="click"
-                    role="button">Goal Urate</a>
+                     class="btn btn-primary btn-lg mini-button"
+                     hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
+                     hx-target="#goalurate"
+                     hx-trigger="click"
+                     role="button">Goal Urate</a>
                 {% endif %}
               </div>
             </div>

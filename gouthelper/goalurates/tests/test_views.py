@@ -98,7 +98,7 @@ class TestGoalUrateCreate(TestCase):
         request.htmx = False
         request.user = AnonymousUser()
         response = self.view.as_view()(request, ultaid=self.ultaid.id)
-        self.assertEqual(response.context_data.get("ultaid"), self.ultaid.id)
+        self.assertEqual(response.context_data.get("ultaid"), self.ultaid)
 
     def test__get_form_kwargs(self):
         view = self.view()
@@ -380,6 +380,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon
+            request.htmx = False
             kwargs = {"username": user.username}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
@@ -428,6 +429,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
     def test__post(self):
         """Test the post() method for the view."""
         request = self.factory.post("/fake-url/")
+        request.htmx = False
         request.user = self.anon
         kwargs = {"username": self.anon_psp.username}
         response = self.view.as_view()(request, **kwargs)
@@ -742,6 +744,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
         )
         # Set the request's user
+        request.htmx = False
         request.user = self.anon
         # Instantiate the view
         view = self.view()
@@ -783,6 +786,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
                 request.user = user.profile.provider
             else:
                 request.user = self.anon
+            request.htmx = False
             # Add messaging and session middleware to the request
             SessionMiddleware(self.dummy_get_response).process_request(request)
             MessageMiddleware(self.dummy_get_response).process_request(request)
@@ -865,6 +869,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
     def test__post(self):
         """Test the post() method for the view."""
         request = self.factory.post("/fake-url/")
+        request.htmx = False
         request.user = self.anon
         kwargs = {"username": self.anon_psp.username}
         response = self.view.as_view()(request, **kwargs)

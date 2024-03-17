@@ -30,7 +30,7 @@ def goalurate_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def goalurate_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return goalurate_relations(qs).select_related("user")
+    return goalurate_relations(qs).select_related("ultaid", "user")
 
 
 def goalurate_user_relations(qs: "QuerySet") -> "QuerySet":

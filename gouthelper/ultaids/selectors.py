@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
-from ..medhistorys.lists import ULTAID_MEDHISTORYS
+from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULTAID_MEDHISTORYS
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -26,7 +26,7 @@ def medallergys_prefetch() -> Prefetch:
 def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
-        .objects.filter(Q(medhistorytype__in=ULTAID_MEDHISTORYS))
+        .objects.filter(Q(medhistorytype__in=ULTAID_MEDHISTORYS) | Q(medhistorytype__in=GOALURATE_MEDHISTORYS))
         .select_related("ckddetail", "baselinecreatinine")
     )
 

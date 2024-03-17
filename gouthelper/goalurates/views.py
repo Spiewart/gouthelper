@@ -54,20 +54,7 @@ class GoalUrateBase:
     }
 
 
-class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
-    """Creates a new GoalUrate"""
-
-    permission_required = "goalurates.can_add_goalurate"
-    success_message = "Goal Urate created successfully!"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        """Add ultaid to context if it exists."""
-        context = super().get_context_data(**kwargs)
-        ultaid = self.kwargs.get("ultaid", None)
-        if ultaid and "ultaid" not in context:
-            context["ultaid"] = ultaid
-        return context
-
+class GoalUrateEditMixin:
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         if self.request.htmx:
@@ -76,19 +63,14 @@ class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin
             kwargs.update({"htmx": False})
         return kwargs
 
-    def get_permission_object(self):
-        ultaid_kwarg = self.kwargs.get("ultaid", None)
-        self.ultaid = (  # pylint: disable=W0201
-            UltAid.objects.select_related("user").get(pk=ultaid_kwarg) if ultaid_kwarg else None
-        )
-        return self.ultaid.user if self.ultaid else None
-
     def get_template_names(self) -> list[str]:
         if self.request.htmx:
             return ["goalurates/partials/goalurate_form.html"]
         return super().get_template_names()
 
     def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For GoalUrate, no additional processing is needed."""
         (
             errors,
             form,
@@ -111,8 +93,8 @@ class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin
         if errors:
             return errors
         else:
-            kwargs = {"ultaid": self.ultaid}
-            if self.request.htmx:
+            kwargs.update({"ultaid": self.ultaid})
+            if request.htmx:
                 kwargs.update({"htmx": HttpResponseClientRefresh()})
             return self.form_valid(
                 form=form,
@@ -128,6 +110,30 @@ class GoalUrateCreate(GoalUrateBase, GoutHelperAidMixin, PermissionRequiredMixin
                 labs_2_rem=None,
                 **kwargs,
             )
+
+
+class GoalUrateCreate(
+    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+):
+    """Creates a new GoalUrate"""
+
+    permission_required = "goalurates.can_add_goalurate"
+    success_message = "Goal Urate created successfully!"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        """Add ultaid to context if it exists."""
+        context = super().get_context_data(**kwargs)
+        context.update({"ultaid": self.ultaid})
+        return context
+
+    def get_permission_object(self):
+        ultaid_kwarg = self.kwargs.get("ultaid", None)
+        self.ultaid = (  # pylint: disable=W0201
+            UltAid.objects.select_related("user").get(pk=ultaid_kwarg) if ultaid_kwarg else None
+        )
+        if self.ultaid and self.ultaid.user:
+            raise PermissionError("Trying to create a GoalUrate for a UltAid with a user with an anonymous view.")
+        return self.ultaid.user if self.ultaid else None
 
 
 class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -156,6 +162,7 @@ class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
 
 class GoalUrateDetail(GoalUrateDetailBase):
     def dispatch(self, request, *args, **kwargs):
+        print("calling dispatch")
         self.object = self.get_object()
         # Check if the object has a User and if there is no username in the kwargs,
         # redirect to the username url
@@ -165,7 +172,7 @@ class GoalUrateDetail(GoalUrateDetailBase):
             # Check if FlareAid is up to date and update if not update
             if not request.GET.get("updated", None):
                 self.object.update_aid(qs=self.object)
-                return super().dispatch(request, *args, **kwargs)
+            return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         """Overwritten to avoid calling get_object again, which is instead
@@ -192,7 +199,12 @@ class GoalUratePatientBase(GoalUrateBase):
 
 
 class GoalUratePseudopatientCreate(
-    GoalUratePatientBase, GoutHelperAidMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    GoalUratePatientBase,
+    GoalUrateEditMixin,
+    GoutHelperAidMixin,
+    PermissionRequiredMixin,
+    CreateView,
+    SuccessMessageMixin,
 ):
     """View for creating a GoalUrate for a Pseudopatient."""
 
@@ -203,53 +215,11 @@ class GoalUratePseudopatientCreate(
         """Returns the object the permission is being checked against. For this view,
         that is the username kwarg indicating which Psuedopatient the view is trying to create
         a FlareAid for."""
+        self.ultaid = None  # pylint: disable=W0201
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, username=self.user.username)
-
-    def post(self, request, *args, **kwargs):
-        """Overwritten to finish the post() method and avoid conflicts with the MRO.
-        For GoalUrate, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            _,  # mh_det_2_save,
-            _,  # mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            kwargs = {"ultaid": self.kwargs.get("ultaid", None)}
-            if self.request.htmx:
-                kwargs.update({"htmx": HttpResponseClientRefresh()})
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=None,
-                mh_det_2_rem=None,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )
 
 
 class GoalUratePseudopatientDetail(GoalUrateDetailBase):
@@ -305,7 +275,12 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
 
 
 class GoalUratePseudopatientUpdate(
-    GoalUratePatientBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    GoalUratePatientBase,
+    GoalUrateEditMixin,
+    GoutHelperAidMixin,
+    AutoPermissionRequiredMixin,
+    UpdateView,
+    SuccessMessageMixin,
 ):
     success_message = "%(username)s's GoalUrate successfully created."
 
@@ -313,113 +288,23 @@ class GoalUratePseudopatientUpdate(
         """Returns the object the permission is being checked against. For this view,
         that is the username kwarg indicating which Psuedopatient the view is trying to create
         a FlareAid for."""
+        self.ultaid = None  # pylint: disable=W0201
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
-    def post(self, request, *args, **kwargs):
-        """Overwritten to finish the post() method and avoid conflicts with the MRO.
-        For GoalUrate, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            _,  # mh_det_2_save,
-            _,  # mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=None,
-                mh_det_2_rem=None,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )
 
-
-class GoalUrateUpdate(GoalUrateBase, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class GoalUrateUpdate(
+    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+):
     """Creates a new GoalUrate"""
 
     success_message = "GoalUrate updated successfully!"
 
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        if self.request.htmx:
-            kwargs.update({"htmx": True})
-        else:
-            kwargs.update({"htmx": False})
-        return kwargs
-
     def get_permission_object(self):
+        self.ultaid = getattr(self.object, "ultaid", None)  # pylint: disable=W0201
         return self.object
 
     def get_queryset(self):
         return GoalUrate.related_objects.filter(pk=self.kwargs["pk"])
-
-    def get_template_names(self) -> list[str]:
-        if self.request.htmx:
-            return ["goalurates/partials/goalurate_form.html"]
-        return super().get_template_names()
-
-    def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            _,  # mh_det_2_save,
-            _,  # mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            kwargs = {"ultaid": self.kwargs.get("ultaid", None)}
-            if self.request.htmx:
-                kwargs.update({"htmx": HttpResponseClientRefresh()})
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=None,
-                mh_det_2_rem=None,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )

@@ -423,8 +423,10 @@ class GoutHelperAidMixin:
             self.form_valid_delete_otos(oto_2_rem, form)
         if kwargs:
             for key, val in kwargs.items():
-                if isinstance(val, Model):
+                if isinstance(val, Model) and getattr(aid_obj, key, None) is None:
                     setattr(aid_obj, key, val)
+                    if save_aid_obj is not True:
+                        save_aid_obj = True
         if save_aid_obj:
             aid_obj.save()
         aid_obj_attr = aid_obj.__class__.__name__.lower()
@@ -475,8 +477,11 @@ class GoutHelperAidMixin:
             aid_obj.update_aid(qs=self.user)
         else:
             aid_obj.update_aid(qs=aid_obj)
+        print("deciding what to do with return from request")
         if self.request.htmx:
             return kwargs.get("htmx")
+        print(aid_obj)
+        print(aid_obj.get_absolute_url() + "?updated=True")
         return HttpResponseRedirect(aid_obj.get_absolute_url() + "?updated=True")
 
     def get(self, request, *args, **kwargs):

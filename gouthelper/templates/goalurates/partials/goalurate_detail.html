@@ -1,6 +1,10 @@
 <div class="col">
   <div class="card card-body spacious-cards" id="goalurate">
-    <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+    {% if patient %}
+      <h4 class="card-title">Goal uric acid: {{ object.goalurate.get_goal_urate_display }}</h4>
+    {% else %}
+      <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+    {% endif %}
     <ul>
       <li>
         <a class="samepage-link" href="#erosions">Erosions</a>
@@ -19,12 +23,21 @@
         {% endif %}
       </li>
     </ul>
-    <a type="button"
-       class="btn btn-primary btn-lg mini-button"
-       hx-get="{% url 'goalurates:update' object.pk %}"
-       hx-target="#goalurate"
-       hx-trigger="click"
-       role="button">Update Goal Urate</a>
+    {% if patient %}
+      <a type="button"
+         class="btn btn-primary btn-lg mini-button"
+         hx-get="{% url 'goalurates:pseudopatient-update' object.username %}"
+         hx-target="#goalurate"
+         hx-trigger="click"
+         role="button">Update Goal Urate</a>
+    {% else %}
+      <a type="button"
+         class="btn btn-primary btn-lg mini-button"
+         hx-get="{% url 'goalurates:update' object.pk %}"
+         hx-target="#goalurate"
+         hx-trigger="click"
+         role="button">Update Goal Urate</a>
+    {% endif %}
   </div>
 </div>
 {% block inline_javascript %}
