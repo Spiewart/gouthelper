@@ -2,7 +2,6 @@ import uuid
 from typing import TYPE_CHECKING, Union
 
 from django.db import models  # type: ignore
-from django.db.models.query import QuerySet  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
@@ -22,14 +21,11 @@ from .services import (
 )
 
 if TYPE_CHECKING:
-    from ..dateofbirths.models import DateOfBirth
     from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
-    from ..ethnicitys.models import Ethnicity
-    from ..labs.models import BaselineCreatinine, Hlab5801
+    from ..labs.models import BaselineCreatinine
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
-    from ..users.models import User
 
 
 class GoutHelperBaseModel:
@@ -39,18 +35,6 @@ class GoutHelperBaseModel:
 
     class Meta:
         abstract = True
-
-    dateofbirth: Union["DateOfBirth", None]
-    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]
-    ethnicity: Union["Ethnicity", None]
-    hlab5801: Union["Hlab5801", None]
-    medallergys_qs: list["MedAllergy"]
-    medallergys: QuerySet["MedAllergy"]
-    medhistorys_qs: list["MedHistory"]
-    medhistorys: QuerySet["MedHistory"]
-    options: dict
-    recommendation: tuple[Treatments, dict] | None
-    user: Union["User", None]
 
     @cached_property
     def age(self) -> int | None:
@@ -153,6 +137,29 @@ class GoutHelperBaseModel:
         """Method that returns Colchicineinteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
+
+    @property
+    def colchicine_contra_dict(self) -> dict[str, tuple[str, str]]:
+        """Method that returns a dict of colchicine contraindications."""
+        contra_dict = {}
+        if self.colchicine_allergy:
+            contra_dict["Allergy"] = (
+                self.colchicine_allergy,
+                "Having an allergy to colchicine is a contraindication to its use.",
+            )
+        if self.colchicine_ckd_contra:
+            contra_dict["CKD"] = (
+                self.colchicine_ckd_contra,
+                "Advanced CKD is a contraindication to colchicine use.",
+            )
+        if self.colchicineinteraction:
+            contra_dict["Interaction"] = (
+                self.colchicineinteraction,
+                "Colchicine should be used very cautiously with medications that interact \
+strongly with it, if at all and always under the guidance of \
+a physician and/or pharmacist.",
+            )
+        return contra_dict
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
@@ -330,17 +337,6 @@ class GoutHelperBaseModel:
         return False
 
     @cached_property
-    def options_str(self) -> list[tuple[str, dict]] | None:
-        if self.recommendation:
-            rec = self.recommendation[0]
-            return [
-                treatments_stringify_trt_tuple(trt=option, dosing=option_dict)
-                for option, option_dict in self.options.items()
-                if option != rec
-            ]
-        return None
-
-    @cached_property
     def organtransplant(self) -> Union["MedHistory", bool]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -379,6 +375,12 @@ class GoutHelperBaseModel:
                 pass
             return True
         return False
+
+    @cached_property
+    def pud(self) -> Union["MedHistory", bool]:
+        """Method that returns Pud object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.PUD, self)
 
     @cached_property
     def pvd(self) -> Union["MedHistory", bool]:
@@ -452,18 +454,6 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
 
     class Meta:
         abstract = True
-
-    dateofbirth: Union["DateOfBirth", None]
-    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]
-    ethnicity: Union["Ethnicity", None]
-    hlab5801: Union["Hlab5801", None]
-    medallergys_qs: list["MedAllergy"]
-    medallergys: QuerySet["MedAllergy"]
-    medhistorys_qs: list["MedHistory"]
-    medhistorys: QuerySet["MedHistory"]
-    options: dict
-    recommendation: tuple[Treatments, dict] | None
-    user: Union["User", None]
 
     @cached_property
     def age(self) -> int | None:

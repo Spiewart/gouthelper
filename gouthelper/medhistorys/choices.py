@@ -37,6 +37,7 @@ class MedHistoryTypes(TextChoices):
     MENOPAUSE = "MENOPAUSE", _("Post-Menopausal")
     ORGANTRANSPLANT = "ORGANTRANSPLANT", _("Organ Transplant")
     OSTEOPOROSIS = "OSTEOPOROSIS", _("Osteoporosis")
+    PUD = "PUD", _("Peptic Ulcer Disease")
     PVD = "PVD", _("Peripheral Vascular Disease")
     STROKE = "STROKE", _("Stroke")
     TOPHI = "TOPHI", _("Tophi")

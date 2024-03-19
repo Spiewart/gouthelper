@@ -21,7 +21,7 @@ ModStages.remove(None)
 class TestUpdateOrCreateCkdDetailKwargs(TestCase):
     def test__creates_random_ckddetail_kwargs(self):
         kwargs_list = []
-        for _ in range(50):
+        for _ in range(100):
             demographic_kwargs = {}
             if fake.boolean():
                 demographic_kwargs.update(

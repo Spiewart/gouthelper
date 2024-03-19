@@ -42,6 +42,7 @@ from .managers import (
     MenopauseManager,
     OrgantransplantManager,
     OsteoporosisManager,
+    PudManager,
     PvdManager,
     StrokeManager,
     TophiManager,
@@ -486,6 +487,15 @@ class Osteoporosis(MedHistory):
         proxy = True
 
     objects = OsteoporosisManager()
+
+
+class Pud(MedHistory):
+    """Records medical history of peptic ulcer disease."""
+
+    class Meta:
+        proxy = True
+
+    objects = PudManager()
 
 
 class Pvd(MedHistory):

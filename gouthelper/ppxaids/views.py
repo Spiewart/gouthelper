@@ -38,6 +38,7 @@ from ..medhistorys.forms import (
     HypertensionForm,
     IbdForm,
     OrgantransplantForm,
+    PudForm,
     PvdForm,
     StrokeForm,
 )
@@ -55,6 +56,7 @@ from ..medhistorys.models import (
     Hypertension,
     Ibd,
     Organtransplant,
+    Pud,
     Pvd,
     Stroke,
 )
@@ -116,6 +118,7 @@ class PpxAidBase:
         MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm, "model": Hypertension},
         MedHistoryTypes.IBD: {"form": IbdForm, "model": Ibd},
         MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
+        MedHistoryTypes.PUD: {"form": PudForm, "model": Pud},
         MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
         MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
     }

@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Any, Union
 
 from django.utils import timezone  # type: ignore
 
+from ..treatments.choices import Freqs, Treatments, TrtTypes
+from ..treatments.helpers import stringify_dosing_dict
+
 if TYPE_CHECKING:
     from datetime import date
 
@@ -30,6 +33,57 @@ def calculate_duration(
     else:
         duration = timezone.now().date() - date_started
     return duration
+
+
+class TrtDictStr:
+    def __init__(self, trt_dict: dict, trttype: TrtTypes, treatment: Treatments = None):
+        self.freq2_val = trt_dict.get("freq2")
+        self.freq3_val = trt_dict.get("freq3")
+        self.trt_dict = stringify_dosing_dict(trt_dict)
+        self.trttype = trttype
+        self.treatment = treatment
+        for key, val in self.trt_dict.items():
+            setattr(self, key, val)
+
+    dose: Decimal
+    dose2: Decimal | None
+    dose3: Decimal | None
+    freq: Freqs | None
+    freq2: Freqs | None
+    freq3: Freqs | None
+    duration: timedelta | None
+    duration2: timedelta | None
+    duration3: timedelta | None
+
+    def trt_dict_to_str(self):
+        trt_str = ""
+        if self.dose3:
+            trt_str += f"{self.dose2} mg"
+            if (
+                self.trttype == TrtTypes.FLARE
+                and self.treatment == Treatments.COLCHICINE
+                and self.freq2_val == Freqs.ONCE
+            ):
+                trt_str += " (2 tabs)"
+            else:
+                trt_str += f"{self.trttype} {self.treatment} {self.freq2.lower()} for {self.duration2}"
+            trt_str += f", then {self.dose3} mg"
+            if (
+                self.trttype == TrtTypes.FLARE
+                and self.treatment == Treatments.COLCHICINE
+                and self.freq3_val == Freqs.ONCE
+            ):
+                trt_str += " (1 tab) an hour after the first dose"
+            else:
+                trt_str += f" {self.freq3.lower()} for {self.duration3}"
+            trt_str += ", then "
+        trt_str += f"{self.dose} mg {self.freq.lower()} for {self.duration}"
+        if not self.dose3 and self.dose2 and self.duration2:
+            trt_str += f", then {self.dose2} mg {self.freq2.lower()} for {self.duration2}"
+        return trt_str
+
+    def __str__(self):
+        return self.trt_dict_to_str()
 
 
 def duration_decimal_parser(json_dict):

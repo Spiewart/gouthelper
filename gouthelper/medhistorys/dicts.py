@@ -14,6 +14,7 @@ NSAID_CONTRAS: dict[MedHistoryTypes, Contraindications] = {
     MedHistoryTypes.GASTRICBYPASS: Contraindications.RELATIVE,
     MedHistoryTypes.HEARTATTACK: Contraindications.RELATIVE,
     MedHistoryTypes.IBD: Contraindications.RELATIVE,
+    MedHistoryTypes.PUD: Contraindications.ABSOLUTE,
     MedHistoryTypes.PVD: Contraindications.RELATIVE,
     MedHistoryTypes.STROKE: Contraindications.RELATIVE,
 }

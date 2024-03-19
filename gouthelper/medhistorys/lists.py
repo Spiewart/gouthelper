@@ -41,6 +41,7 @@ FLAREAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
 ]
@@ -50,6 +51,7 @@ OTHER_NSAID_CONTRAS: list[MedHistoryTypes] = [
     MedHistoryTypes.BLEED,  # History of Serious Bleeding
     MedHistoryTypes.GASTRICBYPASS,  # Gastric Bypass
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
 ]
 
 PPX_MEDHISTORYS: list[MedHistoryTypes] = [
@@ -70,6 +72,7 @@ PPXAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
 ]

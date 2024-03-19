@@ -1,10 +1,6 @@
 <div class="col">
   {% if object.recommendation %}
-    {% if recommendation.0 == "Colchicine" %}
-      {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 colchicine=True trttype=trttype %}
-    {% else %}
-      {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 trttype=trttype %}
-    {% endif %}
+    {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 %}
   {% else %}
     <p>No recommendation available. See a rheumatologist for further evaluation.</p>
     {% if trttype == "Ult" %}

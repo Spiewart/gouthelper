@@ -1,0 +1,9 @@
+{% extends "treatments/partials/dosing/_dosing.html" %}
+
+{% load project_tags %}
+
+{% block dosing %}
+  <div class="row">
+    <div class="col-auto">{% include "treatments/partials/dosing/_single_dosing.html" %}</div>
+  </div>
+{% endblock dosing %}

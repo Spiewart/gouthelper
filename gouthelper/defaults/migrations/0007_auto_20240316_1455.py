@@ -2,11 +2,9 @@
 
 from django.db import migrations
 
-from ..services import update_defaults
-
 class Migration(migrations.Migration):
     dependencies = [
         ("defaults", "0006_flareaidsettings_historicalflareaidsettings_and_more"),
     ]
 
-    operations = [migrations.RunPython(update_defaults)]
+    operations = []

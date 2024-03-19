@@ -12,7 +12,7 @@ from ..defaults.models import FlareAidSettings
 from ..defaults.selectors import defaults_flareaidsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import FlarePpxChoices, Treatments
+from ..treatments.choices import FlarePpxChoices, Treatments, TrtTypes
 from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from ..utils.services import aids_json_to_trt_dict, aids_options
@@ -105,6 +105,21 @@ class FlareAid(
         return FlarePpxChoices.values
 
     @classmethod
+    def celecoxib_info(cls):
+        return cls.nsaid_info_dict()
+
+    @classmethod
+    def colchicine_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Warning": "Can cause stomach upset when taken at the doses effective for Flares.",
+            "Side Effects": "Diarrhea, nausea, vomiting, and abdominal pain.",
+            "Interactions": "Simvastatin, 'azole' antifungals (fluconazole, itraconazole, ketoconazole), \
+macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibitors (cyclosporine, \
+verapamil, quinidine).",
+        }
+
+    @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:
         return FlareAidSettings
 
@@ -118,16 +133,63 @@ class FlareAid(
             else defaults_flareaidsettings(user=self.user)
         )
 
+    @classmethod
+    def diclofenac_info(cls):
+        return cls.nsaid_info_dict()
+
     def get_absolute_url(self):
         if self.user:
             return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
+    @classmethod
+    def ibuprofen_info(cls):
+        info_dict = cls.nsaid_info_dict()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    @classmethod
+    def indomethacin_info(cls):
+        return cls.nsaid_info_dict()
+
+    @classmethod
+    def meloxicam_info(cls):
+        return cls.nsaid_info_dict()
+
+    @classmethod
+    def methylprednisolone_info(cls) -> str:
+        return cls.steroid_info_dict()
+
+    @classmethod
+    def naproxen_info(cls):
+        info_dict = cls.nsaid_info_dict()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    @classmethod
+    def nsaid_info_dict(cls):
+        return {
+            "Availability": "Prescription only",
+            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding \
+rash, fluid retention, and decreased kidney function",
+        }
+
     @property
     def options(self) -> dict:
         """Returns {dict} of FlareAids's Flare Treatment options {treatment: dosing}."""
         return aids_options(trt_dict=self.aid_dict)
+
+    @property
+    def options_without_rec(self) -> dict:
+        """Method that returns the options dictionary without the recommendation key."""
+        return aids_options(
+            trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
+        )
+
+    @classmethod
+    def prednisone_info(cls) -> str:
+        return cls.steroid_info_dict()
 
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
@@ -162,6 +224,18 @@ class FlareAid(
                             )
                         except KeyError:
                             return None
+
+    @classmethod
+    def steroid_info_dict(cls):
+        return {
+            "Availability": "Prescription only",
+            "Warning": "In diabetics, can cause severe hyperglycemia",
+            "Side Effects": "Hyperglycemia, insomnia, mood swings, increased appetite",
+        }
+
+    @classmethod
+    def trttype(cls) -> str:
+        return TrtTypes.FLARE
 
     def update_aid(self, qs: Union["FlareAid", "User", None] = None) -> "FlareAid":
         """Updates FlareAid decisionaid JSON field field.

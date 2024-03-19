@@ -5,6 +5,8 @@ from django import template  # type: ignore
 from django.template.base import TemplateSyntaxError  # type: ignore
 
 from .ethnicitys.helpers import ethnicitys_hlab5801_risk
+from .treatments.choices import Treatments, TrtTypes
+from .utils.helpers import TrtDictStr
 
 if TYPE_CHECKING:
     from .ethnicitys.models import Ethnicity
@@ -56,6 +58,11 @@ def get_keys(dictionary):
     return key_list
 
 
+@register.filter(name="pop_key")
+def pop_key(dictionary, key):
+    return dictionary.pop(key)
+
+
 @register.filter(name="to_class_name")
 def to_class_name(value):
     return value.__class__.__name__.lower()
@@ -89,3 +96,33 @@ def get_trt_string(flareaid, trt, trt_info):
         _type_: _description_
     """
     return flareaid.treatment_string(trt, trt_info)
+
+
+@register.filter(name="is_list")
+def is_list(template_object):
+    """Template tag to return a boolean if object is a list"""
+    return isinstance(template_object, list)
+
+
+@register.filter(name="comprehend_list_attr")
+def comprehend_list_attr(template_list, attr):
+    """Takes a list of objects and returns a list of the attribute of each object."""
+    return [getattr(obj, attr) for obj in template_list]
+
+
+@register.filter(name="get_partial_str")
+def get_partial_str(template_string, arg):
+    """Return a string with the arg appended to the template_string and followed by ".html"."""
+    return f"{template_string}{arg}.html"
+
+
+@register.filter(name="concat_str_with_underscore")
+def concat_str_with_underscore(template_string, arg):
+    """Return a string with the arg appended to the template_string and followed by "_"."""
+    return f"{template_string}_{arg}"
+
+
+@register.simple_tag(name="trt_dict_to_str")
+def trt_dict_to_str(trt_dict: dict, trttype: TrtTypes, treatment: Treatments) -> str:
+    """Return a string explaining a trt_dict's recommendations."""
+    return TrtDictStr(trt_dict, trttype, treatment).trt_dict_to_str()

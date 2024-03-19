@@ -37,82 +37,97 @@
           <h3>
             <u>Recommendation</u>
           </h3>
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Flare" %}
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+          {% if object.recommendation %}
+            <div class="col">
+              <div class="card card-body spacious-cards">
+                <h4 class="card-title">Universal Flare Treatment Instructions</h4>
+                <ul>
+                  <li>Take first dose immediately at start of symptoms</li>
+                  <li>Stop the medication when symptoms resolve</li>
+                  <li>Do not take more than the recommended dose</li>
+                  <li>Call your doctor if your symptoms do not improve</li>
+                </ul>
+              </div>
+            </div>
+          {% endif %}
         </div>
       </div>
       {% if object.recommendation %}
-        {% include "treatments/partials/options.html" with options=object.options_str trttype="Flare" %}
+        {% include "treatments/partials/options.html" with options=object.options_without_rec trttype=object.trttype %}
       {% endif %}
-      <div id="contraindications">
-        <hr size="3" color="dark" />
-        <div class="row">
-          <div class="col">
-            <h3>
-              <u>Contraindications</u>
-            </h3>
-            <div class="row">
-              {% if object.other_nsaid_contras or object.ckd or object.cvdiseases_str or object.nsaid_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards" id="nsaid-contras">
-                    <h4 class="card-title">NSAIDs</h4>
-                    <ul>
-                      {% if object.other_nsaid_contras %}
-                        {% for contra in object.other_nsaid_contras %}
-                          <li>
-                            <a class="samepage-link" href="#{{ contra.medhistorytype|lower }}">{{ contra }}</a>
-                          </li>
-                        {% endfor %}
-                      {% endif %}
-                      {% if object.ckd %}
-                        {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
-                      {% endif %}
-                      {% if object.cvdiseases %}
-                        {% include "medhistorys/partials/cvdiseases.html" with cvdiseases=object.cvdiseases_str aidtype="FlareAid" %}
-                      {% endif %}
-                      {% if object.nsaid_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="nsaid_allergy" aidtype="FlareAid" %}
-                      {% endif %}
-                      {% if object.nsaid_age_contra %}
-                        {% include "_contra.html" with id="age" aidtype="FlareAid" %}
-                      {% endif %}
-                    </ul>
+      {% if object.other_nsaid_contras or object.ckd or object.cvdiseases or object.nsaid_allergy or object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergy or object.steroid_allergy %}
+        <div id="contraindications">
+          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <h3>
+                <u>Contraindications</u>
+              </h3>
+              <div class="row">
+                {% if object.other_nsaid_contras or object.ckd or object.cvdiseases_str or object.nsaid_allergy %}
+                  <div class="col-auto">
+                    <div class="card card-body spacious-cards" id="nsaid-contras">
+                      <h4 class="card-title">NSAIDs</h4>
+                      <ul>
+                        {% if object.other_nsaid_contras %}
+                          {% for contra in object.other_nsaid_contras %}
+                            <li>
+                              <a class="samepage-link" href="#{{ contra.medhistorytype|lower }}">{{ contra }}</a>
+                            </li>
+                          {% endfor %}
+                        {% endif %}
+                        {% if object.ckd %}
+                          {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
+                        {% endif %}
+                        {% if object.cvdiseases %}
+                          {% include "medhistorys/partials/cvdiseases.html" with cvdiseases=object.cvdiseases_str aidtype="FlareAid" %}
+                        {% endif %}
+                        {% if object.nsaid_allergy %}
+                          {% include '_contra.html' with id="medallergys" allergy="nsaid_allergy" aidtype="FlareAid" %}
+                        {% endif %}
+                        {% if object.nsaid_age_contra %}
+                          {% include "_contra.html" with id="age" aidtype="FlareAid" %}
+                        {% endif %}
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              {% endif %}
-              {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards">
-                    <h4 class="card-title">Colchicine</h4>
-                    <ul>
-                      {% if object.colchicine_ckd_contra %}
-                        {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
-                      {% endif %}
-                      {% if object.colchicineinteraction %}
-                        {% include '_contra.html' with id="colchicineinteraction" aidtype="FlareAid" %}
-                      {% endif %}
-                      {% if object.colchicine_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="colchicine_allergy" aidtype="FlareAid" %}
-                      {% endif %}
-                    </ul>
+                {% endif %}
+                {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergy %}
+                  <div class="col-auto">
+                    <div class="card card-body spacious-cards">
+                      <h4 class="card-title">Colchicine</h4>
+                      <ul>
+                        {% if object.colchicine_ckd_contra %}
+                          {% include "_contra.html" with id="ckd" aidtype="FlareAid" %}
+                        {% endif %}
+                        {% if object.colchicineinteraction %}
+                          {% include '_contra.html' with id="colchicineinteraction" aidtype="FlareAid" %}
+                        {% endif %}
+                        {% if object.colchicine_allergy %}
+                          {% include '_contra.html' with id="medallergys" allergy="colchicine_allergy" aidtype="FlareAid" %}
+                        {% endif %}
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              {% endif %}
-              {% if object.steroid_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards" id="steroid-contras">
-                    <h4 class="card-title">Steroids</h4>
-                    <ul>
-                      {% if object.steroid_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="steroid_allergy" aidtype="FlareAid" %}
-                      {% endif %}
-                    </ul>
+                {% endif %}
+                {% if object.steroid_allergy %}
+                  <div class="col-auto">
+                    <div class="card card-body spacious-cards" id="steroid-contras">
+                      <h4 class="card-title">Steroids</h4>
+                      <ul>
+                        {% if object.steroid_allergy %}
+                          {% include '_contra.html' with id="medallergys" allergy="steroid_allergy" aidtype="FlareAid" %}
+                        {% endif %}
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              {% endif %}
+                {% endif %}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      {% endif %}
       {% if object.organtransplant or "PREDNISONE" in object.options and object.diabetes or object.nsaids_recommended and not object.nsaids_contraindicated and object.age > 65 %}
         <div id="warnings">
           <hr size="3" color="dark" />
@@ -156,6 +171,7 @@
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=anticoagulation id="anticoagulation" label="Anticoagulation" %}
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=bleed id="bleed" label="Bleed" %}
+            {% include "_explanation.html" with aidtype="FlareAid" con_obj=pud id="pud" label="Peptic Ulcer Disease" %}
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=gastricbypass id="gastricbypass" label="Gastric Bypass" %}
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=diabetes id="diabetes" label="Diabetes" %}

@@ -134,7 +134,6 @@ class TestUltDataFactory(TestCase):
                 )
             )
         )
-        print(datas)
         self.assertTrue(
             any(
                 iter(

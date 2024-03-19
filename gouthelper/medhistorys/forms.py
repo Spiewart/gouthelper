@@ -26,6 +26,7 @@ from .models import (
     MedHistory,
     Menopause,
     Organtransplant,
+    Pud,
     Pvd,
     Stroke,
     Tophi,
@@ -489,6 +490,17 @@ class OrgantransplantForm(MedHistoryForm):
         )
         self.fields[self.value].label = "Organ Transplant"
         self.fields[self.value].help_text = "Has the patient had an organ transplant?"
+
+
+class PudForm(MHCheckForm):
+    class Meta(MedHistoryForm.Meta):
+        model = Pud
+        prefix = MedHistoryTypes.PUD
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.value].label = "Peptic Ulcer Disease"
+        self.fields[self.value].help_text = "Has the patient had gastric or other gastrointestinal ulcers?"
 
 
 class PvdForm(MHCheckForm):

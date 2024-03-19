@@ -200,6 +200,15 @@ class OsteoporosisManager(Manager):
         return super().create(**kwargs)
 
 
+class PudManager(Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(medhistorytype=MedHistoryTypes.PUD)
+
+    def create(self, **kwargs):
+        kwargs.update({"medhistorytype": MedHistoryTypes.PUD})
+        return super().create(**kwargs)
+
+
 class PvdManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(medhistorytype=MedHistoryTypes.PVD)

@@ -310,13 +310,14 @@ def aids_json_to_trt_dict(decisionaid: str) -> dict:
     return json.loads(decisionaid, object_hook=duration_decimal_parser)
 
 
-def aids_options(trt_dict: dict) -> dict:
+def aids_options(trt_dict: dict, recommendation: Treatments = None) -> dict:
     """Method that parses trt_dict (dictionary of potential Aid Treatments)
     and returns a dict of all possible Aid Treatment options by removing
     those which are contraindicated.
 
     args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
+        recommendation (Treatments, optional): Treatment to remove from options. Defaults to None.
 
     returns: modified trt_dict with contraindicated treatments removed.
     """
@@ -324,6 +325,8 @@ def aids_options(trt_dict: dict) -> dict:
     options_dict = trt_dict.copy()
     for trt, sub_dict in trt_dict.items():
         if sub_dict["contra"] is True:
+            options_dict.pop(trt)
+        elif recommendation and trt == recommendation:
             options_dict.pop(trt)
     return options_dict
 

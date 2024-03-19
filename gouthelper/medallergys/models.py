@@ -129,4 +129,4 @@ class MedAllergy(
     history = HistoricalRecords()
 
     def __str__(self):
-        return "Allergy: " + self.treatment.lower().capitalize()
+        return "Allergy: " + self.treatment.lower()
