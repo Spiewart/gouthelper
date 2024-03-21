@@ -15,7 +15,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, Treatments, TrtTypes
 from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
-from ..utils.services import aids_json_to_trt_dict, aids_options
+from ..utils.services import aids_json_to_trt_dict, aids_not_options, aids_options
 from .managers import FlareAidManager
 from .services import FlareAidDecisionAid
 
@@ -105,21 +105,6 @@ class FlareAid(
         return FlarePpxChoices.values
 
     @classmethod
-    def celecoxib_info(cls):
-        return cls.nsaid_info_dict()
-
-    @classmethod
-    def colchicine_info(cls) -> str:
-        return {
-            "Availability": "Prescription only",
-            "Warning": "Can cause stomach upset when taken at the doses effective for Flares.",
-            "Side Effects": "Diarrhea, nausea, vomiting, and abdominal pain.",
-            "Interactions": "Simvastatin, 'azole' antifungals (fluconazole, itraconazole, ketoconazole), \
-macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibitors (cyclosporine, \
-verapamil, quinidine).",
-        }
-
-    @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:
         return FlareAidSettings
 
@@ -133,49 +118,29 @@ verapamil, quinidine).",
             else defaults_flareaidsettings(user=self.user)
         )
 
-    @classmethod
-    def diclofenac_info(cls):
-        return cls.nsaid_info_dict()
-
     def get_absolute_url(self):
         if self.user:
             return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
-    @classmethod
-    def ibuprofen_info(cls):
-        info_dict = cls.nsaid_info_dict()
-        info_dict.update({"Availability": "Over the counter"})
-        return info_dict
+    @cached_property
+    def not_options(self) -> list[str]:
+        """Returns {list} of FlareAids's Flare Treatment options that are not recommended."""
+        return aids_not_options(trt_dict=self.aid_dict, defaultsettings=self.defaulttrtsettings)
 
-    @classmethod
-    def indomethacin_info(cls):
-        return cls.nsaid_info_dict()
+    @cached_property
+    def not_options_dict(self) -> dict:
+        """Method that returns a dict of Treatments that are not options and another dict of key/val
+        pairs of contraindication strings and the objects that make up those strings."""
+        not_options_dict = {}
+        if self.not_options:
+            for not_option in self.not_options:
+                contra_dict = getattr(self, f"{not_option.lower()}_contra_dict")
+                not_options_dict.update({contra_dict[0]: contra_dict[1]})
+        return not_options_dict
 
-    @classmethod
-    def meloxicam_info(cls):
-        return cls.nsaid_info_dict()
-
-    @classmethod
-    def methylprednisolone_info(cls) -> str:
-        return cls.steroid_info_dict()
-
-    @classmethod
-    def naproxen_info(cls):
-        info_dict = cls.nsaid_info_dict()
-        info_dict.update({"Availability": "Over the counter"})
-        return info_dict
-
-    @classmethod
-    def nsaid_info_dict(cls):
-        return {
-            "Availability": "Prescription only",
-            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding \
-rash, fluid retention, and decreased kidney function",
-        }
-
-    @property
+    @cached_property
     def options(self) -> dict:
         """Returns {dict} of FlareAids's Flare Treatment options {treatment: dosing}."""
         return aids_options(trt_dict=self.aid_dict)
@@ -186,10 +151,6 @@ rash, fluid retention, and decreased kidney function",
         return aids_options(
             trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
         )
-
-    @classmethod
-    def prednisone_info(cls) -> str:
-        return cls.steroid_info_dict()
 
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
@@ -224,14 +185,6 @@ rash, fluid retention, and decreased kidney function",
                             )
                         except KeyError:
                             return None
-
-    @classmethod
-    def steroid_info_dict(cls):
-        return {
-            "Availability": "Prescription only",
-            "Warning": "In diabetics, can cause severe hyperglycemia",
-            "Side Effects": "Hyperglycemia, insomnia, mood swings, increased appetite",
-        }
 
     @classmethod
     def trttype(cls) -> str:

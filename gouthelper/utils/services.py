@@ -310,6 +310,24 @@ def aids_json_to_trt_dict(decisionaid: str) -> dict:
     return json.loads(decisionaid, object_hook=duration_decimal_parser)
 
 
+def aids_not_options(
+    trt_dict: dict, defaultsettings: Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]
+) -> dict:
+    """Method that iterates over a trt_dict and returns a dictionary of
+    treatments that are contraindicated."""
+    if defaultsettings and getattr(defaultsettings, "nsaids_equivalent", True):
+        not_options = {}
+        for trt, sub_dict in trt_dict.items():
+            if sub_dict["contra"] is True:
+                if trt in NsaidChoices.values:
+                    not_options.update({"NSAIDs": sub_dict})
+                else:
+                    not_options[trt] = sub_dict
+        return not_options
+    else:
+        return {trt: sub_dict for trt, sub_dict in trt_dict.items() if sub_dict["contra"] is True}
+
+
 def aids_options(trt_dict: dict, recommendation: Treatments = None) -> dict:
     """Method that parses trt_dict (dictionary of potential Aid Treatments)
     and returns a dict of all possible Aid Treatment options by removing

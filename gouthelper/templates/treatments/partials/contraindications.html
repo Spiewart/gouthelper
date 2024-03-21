@@ -1,0 +1,35 @@
+{% load project_tags %}
+
+<div class="row">
+  <div class="col">
+    <h6>Contraindications</h6>
+  </div>
+  <div class="col align-items-start d-flex justify-content-end">
+    {% with "about"|concat_str_with_underscore:trt.lower|concat_str_with_underscore:"url" as url_method %}
+      {% with object|getattribute:url_method as url %}
+        <!-- djlint:off --><a type="button" class="btn btn-primary btn-sm samepage-link" href={{ url }} role="button">About</a><!-- djlint:on -->
+      {% endwith %}
+    {% endwith %}
+  </div>
+</div>
+<ul>
+  {% for contra_exp, contra in info_dict.items %}
+    <li>
+      <!-- djlint:off --><a class="samepage-link" href=#{{ contra.0 }}>{{ contra_exp }}</a><!-- djlint:on -->
+      <ul>
+        {% if contra.1 %}
+          <li>
+            {% if contra.1|is_list %}
+              {% for subcontra in contra.1 %}
+                {{ subcontra }}
+                {% if not forloop.last %},{% endif %}
+              {% endfor %}
+            {% else %}
+              {{ contra.1 }}
+            {% endif %}
+          </li>
+        {% endif %}
+      </ul>
+    </li>
+  {% endfor %}
+</ul>

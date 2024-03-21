@@ -1,8 +1,10 @@
 import uuid
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from django.db import models  # type: ignore
+from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
@@ -35,6 +37,76 @@ class GoutHelperBaseModel:
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def about_allopurinol_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#allopurinol."""
+        return reverse("treatments:about-ult") + "#allopurinol"
+
+    @classmethod
+    def about_celecoxib_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#celecoxib."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_colchicine_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#colchicine."""
+        return reverse("treatments:about-flare") + "#colchicine"
+
+    @classmethod
+    def about_diclofenac_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#diclofenac."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_febuxostat_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#febuxostat."""
+        return reverse("treatments:about-ult") + "#febuxostat"
+
+    @classmethod
+    def about_ibuprofen_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#ibuprofen."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_indomethacin_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#indomethacin."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_meloxicam_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#meloxicam."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_methylprednisolone_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return cls.about_steroids_url()
+
+    @classmethod
+    def about_naproxen_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#naproxen."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_nsaids_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#nsaids."""
+        return reverse("treatments:about-flare") + "#nsaids"
+
+    @classmethod
+    def about_prednisone_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return cls.about_steroids_url()
+
+    @classmethod
+    def about_probenecid_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#probenecid."""
+        return reverse("treatments:about-ult") + "#probenecid"
+
+    @classmethod
+    def about_steroids_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return reverse("treatments:about-flare") + "#steroids"
 
     @cached_property
     def age(self) -> int | None:
@@ -94,6 +166,18 @@ class GoutHelperBaseModel:
         return medhistory_attr(MedHistoryTypes.CAD, self)
 
     @cached_property
+    def celecoxib_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Celecoxib", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def celecoxib_info(cls):
+        return cls.nsaid_info()
+
+    @cached_property
+    def celecoxib_info_dict(self) -> str:
+        return self.nsaids_info_dict
+
+    @cached_property
     def chf(self) -> Union["MedHistory", bool]:
         """Method that returns CHF object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -138,34 +222,54 @@ class GoutHelperBaseModel:
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
 
+    @classmethod
+    def colchicine_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Caution": "Can cause stomach upset when taken at the doses effective for Flares.",
+            "Side Effects": "Diarrhea, nausea, vomiting, and abdominal pain.",
+            "Interactions": cls.colchicine_interactions().capitalize(),
+        }
+
+    @cached_property
+    def colchicine_info_dict(self) -> str:
+        return self.colchicine_info()
+
+    @classmethod
+    def colchicine_interactions(cls) -> str:
+        return "simvastatin, 'azole' antifungals (fluconazole, itraconazole, ketoconazole), \
+macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibitors (cyclosporine, \
+verapamil, quinidine)."
+
     @property
-    def colchicine_contra_dict(self) -> dict[str, tuple[str, str]]:
+    def colchicine_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
         """Method that returns a dict of colchicine contraindications."""
         contra_dict = {}
         if self.colchicine_allergy:
-            contra_dict["Allergy"] = (
-                self.colchicine_allergy,
-                "Having an allergy to colchicine is a contraindication to its use.",
-            )
+            contra_dict["Allergy"] = ("medallergys", self.colchicine_allergy)
         if self.colchicine_ckd_contra:
-            contra_dict["CKD"] = (
-                self.colchicine_ckd_contra,
-                "Advanced CKD is a contraindication to colchicine use.",
-            )
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
         if self.colchicineinteraction:
-            contra_dict["Interaction"] = (
-                self.colchicineinteraction,
-                "Colchicine should be used very cautiously with medications that interact \
-strongly with it, if at all and always under the guidance of \
-a physician and/or pharmacist.",
+            contra_dict["Medication Interaction"] = (
+                "colchicineinteraction",
+                f"Colchicine interacts with {self.colchicine_interactions()}",
             )
-        return contra_dict
+        return Treatments.COLCHICINE.label, contra_dict
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
         """Method that returns a list of cardiovascular disease MedHistory objects
         from self.medhistorys_qs or or self.medhistorys.all()."""
         return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
+
+    @cached_property
+    def cvdiseases_interp(self) -> str:
+        """Method that interprets the cvdiseases attribute and returns a str explanation
+        of the impact of them on a patient's gout."""
+        cvdiseases_str = "Cardiovascular diseases are a leading cause of death worldwide, and both NSAIDs and \
+febuxostat are associated with an increased risk of cardiovascular events. As such, both should be used cautiously \
+in patients with cardiovascular disease."
+        return cvdiseases_str
 
     @cached_property
     def cvdiseases_str(self) -> str:
@@ -187,6 +291,18 @@ a physician and/or pharmacist.",
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.DIABETES, self)
+
+    @cached_property
+    def diclofenac_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Diclofenac", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def diclofenac_info(cls):
+        return cls.nsaid_info()
+
+    @cached_property
+    def diclofenac_info_dict(self) -> str:
+        return self.nsaids_info_dict
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -295,10 +411,74 @@ a physician and/or pharmacist.",
         return medhistory_attr(MedHistoryTypes.IBD, self)
 
     @cached_property
+    def ibuprofen_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Ibuprofen", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def ibuprofen_info(cls):
+        info_dict = cls.nsaid_info()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    @cached_property
+    def ibuprofen_info_dict(self) -> str:
+        info_dict = self.nsaids_info_dict
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    @cached_property
+    def indomethacin_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Indomethacin", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def indomethacin_info(cls):
+        return cls.nsaid_info()
+
+    @cached_property
+    def indomethacin_info_dict(self) -> str:
+        return self.nsaids_info_dict
+
+    @cached_property
+    def meloxicam_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Meloxicam", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def meloxicam_info(cls):
+        return cls.nsaid_info()
+
+    @cached_property
+    def meloxicam_info_dict(self) -> str:
+        return self.nsaids_info_dict
+
+    @cached_property
     def menopause(self) -> Union["MedHistory", bool]:
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
+
+    @classmethod
+    def methylprednisolone_info(cls) -> str:
+        return cls.steroid_info()
+
+    @cached_property
+    def methylprednisolone_info_dict(self) -> str:
+        return self.steroid_info_dict
+
+    @cached_property
+    def naproxen_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Naproxen", self.nsaids_contra_dict[1]
+
+    @classmethod
+    def naproxen_info(cls):
+        info_dict = cls.nsaid_info()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    @cached_property
+    def naproxen_info_dict(self) -> str:
+        info_dict = self.nsaids_info_dict
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
 
     @cached_property
     def nsaid_age_contra(self) -> bool | None:
@@ -337,6 +517,65 @@ a physician and/or pharmacist.",
         return False
 
     @cached_property
+    def nsaids_contra_dict(self) -> tuple[str, dict[str, str, Any | list[Any] | None]]:
+        """Method that returns a dict of NSAID contraindications.
+
+        Returns:
+            tuple[
+                str: not recommended Treatment or NSAIDs,
+                dict[
+                    str: contraindication,
+                    str: link term that is an id for an href on the same page
+                    Union[Any, list[Any]]: The contraindication object or objects
+                ]
+            ]
+        """
+        contra_dict = {}
+        if self.nsaid_age_contra:
+            contra_dict["Age"] = (
+                "age",
+                f"{self.age} years old",
+            )
+        if self.nsaid_allergy:
+            contra_dict[f"Allerg{'ies' if len(self.nsaid_allergy) > 1 else 'y'}"] = ("medallergys", self.nsaid_allergy)
+        if self.other_nsaid_contras:
+            for contra in self.other_nsaid_contras:
+                contra_dict[str(contra)] = (
+                    f"{contra.medhistorytype.lower()}",
+                    None,
+                )
+        if self.cvdiseases:
+            contra_dict[f"Cardiovascular Disease{'s' if len(self.cvdiseases) > 1 else ''}"] = (
+                "cvdiseases",
+                self.cvdiseases,
+            )
+        if self.ckd:
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
+        return "NSAIDs", contra_dict
+
+    @classmethod
+    def nsaid_info(cls):
+        return {
+            "Availability": "Prescription only",
+            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding \
+rash, fluid retention, and decreased kidney function",
+        }
+
+    @cached_property
+    def nsaids_info_dict(self) -> str:
+        info_dict = self.nsaid_info()
+        if self.age > 65 and self.nsaids_recommended and not self.nsaids_contraindicated:
+            info_dict.update(
+                {
+                    "Warning": mark_safe(
+                        "NSAIDs have a higher risk of side effects and adverse events in individuals \
+<a class='samepage-link' href='#age'>over age 65</a>."
+                    )
+                }
+            )
+        return info_dict
+
+    @cached_property
     def organtransplant(self) -> Union["MedHistory", bool]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -347,6 +586,14 @@ a physician and/or pharmacist.",
         """Method that returns MedHistory object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(OTHER_NSAID_CONTRAS, self)
+
+    @classmethod
+    def prednisone_info(cls) -> str:
+        return cls.steroid_info
+
+    @cached_property
+    def prednisone_info_dict(self) -> str:
+        return self.steroid_info_dict
 
     @cached_property
     def probenecid_allergy(self) -> list["MedAllergy"] | None:
@@ -404,6 +651,31 @@ a physician and/or pharmacist.",
         or self.medallergys.all()."""
         return medallergy_attr(SteroidChoices.values, self)
 
+    @classmethod
+    def steroid_info(cls):
+        return {
+            "Availability": "Prescription only",
+            "Side Effects": "Hyperglycemia, insomnia, mood swings, increased appetite",
+        }
+
+    @cached_property
+    def steroid_info_dict(self):
+        info_dict = self.steroid_info()
+        if self.steroid_warning:
+            info_dict.update({"Warning": self.steroid_warning})
+        return info_dict
+
+    @cached_property
+    def steroid_warning(self) -> str | None:
+        """Method that returns a warning str if the object has an associated
+        Diabetes MedHistory object."""
+
+        return mark_safe(
+            "In patients with <a class='samepage-link' href='#diabetes'>diabetes</a>, \
+steroids can cause severe hyperglycemia (elevated blood sugar). \
+Monitor blood sugar closely while on corticosteroids and seek medical advice if persistently elevated."
+        )
+
     @cached_property
     def stroke(self) -> Union["MedHistory", bool]:
         """Method that returns Stroke object from self.medhistorys_qs or
@@ -459,6 +731,10 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
         return age_calc(date_of_birth=self.dateofbirth.value)
+
+    @cached_property
+    def user(self):
+        return self
 
     def get_defaulttrtsettings(
         self, trttype: TrtTypes

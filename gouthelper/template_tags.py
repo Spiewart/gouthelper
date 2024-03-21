@@ -123,6 +123,6 @@ def concat_str_with_underscore(template_string, arg):
 
 
 @register.simple_tag(name="trt_dict_to_str")
-def trt_dict_to_str(trt_dict: dict, trttype: TrtTypes, treatment: Treatments) -> str:
+def trt_dict_to_str(dosing_dict: dict, trttype: TrtTypes, treatment: Treatments) -> str:
     """Return a string explaining a trt_dict's recommendations."""
-    return TrtDictStr(trt_dict, trttype, treatment).trt_dict_to_str()
+    return TrtDictStr(dosing_dict, trttype, treatment).trt_dict_to_str()

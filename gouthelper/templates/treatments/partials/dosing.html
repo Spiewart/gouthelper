@@ -1,34 +1,16 @@
 {% load project_tags %}
 
-<div class="card card-body spacious-cards">
-  <h4 class="card-title">{{ trt.lower.capitalize }}</h4>
-  <ul>
-    <li>
-      <strong>Dosing:</strong>{% trt_dict_to_str trt_dict trttype trt %}
-    </li>
-    {% with trt.lower|concat_str_with_underscore:"info" as trt_info %}
-      {% with object|getattribute:trt_info as trt_info_dict %}
-        {% for key, val in trt_info_dict.items %}
-          <li>
-            <strong>{{ key }}</strong>: {{ val }}
-          </li>
-        {% endfor %}
-      {% endwith %}
-    {% endwith %}
-  </ul>
-  {% if trt_dict.dose_adj and trttype == "Ult" %}
-    <li>Dose adjustment: {{ trt_dict.dose_adj }} mg every 4-6 weeks until uric acid at goal</li>
-    {% if object.dose_adj_xois and trt == "Allopurinol" or object.dose_adj_xois and trt == "Febuxostat" %}
-      <ul>
+<ul>
+  <li>
+    <strong>Dosing:</strong> {% trt_dict_to_str dosing_dict=info_dict trttype=trttype treatment=trt %}
+  </li>
+  {% with trt.lower|concat_str_with_underscore:"info_dict" as trt_info %}
+    {% with object|getattribute:trt_info as trt_info_dict %}
+      {% for key, val in trt_info_dict.items %}
         <li>
-          Reduced dosing for <a class="samepage-link" href="#ckd">CKD</a>
+          <strong>{{ key }}</strong>: {{ val }}
         </li>
-      </ul>
-    {% endif %}
-  {% endif %}
-  {% if trttype == "Ppx" %}
-    <li>
-      Take until uric acid <a href="{% url 'goalurates:about' %}">at goal</a> for 3-6 months
-    </li>
-  {% endif %}
-</div>
+      {% endfor %}
+    {% endwith %}
+  {% endwith %}
+</ul>

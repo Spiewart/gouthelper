@@ -11,7 +11,12 @@ from ..treatments.helpers import stringify_dosing_dict
 if TYPE_CHECKING:
     from datetime import date
 
+    from django.contrib.auth import get_user_model
     from django.db.models import QuerySet
+
+    from ..utils.models import GoutHelperPatientModel
+
+    User = get_user_model()
 
 
 def calculate_duration(
@@ -36,13 +41,13 @@ def calculate_duration(
 
 
 class TrtDictStr:
-    def __init__(self, trt_dict: dict, trttype: TrtTypes, treatment: Treatments = None):
-        self.freq2_val = trt_dict.get("freq2")
-        self.freq3_val = trt_dict.get("freq3")
-        self.trt_dict = stringify_dosing_dict(trt_dict)
+    def __init__(self, dosing_dict: dict, trttype: TrtTypes, treatment: Treatments = None):
+        self.freq2_val = dosing_dict.get("freq2")
+        self.freq3_val = dosing_dict.get("freq3")
+        self.dosing_dict = stringify_dosing_dict(dosing_dict)
         self.trttype = trttype
         self.treatment = treatment
-        for key, val in self.trt_dict.items():
+        for key, val in self.dosing_dict.items():
             setattr(self, key, val)
 
     dose: Decimal
@@ -148,3 +153,47 @@ def now_date() -> "date":
 
 def now_datetime() -> "datetime":
     return timezone.now()
+
+
+def set_object_str_attrs(
+    obj: Any,
+    patient: Union["GoutHelperPatientModel", None] = None,
+    request_user: Union["User", None] = None,
+) -> None:
+    if patient:
+        if request_user and request_user == patient:
+            obj.pretext_1 = "Do "
+            obj.pretext_2 = "Are "
+            obj.pretext_3 = "Have "
+            obj.pretext_4 = " have "
+            obj.pretext_5 = " do "
+            obj.pretext_6 = " have "
+            obj.pretext_7 = " are "
+            obj.subject = "you"
+            obj.subject_the = "you"
+            obj.subject_pos = "your"
+            obj.subject_the_pos = "your"
+        else:
+            obj.pretext_1 = "Does "
+            obj.pretext_2 = "Is "
+            obj.pretext_3 = "Has "
+            obj.pretext_4 = " has "
+            obj.pretext_5 = " does "
+            obj.pretext_6 = " has "
+            obj.pretext_7 = " is "
+            obj.subject = str(patient)
+            obj.subject_the = str(patient)
+            obj.subject_pos = f"{str(patient)}'s"
+            obj.subject_the_pos = f"{str(patient)}'s"
+    else:
+        obj.pretext_1 = "Does the "
+        obj.pretext_2 = "Is the "
+        obj.pretext_3 = "Has "
+        obj.pretext_4 = " has the "
+        obj.pretext_5 = " does the "
+        obj.pretext_6 = " has "
+        obj.pretext_7 = " is "
+        obj.subject = "patient"
+        obj.subject_the = "the patient"
+        obj.subject_pos = "patient's"
+        obj.subject_the_pos = "the patient's"

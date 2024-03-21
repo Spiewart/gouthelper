@@ -6,10 +6,6 @@
     <h3>
       <u>Options</u>
     </h3>
-    <div class="row">
-      {% for option, option_dict in options.items %}
-        <div class="col-auto">{% include "treatments/partials/dosing.html" with trt_dict=option_dict trt=option %}</div>
-      {% endfor %}
-    </div>
+    {% include "treatments/partials/accordion.html" with info_dicts=options parent="Options" accordion_body="treatments/partials/dosing.html" modify_header=True %}
   </div>
 {% endif %}

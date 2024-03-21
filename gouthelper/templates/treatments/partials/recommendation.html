@@ -1,6 +1,9 @@
 <div class="col">
-  {% if object.recommendation %}
-    {% include "treatments/partials/dosing.html" with trt=recommendation.0 trt_dict=recommendation.1 %}
+  {% if recommendation %}
+    <div class="card card-body spacious-cards">
+      <h4 class="card-title">{{ recommendation.0.lower.capitalize }}</h4>
+      {% include "treatments/partials/dosing.html" with trt=recommendation.0 info_dict=recommendation.1 %}
+    </div>
   {% else %}
     <p>No recommendation available. See a rheumatologist for further evaluation.</p>
     {% if trttype == "Ult" %}

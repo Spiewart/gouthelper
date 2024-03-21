@@ -96,9 +96,22 @@ class CkdDetail(MedHistoryDetail):
         verbose_name=_("CKD Stage"),
     )
 
+    @property
+    def explanation(self):
+        if self.dialysis:
+            return f"{self.get_dialysis_type_display()}, {self.get_dialysis_duration_display()}"
+        else:
+            return f"Stage: {self.get_stage_display()}"
+
     @classmethod
     def medhistorytype(cls):
         return MedHistoryTypes.CKD
+
+    def __str__(self):
+        if getattr(self.medhistory, "user"):
+            return f"{self.medhistory.user.username.capitalize()}'s CKD Detail"
+        else:
+            return f"CKD Detail: created {self.created.date()}"
 
 
 class GoutDetail(MedHistoryDetail):
