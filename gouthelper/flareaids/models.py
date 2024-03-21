@@ -4,6 +4,8 @@ from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
@@ -103,6 +105,63 @@ class FlareAid(
     @classmethod
     def aid_treatments(cls) -> list[FlarePpxChoices]:
         return FlarePpxChoices.values
+
+    @cached_property
+    def anticoagulation_interp(self) -> str:
+        anticoag_str = super().anticoagulation_interp
+        if self.anticoagulation:
+            anticoag_str += " Exceptions are sometimes made to this rule for gout Flares because the duration of \
+treatment is typically very short and the risk of bleeding is low."
+        return anticoag_str
+
+    @cached_property
+    def ckd_interp(self) -> str:
+        ckd_str = super().ckd_interp
+
+        subject = self.get_str_attrs("subject_the")
+
+        ckd_str += format_lazy(
+            """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) are associated \
+with acute kidney injury and chronic kidney disease and thus are not recommended for patients with CKD.""",
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.ckd:
+            ckd_str += f" Therefore, NSAIDs are not recommended for {subject}."
+
+        ckd_str += format_lazy(
+            """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and should be \
+used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage 4 or 5, or is \
+on dialysis, colchicine should be avoided.""",
+            reverse("treatments:about-flare") + "#colchicine",
+        )
+        if self.ckd:
+            if self.colchicine_ckd_contra:
+                ckd_str += f" Therefore, colchicine is not recommended for {subject}"
+                if self.ckddetail:
+                    ckd_str += f" with {self.ckddetail.explanation}"
+                ckd_str += "."
+            else:
+                ckd_str += f" Therefore, if there are no other contraindications to colchicine, \
+colchicine can be used by {subject}, but at reduced doses."
+
+        return mark_safe(ckd_str)
+
+    @cached_property
+    def cvdiseases_interp(self) -> str:
+        main_str = super().cvdiseases_interp
+        (subject,) = self.get_str_attrs("subject_the")
+
+        main_str += format_lazy(
+            """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
+with an increased risk of cardiovascular events and mortality with long-term use. For that reason, \
+cardiovascular disease is a relative contraindication to using NSAIDs. """,
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.cvdiseases:
+            main_str += f"Because of {subject.capitalize()}'s cardiovascular disease(s), NSAIDs are not recommended."
+        else:
+            main_str += f"Because {subject} does not have cardiovascular disease, NSAIDs are reasonable to use."
+        return mark_safe(main_str)
 
     @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:

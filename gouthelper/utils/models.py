@@ -5,6 +5,7 @@ from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
@@ -15,6 +16,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
+from .helpers import set_object_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
@@ -23,11 +25,15 @@ from .services import (
 )
 
 if TYPE_CHECKING:
+    from django.contrib.auth import get_user_model
+
     from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
     from ..labs.models import BaselineCreatinine
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
+
+    User = get_user_model()
 
 
 class GoutHelperBaseModel:
@@ -119,6 +125,27 @@ class GoutHelperBaseModel:
         return None
 
     @cached_property
+    def age_interp(self) -> str:
+        """Method that interprets the age attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, text = self.get_str_attrs("subject_the", "text_7")
+        main_str = format_lazy(
+            """People over age 65 have a higher rate of side effects with use of non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). {} {}""",
+            reverse("treatments:about-flare") + "#nsaids",
+            subject,
+            text,
+        )
+        if self.age > 65:
+            main_str += " over age 65, and as such, NSAIDs should be used cautiously in this setting."
+        else:
+            main_str += " under age 65, so this isn't a concern."
+
+        main_str += "<br> <br> GoutHelper defaults to not contraindicating NSAIDs based on age alone."
+        return mark_safe(main_str)
+
+    @cached_property
     def allopurinol_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Allopurinol MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
@@ -143,6 +170,27 @@ class GoutHelperBaseModel:
         return medhistory_attr(MedHistoryTypes.ANTICOAGULATION, self)
 
     @cached_property
+    def anticoagulation_interp(self) -> str:
+        """Method that interprets the anticoagulation attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, text, gender_reference = self.get_str_attrs("subject_the", "text_7", "gender_reference")
+        main_str = format_lazy(
+            """Anticoagulation is a relative contraindication to non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). {} {}""",
+            reverse("treatments:about-flare") + "#nsaids",
+            subject,
+            text,
+        )
+        if self.anticoagulation:
+            main_str += f" on anticoagulation, so NSAIDs would typically not be prescribed to {gender_reference}."
+        else:
+            main_str += (
+                f" not on anticoagulation, so anticoagulation isn't an issue for {gender_reference} taking them."
+            )
+        return mark_safe(main_str)
+
+    @cached_property
     def baselinecreatinine(self) -> Union["BaselineCreatinine", False]:
         """Method  that returns BaselineCreatinine object from ckd attribute/property
         or None if either doesn't exist.
@@ -158,6 +206,27 @@ class GoutHelperBaseModel:
         """Method that returns Bleed object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.BLEED, self)
+
+    @cached_property
+    def bleed_interp(self) -> str:
+        """Method that interprets the bleed attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, text, gender_reference, negative = self.get_str_attrs(
+            "subject_the", "text_6", "gender_reference", "neg_6"
+        )
+        main_str = format_lazy(
+            """History of a life-threatening bleeding event is an absolute contraindication to non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). {} {} a history of major bleeding, so""",
+            reverse("treatments:about-flare") + "#nsaids",
+            subject,
+            text if self.bleed else negative,
+        )
+        if self.bleed:
+            main_str += f" NSAIDs are contraindicated for {gender_reference}."
+        else:
+            main_str += f" this isn't an issue for {gender_reference}."
+        return mark_safe(main_str)
 
     @cached_property
     def cad(self) -> Union["MedHistory", bool]:
@@ -188,6 +257,17 @@ class GoutHelperBaseModel:
         """Method that returns Ckd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.CKD, self, ["ckddetail", "baselinecreatinine"])
+
+    @cached_property
+    def ckd_interp(self) -> str:
+        """Method that interprets the ckd attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, text, negative = self.get_str_attrs("subject_the", "text_6", "neg_6")
+        main_str = f"Many medications, including several used for gout treatment, are processed by the kidneys. \
+As a result, chronic kidney disease (CKD) can affect medication dosing and safety. \
+{subject.capitalize()} {text if self.ckd else negative} CKD."
+        return main_str
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
@@ -221,6 +301,26 @@ class GoutHelperBaseModel:
         """Method that returns Colchicineinteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
+
+    @cached_property
+    def colchicineinteraction_interp(self) -> str:
+        """Method that interprets the colchicineinteraction attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        (subject,) = self.get_str_attrs("subject_the")
+        main_str = "<a target='_next' href='https://www.goodrx.com/colchicine/interactions'>MANY</a> medications \
+(see partial list below) interact with colchicine."
+        if self.colchicineinteraction:
+            main_str += f" {subject.capitalize()} is on a medication that interacts with colchicine. \
+This can lead to serious side effects, so colchicine should be used cautiously and under the supervision \
+of a physician and/or pharmacist. As such, GoutHelper contraindicates colchicine in this setting because it's \
+beyond the capabilities of this tool to manage safely."
+        else:
+            main_str += f" {subject.capitalize()} isn't on any medications that interact with colchicine."
+
+        main_str += f" <br> <br>Examples (not exhaustive) of medications that interact with colchicine include \
+{self.colchicine_interactions()}."
+        return mark_safe(main_str)
 
     @classmethod
     def colchicine_info(cls) -> str:
@@ -266,10 +366,17 @@ verapamil, quinidine)."
     def cvdiseases_interp(self) -> str:
         """Method that interprets the cvdiseases attribute and returns a str explanation
         of the impact of them on a patient's gout."""
-        cvdiseases_str = "Cardiovascular diseases are a leading cause of death worldwide, and both NSAIDs and \
-febuxostat are associated with an increased risk of cardiovascular events. As such, both should be used cautiously \
-in patients with cardiovascular disease."
-        return cvdiseases_str
+
+        main_str = " are a leading cause of death worldwide, and some gout mediactions are associated with \
+an increased risk of cardiovascular events."
+        subject, text = self.get_str_attrs("subject_the", "text_6")
+        if self.cvdiseases:
+            pre_str = f"{subject.capitalize()} {text} cardiovascular disease ({self.cvdiseases_str.lower()}), which"
+            post_str = ""
+        else:
+            pre_str = "Cardiovascular diseases"
+            post_str = f" {subject.capitalize()} doesn't have any cardiovascular diseases, so this isn't a concern."
+        return f"{pre_str}{main_str}{post_str}"
 
     @cached_property
     def cvdiseases_str(self) -> str:
@@ -291,6 +398,32 @@ in patients with cardiovascular disease."
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.DIABETES, self)
+
+    @cached_property
+    def diabetes_interp(self) -> str:
+        """Method that interprets the diabetes attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, text, gender_subject, gender_possessive = self.get_str_attrs(
+            "subject_the", "text_6", "gender_subject", "gender_possessive"
+        )
+        main_str = format_lazy(
+            """<a target='_next' href={}>Corticosteroids</a>, such as prednisone \
+or methylprednisolone, can raise blood sugar levels. This can be dramatic or even \
+dangerous in people with diabetes.""",
+            reverse("treatments:about-flare") + "#steroids",
+        )
+
+        if self.diabetes:
+            main_str += f" {subject.capitalize()} {text} diabetes, so if {gender_subject} takes a steroid \
+for {gender_possessive} gout, {gender_subject} should monitor {gender_possessive} blood sugar levels closely \
+and discuss {gender_possessive} hyperglycemia with {gender_possessive} primary care provider if they are \
+persistently elevated."
+        else:
+            main_str += f" {subject.capitalize()} doesn't have diabetes, so this is less of a concern. It is \
+certainly possible to unmask or precipitate diabetes in non-diabetic individuals with high doses of steroids."
+
+        return mark_safe(main_str)
 
     @cached_property
     def diclofenac_contra_dict(self) -> dict[str, tuple[str, str]]:
@@ -340,6 +473,24 @@ in patients with cardiovascular disease."
         return ethnicitys_hlab5801_risk(ethnicity=self.user.ethnicity if self.user else self.ethnicity)
 
     @cached_property
+    def explanations(self) -> dict[tuple[str, str, bool, str]]:
+        """Method that returns a dictionary of tuples explanations for the object to use in templates."""
+        return {
+            ("age", "Age", self.nsaid_age_contra, self.age_interp),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            (
+                "colchicineinteraction",
+                "Colchicine Medication Interaction",
+                self.colchicineinteraction,
+                self.colchicineinteraction_interp,
+            ),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp),
+        }
+
+    @cached_property
     def febuxostat_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Febuxostat MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
@@ -356,6 +507,16 @@ in patients with cardiovascular disease."
         """Method that returns Gastricbypass object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.GASTRICBYPASS, self)
+
+    def get_str_attrs(self, *args) -> tuple[str] | None:
+        """Method that takes any number of str args and returns a tuple of the object's
+        attribute values if they exist. If the attribute doesn't exist, calls the set_str_attrs
+        method and then attempts to return the attribute values again."""
+        try:
+            return tuple(getattr(self, arg) for arg in args)
+        except AttributeError:
+            self.set_str_attrs(patient=self.user)
+            return tuple(getattr(self, arg) for arg in args)
 
     @cached_property
     def gout(self) -> Union["MedHistory", bool]:
@@ -644,6 +805,19 @@ rash, fluid retention, and decreased kidney function",
             trt, dosing = self.recommendation[0], self.recommendation[1]
             return treatments_stringify_trt_tuple(trt=trt, dosing=dosing)
         return None
+
+    def set_str_attrs(
+        self,
+        patient: Union["GoutHelperPatientModel", None] = None,
+        request_user: Union["User", None] = None,
+    ) -> None:
+        """Method that uses a helper function to set attributes on the object that help
+        build context-dependent strings for the object's methods."""
+        set_object_str_attrs(
+            obj=self,
+            patient=patient,
+            request_user=request_user,
+        )
 
     @cached_property
     def steroid_allergy(self) -> list["MedAllergy"] | None:

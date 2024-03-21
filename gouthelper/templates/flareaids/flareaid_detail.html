@@ -75,6 +75,11 @@
             </h3>
           </div>
         </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
+        </div>
         <div class="row">
           <div class="col">
             {% include "_explanation.html" with aidtype="FlareAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}

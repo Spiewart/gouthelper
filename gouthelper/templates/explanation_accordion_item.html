@@ -1,0 +1,25 @@
+{% load project_tags %}
+
+<div class="accordion-item">
+  <h2 class="accordion-header" id="heading{{ id }}">
+    <button class="accordion-button {% if not bool %}collapsed{% endif %}"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#collapse{{ id }}"
+            aria-expanded="false"
+            aria-controls="collapse{{ id }}">
+      {{ label }}
+      {% if bool %}
+        (+)
+      {% else %}
+        (-)
+      {% endif %}
+    </button>
+  </h2>
+  <div id="collapse{{ id }}"
+       class="accordion-collapse collapse {% if bool %}show{% endif %}"
+       aria-labelledby="heading{{ id }}"
+       data-bs-parent="#{{ parent }}">
+    <div class="accordion-body">{{ interp }}</div>
+  </div>
+</div>
