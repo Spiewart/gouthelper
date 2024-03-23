@@ -64,11 +64,11 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         if self.role == Roles.PSEUDOPATIENT:
             # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
             if self.created >= timezone.now() - timedelta(days=7):
-                return f"GoutPatient: {self.created.strftime('%a, %I:%M%p')}"
+                return f"GoutPatient [{self.created.strftime('%a-%I:%M%p')}]"
             elif self.created.year == timezone.now().year:
-                return f"GoutPatient: {self.created.strftime('%b %d, %I:%M%p')}"
+                return f"GoutPatient [{self.created.strftime('%b %d-%I:%M%p')}]"
             else:
-                return f"GoutPatient: {self.created.strftime('%b %d, %Y, %I:%M%p')}"
+                return f"GoutPatient [{self.created.strftime('%b %d-%Y-%I:%M%p')}]"
         return super().__str__()
 
     @cached_property

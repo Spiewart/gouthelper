@@ -1,1 +1,0 @@
-Corticosteroids can cause hyperglycemia (high blood sugars), particularly in individuals with preexisting diabetes. If you have diabetes, you should monitor your blood sugars closely while on corticosteroids and see your doctor if they are persistently elevated.

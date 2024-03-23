@@ -1,1 +1,0 @@
-Peptic ulcer disease is generally an absolute contraindication to NSAID use. In very select cases, NSAIDs could be considered under close supervision with a gastroenterologist and strict adherence to a prescription for antacids or other gastro-protective therapies.

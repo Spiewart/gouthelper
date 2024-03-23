@@ -24,7 +24,7 @@ def medallergys_get(
 def medallergy_attr(
     medallergy: Treatments | list[Treatments],
     obj: "GoutHelperAidModel",
-) -> Union[bool, "MedAllergy", list["MedAllergy"]]:
+) -> Union[None, "MedAllergy", list["MedAllergy"]]:
     """Method that consolidates the Try / Except logic for getting a MedAllergy."""
     try:
         return medallergys_get(obj.medallergys_qs, medallergy)

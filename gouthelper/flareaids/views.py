@@ -175,16 +175,6 @@ class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):
     model = FlareAid
     object: FlareAid
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLAREAID, tag__isnull=False)
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
-        return context
-
     def get_permission_object(self):
         return self.object
 

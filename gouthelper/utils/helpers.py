@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
     from django.db.models import QuerySet
 
-    from ..utils.models import GoutHelperPatientModel
+    from ..utils.models import GoutHelperAidModel, GoutHelperPatientModel
 
     User = get_user_model()
 
@@ -155,60 +155,97 @@ def now_datetime() -> "datetime":
     return timezone.now()
 
 
+def create_str_attrs(
+    obj: Union["GoutHelperPatientModel", "GoutHelperAidModel", None] = None,
+    patient: Union["GoutHelperPatientModel", None] = None,
+    request_user: Union["User", None] = None,
+) -> dict[str, str]:
+    str_attrs = {}
+    if patient:
+        if request_user and request_user == patient:
+            str_attrs.update(
+                {
+                    "query": "do",
+                    "tobe": "are",
+                    "tobe_past": "were",
+                    "tobe_neg": "aren't",
+                    "pos": "have",
+                    "pos_past": "had",
+                    "pos_neg": "don't have",
+                    "pos_neg_past": "haven't had",
+                    "subject": "you",
+                    "subject_the": "you",
+                    "subject_pos": "your",
+                    "subject_the_pos": "your",
+                    "gender_pos": "hers" if patient.gender.value else "his",
+                    "gender_subject": "she" if patient.gender.value else "he",
+                    "gender_ref": "her" if patient.gender.value else "him",
+                }
+            )
+            str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
+        else:
+            str_attrs.update(
+                {
+                    "query": "does",
+                    "tobe": "is",
+                    "tobe_past": "was",
+                    "tobe_neg": "isn't",
+                    "pos": "has",
+                    "pos_past": "had",
+                    "pos_neg": "doesn't have",
+                    "pos_neg_past": "hasn't had",
+                    "gender_pos": "her" if patient.gender.value else "his",
+                    "gender_subject": "she" if patient.gender.value else "he",
+                    "gender_ref": "her" if patient.gender.value else "him",
+                }
+            )
+            str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
+            subject_dict = {
+                "subject": str(patient),
+                "subject_the": str(patient),
+                "subject_pos": f"{str(patient)}'s",
+                "subject_the_pos": f"{str(patient)}'s",
+            }
+            subject_dict.update({key.capitalize(): val for key, val in subject_dict.items()})
+            str_attrs.update(subject_dict)
+    else:
+        str_attrs.update(
+            {
+                "query": "does",
+                "tobe": "is",
+                "tobe_past": "was",
+                "tobe_neg": "isn't",
+                "pos": "has",
+                "pos_past": "had",
+                "pos_neg": "doesn't have",
+                "pos_neg_past": "hasn't had",
+                "subject": "patient",
+                "subject_the": "the patient",
+                "subject_pos": "patient's",
+                "subject_the_pos": "the patient's",
+                "gender_pos": (
+                    "hers"
+                    if obj and obj.gender and obj.gender.value
+                    else "his"
+                    if obj and obj.gender
+                    else "his or hers"
+                ),
+                "gender_subject": (
+                    "she" if obj and obj.gender and obj.gender.value else "he" if obj and obj.gender else "he or she"
+                ),
+                "gender_ref": (
+                    "her" if obj and obj.gender and obj.gender.value else "him" if obj and obj.gender else "him or her"
+                ),
+            }
+        )
+        str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
+    return str_attrs
+
+
 def set_object_str_attrs(
     obj: Any,
     patient: Union["GoutHelperPatientModel", None] = None,
     request_user: Union["User", None] = None,
-) -> None:
-    if patient:
-        if request_user and request_user == patient:
-            obj.text_1 = "Do "
-            obj.text_2 = "Are "
-            obj.text_3 = "Have "
-            obj.text_4 = " have "
-            obj.text_5 = " do "
-            obj.text_6 = " have "
-            obj.text_7 = " are "
-            obj.neg_6 = " don't have "
-            obj.neg_7 = " aren't "
-            obj.subject = "you"
-            obj.subject_the = "you"
-            obj.subject_possessive = "your"
-            obj.subject_the_possessive = "your"
-            obj.gender_possessive = "hers" if patient.gender.value else "his"
-            obj.gender_subject = "she" if patient.gender.value else "he"
-            obj.gender_reference = "her" if patient.gender.value else "him"
-        else:
-            obj.text_1 = "Does "
-            obj.text_2 = "Is "
-            obj.text_3 = "Has "
-            obj.text_4 = " has "
-            obj.text_5 = " does "
-            obj.text_6 = " has "
-            obj.text_7 = " is "
-            obj.neg_6 = " doesn't have "
-            obj.neg_7 = " isn't "
-            obj.subject = str(patient)
-            obj.subject_the = str(patient)
-            obj.subject_possessive = f"{str(patient)}'s"
-            obj.subject_the_possessive = f"{str(patient)}'s"
-            obj.gender_possessive = "her" if patient.gender.value else "his"
-            obj.gender_subject = "she" if patient.gender.value else "he"
-            obj.gender_reference = "her" if patient.gender.value else "him"
-    else:
-        obj.text_1 = "Does the "
-        obj.text_2 = "Is the "
-        obj.text_3 = "Has "
-        obj.text_4 = " has the "
-        obj.text_5 = " does the "
-        obj.text_6 = " has "
-        obj.text_7 = " is "
-        obj.neg_6 = " doesn't have "
-        obj.neg_7 = " isn't "
-        obj.subject = "patient"
-        obj.subject_the = "the patient"
-        obj.subject_pos = "patient's"
-        obj.subject_the_pos = "the patient's"
-        obj.gender_possessive = "hers" if obj.gender and obj.gender.value else "his" if obj.gender else "his or hers"
-        obj.gender_subject = "she" if obj.gender and obj.gender.value else "he" if obj.gender else "he or she"
-        obj.gender_reference = "her" if obj.gender and obj.gender.value else "him" if obj.gender else "him or her"
+) -> dict[str, str]:
+    obj.str_attrs = create_str_attrs(obj, patient, request_user)
+    return obj.str_attrs

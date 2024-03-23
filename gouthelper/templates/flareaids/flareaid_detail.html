@@ -80,40 +80,8 @@
             {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
           {% endfor %}
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=ibd id="ibd" label="Inflammatory Bowel Disease" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=colchicineinteraction id="colchicineinteraction" label="Colchicine Medication Interactions" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=ckd id="ckd" label="CKD" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=anticoagulation id="anticoagulation" label="Anticoagulation" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=bleed id="bleed" label="Bleed" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=pud id="pud" label="Peptic Ulcer Disease" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=gastricbypass id="gastricbypass" label="Gastric Bypass" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=diabetes id="diabetes" label="Diabetes" %}
-            {% include "_explanation.html" with aidtype="FlareAid" con_obj=dateofbirth id="age" label="Age" %}
-          </div>
-        </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

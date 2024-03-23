@@ -12,6 +12,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..defaults.models import FlareAidSettings
 from ..defaults.selectors import defaults_flareaidsettings
+from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, Treatments, TrtTypes
@@ -23,7 +24,9 @@ from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
+    from django.db.models import QuerySet
 
+    from ..medallergys.models import MedAllergy
     from ..medhistorys.choices import MedHistoryTypes
 
     User = get_user_model()
@@ -110,15 +113,15 @@ class FlareAid(
     def anticoagulation_interp(self) -> str:
         anticoag_str = super().anticoagulation_interp
         if self.anticoagulation:
-            anticoag_str += " Exceptions are sometimes made to this rule for gout Flares because the duration of \
+            anticoag_str += " Exceptions are sometimes made to this rule for gout flares because the duration of \
 treatment is typically very short and the risk of bleeding is low."
-        return anticoag_str
+        return mark_safe(anticoag_str)
 
     @cached_property
     def ckd_interp(self) -> str:
         ckd_str = super().ckd_interp
 
-        subject = self.get_str_attrs("subject_the")
+        (subject_the,) = self.get_str_attrs("subject_the")
 
         ckd_str += format_lazy(
             """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) are associated \
@@ -126,7 +129,7 @@ with acute kidney injury and chronic kidney disease and thus are not recommended
             reverse("treatments:about-flare") + "#nsaids",
         )
         if self.ckd:
-            ckd_str += f" Therefore, NSAIDs are not recommended for {subject}."
+            ckd_str += f" Therefore, NSAIDs are not recommended for {subject_the}."
 
         ckd_str += format_lazy(
             """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and should be \
@@ -136,31 +139,32 @@ on dialysis, colchicine should be avoided.""",
         )
         if self.ckd:
             if self.colchicine_ckd_contra:
-                ckd_str += f" Therefore, colchicine is not recommended for {subject}"
+                ckd_str += f" Therefore, colchicine is not recommended for {subject_the}"
                 if self.ckddetail:
                     ckd_str += f" with {self.ckddetail.explanation}"
                 ckd_str += "."
             else:
                 ckd_str += f" Therefore, if there are no other contraindications to colchicine, \
-colchicine can be used by {subject}, but at reduced doses."
+colchicine can be used by {subject_the}, but at reduced doses."
 
         return mark_safe(ckd_str)
 
     @cached_property
     def cvdiseases_interp(self) -> str:
-        main_str = super().cvdiseases_interp
-        (subject,) = self.get_str_attrs("subject_the")
+        Subject_the, subject_the, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos_neg")
 
-        main_str += format_lazy(
-            """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
+        main_str = format_lazy(
+            """Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
 with an increased risk of cardiovascular events and mortality with long-term use. For that reason, \
 cardiovascular disease is a relative contraindication to using NSAIDs. """,
             reverse("treatments:about-flare") + "#nsaids",
         )
         if self.cvdiseases:
-            main_str += f"Because of {subject.capitalize()}'s cardiovascular disease(s), NSAIDs are not recommended."
+            main_str += f"Because of <strong>{Subject_the}'s cardiovascular disease(s) ({self.cvdiseases_str.lower()})\
+</strong>, NSAIDs are not recommended."
         else:
-            main_str += f"Because {subject} does not have cardiovascular disease, NSAIDs are reasonable to use."
+            main_str += f"Because <strong>{subject_the} {pos_neg} cardiovascular disease</strong>, NSAIDs are \
+reasonable to use."
         return mark_safe(main_str)
 
     @classmethod
@@ -177,11 +181,64 @@ cardiovascular disease is a relative contraindication to using NSAIDs. """,
             else defaults_flareaidsettings(user=self.user)
         )
 
+    @cached_property
+    def explanations(self) -> list[tuple[str, str, bool, str]]:
+        """Method that returns a dictionary of tuples explanations for the FlareAid to use in templates."""
+        return [
+            ("age", "Age", True if self.age >= 65 else False, self.age_interp),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            (
+                "colchicineinteraction",
+                "Colchicine Medication Interaction",
+                self.colchicineinteraction,
+                self.colchicineinteraction_interp,
+            ),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp),
+            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp),
+            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp),
+            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
+            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp),
+        ]
+
     def get_absolute_url(self):
         if self.user:
             return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
+
+    @cached_property
+    def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
+        return medallergy_attr(FlarePpxChoices.values, self)
+
+    @cached_property
+    def medallergys_interp(self) -> str:
+        """Method that interprets the medallergys attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
+        main_str = ""
+        if self.medallergys:
+            if self.nsaid_allergy:
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to NSAIDs</strong> \
+({self.nsaid_allergy}), so NSAIDs are not recommended for {subject_the}."
+            if self.colchicine_allergy:
+                if self.nsaid_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to colchicine</strong> \
+({self.colchicine_allergy}), so colchicine is not recommended for {subject_the}."
+            if self.steroid_allergy:
+                if self.nsaid_allergy or self.colchicine_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to corticosteroids</strong> \
+({self.corticosteroid_allergy}), so corticosteroids are not recommended for {subject_the}."
+        else:
+            main_str += f"Usually, allergy to a medication is an absolute contraindication to its use. \
+{Subject_the} {pos_neg} any allergies to gout flare treatments."
+        return mark_safe(main_str)
 
     @cached_property
     def not_options(self) -> list[str]:

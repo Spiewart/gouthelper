@@ -208,11 +208,15 @@
         $("h1").addClass("display-4");
         $(".samepage-link").click(function() {
           var href = $(this).attr('href');
-          var explanation = href + "-explanation";
           // check if the link is collapsed
-          if (!$(explanation).hasClass('show')) {
-            // if so, expand it
-            $(explanation).collapse('show');
+          if (!$(href).hasClass('show')) {
+            var link_collapse = $(href + ' > .collapse');
+            var collapsed = link_collapse.hasClass('show');
+            if (collapsed == false) {
+              new bootstrap.Collapse(link_collapse, {
+                toggle: true
+              });
+            };
           }
           $(href).effect("highlight", 2000);
         });

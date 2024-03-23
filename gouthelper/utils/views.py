@@ -369,17 +369,18 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     messages.error(
                         request, f"{self.user} already has a {self.model.__name__}. Please update it instead."
                     )
-                    model_name = self.model.__name__.lower()
                     return HttpResponseRedirect(
                         reverse(f"{model_name}s:pseudopatient-update", kwargs={"username": self.user.username})
                     )
-        elif getattr(self.object, "user", None):
-            model_name = self.model.__name__.lower()
+        elif getattr(self.object, "user", None) and not isinstance(self.object, User):
             kwargs = {"username": self.object.user.username}
             if model_name == "flare":
                 kwargs["pk"] = self.object.pk
             return HttpResponseRedirect(
-                reverse(f"{model_name}s:pseudopatient-{'create' if self.create_view else 'update'}", kwargs=kwargs)
+                reverse(
+                    f"{self.model._meta.app_label}:pseudopatient-{'create' if self.create_view else 'update'}",
+                    kwargs=kwargs,
+                )
             )
         return super().dispatch(request, *args, **kwargs)
 
@@ -555,6 +556,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if self.create_view:
             kwargs.update({"instance": self.object})
         return kwargs
+
+    def get_http_response_redirect(self) -> HttpResponseRedirect:
+        """Method that returns an HttpResponseRedirect object."""
+        return HttpResponseRedirect(self.object.get_absolute_url())
 
     def get_object(self, queryset=None) -> Model:
         if not hasattr(self, "object"):
