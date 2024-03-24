@@ -254,7 +254,7 @@ class UserDeleteView(
     success_message = _("User successfully deleted")
 
     def form_valid(self, form):
-        remove_patient_from_session(self.request)
+        remove_patient_from_session(self.request, self.object)
         return super().form_valid(form)
 
     def get_success_message(self, cleaned_data):

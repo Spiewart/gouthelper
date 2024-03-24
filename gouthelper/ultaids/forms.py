@@ -13,6 +13,7 @@ from ..utils.forms import (
     forms_helper_insert_medallergys,
     forms_helper_insert_medhistory,
 )
+from ..utils.helpers import set_object_str_attrs
 from .models import UltAid
 
 
@@ -38,6 +39,10 @@ class UltAidForm(
     def __init__(self, *args, **kwargs):
         self.medallergys = kwargs.pop("medallergys")
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -52,7 +57,7 @@ class UltAidForm(
             forms_helper_insert_ethnicity(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
-        forms_helper_insert_cvdiseases(layout=self.helper.layout)
+        forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.XOIINTERACTION)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.ORGANTRANSPLANT)

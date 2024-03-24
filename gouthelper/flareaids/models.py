@@ -223,18 +223,18 @@ reasonable to use."
         main_str = ""
         if self.medallergys:
             if self.nsaid_allergy:
-                main_str += f"<strong>{Subject_the} {pos} a medication allergy to NSAIDs</strong> \
-({self.nsaid_allergy}), so NSAIDs are not recommended for {subject_the}."
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to NSAIDs \
+({self.nsaid_allergy_treatment_str})</strong>, so NSAIDs are not recommended for {subject_the}."
             if self.colchicine_allergy:
                 if self.nsaid_allergy:
                     main_str += "<br> <br> "
-                main_str += f"<strong>{Subject_the} {pos} a medication allergy to colchicine</strong> \
-({self.colchicine_allergy}), so colchicine is not recommended for {subject_the}."
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to colchicine</strong>\
+, so colchicine is not recommended for {subject_the}."
             if self.steroid_allergy:
                 if self.nsaid_allergy or self.colchicine_allergy:
                     main_str += "<br> <br> "
-                main_str += f"<strong>{Subject_the} {pos} a medication allergy to corticosteroids</strong> \
-({self.corticosteroid_allergy}), so corticosteroids are not recommended for {subject_the}."
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to corticosteroids \
+({self.steroid_allergy_treatment_str})</strong>, so corticosteroids are not recommended for {subject_the}."
         else:
             main_str += f"Usually, allergy to a medication is an absolute contraindication to its use. \
 {Subject_the} {pos_neg} any allergies to gout flare treatments."

@@ -136,6 +136,23 @@
                   </div>
                 </li>
               {% endif %}
+              {% if request.session.recent_patients %}
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle"
+                     href="#"
+                     id="navbarSupportedContentDropDown"
+                     data-bs-toggle="dropdown"
+                     aria-haspopup="true"
+                     aria-expanded="false">Recent GoutPatients</a>
+                  <div class="dropdown-menu"
+                       aria-labelledby="navbarSupportedContentDropDown">
+                    {% for patient, username in request.session.recent_patients %}
+                      <a class="dropdown-item"
+                         href="{% url 'users:pseudopatient-detail' username %}">{{ patient }}</a>
+                    {% endfor %}
+                  </div>
+                </li>
+              {% endif %}
             </ul>
           </div>
         </div>

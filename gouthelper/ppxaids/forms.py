@@ -12,6 +12,7 @@ from ..utils.forms import (
     forms_helper_insert_medhistory,
     forms_helper_insert_other_nsaid_contras,
 )
+from ..utils.helpers import set_object_str_attrs
 from .models import PpxAid
 
 
@@ -33,9 +34,12 @@ class PpxAidForm(
         )
 
     def __init__(self, *args, **kwargs):
-        # pop medallergys patients from kwargs in order to populate form from the view
-        self.medallergys = kwargs.pop("medallergys")
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.medallergys = kwargs.pop("medallergys")
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -48,7 +52,7 @@ class PpxAidForm(
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
-        forms_helper_insert_cvdiseases(layout=self.helper.layout)
+        forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         forms_helper_insert_other_nsaid_contras(layout=self.helper.layout)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION)

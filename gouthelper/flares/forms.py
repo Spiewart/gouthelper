@@ -38,6 +38,7 @@ class FlareForm(
 
     def __init__(self, *args, **kwargs):
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
         super().__init__(*args, **kwargs)
         self.fields.update(
             {

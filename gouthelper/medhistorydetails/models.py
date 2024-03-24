@@ -99,7 +99,7 @@ class CkdDetail(MedHistoryDetail):
     @property
     def explanation(self):
         if self.dialysis:
-            return f"CKD on {self.get_dialysis_type_display()}"
+            return f"CKD on {self.get_dialysis_type_display().lower()} dialysis"
         else:
             return f"CKD stage {self.get_stage_display()}"
 

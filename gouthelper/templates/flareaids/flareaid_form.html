@@ -19,9 +19,21 @@
 {% endblock heading %}
 {% block subheading %}
   {% if form.instance.created %}
-    Edit this FlareAid for updated recommendations.
+    Edit
+    {% if patient %}
+      {{ patient }}'s
+    {% else %}
+      this
+    {% endif %}
+    FlareAid for updated recommendations.
   {% else %}
-    Figure out how to treat a gout flare.
+    Figure out how to treat
+    {% if patient %}
+      {{ patient }}'s gout flares
+    {% else %}
+      a gout flare
+    {% endif %}
+    .
   {% endif %}
 {% endblock subheading %}
 {% block content %}

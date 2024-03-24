@@ -707,6 +707,10 @@ these medications."
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
 
+    @cached_property
+    def methylprednisolone_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Methylprednisolone", self.steroids_contra_dict[1]
+
     @classmethod
     def methylprednisolone_info(cls) -> str:
         return cls.steroid_info()
@@ -754,6 +758,13 @@ these medications."
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(NsaidChoices.values, self)
+
+    @property
+    def nsaid_allergy_treatment_str(self) -> str | None:
+        """Method that converts the nsaid_allergy attribute to a str."""
+        if self.nsaid_allergy:
+            return ", ".join([str(allergy.treatment.lower()) for allergy in self.nsaid_allergy])
+        return None
 
     @cached_property
     def nsaids_contraindicated(self) -> bool:
@@ -868,6 +879,10 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         or self.medhistorys.all()."""
         return medhistory_attr(OTHER_NSAID_CONTRAS, self)
 
+    @cached_property
+    def prednisone_contra_dict(self) -> dict[str, tuple[str, str]]:
+        return "Prednisone", self.steroids_contra_dict[1]
+
     @classmethod
     def prednisone_info(cls) -> str:
         return cls.steroid_info
@@ -964,6 +979,35 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
         return medallergy_attr(SteroidChoices.values, self)
+
+    @property
+    def steroid_allergy_treatment_str(self) -> str | None:
+        """Method that converts the steroid_allergy attribute to a str."""
+        if self.steroid_allergy:
+            return ", ".join([str(allergy.treatment.lower()) for allergy in self.steroid_allergy])
+        return None
+
+    @cached_property
+    def steroids_contra_dict(self) -> tuple[str, dict[str, str, Any | list[Any] | None]]:
+        """Method that returns a dict of corticosteroid contraindications.
+
+        Returns:
+            tuple[
+                str: not recommended Treatment or Steroids,
+                dict[
+                    str: contraindication,
+                    str: link term that is an id for an href on the same page
+                    Union[Any, list[Any]]: The contraindication object or objects
+                ]
+            ]
+        """
+        contra_dict = {}
+        if self.steroid_allergy:
+            contra_dict[f"Allerg{'ies' if len(self.steroid_allergy) > 1 else 'y'}"] = (
+                "medallergys",
+                self.steroid_allergy,
+            )
+        return "Steroids", contra_dict
 
     @classmethod
     def steroid_info(cls):

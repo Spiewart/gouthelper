@@ -9,6 +9,7 @@ from ..utils.forms import (
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
 )
+from ..utils.helpers import set_object_str_attrs
 from .models import Ult
 
 
@@ -28,7 +29,18 @@ class UltForm(
 
     def __init__(self, *args, **kwargs):
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
+        self.fields[
+            "freq_flares"
+        ].help_text = f"How many gout flares {self.str_attrs['query']} {self.str_attrs['subject_the']} have per year?"
+        self.fields[
+            "num_flares"
+        ].help_text = f"How many gout flares {self.str_attrs['pos']} {self.str_attrs['subject_the']} had in \
+{self.str_attrs['gender_pos']} life?"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -36,9 +48,9 @@ class UltForm(
                 "",
                 Div(
                     HTML(
-                        """
+                        f"""
                         <hr size="3" color="dark">
-                        <legend>About the Patient's Gout</legend>
+                        <legend>About {self.str_attrs['Subject_the_pos']} Gout</legend>
                         """
                     ),
                     Div(
@@ -83,13 +95,13 @@ class UltForm(
         if (num_flares == Ult.FlareNums.ZERO or num_flares == Ult.FlareNums.ONE) and freq_flares:
             self.add_error(
                 "freq_flares",
-                "You indicated that the patient has had one or zero flares, but also indicated a frequency of flares. \
-This doesn't make sense to us. Please correct.",
+                f"You indicated that {self.str_attrs['subject_the']} {self.str_attrs['pos']} had one or zero flares, \
+but also indicated a frequency of flares. This doesn't make sense to us. Please correct.",
             )
         elif num_flares == Ult.FlareNums.TWOPLUS and not freq_flares:
             self.add_error(
                 "freq_flares",
-                "You indicated that the patient has had two or more flares, but did not indicate a \
-frequency of flares. This doesn't make sense to us. Please correct.",
+                f"You indicated that {self.str_attrs['subject_the']} {self.str_attrs['pos']} had two or more flares, \
+but did not indicate a frequency of flares. This doesn't make sense to us. Please correct.",
             )
         return cleaned_data

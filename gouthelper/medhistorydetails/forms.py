@@ -7,6 +7,7 @@ from django.utils.text import format_lazy  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE, YES_OR_NO_OR_UNKNOWN
 from ..medhistorydetails.choices import Stages
+from ..utils.helpers import set_object_str_attrs
 from .models import CkdDetail, GoutDetail
 
 
@@ -24,9 +25,22 @@ class CkdDetailForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.optional = False
         self.fields["dialysis"].required = False
+        self.fields["dialysis"].help_text = mark_safe(
+            f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} on \
+<a href='https://en.wikipedia.org/wiki/Hemodialysis' target='_blank'>dialysis</a>?"
+        )
+        self.fields["dialysis_duration"].help_text = mark_safe(
+            f"How long since {self.str_attrs['subject_the']} \
+started dialysis?"
+        )
         self.fields["stage"].required = False
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -137,31 +151,43 @@ class GoutDetailForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["flaring"].initial = None
         self.fields["flaring"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["flaring"].help_text = format_lazy(
-            """Has the patient had a gout <a href="{}" target="_blank">flare</a> in the last 6 months?""",
+            """{} {} had a gout <a href="{}" target="_blank">flare</a> in the last 6 months?""",
+            self.str_attrs["Pos"],
+            self.str_attrs["subject_the"],
             reverse_lazy("flares:about"),
         )
         self.fields["hyperuricemic"].initial = None
         self.fields["hyperuricemic"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["hyperuricemic"].help_text = format_lazy(
-            """Has the patient had a <a href="{}" target="_blank">uric acid</a> greater \
+            """{} {} had a <a href="{}" target="_blank">uric acid</a> greater \
 than 6.0 mg/dL in the past 6 months?""",
+            self.str_attrs["Pos"],
+            self.str_attrs["subject_the"],
             reverse_lazy("labs:about-urate"),
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
         self.fields["on_ppx"].label = "Already on PPx?"
         self.fields["on_ppx"].help_text = format_lazy(
-            """Is the patient already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+            """{} {} already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+            self.str_attrs["Tobe"],
+            self.str_attrs["subject_the"],
             reverse_lazy("treatments:about-ppx"),
         )
         self.fields["on_ppx"].required = True
         self.fields["on_ult"].label = "Already on ULT?"
         self.fields["on_ult"].help_text = format_lazy(
-            """Is the patient on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
+            """{} {} on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
+            self.str_attrs["Tobe"],
+            self.str_attrs["subject_the"],
             reverse_lazy("treatments:about-ult"),
         )
         self.fields["on_ult"].initial = None
@@ -228,7 +254,7 @@ class GoutDetailPpxForm(GoutDetailForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["hyperuricemic"].help_text = mark_safe(
-            "Has the patient had a uric acid greater \
+            f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had a uric acid greater \
 than 6.0 mg/dL in the past 6 months? If you want to enter values and dates for uric acids, \
 you can do so <a href='#labs_formset_table'>below</a> and we will make this determination for you."
         )

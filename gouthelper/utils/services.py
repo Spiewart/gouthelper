@@ -321,6 +321,8 @@ def aids_not_options(
             if sub_dict["contra"] is True:
                 if trt in NsaidChoices.values:
                     not_options.update({"NSAIDs": sub_dict})
+                elif trt == Treatments.PREDNISONE or trt == Treatments.METHYLPREDNISOLONE:
+                    not_options.update({"Steroids": sub_dict})
                 else:
                     not_options[trt] = sub_dict
         return not_options

@@ -3,13 +3,16 @@ from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import Div, Field, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
+from django.urls import reverse_lazy  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import forms_make_custom_datetimefield
+from ..utils.helpers import set_object_str_attrs
 from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
 from .models import BaselineCreatinine, Hlab5801, Urate
 
@@ -96,12 +99,17 @@ class BaselineCreatinineForm(BaseLabForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
         self.fields["value"].label = "Baseline Creatinine"
         self.fields["value"].decimal_places = 2
         self.fields["value"].help_text = mark_safe(
-            "What is the patient's baseline creatinine? \
+            f"What is {self.str_attrs['subject_the_pos']} baseline creatinine? \
 Creatinine is typically reported in micrograms per deciliter (mg/dL)."
         )
         self.fields["value"].validators.append(labs_baselinecreatinine_max_value)
@@ -128,11 +136,22 @@ class Hlab5801Form(BaseLabForm):
         fields = ("value",)
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].initial = None
         self.fields["value"].required = False
         self.fields["value"].label = "HLA-B*5801 Genotype"
-        self.fields["value"].help_text = mark_safe("Is the patient's HLA-B*5801 genotype known?")
+        self.fields["value"].help_text = mark_safe(
+            format_lazy(
+                """Is {} <a target='_next' href={}>HLA-B*5801</a> genotype known?""",
+                self.str_attrs["subject_the_pos"],
+                reverse_lazy("labs:about-hlab5801"),
+            )
+        )
         self.fields["value"].choices = YES_OR_NO_OR_UNKNOWN
         self.helper = FormHelper(self)
         self.helper.form_tag = False
@@ -169,6 +188,11 @@ class UrateForm(LabForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].label = "Uric Acid (mg/dL)"
         self.fields["value"].decimal_places = 1
@@ -189,6 +213,8 @@ class UrateFlareForm(BaseLabForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
         self.fields["value"].label = "Flare Urate"

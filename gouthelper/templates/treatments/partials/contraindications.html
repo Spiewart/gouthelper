@@ -18,16 +18,11 @@
       <!-- djlint:off --><a class="samepage-link" href=#{{ contra.0 }}>{{ contra_exp }}</a><!-- djlint:on -->
       <ul>
         {% if contra.1 %}
-          <li>
-            {% if contra.1|is_list %}
-              {% for subcontra in contra.1 %}
-                {{ subcontra }}
-                {% if not forloop.last %},{% endif %}
-              {% endfor %}
-            {% else %}
-              {{ contra.1 }}
-            {% endif %}
-          </li>
+          {% if contra.1|is_list %}
+            {% for subcontra in contra.1 %}<li>{{ subcontra }}</li>{% endfor %}
+          {% else %}
+            <li>{{ contra.1 }}</li>
+          {% endif %}
         {% endif %}
       </ul>
     </li>

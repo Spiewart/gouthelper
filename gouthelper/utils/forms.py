@@ -51,7 +51,11 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) 
     return layout
 
 
-def forms_helper_insert_cvdiseases(layout: "Layout", hypertension: bool = False) -> "Layout":
+def forms_helper_insert_cvdiseases(
+    layout: "Layout",
+    hypertension: bool = False,
+    subject_the: str = "the patient",
+) -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
     layout[layout_len - 1][sub_len - 1].append(
@@ -66,7 +70,7 @@ def forms_helper_insert_cvdiseases(layout: "Layout", hypertension: bool = False)
                     Div(),
                     Div(
                         HTML(
-                            """What cardiovascular diseases does the patient have?
+                            f"""What cardiovascular diseases does {subject_the} have?
                             """
                         ),
                         css_id="hint_id_cardiovascular_diseases",
@@ -174,7 +178,9 @@ def forms_helper_insert_goutdetail(layout: "Layout") -> "Layout":
     )
 
 
-def forms_helper_insert_medallergys(layout: "Layout", treatments: Union["FlarePpxChoices", "UltChoices"]) -> "Layout":
+def forms_helper_insert_medallergys(
+    layout: "Layout", treatments: Union["FlarePpxChoices", "UltChoices"], subject_the: str = "the patient"
+) -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
     layout[layout_len - 1][sub_len - 1].append(
@@ -190,7 +196,7 @@ def forms_helper_insert_medallergys(layout: "Layout", treatments: Union["FlarePp
                     Div(),
                     Div(
                         HTML(
-                            """Does the patient have an allergy to any of these medications?
+                            f"""Does {subject_the} have an allergy to any of these medications?
                             """
                         ),
                         css_id="hint_id_medallergys",
@@ -250,7 +256,7 @@ def forms_helper_insert_medhistory(medhistorytype: MedHistoryTypes, layout: "Lay
     )
 
 
-def forms_helper_insert_other_nsaid_contras(layout: "Layout") -> "Layout":
+def forms_helper_insert_other_nsaid_contras(layout: "Layout", subject_the: str = "the patient") -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
     layout[layout_len - 1][sub_len - 1].append(
@@ -266,8 +272,8 @@ def forms_helper_insert_other_nsaid_contras(layout: "Layout") -> "Layout":
                     Div(),
                     Div(
                         HTML(
-                            """What other contraindications to NSAIDs (non-steroidal anti-inflammatory drugs) \
-does the patient have?
+                            f"""What other contraindications to NSAIDs (non-steroidal anti-inflammatory drugs) \
+does {subject_the} have?
                             """
                         ),
                         css_id="hint_id_other_nsaid_contras",

@@ -12,6 +12,7 @@ from ..utils.forms import (
     forms_helper_insert_medhistory,
     forms_helper_insert_other_nsaid_contras,
 )
+from ..utils.helpers import set_object_str_attrs
 from .models import FlareAid
 
 
@@ -35,6 +36,10 @@ class FlareAidForm(
     def __init__(self, *args, **kwargs):
         self.medallergys = kwargs.pop("medallergys")
         self.patient = kwargs.pop("patient", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -47,8 +52,8 @@ class FlareAidForm(
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
-        forms_helper_insert_cvdiseases(layout=self.helper.layout)
-        forms_helper_insert_other_nsaid_contras(layout=self.helper.layout)
+        forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
+        forms_helper_insert_other_nsaid_contras(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         # Insert CkdForm
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.CKD, layout=self.helper.layout)
         # Insert ColchicineInteractionForm
@@ -57,4 +62,6 @@ class FlareAidForm(
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.DIABETES, layout=self.helper.layout)
         # Insert OrganTransplantForm
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.ORGANTRANSPLANT, layout=self.helper.layout)
-        forms_helper_insert_medallergys(layout=self.helper.layout, treatments=self.medallergys)
+        forms_helper_insert_medallergys(
+            layout=self.helper.layout, treatments=self.medallergys, subject_the=self.str_attrs["subject_the"]
+        )

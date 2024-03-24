@@ -24,7 +24,7 @@ from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
-from ..utils.helpers import get_or_create_qs_attr
+from ..utils.helpers import get_or_create_qs_attr, set_object_str_attrs
 
 if TYPE_CHECKING:
     from datetime import date
@@ -50,18 +50,29 @@ User = get_user_model()
 
 def add_patient_to_session(request: "HttpRequest", patient: Pseudopatient | User) -> None:
     request.session.update({"patient": str(patient), "username": patient.username})
+    if not request.session.get("recent_patients", None):
+        request.session["recent_patients"] = []
+    if patient.username not in [recent_patient[1] for recent_patient in request.session["recent_patients"]]:
+        request.session["recent_patients"].append((str(patient), patient.username))
+    elif patient.username != request.session["recent_patients"][0][1]:
+        request.session["recent_patients"].remove((str(patient), patient.username))
+        request.session["recent_patients"].insert(0, (str(patient), patient.username))
 
 
-def remove_patient_from_session(request: "HttpRequest") -> None:
+def remove_patient_from_session(request: "HttpRequest", patient: Pseudopatient | User) -> None:
     request.session.pop("patient", None)
     request.session.pop("username", None)
+    if request.session.get("recent_patients", None) and patient.username in [
+        recent_patient[1] for recent_patient in request.session["recent_patients"]
+    ]:
+        request.session["recent_patients"].remove((str(patient), patient.username))
 
 
 def update_session_patient(request: "HttpRequest", patient: Pseudopatient | User | None) -> None:
     if patient:
         add_patient_to_session(request, patient)
     else:
-        remove_patient_from_session(request)
+        remove_patient_from_session(request, patient)
 
 
 class PatientSessionMixin:
@@ -160,15 +171,28 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         ckddetail: bool,
         mh_obj: Union["MedHistory", None] = None,
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Method that populates the context dictionary with the CkdDetailForm."""
         if ckddetail:
             if "ckddetail_form" not in kwargs:
                 ckddetail_i = getattr(mh_obj, "ckddetail", None) if mh_obj else None
-                kwargs["ckddetail_form"] = mh_dets[MedHistoryTypes.CKD](instance=ckddetail_i)
+                kwargs["ckddetail_form"] = mh_dets[MedHistoryTypes.CKD](
+                    instance=ckddetail_i,
+                    patient=patient,
+                    request_user=request_user,
+                    str_attrs=str_attrs,
+                )
             if "baselinecreatinine_form" not in kwargs:
                 bc_i = getattr(mh_obj, "baselinecreatinine", None) if mh_obj else None
-                kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(instance=bc_i)
+                kwargs["baselinecreatinine_form"] = BaselineCreatinineForm(
+                    instance=bc_i,
+                    patient=patient,
+                    request_user=request_user,
+                    str_attrs=str_attrs,
+                )
 
     def ckddetail_mh_post_pop(
         self,
@@ -176,6 +200,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         mh_det_forms: dict[str, "ModelForm"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         request: "HttpRequest",
+        str_attrs: dict[str, str],
     ) -> None:
         """Method that updates the CkdDetail and BaselineCreatinine forms to populate the MedHistoryDetails Forms
         in the post() method."""
@@ -185,8 +210,12 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         else:
             ckddetail = CkdDetail()
             bc = BaselineCreatinine()
-        mh_det_forms.update({"ckddetail_form": mh_dets[MedHistoryTypes.CKD](request.POST, instance=ckddetail)})
-        mh_det_forms.update({"baselinecreatinine_form": BaselineCreatinineForm(request.POST, instance=bc)})
+        mh_det_forms.update(
+            {"ckddetail_form": mh_dets[MedHistoryTypes.CKD](request.POST, instance=ckddetail, str_attrs=str_attrs)}
+        )
+        mh_det_forms.update(
+            {"baselinecreatinine_form": BaselineCreatinineForm(request.POST, instance=bc, str_attrs=str_attrs)}
+        )
 
     def ckddetail_mh_post_process(
         self,
@@ -224,7 +253,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         self,
         labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet"]],
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
-        kwargs: dict,
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
+        **kwargs: dict,
     ) -> None:
         """Method adds a formset of labs to the context. Uses a QuerySet that takes a query_obj
         as an arg to populate existing Lab objects."""
@@ -239,11 +271,15 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             if f"{lab}_formset" not in kwargs:
                 if query_obj_attr:
                     kwargs[f"{lab}_formset"] = lab_tup[0](
-                        queryset=getattr(self, f"{lab}_formset_qs").filter(**{query_obj_attr: query_obj}), prefix=lab
+                        queryset=getattr(self, f"{lab}_formset_qs").filter(**{query_obj_attr: query_obj}),
+                        prefix=lab,
+                        form_kwargs={"patient": patient, "request_user": request_user, "str_attrs": str_attrs},
                     )
                 else:
                     kwargs[f"{lab}_formset"] = lab_tup[0](
-                        queryset=getattr(self, f"{lab}_formset_qs").none(), prefix=lab
+                        queryset=getattr(self, f"{lab}_formset_qs").none(),
+                        prefix=lab,
+                        form_kwargs={"patient": patient, "request_user": request_user, "str_attrs": str_attrs},
                     )
             if f"{lab}_formset_helper" not in kwargs:
                 kwargs[f"{lab}_formset_helper"] = lab_tup[1]
@@ -254,6 +290,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         medallergys: list["MedAllergy"],
         kwargs: dict,
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         for treatment in medallergys:
             form_str = f"medallergy_{treatment}_form"
@@ -264,7 +303,12 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     else None
                 )
                 kwargs[form_str] = MedAllergyTreatmentForm(
-                    treatment=treatment, instance=ma_obj, initial={f"medallergy_{treatment}": True if ma_obj else None}
+                    treatment=treatment,
+                    instance=ma_obj,
+                    initial={f"medallergy_{treatment}": True if ma_obj else None},
+                    patient=patient,
+                    request_user=request_user,
+                    str_attrs=str_attrs,
                 )
 
     def context_medhistorys(
@@ -275,26 +319,46 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
         ckddetail: bool,
         goutdetail: bool,
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         for mhtype, mh_dict in medhistorys.items():
             form_str = f"{mhtype}_form"
             if form_str not in kwargs:
                 mh_obj = medhistorys_get(query_obj.medhistorys_qs, mhtype, null_return=None) if query_obj else None
-                form_kwargs = {}
+                form_kwargs = {"str_attrs": str_attrs, "patient": patient, "request_user": request_user}
                 if mhtype == MedHistoryTypes.CKD:
                     form_kwargs.update({"ckddetail": ckddetail})
-                    self.ckddetail_mh_context(kwargs=kwargs, mh_dets=mh_dets, ckddetail=ckddetail, mh_obj=mh_obj)
+                    self.ckddetail_mh_context(
+                        kwargs=kwargs,
+                        mh_dets=mh_dets,
+                        ckddetail=ckddetail,
+                        mh_obj=mh_obj,
+                        patient=patient,
+                        request_user=request_user,
+                        str_attrs=str_attrs,
+                    )
                 elif mhtype == MedHistoryTypes.GOUT:
                     form_kwargs.update({"goutdetail": goutdetail})
                     if goutdetail:
                         try:
-                            self.goutdetail_mh_context(kwargs=kwargs, mh_dets=mh_dets, mh_obj=mh_obj)
+                            self.goutdetail_mh_context(
+                                kwargs=kwargs,
+                                mh_dets=mh_dets,
+                                mh_obj=mh_obj,
+                                patient=patient,
+                                request_user=request_user,
+                                str_attrs=str_attrs,
+                            )
                         except Continue:
                             continue
                         kwargs[form_str] = mh_dict["form"](
                             instance=mh_obj,
                             initial={f"{mhtype}-value": True},
+                            patient=patient,
+                            request_user=request_user,
                             **form_kwargs,
                         )
                         continue
@@ -310,6 +374,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         req_otos: list[str],
         kwargs: dict,
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Method to populate the kwargs dict with forms for the objects's related 1to1 models. For
         required one to one objects, the value is set as a kwarg for the context."""
@@ -321,10 +388,18 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     kwargs[form_str] = onetoone_dict["form"](
                         instance=oto_obj if oto_obj else onetoone_dict["model"](),
                         initial={"value": age_calc(oto_obj.value) if oto_obj else None},
+                        patient=patient,
+                        request_user=request_user,
+                        str_attrs=str_attrs,
                     )
                 else:
                     # Add the form to the context with a new instance of the related model
-                    kwargs[form_str] = onetoone_dict["form"](instance=oto_obj if oto_obj else onetoone_dict["model"]())
+                    kwargs[form_str] = onetoone_dict["form"](
+                        instance=oto_obj if oto_obj else onetoone_dict["model"](),
+                        patient=patient,
+                        request_user=request_user,
+                        str_attrs=str_attrs,
+                    )
         # Add the required one to one objects to the context
         for onetoone in req_otos:
             if onetoone not in kwargs:
@@ -504,11 +579,8 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             aid_obj.update_aid(qs=self.user)
         else:
             aid_obj.update_aid(qs=aid_obj)
-        print("deciding what to do with return from request")
         if self.request.htmx:
             return kwargs.get("htmx")
-        print(aid_obj)
-        print(aid_obj.get_absolute_url() + "?updated=True")
         return HttpResponseRedirect(aid_obj.get_absolute_url() + "?updated=True")
 
     def get(self, request, *args, **kwargs):
@@ -522,12 +594,18 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 req_otos=self.req_otos,
                 kwargs=kwargs,
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
+                patient=self.user,
+                request_user=self.request.user,
+                str_attrs=self.str_attrs,
             )
         if self.medallergys:
             self.context_medallergys(
                 medallergys=self.medallergys,
                 kwargs=kwargs,
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
+                patient=self.user,
+                request_user=self.request.user,
+                str_attrs=self.str_attrs,
             )
         if self.medhistorys or self.medhistory_details:
             self.context_medhistorys(
@@ -537,12 +615,18 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
                 ckddetail=self.ckddetail,
                 goutdetail=self.goutdetail,
+                patient=self.user,
+                request_user=self.request.user,
+                str_attrs=self.str_attrs,
             )
         if self.labs:
             self.context_labs(
                 labs=self.labs,
                 query_obj=self.user if self.user else self.object if not self.create_view else None,
                 kwargs=kwargs,
+                patient=self.user,
+                request_user=self.request.user,
+                str_attrs=self.str_attrs,
             )
         if "patient" not in kwargs and self.user:
             kwargs["patient"] = self.user
@@ -552,7 +636,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         kwargs = super().get_form_kwargs()
         if self.medallergys:
             kwargs["medallergys"] = self.medallergys
-        kwargs["patient"] = self.user
+        kwargs.update({"patient": self.user, "request_user": self.request.user, "str_attrs": self.str_attrs})
         if self.create_view:
             kwargs.update({"instance": self.object})
         return kwargs
@@ -609,11 +693,19 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         kwargs: dict[str, Any],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         mh_obj: Union["MedHistory", User, None] = None,
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Method that adds the GoutDetailForm to the context."""
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](instance=goutdetail_i)
+            kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](
+                instance=goutdetail_i,
+                patient=patient,
+                request_user=request_user,
+                str_attrs=str_attrs,
+            )
             if hasattr(mh_obj, "user") and mh_obj.user:
                 raise Continue
 
@@ -623,13 +715,16 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         mh_det_forms: dict[str, "ModelForm"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         request: "HttpRequest",
+        str_attrs: dict[str, str],
     ) -> None:
         """Method that adds the GoutDetailForm to the mh_det_forms dict."""
         if gout:
             gd = getattr(gout, "goutdetail", None)
         else:
             gd = GoutDetail()
-        mh_det_forms.update({"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd)})
+        mh_det_forms.update(
+            {"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd, str_attrs=str_attrs)}
+        )
         if hasattr(gout, "user") and gout.user:
             raise Continue
 
@@ -678,11 +773,13 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             onetoones=self.onetoones,
             request=request,
             query_obj=self.user if self.user else self.object if not self.create_view else None,
+            str_attrs=self.str_attrs,
         )
         ma_forms = self.post_populate_ma_forms(
             medallergys=self.medallergys,
             request=request,
             query_obj=self.user if self.user else self.object if not self.create_view else None,
+            str_attrs=self.str_attrs,
         )
         mh_forms, mh_det_forms = self.post_populate_mh_forms(
             medhistorys=self.medhistorys,
@@ -692,11 +789,13 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             ckddetail=self.ckddetail,
             goutdetail=self.goutdetail,
             create=True if self.create_view else False,
+            str_attrs=self.str_attrs,
         )
         lab_formsets = self.post_populate_labformsets(
             request=request,
             labs=self.labs,
             query_obj=self.user if self.user else self.object if not self.create_view else None,
+            str_attrs=self.str_attrs,
         )
         if (
             form.is_valid()
@@ -810,6 +909,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         request: "HttpRequest",
         labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet", str]] | None,
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
+        str_attrs: dict[str, str] = None,
     ) -> dict[str, "BaseModelFormSet"] | None:
         """Method to populate a dict of lab forms with POST data in the post() method."""
         if labs:
@@ -829,12 +929,20 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                                 request.POST,
                                 queryset=getattr(self, f"{lab}_formset_qs").filter(**{query_obj_attr: query_obj}),
                                 prefix=lab,
+                                str_attrs=str_attrs,
                             )
                         }
                     )
                 else:
                     lab_formsets.update(
-                        {lab: lab_tup[0](request.POST, queryset=getattr(self, f"{lab}_formset_qs").none(), prefix=lab)}
+                        {
+                            lab: lab_tup[0](
+                                request.POST,
+                                queryset=getattr(self, f"{lab}_formset_qs").none(),
+                                prefix=lab,
+                                str_attrs=str_attrs,
+                            )
+                        }
                     )
             return lab_formsets
         else:
@@ -845,6 +953,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         medallergys: None | type["FlarePpxChoices"] | type["UltChoices"] | type["Treatments"],
         request: "HttpRequest",
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
+        str_attrs: dict[str, str] = None,
     ) -> dict[str, "ModelForm"]:
         """Method to populate the forms for the MedAllergys for the post() method."""
         ma_forms: dict[str, "ModelForm"] = {}
@@ -862,6 +971,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                             treatment=treatment,
                             instance=ma_obj,
                             initial={f"medallergy_{treatment}": True if ma_obj else None},
+                            str_attrs=str_attrs,
                         )
                     }
                 )
@@ -876,6 +986,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         ckddetail: bool,
         goutdetail: bool,
         create: bool = False,
+        str_attrs: dict[str, str] = None,
     ) -> tuple[dict[str, "ModelForm"], dict[str, "ModelForm"]]:
         """Populates forms for MedHistory and MedHistoryDetail objects in post() method."""
         mh_forms: dict[str, "ModelForm"] = {}
@@ -883,7 +994,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if medhistorys:
             for medhistory in medhistorys:
                 mh_obj = medhistorys_get(query_obj.medhistorys_qs, medhistory, null_return=None) if query_obj else None
-                form_kwargs = {}
+                form_kwargs = {"str_attrs": str_attrs}
                 if medhistory == MedHistoryTypes.CKD:
                     form_kwargs.update({"ckddetail": ckddetail})
                     if ckddetail:
@@ -892,6 +1003,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                             mh_det_forms=mh_det_forms,
                             mh_dets=mh_dets,
                             request=request,
+                            str_attrs=str_attrs,
                         )
                 elif medhistory == MedHistoryTypes.GOUT:
                     form_kwargs.update({"goutdetail": goutdetail})
@@ -902,6 +1014,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                                 mh_det_forms=mh_det_forms,
                                 mh_dets=mh_dets,
                                 request=request,
+                                str_attrs=str_attrs,
                             )
                         except Continue:
                             continue
@@ -933,6 +1046,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         onetoones: dict[str, "FormModelDict"],
         request: "HttpRequest",
         query_obj: Union["MedAllergyAidHistoryModel", User, None],
+        str_attrs: dict[str, str] = None,
     ) -> dict[str, "ModelForm"]:
         """Method that populates a dict of OneToOne related model forms with POST data
         in the post() method."""
@@ -945,6 +1059,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                         f"{onetoone}_form": onetoones[onetoone]["form"](
                             request.POST,
                             instance=oto_obj if oto_obj else onetoones[onetoone]["model"](),
+                            str_attrs=str_attrs,
                         )
                     }
                 )
@@ -1217,6 +1332,11 @@ menopause status to evaluate their flare."
         )
 
     @cached_property
+    def str_attrs(self) -> dict[str, str]:
+        """Returns a dict of string attributes to make forms context-sensitive."""
+        return set_object_str_attrs(self, self.user, self.request.user)
+
+    @cached_property
     def user(self) -> User | None:
         """Method that returns the User object from the username kwarg
         and sets the user attr on the view."""
@@ -1328,11 +1448,19 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         kwargs: dict[str, Any],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         mh_obj: Union["MedHistory", User, None] = None,
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](instance=goutdetail_i)
+            kwargs["goutdetail_form"] = mh_dets[MedHistoryTypes.GOUT](
+                instance=goutdetail_i,
+                patient=patient,
+                request_user=request_user,
+                str_attrs=str_attrs,
+            )
             raise Continue
 
     def goutdetail_mh_post_pop(
@@ -1341,13 +1469,16 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         mh_det_forms: dict[str, "ModelForm"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         request: "HttpRequest",
+        str_attrs: dict[str, str] = None,
     ) -> None:
         """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
         if gout:
             gd = getattr(gout, "goutdetail", None)
         else:
             gd = GoutDetail()
-        mh_det_forms.update({"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd)})
+        mh_det_forms.update(
+            {"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd, str_attrs=str_attrs)}
+        )
         raise Continue
 
     @cached_property
