@@ -13,10 +13,22 @@
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ppxaids:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'ppxaids:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxaids:pseudopatient-update' username=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxaids:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation</a> | <a class="samepage-link" href="#options">Options</a> | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
   </div>
 {% endblock heading %}
@@ -29,106 +41,35 @@
           <h3>
             <u>Recommendation</u>
           </h3>
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Ppx" %}
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+          {% if object.recommendation %}
+            <div class="col">
+              <div class="card card-body spacious-cards">
+                <h4 class="card-title">Prophylaxis Instructions</h4>
+                <ul>
+                  <li>Take as prescribed, even if you aren't having gout symptoms</li>
+                  <li>Take until serum uric acid is under 6.0 mg/dL for 6 months or longer</li>
+                  <li>Reduces risk of flares, does not eliminate them completely</li>
+                  <li>
+                    Dose is too low for treatment of gout flares, use
+                    {% if patient %}
+                      <a href="{% url 'flares:pseudopatient-create' %}">FlareAid</a>
+                    {% else %}
+                      <a href="{% url 'flares:create' %}">FlareAid</a>
+                    {% endif %}
+                    dosing for flares
+                  </li>
+                </ul>
+              </div>
+            </div>
+          {% endif %}
         </div>
       </div>
       {% if object.recommendation %}
-        {% include "treatments/partials/options.html" with options=object.options_str trttype="Ppx" %}
+        {% include "treatments/partials/options.html" with options=object.options_without_rec trttype=object.trttype %}
       {% endif %}
-      <div id="contraindications">
-        <hr size="3" color="dark" />
-        <div class="row">
-          <div class="col">
-            <h3>
-              <u>Contraindications</u>
-            </h3>
-            <div class="row">
-              {% if object.other_nsaid_contras or object.ckd or object.cvdiseases or object.nsaid_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards" id="nsaid-contras">
-                    <h4 class="card-title">NSAIDs</h4>
-                    <ul>
-                      {% if object.other_nsaid_contras %}
-                        {% for contra in object.other_nsaid_contras %}
-                          <li>
-                            <a class="samepage-link" href="#{{ contra.medhistorytype|lower }}">{{ contra }}</a>
-                          </li>
-                        {% endfor %}
-                      {% endif %}
-                      {% if object.ckd %}
-                        {% include "_contra.html" with id="ckd" aidtype="PpxAid" %}
-                      {% endif %}
-                      {% if object.cvdiseases %}
-                        {% include "medhistorys/partials/cvdiseases.html" with aidtype="PpxAid" %}
-                      {% endif %}
-                      {% if object.nsaid_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="nsaid_allergy" %}
-                      {% endif %}
-                      {% if object.nsaid_age_contra %}
-                        {% include "_contra.html" with id="age" aidtype="PpxAid" %}
-                      {% endif %}
-                    </ul>
-                  </div>
-                </div>
-              {% endif %}
-              {% if object.colchicine_ckd_contra or object.colchicineinteraction or object.colchicine_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards" id="colchicine-contras">
-                    <h4 class="card-title">Colchicine</h4>
-                    <ul>
-                      {% if object.colchicine_ckd_contra %}
-                        {% include "_contra.html" with id="ckd" aidtype="PpxAid" %}
-                      {% endif %}
-                      {% if object.colchicineinteraction %}
-                        {% include '_contra.html' with id="colchicineinteraction" aidtype="PpxAid" %}
-                      {% endif %}
-                      {% if object.colchicine_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="colchicine_allergy" %}
-                      {% endif %}
-                    </ul>
-                  </div>
-                </div>
-              {% endif %}
-              {% if object.steroid_allergy %}
-                <div class="col-auto">
-                  <div class="card card-body spacious-cards" id="steroid-contras">
-                    <h4>Steroids</h4>
-                    <ul>
-                      {% if object.steroid_allergy %}
-                        {% include '_contra.html' with id="medallergys" allergy="steroid_allergy" %}
-                      {% endif %}
-                    </ul>
-                  </div>
-                </div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-      {% if object.organtransplant or "PREDNISONE" in object.options and object.diabetes or object.nsaids_recommended and not object.nsaids_contraindicated and object.age > 65 %}
-        <div id="warnings">
-          <hr size="3" color="dark" />
-          <div class="row">
-            <div class="col">
-              <h3>
-                <u>Warnings</u>
-              </h3>
-            </div>
-          </div>
-          <div class="row">
-            {% if object.organtransplant %}
-              <div class="col-auto">
-                {% include "medhistorys/aid_warnings/organtransplant.html" with id="organtransplant" aidtype="FlareAid" %}
-              </div>
-            {% endif %}
-            {% if object.recommendation.0 == "PREDNISONE" and object.diabetes or object.options and "PREDNISONE" in object.options and object.diabetes %}
-              <div class="col-auto">{% include "medhistorys/aid_warnings/diabetes.html" with id="diabetes" aidtype="PpxAid" %}</div>
-            {% endif %}
-            {% if object.age > 65 and object.nsaids_recommended and not object.nsaids_contraindicated %}
-              {% include "dateofbirths/aid_warnings/dateofbirth.html" with id="age" aidtype="PpxAid" %}
-            {% endif %}
-          </div>
-        </div>
+      {% if object.not_options %}
+        {% include "treatments/partials/not_options.html" %}
       {% endif %}
       <div id="explanations">
         <hr size="3" color="dark" />
@@ -139,40 +80,13 @@
             </h3>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=ibd id="ibd" label="Inflammatory Bowel Disease" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=colchicineinteraction id="colchicineinteraction" label="Colchicine Interaction" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=ckd id="ckd" label="CKD" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=anticoagulation id="anticoagulation" label="Anticoagulation" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=bleed id="bleed" label="Bleed" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=pud id="pud" label="Peptic Ulcer Disease" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=gastricbypass id="gastricbypass" label="Gastric Bypass" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=diabetes id="diabetes" label="Diabetes" %}
-            {% include "_explanation.html" with aidtype="PpxAid" con_obj=dateofbirth id="age" label="Age" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

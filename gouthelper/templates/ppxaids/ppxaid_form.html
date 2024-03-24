@@ -5,7 +5,7 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Update
+    Edit
   {% else %}
     New
   {% endif %}
@@ -20,9 +20,17 @@
 {% endblock heading %}
 {% block subheading %}
   {% if form.instance.created %}
-    Edit this PpxAid for updated recommendations.
+    Edit
+    {% if patient %}
+      {{ patient }}'s
+    {% else %}
+      this
+    {% endif %}
+    PpxAid for updated recommendations.
   {% else %}
-    Get a gout flare prophylaxis (prevention) recommendation.
+    Get a gout flare prophylaxis (prevention) recommendation
+    {% if patient %}for {{ patient }}{% endif %}
+    .
   {% endif %}
 {% endblock subheading %}
 {% block content %}
