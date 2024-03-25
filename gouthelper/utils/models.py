@@ -16,7 +16,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from .helpers import set_object_str_attrs
+from .helpers import get_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
@@ -562,7 +562,7 @@ contraindicated."
         try:
             return tuple(self.str_attrs[arg] for arg in args)
         except AttributeError:
-            self.get_or_create_str_attrs(patient=self.user)
+            self.set_str_attrs(patient=self.user)
             return tuple(self.str_attrs[arg] for arg in args)
 
     @cached_property
@@ -958,21 +958,18 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
             return treatments_stringify_trt_tuple(trt=trt, dosing=dosing)
         return None
 
-    def get_or_create_str_attrs(
+    def set_str_attrs(
         self,
         patient: Union["GoutHelperPatientModel", None] = None,
         request_user: Union["User", None] = None,
-    ) -> dict:
+    ) -> None:
         """Method that checks for a str_attrs attribute on the object and returns it if
         it exists, otherwise creates one with helper function."""
-        try:
-            return self.str_attrs
-        except AttributeError:
-            return set_object_str_attrs(
-                obj=self,
-                patient=patient,
-                request_user=request_user,
-            )
+        self.str_attrs = get_str_attrs(
+            obj=self,
+            patient=patient,
+            request_user=request_user,
+        )
 
     @cached_property
     def steroid_allergy(self) -> list["MedAllergy"] | None:

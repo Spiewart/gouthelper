@@ -3,7 +3,7 @@ from crispy_forms.layout import Field, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..treatments.choices import Treatments
-from ..utils.helpers import set_object_str_attrs
+from ..utils.helpers import get_str_attrs
 from .models import MedAllergy
 
 
@@ -19,7 +19,7 @@ class MedAllergyTreatmentForm(forms.ModelForm):
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         self.treatment = kwargs.pop("treatment")
         super().__init__(*args, **kwargs)
         self.value = f"medallergy_{self.treatment}"

@@ -5,7 +5,7 @@ from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...users.tests.factories import UserFactory, create_psp
-from ..helpers import calculate_duration, create_str_attrs
+from ..helpers import calculate_duration, get_str_attrs
 
 pytestmark = pytest.mark.django_db
 
@@ -54,22 +54,22 @@ class TestCreateStrAttrs(TestCase):
         for str_attr_key in self.str_attr_keys.copy():
             self.str_attr_keys.append(str_attr_key.capitalize())
 
-    def test__create_str_attrs_no_patient(self):
-        attrs = create_str_attrs()
+    def test__get_str_attrs_no_patient(self):
+        attrs = get_str_attrs()
         for str_attr_key in self.str_attr_keys:
             self.assertIn(str_attr_key, attrs)
 
-    def test__create_str_attrs_with_patient(self):
-        attrs = create_str_attrs(patient=self.psp)
+    def test__get_str_attrs_with_patient(self):
+        attrs = get_str_attrs(patient=self.psp)
         for str_attr_key in self.str_attr_keys:
             self.assertIn(str_attr_key, attrs)
 
-    def test__create_str_attrs_with_patient_who_is_request_user(self):
-        attrs = create_str_attrs(patient=self.psp, request_user=self.psp)
+    def test__get_str_attrs_with_patient_who_is_request_user(self):
+        attrs = get_str_attrs(patient=self.psp, request_user=self.psp)
         for str_attr_key in self.str_attr_keys:
             self.assertIn(str_attr_key, attrs)
 
-    def test__create_str_attrs_with_patient_who_is_not_request_user(self):
-        attrs = create_str_attrs(patient=self.psp, request_user=self.user)
+    def test__get_str_attrs_with_patient_who_is_not_request_user(self):
+        attrs = get_str_attrs(patient=self.psp, request_user=self.user)
         for str_attr_key in self.str_attr_keys:
             self.assertIn(str_attr_key, attrs)

@@ -13,7 +13,7 @@ from ..utils.forms import (
     forms_helper_insert_medallergys,
     forms_helper_insert_medhistory,
 )
-from ..utils.helpers import set_object_str_attrs
+from ..utils.helpers import get_str_attrs
 from .models import UltAid
 
 
@@ -42,7 +42,7 @@ class UltAidForm(
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False

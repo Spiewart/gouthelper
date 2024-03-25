@@ -4,7 +4,7 @@ from django.urls import reverse_lazy  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
 
 from ..utils.exceptions import EmptyRelatedModel  # type: ignore
-from ..utils.helpers import set_object_str_attrs  # type: ignore
+from ..utils.helpers import get_str_attrs  # type: ignore
 from .models import Ethnicity
 
 
@@ -20,7 +20,7 @@ class EthnicityForm(forms.ModelForm):
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].help_text = (
             format_lazy(

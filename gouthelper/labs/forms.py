@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import forms_make_custom_datetimefield
-from ..utils.helpers import set_object_str_attrs
+from ..utils.helpers import get_str_attrs
 from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
 from .models import BaselineCreatinine, Hlab5801, Urate
 
@@ -103,7 +103,7 @@ class BaselineCreatinineForm(BaseLabForm):
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
         self.fields["value"].label = "Baseline Creatinine"
@@ -140,7 +140,7 @@ class Hlab5801Form(BaseLabForm):
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].initial = None
         self.fields["value"].required = False
@@ -192,7 +192,7 @@ class UrateForm(LabForm):
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = set_object_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].label = "Uric Acid (mg/dL)"
         self.fields["value"].decimal_places = 1

@@ -155,7 +155,7 @@ def now_datetime() -> "datetime":
     return timezone.now()
 
 
-def create_str_attrs(
+def get_str_attrs(
     obj: Union["GoutHelperPatientModel", "GoutHelperAidModel", None] = None,
     patient: Union["GoutHelperPatientModel", None] = None,
     request_user: Union["User", None] = None,
@@ -240,12 +240,3 @@ def create_str_attrs(
         )
         str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
     return str_attrs
-
-
-def set_object_str_attrs(
-    obj: Any,
-    patient: Union["GoutHelperPatientModel", None] = None,
-    request_user: Union["User", None] = None,
-) -> dict[str, str]:
-    obj.str_attrs = create_str_attrs(obj, patient, request_user)
-    return obj.str_attrs
