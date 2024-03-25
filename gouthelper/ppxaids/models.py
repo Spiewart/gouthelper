@@ -12,10 +12,10 @@ from ..defaults.models import PpxAidSettings
 from ..defaults.selectors import defaults_ppxaidsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import FlarePpxChoices
+from ..treatments.choices import FlarePpxChoices, TrtTypes
 from ..users.models import Pseudopatient
-from ..utils.models import GoutHelperAidModel, GoutHelperModel
-from ..utils.services import aids_json_to_trt_dict, aids_options
+from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
+from ..utils.services import aids_json_to_trt_dict
 from .managers import PpxAidManager
 from .services import PpxAidDecisionAid
 
@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
 class PpxAid(
     RulesModelMixin,
+    FlarePpxMixin,
+    TreatmentAidMixin,
     GoutHelperAidModel,
     GoutHelperModel,
     TimeStampedModel,
@@ -115,16 +117,34 @@ class PpxAid(
         GoutHelper DefaultSettings."""
         return defaults_ppxaidsettings(user=self.user)
 
+    @cached_property
+    def explanations(self) -> list[tuple[str, str, bool, str]]:
+        """Method that returns a dictionary of tuples explanations for the FlareAid to use in templates."""
+        return [
+            ("age", "Age", True if self.age >= 65 else False, self.age_interp),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            (
+                "colchicineinteraction",
+                "Colchicine Medication Interaction",
+                self.colchicineinteraction,
+                self.colchicineinteraction_interp,
+            ),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp),
+            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp),
+            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp),
+            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
+            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp),
+        ]
+
     def get_absolute_url(self):
         if self.user:
             return reverse("ppxaids:pseudopatient-detail", kwargs={"username": self.user.username})
         else:
             return reverse("ppxaids:detail", kwargs={"pk": self.pk})
-
-    @property
-    def options(self) -> dict:
-        """Returns {dict} of PpxAid's Ppx Treatment options {treatment: dosing}."""
-        return aids_options(trt_dict=self.aid_dict)
 
     @cached_property
     def recommendation(self, ppx_settings: Union["PpxAidSettings", None] = None) -> tuple["Treatments", None] | None:
@@ -153,6 +173,10 @@ class PpxAid(
                             )
                         except KeyError:
                             return None
+
+    @classmethod
+    def trttype(cls) -> str:
+        return TrtTypes.PPX
 
     def update_aid(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
         """Updates PpxAid decisionaid JSON field field.

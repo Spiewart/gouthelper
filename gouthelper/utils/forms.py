@@ -132,6 +132,29 @@ def forms_helper_insert_dateofbirth(layout: "Layout") -> "Layout":
     )
 
 
+def forms_helper_insert_demographics(layout: "Layout", htmx: bool = False) -> "Layout":
+    """Method that inserts a Div with an id="about-the-patient" and a legend
+    into a crispy_forms.layout.Layout object"""
+    layout_len = len(layout)
+    if not htmx:
+        layout[layout_len - 1].append(
+            Div(
+                HTML(
+                    """
+                        <hr size="3" color="dark">
+                        <legend>{% if patient %}{{ patient }}'s{% endif %} Demographic Information</legend>
+                    """
+                ),
+                css_id="about-the-patient",
+            ),
+        )
+    else:
+        layout[layout_len - 1].append(
+            Div(),
+        )
+    return layout
+
+
 def forms_helper_insert_gender(layout: "Layout") -> "Layout":
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])

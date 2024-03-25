@@ -22,12 +22,10 @@ class GenderForm(forms.ModelForm):
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
-        self.fields["value"].help_text = (
-            format_lazy(
-                """What is {} biological sex? <a href="{}" target="_next">Why do we need to know?</a>""",
-                self.str_attrs["subject_the_pos"],
-                reverse_lazy("genders:about"),
-            ),
+        self.fields["value"].help_text = format_lazy(
+            """What is {} biological sex? <a href="{}" target="_next">Why do we need to know?</a>""",
+            self.str_attrs["subject_the_pos"],
+            reverse_lazy("genders:about"),
         )
         self.helper = FormHelper()
         self.helper.form_tag = False

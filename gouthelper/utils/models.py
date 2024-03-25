@@ -14,12 +14,14 @@ from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_get_cvdiseases_str
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
-from ..treatments.choices import NsaidChoices, SteroidChoices, Treatments, TrtTypes
+from ..treatments.choices import FlarePpxChoices, NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
 from .helpers import get_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
+    aids_not_options,
+    aids_options,
     aids_probenecid_ckd_contra,
     aids_xois_ckd_contra,
 )
@@ -1058,6 +1060,123 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
         """Method that returns XoiInteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)
+
+
+class TreatmentAidMixin:
+    """Mixin to add methods for interpreting treatment aids."""
+
+    @cached_property
+    def not_options(self) -> list[str]:
+        """Returns {list} of FlareAids's Flare Treatment options that are not recommended."""
+        return aids_not_options(trt_dict=self.aid_dict, defaultsettings=self.defaulttrtsettings)
+
+    @cached_property
+    def not_options_dict(self) -> dict:
+        """Method that returns a dict of Treatments that are not options and another dict of key/val
+        pairs of contraindication strings and the objects that make up those strings."""
+        not_options_dict = {}
+        if self.not_options:
+            for not_option in self.not_options:
+                contra_dict = getattr(self, f"{not_option.lower()}_contra_dict")
+                not_options_dict.update({contra_dict[0]: contra_dict[1]})
+        return not_options_dict
+
+    @cached_property
+    def options(self) -> dict:
+        """Returns {dict} of FlareAids's Flare Treatment options {treatment: dosing}."""
+        return aids_options(trt_dict=self.aid_dict)
+
+    @property
+    def options_without_rec(self) -> dict:
+        """Method that returns the options dictionary without the recommendation key."""
+        return aids_options(
+            trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
+        )
+
+
+class FlarePpxMixin(GoutHelperBaseModel):
+    """Mixin to modify the GoutHelperBaseModel methods to be specific to
+    Flare and Ppx treatment types."""
+
+    @cached_property
+    def ckd_interp(self) -> str:
+        ckd_str = super().ckd_interp
+
+        (subject_the,) = self.get_str_attrs("subject_the")
+
+        ckd_str += format_lazy(
+            """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) are associated \
+with acute kidney injury and chronic kidney disease and thus are not recommended for patients with CKD.""",
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.ckd:
+            ckd_str += f" Therefore, NSAIDs are not recommended for {subject_the}."
+
+        ckd_str += format_lazy(
+            """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and should be \
+used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage 4 or 5, or is \
+on dialysis, colchicine should be avoided.""",
+            reverse("treatments:about-flare") + "#colchicine",
+        )
+        if self.ckd:
+            if self.colchicine_ckd_contra:
+                ckd_str += f" Therefore, colchicine is not recommended for {subject_the}"
+                if self.ckddetail:
+                    ckd_str += f" with {self.ckddetail.explanation}"
+                ckd_str += "."
+            else:
+                ckd_str += f" Therefore, if there are no other contraindications to colchicine, \
+colchicine can be used by {subject_the}, but at reduced doses."
+
+        return mark_safe(ckd_str)
+
+    @cached_property
+    def cvdiseases_interp(self) -> str:
+        Subject_the, subject_the, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos_neg")
+
+        main_str = format_lazy(
+            """Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
+with an increased risk of cardiovascular events and mortality with long-term use. For that reason, \
+cardiovascular disease is a relative contraindication to using NSAIDs. """,
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.cvdiseases:
+            main_str += f"Because of <strong>{Subject_the}'s cardiovascular disease(s) ({self.cvdiseases_str.lower()})\
+</strong>, NSAIDs are not recommended."
+        else:
+            main_str += f"Because <strong>{subject_the} {pos_neg} cardiovascular disease</strong>, NSAIDs are \
+reasonable to use."
+        return mark_safe(main_str)
+
+    @cached_property
+    def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
+        return medallergy_attr(FlarePpxChoices.values, self)
+
+    @cached_property
+    def medallergys_interp(self) -> str:
+        """Method that interprets the medallergys attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
+        main_str = ""
+        if self.medallergys:
+            if self.nsaid_allergy:
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to NSAIDs \
+({self.nsaid_allergy_treatment_str})</strong>, so NSAIDs are not recommended for {subject_the}."
+            if self.colchicine_allergy:
+                if self.nsaid_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to colchicine</strong>\
+, so colchicine is not recommended for {subject_the}."
+            if self.steroid_allergy:
+                if self.nsaid_allergy or self.colchicine_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to corticosteroids \
+({self.steroid_allergy_treatment_str})</strong>, so corticosteroids are not recommended for {subject_the}."
+        else:
+            main_str += f"Usually, allergy to a medication is an absolute contraindication to its use. \
+{Subject_the} {pos_neg} any allergies to gout flare treatments."
+        return mark_safe(main_str)
 
 
 class GoutHelperAidModel(GoutHelperBaseModel, models.Model):

@@ -53,7 +53,7 @@ def add_patient_to_session(request: "HttpRequest", patient: Pseudopatient | User
     if not request.session.get("recent_patients", None):
         request.session["recent_patients"] = []
     if patient.username not in [recent_patient[1] for recent_patient in request.session["recent_patients"]]:
-        request.session["recent_patients"].append((str(patient), patient.username))
+        request.session["recent_patients"].append(tuple([str(patient), patient.username]))
     elif patient.username != request.session["recent_patients"][0][1]:
         request.session["recent_patients"].remove((str(patient), patient.username))
         request.session["recent_patients"].insert(0, (str(patient), patient.username))
@@ -1513,6 +1513,8 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         mh_det_forms: dict[str, "ModelForm"],
         mh_dets: dict[MedHistoryTypes, "ModelForm"],
         request: "HttpRequest",
+        patient: Pseudopatient | None = None,
+        request_user: User | None = None,
         str_attrs: dict[str, str] = None,
     ) -> None:
         """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
@@ -1521,7 +1523,11 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         else:
             gd = GoutDetail()
         mh_det_forms.update(
-            {"goutdetail_form": mh_dets[MedHistoryTypes.GOUT](request.POST, instance=gd, str_attrs=str_attrs)}
+            {
+                "goutdetail_form": mh_dets[MedHistoryTypes.GOUT](
+                    request.POST, instance=gd, str_attrs=str_attrs, patient=patient, request_user=request_user
+                )
+            }
         )
         raise Continue
 

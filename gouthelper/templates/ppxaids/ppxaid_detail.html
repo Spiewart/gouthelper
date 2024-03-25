@@ -53,7 +53,7 @@
                   <li>
                     Dose is too low for treatment of gout flares, use
                     {% if patient %}
-                      <a href="{% url 'flares:pseudopatient-create' %}">FlareAid</a>
+                      <a href="{% url 'flares:pseudopatient-create' view.kwargs.username %}">FlareAid</a>
                     {% else %}
                       <a href="{% url 'flares:create' %}">FlareAid</a>
                     {% endif %}

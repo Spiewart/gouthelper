@@ -82,7 +82,9 @@ class TrtDictStr:
             else:
                 trt_str += f" {self.freq3.lower()} for {self.duration3}"
             trt_str += ", then "
-        trt_str += f"{self.dose} mg {self.freq.lower()} for {self.duration}"
+        trt_str += f"{self.dose} mg {self.freq.lower()}"
+        if self.duration:
+            trt_str += f" for {self.duration}"
         if not self.dose3 and self.dose2 and self.duration2:
             trt_str += f", then {self.dose2} mg {self.freq2.lower()} for {self.duration2}"
         return trt_str

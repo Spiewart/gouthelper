@@ -1,1 +1,0 @@
-Non-steroidal anti-inflammatory drugs (NSAIDs) increase risk of bleeding by multiple mechanisms. Because gastric bypass can predispose to ulcers and other forms of gastroinetestinal bleeding, use of NSAIDs is relatively contrainidicated in individuals with a history of major bleeding.

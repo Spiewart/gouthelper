@@ -1,1 +1,0 @@
-Non-steroidal anti-inflammatory drugs (NSAIDs) are relatively contraindicated in patients with inflammatory bowel disease (Crohn's disease or ulcerative colitis) mostly due to animal models suggesting they can exacerbate the disease.

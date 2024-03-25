@@ -9,8 +9,8 @@ from django.utils.translation import gettext_lazy as _
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
-    forms_helper_insert_about_the_patient,
     forms_helper_insert_dateofbirth,
+    forms_helper_insert_demographics,
     forms_helper_insert_ethnicity,
     forms_helper_insert_gender,
     forms_helper_insert_goutdetail,
@@ -49,7 +49,7 @@ class PseudopatientForm(forms.ModelForm):
                 "",
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
+        forms_helper_insert_demographics(layout=self.helper.layout)
         # Insert dateofbirth and gender forms above menopause form
         forms_helper_insert_dateofbirth(layout=self.helper.layout)
         forms_helper_insert_gender(layout=self.helper.layout)
