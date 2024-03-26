@@ -97,4 +97,4 @@ class TestPpxAidMethods(TestCase):
         """Test the __str__() method for PpxAid."""
 
         self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
-        self.assertEqual(str(self.user_ppxaid), f"{self.user_ppxaid.user.username.capitalize()}'s PpxAid")
+        self.assertEqual(str(self.user_ppxaid), f"{str(self.user_ppxaid.user)}'s PpxAid")

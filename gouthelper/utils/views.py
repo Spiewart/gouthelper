@@ -82,7 +82,17 @@ def remove_patient_from_session(
         and request.session.get("recent_patients", None)
         and patient.username in [recent_patient[1] for recent_patient in request.session["recent_patients"]]
     ):
-        request.session["recent_patients"].remove((str(patient), patient.username))
+        request.session["recent_patients"].remove(
+            next(
+                iter(
+                    [
+                        recent_patient
+                        for recent_patient in request.session["recent_patients"]
+                        if recent_patient[1] == patient.username
+                    ]
+                )
+            )
+        )
 
 
 def update_session_patient(request: "HttpRequest", patient: Pseudopatient | User | None) -> None:
@@ -353,7 +363,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         mhtype_aids = (
             MedHistoryTypesAids(mhtypes=list(self.medhistorys.keys()), patient=patient).get_medhistorytypes_aid_dict()
-            if self.create_view
+            if self.create_view and patient
             else None
         )
         for mhtype, mh_dict in medhistorys.items():
@@ -389,8 +399,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                         kwargs[form_str] = mh_dict["form"](
                             instance=mh_obj,
                             initial={f"{mhtype}-value": True},
-                            patient=patient,
-                            request_user=request_user,
                             **form_kwargs,
                         )
                         continue
@@ -402,7 +410,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                             if mh_obj
                             else (
                                 False
-                                if (self.create_view and patient and mhtype_aids.get(mhtype))
+                                if (mhtype_aids and mhtype_aids.get(mhtype))
                                 else None
                                 if self.create_view
                                 else False
@@ -411,13 +419,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     },
                     **form_kwargs,
                 )
-
-    def context_get_user_mh_False_or_None(
-        self,
-        patient: Pseudopatient | None,
-        mhtype: MedHistoryTypes,
-    ) -> False | None:
-        pass
 
     def context_onetoones(
         self,
@@ -1071,7 +1072,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 MedHistoryTypesAids(
                     mhtypes=list(self.medhistorys.keys()), patient=patient
                 ).get_medhistorytypes_aid_dict()
-                if self.create_view
+                if self.create_view and patient
                 else None
             )
             for medhistory in medhistorys:
@@ -1125,7 +1126,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                                     f"{medhistory}-value": True
                                     if mh_obj
                                     else False
-                                    if (create and patient and mhtype_aids.get(medhistory))
+                                    if (mhtype_aids and mhtype_aids.get(medhistory))
                                     else None
                                     if create
                                     else False

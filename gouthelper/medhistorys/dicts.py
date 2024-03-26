@@ -134,47 +134,37 @@ class MedHistoryTypesAids:
             or not self.patient
         ) and next(iter(self.mhtypes)) in FLARE_MEDHISTORYS:
             self.Flare = apps.get_model("flares", "Flare")
-        if (
-            self.patient
-            and hasattr(self.patient, "flareaid")
-            or not self.patient
-            and next(iter(self.mhtypes)) in FLAREAID_MEDHISTORYS
-        ):
+        if (self.patient and hasattr(self.patient, "flareaid") or not self.patient) and next(
+            iter(self.mhtypes)
+        ) in FLAREAID_MEDHISTORYS:
             self.FlareAid = apps.get_model("flareaids", "FlareAid")
-        if (
-            self.patient
-            and hasattr(self.patient, "goalurate")
-            or not self.patient
-            and next(iter(self.mhtypes)) in GOALURATE_MEDHISTORYS
-        ):
+        if (self.patient and hasattr(self.patient, "goalurate") or not self.patient) and next(
+            iter(self.mhtypes)
+        ) in GOALURATE_MEDHISTORYS:
             self.GoalUrate = apps.get_model("goalurates", "GoalUrate")
-        if (
-            self.patient
-            and hasattr(self.patient, "ppxaid")
-            or not self.patient
-            and next(iter(self.mhtypes)) in PPXAID_MEDHISTORYS
-        ):
+        if (self.patient and hasattr(self.patient, "ppxaid") or not self.patient) and next(
+            iter(self.mhtypes)
+        ) in PPXAID_MEDHISTORYS:
             self.PpxAid = apps.get_model("ppxaids", "PpxAid")
-        if (
-            self.patient
-            and hasattr(self.patient, "ppx")
-            or not self.patient
-            and next(iter(self.mhtypes)) in PPX_MEDHISTORYS
-        ):
+        if (self.patient and hasattr(self.patient, "ppx") or not self.patient) and next(
+            iter(self.mhtypes)
+        ) in PPX_MEDHISTORYS:
             self.Ppx = apps.get_model("ppxs", "Ppx")
-        if (
-            self.patient
-            and hasattr(self.patient, "ultaid")
-            or not self.patient
-            and next(iter(self.mhtypes)) in ULTAID_MEDHISTORYS
-        ):
+        if (self.patient and hasattr(self.patient, "ultaid") or not self.patient) and next(
+            iter(self.mhtypes)
+        ) in ULTAID_MEDHISTORYS:
             self.UltAid = apps.get_model("ultaids", "UltAid")
+        print(self.patient)
+        print(hasattr(self.patient, "ult"))
+        print(self.mhtypes)
+        print(next(iter(self.mhtypes)) in ULT_MEDHISTORYS)
         if (
             self.patient
             and hasattr(self.patient, "ult")
             or not self.patient
             and next(iter(self.mhtypes)) in ULT_MEDHISTORYS
         ):
+            print("setting ult")
             self.Ult = apps.get_model("ults", "Ult")
 
     def get_medhistorytype_aid_list(
@@ -190,6 +180,7 @@ class MedHistoryTypesAids:
         | type["Ult"]
     ]:
         aid_list = []
+        print(mhtype)
         if (
             self.patient
             and (

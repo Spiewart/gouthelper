@@ -61,7 +61,15 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
 def flare_user_relations(qs: "QuerySet", flare_pk: Union["UUID", None] = None) -> "QuerySet":
     return (
         flare_relations(qs)
-        .select_related("pseudopatientprofile")
+        .select_related(
+            "flareaid",
+            "goalurate",
+            "ppxaid",
+            "ppx",
+            "pseudopatientprofile",
+            "ultaid",
+            "ult",
+        )
         .prefetch_related(
             flares_prefetch(pk=flare_pk),
         )

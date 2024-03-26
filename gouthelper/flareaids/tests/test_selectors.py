@@ -107,4 +107,4 @@ class TestFlareAidUserQuerySet(TestCase):
             self.assertIn(self.ckd, queryset.medhistorys_qs)
             self.assertIn(self.ckddetail, [getattr(mh, "ckddetail") for mh in queryset.medhistorys_qs])
             self.assertEqual(queryset.flareaidsettings, self.custom_settings)
-        self.assertEqual(len(queries.captured_queries), 3)
+        self.assertEqual(len(queries.captured_queries), 4)

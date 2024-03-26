@@ -1,16 +1,17 @@
-import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
 from ...flareaids.models import FlareAid
 from ...flares.models import Flare
+from ...flares.tests.factories import create_flare
+from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...ppxaids.models import PpxAid
 from ...ultaids.models import UltAid
 from ...ults.models import Ult
+from ...users.tests.factories import create_psp
 from ..choices import MedHistoryTypes
 from ..dicts import MedHistoryTypesAids
 
 
-@pytest.mark.django_db
 class TestGetMedHistorytypeAids(TestCase):
     # Write tests for each MedHistoryType calling MedHistoryTypesAids and
     # testing that it returns a dict with the MedHistoryType as the key and the
@@ -83,3 +84,14 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(UltAid, aid_list)
         self.assertIn(Ult, aid_list)
         self.assertEqual(len(aid_list), 5)
+
+    def test__with_patient(self):
+        for _ in range(5):
+            flare = create_flare(user=create_psp())
+            aid_dict = MedHistoryTypesAids(FLARE_MEDHISTORYS, patient=flare.user).get_medhistorytypes_aid_dict()
+            self.assertTrue(isinstance(aid_dict, dict))
+            for medhistorytype in FLARE_MEDHISTORYS:
+                self.assertIn(medhistorytype, aid_dict)
+                aid_list = aid_dict.get(medhistorytype)
+                self.assertTrue(isinstance(aid_list, list))
+                self.assertIn(Flare, aid_list)

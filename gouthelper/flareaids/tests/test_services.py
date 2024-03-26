@@ -69,7 +69,7 @@ class TestFlareAidMethods(TestCase):
             custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
-            self.assertEqual(len(context.captured_queries), 3)
+            self.assertEqual(len(context.captured_queries), 4)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
             if hasattr(fa.user, "gender"):
                 self.assertEqual(fa.user.gender, decisionaid.gender)
@@ -112,7 +112,7 @@ class TestFlareAidMethods(TestCase):
             custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
                 decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username).get())
-            self.assertEqual(len(context.captured_queries), 3)
+            self.assertEqual(len(context.captured_queries), 4)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
             if hasattr(fa.user, "gender"):
                 self.assertEqual(fa.user.gender, decisionaid.gender)

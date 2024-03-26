@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
+from ..flares.selectors import flares_prefetch
 from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 
@@ -48,7 +49,21 @@ def ppx_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ppx_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ppx_relations(qs).select_related("pseudopatientprofile", "ppx")
+    return (
+        ppx_relations(qs)
+        .select_related(
+            "flareaid",
+            "goalurate",
+            "ppxaid",
+            "ppx",
+            "pseudopatientprofile",
+            "ultaid",
+            "ult",
+        )
+        .prefetch_related(
+            flares_prefetch(),
+        )
+    )
 
 
 def ppx_userless_qs(pk: "UUID") -> "QuerySet":

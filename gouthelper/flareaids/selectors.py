@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
+from ..flares.selectors import flares_prefetch
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
@@ -55,7 +56,22 @@ def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return flareaid_relations(qs).select_related("flareaid", "flareaidsettings", "pseudopatientprofile")
+    return (
+        flareaid_relations(qs)
+        .select_related(
+            "flareaid",
+            "flareaidsettings",
+            "goalurate",
+            "ppxaid",
+            "ppx",
+            "pseudopatientprofile",
+            "ultaid",
+            "ult",
+        )
+        .prefetch_related(
+            flares_prefetch(),
+        )
+    )
 
 
 def flareaid_userless_qs(pk: "UUID") -> "QuerySet":

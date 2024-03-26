@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
+from ..flares.selectors import flares_prefetch
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULTAID_MEDHISTORYS
 
 if TYPE_CHECKING:
@@ -57,7 +58,22 @@ def ultaid_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ultaid_user_relations(qs: "QuerySet") -> "QuerySet":
-    return ultaid_relations(qs).select_related("ultaidsettings", "pseudopatientprofile", "ultaid")
+    return (
+        ultaid_relations(qs)
+        .select_related(
+            "flareaid",
+            "goalurate",
+            "ppxaid",
+            "ppx",
+            "pseudopatientprofile",
+            "ultaid",
+            "ultaidsettings",
+            "ult",
+        )
+        .prefetch_related(
+            flares_prefetch(),
+        )
+    )
 
 
 def ultaid_userless_qs(pk: "UUID") -> "QuerySet":

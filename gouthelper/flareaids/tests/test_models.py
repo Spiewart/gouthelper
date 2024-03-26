@@ -20,7 +20,7 @@ class TestFlareAid(TestCase):
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
-        self.assertEqual(str(self.user_flareaid), f"{self.user_flareaid.user.username.capitalize()}'s FlareAid")
+        self.assertEqual(str(self.user_flareaid), f"{str(self.user_flareaid.user)}'s FlareAid")
 
     def test__aid_dict(self):
         self.assertFalse(self.flareaid.decisionaid)

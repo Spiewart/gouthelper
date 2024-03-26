@@ -79,4 +79,4 @@ def ppxaid_userless_qs(pk: "UUID") -> "QuerySet":
 
 
 def ppxaid_user_qs(username: str) -> "QuerySet":
-    return ppxaid_user_relations(apps.get_model("users.Pseudopatient").related_aids.filter(username=username))
+    return ppxaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))
