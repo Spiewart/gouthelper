@@ -241,6 +241,7 @@ class TestPpxAidMethods(TestCase):
         ppxaid.refresh_from_db()
         # Delete the aid_dict cached_property so that it will be recalculated
         del ppxaid.aid_dict
+        del ppxaid.options
 
         # Test that the colchicine dosing is adjusted
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)
@@ -279,6 +280,7 @@ class TestPpxAidMethods(TestCase):
         ppxaid.refresh_from_db()
         # Delete the aid_dict cached_property so that it will be recalculated
         del ppxaid.aid_dict
+        del ppxaid.options
 
         # Test that the colchicine dosing frequency is adjusted rather than the dose
         self.assertIn(Treatments.COLCHICINE, ppxaid.options)

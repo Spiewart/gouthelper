@@ -179,9 +179,9 @@ def get_str_attrs(
                     "subject_the": "you",
                     "subject_pos": "your",
                     "subject_the_pos": "your",
-                    "gender_pos": "hers" if patient.gender.value else "his",
-                    "gender_subject": "she" if patient.gender.value else "he",
-                    "gender_ref": "her" if patient.gender.value else "him",
+                    "gender_pos": "hers" if hasattr(patient, "gender") and patient.gender.value else "his",
+                    "gender_subject": "she" if hasattr(patient, "gender") and patient.gender.value else "he",
+                    "gender_ref": "her" if hasattr(patient, "gender") and patient.gender.value else "him",
                 }
             )
             str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})

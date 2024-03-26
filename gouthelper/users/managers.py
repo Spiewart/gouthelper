@@ -10,7 +10,7 @@ from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
 from .choices import Roles
-from .selectors import pseudopatient_relations
+from .selectors import pseudopatient_related_aids, pseudopatient_relations
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -88,6 +88,9 @@ class PseudopatientManager(BaseUserManager):
 
     def ppx_qs(self):
         return ppx_user_relations(self.get_queryset())
+
+    def related_aids(self):
+        return pseudopatient_related_aids(self.get_queryset())
 
     def ultaid_qs(self):
         return ultaid_user_relations(self.get_queryset())

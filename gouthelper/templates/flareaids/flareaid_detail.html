@@ -3,6 +3,13 @@
 {% load static %}
 {% load project_tags %}
 
+{% block title %}
+  {% if object.user %}
+    FlareAid: {{ object.user }}
+  {% else %}
+    {{ object }}
+  {% endif %}
+{% endblock title %}
 {% block heading %}
   <div class="row">
     <div class="col">

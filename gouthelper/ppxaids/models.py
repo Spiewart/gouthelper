@@ -88,7 +88,7 @@ class PpxAid(
 
     def __str__(self):
         if self.user:
-            return f"{self.user.username.capitalize()}'s PpxAid"
+            return f"{str(self.user)}'s PpxAid"
         else:
             return f"PpxAid: created {self.created.date()}"
 

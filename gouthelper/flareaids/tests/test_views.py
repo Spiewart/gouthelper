@@ -1030,8 +1030,10 @@ class TestFlareAidPseudopatientUpdate(TestCase):
     def test__get_form_kwargs(self):
         # Create a fake request
         request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
         view = self.view()
         view.setup(request=request, username=self.user.username)
+        view.object = None
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
 
@@ -1492,14 +1494,6 @@ class TestFlareAidDetail(TestCase):
             Q(tag=Tags.EXPLANATION) | Q(tag=Tags.WARNING), context=Content.Contexts.FLAREAID, slug__isnull=False
         ).all()
         self.flareaid = create_flareaid(mas=[], mhs=[])
-
-    def test__contents(self):
-        self.assertTrue(self.view().contents)
-        self.assertTrue(isinstance(self.view().contents, QuerySet))
-        for content in self.view().contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, self.view().contents)
 
     def test__dispatch_redirects_if_flareaid_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the

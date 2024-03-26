@@ -98,6 +98,18 @@ def pseudopatient_profile_qs(username: str) -> "QuerySet":
     )
 
 
+def pseudopatient_related_aids(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "flareaid",
+        "goalurate",
+        "ppxaid",
+        "ppx",
+        "pseudopatientprofile",
+        "ultaid",
+        "ult",
+    ).prefetch_related(flares_prefetch())
+
+
 def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",

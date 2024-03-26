@@ -88,7 +88,7 @@ class FlareAid(
 
     def __str__(self):
         if self.user:
-            return f"{self.user.username.capitalize()}'s FlareAid"
+            return f"{str(self.user)}'s FlareAid"
         else:
             return f"FlareAid: created {self.created.date()}"
 

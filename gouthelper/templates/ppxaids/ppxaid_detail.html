@@ -3,12 +3,22 @@
 {% load static %}
 {% load project_tags %}
 
+{% block title %}
+  {% if object.user %}
+    PpxAid: {{ object.user }}
+  {% else %}
+    {{ object }}
+  {% endif %}
+{% endblock title %}
 {% block heading %}
   <div class="row">
     <div class="col">
       <h1>PPxAid</h1>
+      <h6>
+        {% if object.user %}For {{ object.user }}{% endif %}
+      </h6>
     </div>
-    <div class="col align-items-center d-flex">
+    <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ppxaids:about' %}"

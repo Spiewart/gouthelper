@@ -19,6 +19,7 @@ from ..medallergys.models import MedAllergy
 from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.dicts import MedHistoryTypesAids
 from ..medhistorys.helpers import medhistorys_get
 from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
@@ -55,16 +56,32 @@ def add_patient_to_session(request: "HttpRequest", patient: Pseudopatient | User
     if patient.username not in [recent_patient[1] for recent_patient in request.session["recent_patients"]]:
         request.session["recent_patients"].append(tuple([str(patient), patient.username]))
     elif patient.username != request.session["recent_patients"][0][1]:
-        request.session["recent_patients"].remove((str(patient), patient.username))
-        request.session["recent_patients"].insert(0, (str(patient), patient.username))
+        request.session["recent_patients"].remove(
+            next(
+                iter(
+                    [
+                        recent_patient
+                        for recent_patient in request.session["recent_patients"]
+                        if recent_patient[1] == patient.username
+                    ]
+                )
+            )
+        )
+        request.session["recent_patients"].insert(0, tuple([str(patient), patient.username]))
 
 
-def remove_patient_from_session(request: "HttpRequest", patient: Pseudopatient | User) -> None:
+def remove_patient_from_session(
+    request: "HttpRequest",
+    patient: Pseudopatient | User,
+    delete: bool = False,
+) -> None:
     request.session.pop("patient", None)
     request.session.pop("username", None)
-    if request.session.get("recent_patients", None) and patient.username in [
-        recent_patient[1] for recent_patient in request.session["recent_patients"]
-    ]:
+    if (
+        delete
+        and request.session.get("recent_patients", None)
+        and patient.username in [recent_patient[1] for recent_patient in request.session["recent_patients"]]
+    ):
         request.session["recent_patients"].remove((str(patient), patient.username))
 
 
@@ -334,6 +351,11 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         str_attrs: dict[str, str] = None,
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
+        mhtype_aids = (
+            MedHistoryTypesAids(mhtypes=list(self.medhistorys.keys()), patient=patient).get_medhistorytypes_aid_dict()
+            if self.create_view
+            else None
+        )
         for mhtype, mh_dict in medhistorys.items():
             form_str = f"{mhtype}_form"
             if form_str not in kwargs:
@@ -374,9 +396,28 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                         continue
                 kwargs[form_str] = mh_dict["form"](
                     instance=mh_obj,
-                    initial={f"{mhtype}-value": True if mh_obj else None if self.create_view else False},
+                    initial={
+                        f"{mhtype}-value": (
+                            True
+                            if mh_obj
+                            else (
+                                False
+                                if (self.create_view and patient and mhtype_aids.get(mhtype))
+                                else None
+                                if self.create_view
+                                else False
+                            )
+                        )
+                    },
                     **form_kwargs,
                 )
+
+    def context_get_user_mh_False_or_None(
+        self,
+        patient: Pseudopatient | None,
+        mhtype: MedHistoryTypes,
+    ) -> False | None:
+        pass
 
     def context_onetoones(
         self,
@@ -449,17 +490,15 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     reverse("users:pseudopatient-update", kwargs={"username": self.user.username})
                 )
             if self.create_view:
-                model_name = self.model.__name__.lower()
-                if model_name != "flare" and self.model.objects.filter(user=self.user).exists():
-                    messages.error(
-                        request, f"{self.user} already has a {self.model.__name__}. Please update it instead."
-                    )
+                model_name = self.model.__name__
+                if model_name != "Flare" and self.model.objects.filter(user=self.user).exists():
+                    messages.error(request, f"{self.user} already has a {model_name}. Please update it instead.")
                     return HttpResponseRedirect(
-                        reverse(f"{model_name}s:pseudopatient-update", kwargs={"username": self.user.username})
+                        reverse(f"{model_name.lower()}s:pseudopatient-update", kwargs={"username": self.user.username})
                     )
         elif getattr(self.object, "user", None) and not isinstance(self.object, User):
             kwargs = {"username": self.object.user.username}
-            if model_name == "flare":
+            if self.model.__name__.lower() == "flare":
                 kwargs["pk"] = self.object.pk
             return HttpResponseRedirect(
                 reverse(
@@ -1028,6 +1067,13 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         mh_forms: dict[str, "ModelForm"] = {}
         mh_det_forms: dict[str, "ModelForm"] = {}
         if medhistorys:
+            mhtype_aids = (
+                MedHistoryTypesAids(
+                    mhtypes=list(self.medhistorys.keys()), patient=patient
+                ).get_medhistorytypes_aid_dict()
+                if self.create_view
+                else None
+            )
             for medhistory in medhistorys:
                 mh_obj = medhistorys_get(query_obj.medhistorys_qs, medhistory, null_return=None) if query_obj else None
                 form_kwargs = {"patient": patient, "request_user": request_user, "str_attrs": str_attrs}
@@ -1074,7 +1120,17 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                         f"{medhistory}_form": medhistorys[medhistory]["form"](
                             request.POST,
                             instance=mh_obj if mh_obj else medhistorys[medhistory]["model"](),
-                            initial={f"{medhistory}-value": True if mh_obj else None if create else False},
+                            initial=(
+                                {
+                                    f"{medhistory}-value": True
+                                    if mh_obj
+                                    else False
+                                    if (create and patient and mhtype_aids.get(medhistory))
+                                    else None
+                                    if create
+                                    else False
+                                }
+                            ),
                             **form_kwargs,
                         )
                     }

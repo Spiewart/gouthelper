@@ -39,7 +39,7 @@ class PpxAidForm(
         self.medallergys = kwargs.pop("medallergys")
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
+            self.str_attrs = get_str_attrs(None, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False

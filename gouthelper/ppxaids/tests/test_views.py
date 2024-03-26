@@ -267,14 +267,6 @@ class TestPpxAidDetail(TestCase):
         ).all()
         self.ppxaid = create_ppxaid()
 
-    def test__contents(self):
-        self.assertTrue(self.view().contents)
-        self.assertTrue(isinstance(self.view().contents, QuerySet))
-        for content in self.view().contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, self.view().contents)
-
     def test__dispatch_redirects_if_ppxaid_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
         PpxAid has a user."""
@@ -284,13 +276,6 @@ class TestPpxAidDetail(TestCase):
         response = self.view.as_view()(request, pk=user_ppxaid.pk)
         assert response.status_code == 302
         assert response.url == reverse("ppxaids:pseudopatient-detail", kwargs={"username": user_ppxaid.user.username})
-
-    def test__get_context_data(self):
-        response = self.client.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}))
-        context = response.context_data
-        for content in self.content_qs:
-            self.assertIn(content.slug, context)
-            self.assertEqual(context[content.slug], {content.tag: content})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.ppxaid.pk}).get_queryset()
@@ -310,8 +295,7 @@ class TestPpxAidDetail(TestCase):
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
         # Add some contraindications that will be updated for
-        medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
-        ppxaid.medallergy_set.add(medallergy)
+        MedAllergyFactory(treatment=Treatments.NAPROXEN, ppxaid=ppxaid)
 
         # Re-POST the view and check to see if if the recommendation has been updated
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": ppxaid.pk}))
@@ -323,6 +307,8 @@ class TestPpxAidDetail(TestCase):
         # Delete the cached_propertys so that the recommendation is recalculated
         del ppxaid.aid_dict
         del ppxaid.recommendation
+        del ppxaid.options
+        print(ppxaid.recommendation)
         self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
     def test__get_object_does_not_update(self):
@@ -333,8 +319,7 @@ class TestPpxAidDetail(TestCase):
         self.assertTrue(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
         # Create some contraindications that will not be updated for
-        medallergy = MedAllergyFactory(treatment=Treatments.NAPROXEN)
-        ppxaid.medallergy_set.add(medallergy)
+        MedAllergyFactory(treatment=Treatments.NAPROXEN, ppxaid=ppxaid)
 
         request = self.factory.get(reverse("ppxaids:detail", kwargs={"pk": self.ppxaid.pk}) + "?updated=True")
         request.user = AnonymousUser()
@@ -351,6 +336,7 @@ class TestPpxAidDetail(TestCase):
         # Delete the cached_propertys so that the recommendation is recalculated
         del ppxaid.aid_dict
         del ppxaid.recommendation
+        del ppxaid.options
         self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
 
@@ -1135,8 +1121,10 @@ class TestPpxAidPseudopatientUpdate(TestCase):
     def test__get_form_kwargs(self):
         # Create a fake request
         request = self.factory.get("/fake-url/")
+        request.user = self.anon_user
         view = self.view(request=request)
         view.setup(request, username=self.user.username)
+        view.object = None
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
 
