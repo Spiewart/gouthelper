@@ -86,15 +86,15 @@ ULT_MEDHISTORYS: list[MedHistoryTypes] = [
 ]
 
 ULTAID_MEDHISTORYS: list[MedHistoryTypes] = [
-    MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY,  # Allopurinol Hypersensitivity
     MedHistoryTypes.ANGINA,  # Angina
     MedHistoryTypes.CAD,  # Coronary Artery Disease
     MedHistoryTypes.CHF,  # Congestive Heart Failure
     MedHistoryTypes.CKD,  # Chronic Kidney Disease
-    MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,  # Febuxostat Hypersensitivity
     MedHistoryTypes.HEARTATTACK,  # Heart Attack
+    MedHistoryTypes.HEPATITIS,  # Hepatitis or Cirrhosis
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
+    MedHistoryTypes.URATESTONES,  # Urate Stones
     MedHistoryTypes.XOIINTERACTION,  # XOI Interaction
 ]

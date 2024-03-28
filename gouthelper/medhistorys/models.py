@@ -20,7 +20,6 @@ from ..utils.models import DecisionAidRelation, GoutHelperModel, TreatmentAidRel
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
 from .managers import (
-    AllopurinolhypersensitivityManager,
     AnginaManager,
     AnticoagulationManager,
     BleedManager,
@@ -31,11 +30,11 @@ from .managers import (
     ColchicineinteractionManager,
     DiabetesManager,
     ErosionsManager,
-    FebuxostathypersensitivityManager,
     GastricbypassManager,
     GoutManager,
     GoutRelationsManager,
     HeartattackManager,
+    HepatitisManager,
     HypertensionManager,
     HyperuricemiaManager,
     IbdManager,
@@ -287,15 +286,6 @@ class MedHistory(
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
 
 
-class Allopurinolhypersensitivity(MedHistory):
-    """Patient has had a hypersensitivity reaction to allopurinol."""
-
-    class Meta:
-        proxy = True
-
-    objects = AllopurinolhypersensitivityManager()
-
-
 class Angina(MedHistory):
     """Model for history of cardiac chest pain."""
 
@@ -382,15 +372,6 @@ class Erosions(MedHistory):
     objects = ErosionsManager()
 
 
-class Febuxostathypersensitivity(MedHistory):
-    """Whether or not a Patient has had a hypersensitivity reaction to febuxostat."""
-
-    class Meta:
-        proxy = True
-
-    objects = FebuxostathypersensitivityManager()
-
-
 class Gastricbypass(MedHistory):
     """Whether or not a Patient has had gastric bypass surgery."""
 
@@ -418,6 +399,15 @@ class Heartattack(MedHistory):
         proxy = True
 
     objects = HeartattackManager()
+
+
+class Hepatitis(MedHistory):
+    """Whether or not a Patient has hepatitis or cirrhosis of the lvier."""
+
+    class Meta:
+        proxy = True
+
+    objects = HepatitisManager()
 
 
 class Hypertension(MedHistory):

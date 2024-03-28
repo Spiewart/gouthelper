@@ -4,7 +4,6 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ..choices import MedHistoryTypes
 from ..models import (
-    Allopurinolhypersensitivity,
     Angina,
     Anticoagulation,
     Bleed,
@@ -14,10 +13,10 @@ from ..models import (
     Colchicineinteraction,
     Diabetes,
     Erosions,
-    Febuxostathypersensitivity,
     Gastricbypass,
     Gout,
     Heartattack,
+    Hepatitis,
     Hypertension,
     Hyperuricemia,
     Ibd,
@@ -30,14 +29,6 @@ from ..models import (
     Uratestones,
     Xoiinteraction,
 )
-
-
-class TestAllopurinolHypersensitivityManager(TestCase):
-    def test__manager(self):
-        self.allopurinolhypersensitivity = Allopurinolhypersensitivity.objects.create()
-        self.assertEqual(self.allopurinolhypersensitivity.medhistorytype, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY)
-        for mh in Allopurinolhypersensitivity.objects.get_queryset().all():
-            self.assertEqual(mh.medhistorytype, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY)
 
 
 class TestAnginaManager(TestCase):
@@ -119,14 +110,6 @@ class TestErosionsManager(TestCase):
             self.assertEqual(mh.medhistorytype, MedHistoryTypes.EROSIONS)
 
 
-class TestFebuxostatHypersensitivityManager(TestCase):
-    def test__manager(self):
-        self.febuxostathypersensitivity = Febuxostathypersensitivity.objects.create()
-        self.assertEqual(self.febuxostathypersensitivity.medhistorytype, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY)
-        for mh in Febuxostathypersensitivity.objects.get_queryset().all():
-            self.assertEqual(mh.medhistorytype, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY)
-
-
 class TestGastricbypassManager(TestCase):
     def test__manager(self):
         self.gastricbypass = Gastricbypass.objects.create()
@@ -149,6 +132,14 @@ class TestHeartattackManager(TestCase):
         self.assertEqual(self.heartattack.medhistorytype, MedHistoryTypes.HEARTATTACK)
         for mh in Heartattack.objects.get_queryset().all():
             self.assertEqual(mh.medhistorytype, MedHistoryTypes.HEARTATTACK)
+
+
+class TestHepatitisManager(TestCase):
+    def test__manager(self):
+        self.hepatitis = Hepatitis.objects.create()
+        self.assertEqual(self.hepatitis.medhistorytype, MedHistoryTypes.HEPATITIS)
+        for mh in Hepatitis.objects.get_queryset().all():
+            self.assertEqual(mh.medhistorytype, MedHistoryTypes.HEPATITIS)
 
 
 class TestHypertensionManager(TestCase):

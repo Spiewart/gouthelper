@@ -3,21 +3,40 @@
 {% load static %}
 {% load project_tags %}
 
+{% block title %}
+  {% if object.user %}
+    UltAid: {{ object.user }}
+  {% else %}
+    {{ object }}
+  {% endif %}
+{% endblock title %}
 {% block heading %}
   <div class="row">
     <div class="col">
       <h1>UltAid</h1>
-      {% if object.user %}<h5>{{ object.user }}</h5>{% endif %}
+      {% if object.user %}<h6>For {{ object.user }}</h6>{% endif %}
     </div>
     <div class="col align-items-center d-flex">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ultaids:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'ultaids:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ultaids:pseudopatient-update' pk=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ultaids:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation</a> | <a class="samepage-link" href="#options">Options</a> | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
   </div>
 {% endblock heading %}
@@ -26,11 +45,11 @@
     <div class="container bodytainer">
       <div id="recommendation">
         <hr size="3" color="dark" />
+        <h3>
+          <u>Recommendation</u>
+        </h3>
         <div class="row">
-          <h3>
-            <u>Recommendation</u>
-          </h3>
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation_str trttype="Ult" %}
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
           {% if object.goalurate %}
             {% if patient %}
               {% include 'goalurates/partials/goalurate_detail.html' with object=object.user %}
@@ -38,7 +57,7 @@
               {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate %}
             {% endif %}
           {% else %}
-            <div class="col">
+            <div class="col-auto">
               <div id="goalurate">
                 {% if patient %}
                   <a type="button"
@@ -60,79 +79,11 @@
           {% endif %}
         </div>
       </div>
-      {% if object.contraindications %}
-        <div id="contraindications">
-          <hr size="3" color="dark" />
-          <div class="row">
-            <div class="col">
-              <h3>
-                <u>Contraindications</u>
-              </h3>
-            </div>
-          </div>
-          <div class="row">
-            {% if object.allopurinolhypersensitivity or object.allopurinol_allergy or object.xoiinteraction or object.hlab5801_contra %}
-              <div class="col">
-                <div class="card card-body spacious-cards"
-                     id="allopurinol-contraindications">
-                  <h4 class="card-title">Allopurinol</h4>
-                  <ul>
-                    {% if object.allopurinolhypersensitivity %}
-                      {% include '_contra.html' with id="allopurinolhypersensitivity" %}
-                    {% endif %}
-                    {% if object.allopurinol_allergy %}
-                      {% include '_contra.html' with id="medallergys" allergy="allopurinol_allergy" %}
-                    {% endif %}
-                    {% if object.xoiinteraction %}
-                      {% include '_contra.html' with id="xoiinteraction" %}
-                    {% endif %}
-                    {% if object.hlab5801_contra %}
-                      {% include '_contra.html' with id="hlab5801" ethnicity=object.ethnicity %}
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
-            {% endif %}
-            {% if object.febuxostathypersensitivity or object.febuxostat_allergy or object.xoiinteraction %}
-              <div class="col">
-                <div class="card card-body spacious-cards"
-                     id="febuxostat-contraindications">
-                  <h4 class="card-title">Febuxostat</h4>
-                  <ul>
-                    {% if object.febuxostathypersensitivity %}
-                      {% include '_contra.html' with id="febuxostathypersensitivity" %}
-                    {% endif %}
-                    {% if object.febuxostat_allergy %}
-                      {% include '_contra.html' with id="medallergys" allergy="febuxostat_allergy" %}
-                    {% endif %}
-                    {% if object.xoiinteraction %}
-                      {% include '_contra.html' with id="xoiinteraction" %}
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
-            {% endif %}
-            {% if object.probenecid_ckd_contra or object.probenecid_allergy %}
-              <div class="col">
-                <div class="card card-body spacious-cards"
-                     id="probenecid-contraindications">
-                  <h4 class="card-title">Probenecid</h4>
-                  <ul>
-                    {% if object.probenecid_ckd_contra %}
-                      {% include '_contra.html' with id="ckd" aidtype="UltAid" %}
-                    {% endif %}
-                    {% if object.probenecid_allergy %}
-                      {% include '_contra.html' with id="medallergys" allergy="probenecid_allergy" %}
-                    {% endif %}
-                  </ul>
-                </div>
-              </div>
-            {% endif %}
-          </div>
-        </div>
-      {% endif %}
       {% if object.recommendation %}
-        {% include "treatments/partials/options.html" with options=object.options_str trttype="Ult" %}
+        {% include "treatments/partials/options.html" with options=object.options_without_rec trttype=object.trttype %}
+      {% endif %}
+      {% if object.not_options %}
+        {% include "treatments/partials/not_options.html" %}
       {% endif %}
       {% if object.organtransplant or object.recommendation.0 == "FEBUXOSTAT" and object.cvdiseases or object.options and "FEBUXOSTAT" in object.options and object.cvdiseases %}
         <div id="warnings">
@@ -166,40 +117,13 @@
             </h3>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Disease(s)" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=hlab5801 id="hlab5801" label="HLA-B*58:01" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=ckd id="ckd" label="CKD" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=tophi id="tophi" label="Tophi" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=xoiinteraction id="xoiinteraction" label="XOI Interaction" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=allopurinolhypersensitivity id="allopurinolhypersensitivity" label="Allopurinol Hypersensitivity" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=febuxostathypersensitivity id="febuxostathypersensitivity" label="Febuxostat Hypersensitivity" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=medallergys id="medallergys" label="Medication Allergies" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=organtransplant id="organtransplant" label="Organ Transplant" %}
-            {% include "_explanation.html" with aidtype="UltAid" con_obj=erosions id="erosions" label="Erosions" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
-  </div>
-</div>
-</main>
+  </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

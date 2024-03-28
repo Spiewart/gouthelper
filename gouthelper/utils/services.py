@@ -315,7 +315,7 @@ def aids_not_options(
 ) -> dict:
     """Method that iterates over a trt_dict and returns a dictionary of
     treatments that are contraindicated."""
-    if defaultsettings and getattr(defaultsettings, "nsaids_equivalent", True):
+    if defaultsettings and getattr(defaultsettings, "nsaids_equivalent", None):
         not_options = {}
         for trt, sub_dict in trt_dict.items():
             if sub_dict["contra"] is True:

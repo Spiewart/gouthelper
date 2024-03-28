@@ -14,9 +14,7 @@
   <div class="row">
     <div class="col">
       <h1>FlareAid</h1>
-      <h6>
-        {% if object.user %}For {{ object.user }}{% endif %}
-      </h6>
+      {% if object.user %}<h6>For {{ object.user }}</h6>{% endif %}
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"

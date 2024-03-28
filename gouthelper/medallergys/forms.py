@@ -1,5 +1,5 @@
 from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import Field, Layout  # type: ignore
+from crispy_forms.layout import Div, Field, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..treatments.choices import Treatments
@@ -12,7 +12,7 @@ class MedAllergyTreatmentForm(forms.ModelForm):
 
     class Meta:
         model = MedAllergy
-        exclude = ["flareaid", "ppxaid", "sideeffects", "treatment", "ultaid", "user"]
+        exclude = ["flareaid", "matype", "ppxaid", "other", "sideeffects", "treatment", "ultaid", "user"]
 
     def __init__(self, *args, **kwargs):
         self.patient = kwargs.pop("patient", None)
@@ -25,14 +25,50 @@ class MedAllergyTreatmentForm(forms.ModelForm):
         self.value = f"medallergy_{self.treatment}"
         self.fields.update({self.value: forms.BooleanField(required=False)})
         self.fields[self.value].label = Treatments[self.treatment].label
+
+        # If treatment is not allopurinol or febuxostat, remove the matype field
+        if self.treatment in [Treatments.ALLOPURINOL, Treatments.FEBUXOSTAT]:
+            trt_matype = f"{self.treatment}_matype"
+            # Add matype field with a choice of hypersensitivity syndrome
+            self.fields.update(
+                {
+                    trt_matype: forms.BooleanField(
+                        required=False, widget=forms.CheckboxInput(attrs={"class": "slider form-control"})
+                    )
+                }
+            )
+            self.fields[
+                trt_matype
+            ].label = f"Was this allergy {Treatments[self.treatment].label} Hypersensitivity \
+Syndrome?"
+
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
-            Field(self.value, wrapper_class="medallergy_select"),
+            Div(
+                Div(
+                    Field(self.value, wrapper_class="medallergy_select"),
+                    css_class="col",
+                ),
+                css_class="row",
+            )
         )
+
+        if self.treatment in [Treatments.ALLOPURINOL, Treatments.FEBUXOSTAT]:
+            self.helper.layout[0][0].append(
+                Field(
+                    f"{self.treatment}_matype",
+                    css_class="form-check-input",
+                    wrapper_class=f"{self.treatment}_matype_select form-check form-switch",
+                ),
+            )
 
     def clean(self):
         cleaned_data = super().clean()
         if cleaned_data[self.value]:
             cleaned_data["treatment"] = self.treatment
+        if cleaned_data.get(f"{self.treatment}_matype", None) is True:
+            cleaned_data.update({f"{self.treatment}_matype": MedAllergy.MaTypes.HYPERSENSITIVITY})
+        else:
+            cleaned_data.update({f"{self.treatment}_matype": None})
         return cleaned_data

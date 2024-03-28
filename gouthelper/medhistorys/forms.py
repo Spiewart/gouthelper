@@ -9,7 +9,6 @@ from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.helpers import get_str_attrs
 from .models import (
-    Allopurinolhypersensitivity,
     Angina,
     Anticoagulation,
     Bleed,
@@ -19,10 +18,10 @@ from .models import (
     Colchicineinteraction,
     Diabetes,
     Erosions,
-    Febuxostathypersensitivity,
     Gastricbypass,
     Gout,
     Heartattack,
+    Hepatitis,
     Hypertension,
     Hyperuricemia,
     Ibd,
@@ -84,31 +83,6 @@ class MHCheckForm(MedHistoryForm):
         self.helper.layout = Layout(
             Field(self.value, wrapper_class="medhistory_select"),
         )
-
-
-class AllopurinolhypersensitivityForm(MedHistoryForm):
-    class Meta(MedHistoryForm.Meta):
-        model = Allopurinolhypersensitivity
-        prefix = MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields.update(
-            {
-                self.value: forms.TypedChoiceField(
-                    choices=YES_OR_NO_OR_NONE,
-                    required=True,
-                    initial=None,
-                    empty_value=None,
-                    coerce=lambda x: x == "True",
-                )
-            }
-        )
-        self.fields[self.value].label = "Allopurinol Hypersensitivity"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have any history of allopurinol \
-    hypersensitivity syndrome?"
 
 
 class AnginaForm(MHCheckForm):
@@ -308,31 +282,6 @@ class ErosionsForm(MedHistoryForm):
 erosions on x-ray?"
 
 
-class FebuxostathypersensitivityForm(MedHistoryForm):
-    class Meta(MedHistoryForm.Meta):
-        model = Febuxostathypersensitivity
-        prefix = MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields.update(
-            {
-                self.value: forms.TypedChoiceField(
-                    choices=YES_OR_NO_OR_NONE,
-                    required=True,
-                    initial=None,
-                    empty_value=None,
-                    coerce=lambda x: x == "True",
-                )
-            }
-        )
-        self.fields[self.value].label = "Febuxostat Hypersensitivity"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} have any history of febuxostat \
-hypersensitivity syndrome?"
-
-
 class GastricbypassForm(MHCheckForm):
     """Form to create or delete a Gastricbypass object."""
 
@@ -428,6 +377,34 @@ class HeartattackForm(MHCheckForm):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Heart Attack"
         self.fields[self.value].help_text = "Myocardial infarction"
+
+
+class HepatitisForm(MedHistoryForm):
+    """Form to create or delete a Hepatitis object.
+    Widget is a select box with Yes, No, or blank as options."""
+
+    class Meta(MedHistoryForm.Meta):
+        model = Hepatitis
+        prefix = MedHistoryTypes.HEPATITIS
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.update(
+            {
+                self.value: forms.TypedChoiceField(
+                    choices=YES_OR_NO_OR_NONE,
+                    required=True,
+                    initial=None,
+                    empty_value=None,
+                    coerce=lambda x: x == "True",
+                )
+            }
+        )
+        self.fields[self.value].label = "Hepatitis"
+        self.fields[
+            self.value
+        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have hepatitis or \
+cirrhosis of the liver?"
 
 
 class HypertensionForm(MedHistoryForm):

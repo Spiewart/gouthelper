@@ -45,7 +45,6 @@ NSAID_CONTRAS: dict[MedHistoryTypes, Contraindications] = {
 HISTORY_TREATMENT_CONTRAS: dict[Treatments, dict[TrtTypes, dict[MedHistoryTypes, Contraindications]]] = {
     Treatments.ALLOPURINOL: {
         TrtTypes.ULT: {
-            MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY: Contraindications.ABSOLUTE,
             MedHistoryTypes.CKD: Contraindications.DOSEADJ,
             MedHistoryTypes.XOIINTERACTION: Contraindications.ABSOLUTE,
         }
@@ -71,7 +70,6 @@ HISTORY_TREATMENT_CONTRAS: dict[Treatments, dict[TrtTypes, dict[MedHistoryTypes,
     Treatments.FEBUXOSTAT: {
         TrtTypes.ULT: {
             MedHistoryTypes.CKD: Contraindications.DOSEADJ,
-            MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY: Contraindications.ABSOLUTE,
             MedHistoryTypes.XOIINTERACTION: Contraindications.ABSOLUTE,
         }
         | CVD_CONTRAS
@@ -103,6 +101,7 @@ HISTORY_TREATMENT_CONTRAS: dict[Treatments, dict[TrtTypes, dict[MedHistoryTypes,
     Treatments.PROBENECID: {
         TrtTypes.ULT: {
             MedHistoryTypes.CKD: Contraindications.RELATIVE,
+            MedHistoryTypes.URATESTONES: Contraindications.ABSOLUTE,
         }
     },
 }
@@ -154,17 +153,12 @@ class MedHistoryTypesAids:
             iter(self.mhtypes)
         ) in ULTAID_MEDHISTORYS:
             self.UltAid = apps.get_model("ultaids", "UltAid")
-        print(self.patient)
-        print(hasattr(self.patient, "ult"))
-        print(self.mhtypes)
-        print(next(iter(self.mhtypes)) in ULT_MEDHISTORYS)
         if (
             self.patient
             and hasattr(self.patient, "ult")
             or not self.patient
             and next(iter(self.mhtypes)) in ULT_MEDHISTORYS
         ):
-            print("setting ult")
             self.Ult = apps.get_model("ults", "Ult")
 
     def get_medhistorytype_aid_list(
@@ -180,7 +174,6 @@ class MedHistoryTypesAids:
         | type["Ult"]
     ]:
         aid_list = []
-        print(mhtype)
         if (
             self.patient
             and (

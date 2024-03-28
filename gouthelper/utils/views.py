@@ -342,7 +342,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 kwargs[form_str] = MedAllergyTreatmentForm(
                     treatment=treatment,
                     instance=ma_obj,
-                    initial={f"medallergy_{treatment}": True if ma_obj else None},
+                    initial={
+                        f"medallergy_{treatment}": True if ma_obj else None,
+                        f"{treatment}_matype": ma_obj.matype if ma_obj else None,
+                    },
                     patient=patient,
                     request_user=request_user,
                     str_attrs=str_attrs,
@@ -1042,7 +1045,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                             request.POST,
                             treatment=treatment,
                             instance=ma_obj,
-                            initial={f"medallergy_{treatment}": True if ma_obj else None},
+                            initial={
+                                f"medallergy_{treatment}": True if ma_obj else None,
+                                f"{treatment}_matype": ma_obj.matype if ma_obj else None,
+                            },
                             patient=patient,
                             request_user=request_user,
                             str_attrs=str_attrs,
@@ -1253,11 +1259,15 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                             ma = ma_forms[ma_form_str].save(commit=False)
                             # Assign MedAllergy object treatment attr from the cleaned_data["treatment"]
                             ma.treatment = ma_forms[ma_form_str].cleaned_data["treatment"]
+                            ma.matype = ma_forms[ma_form_str].cleaned_data.get(f"{treatment}_matype", None)
                             ma_2_save.append(ma)
                             # Add the medallergy to the form instance's medallergys_qs if it's not already there
                             if ma not in query_obj.medallergys_qs:
                                 query_obj.medallergys_qs.append(ma)
                         else:
+                            if ma_obj.matype != ma_forms[ma_form_str].cleaned_data[f"{treatment}_matype"]:
+                                ma_obj.matype = ma_forms[ma_form_str].cleaned_data[f"{treatment}_matype"]
+                                ma_2_save.append(ma_obj)
                             # Add the medallergy to the form instance's medallergys_qs if it's not already there
                             if ma_obj not in query_obj.medallergys_qs:
                                 query_obj.medallergys_qs.append(ma_obj)

@@ -6,7 +6,6 @@ from django.utils.safestring import mark_safe  # type: ignore
 
 from ..choices import MedHistoryTypes
 from ..forms import (
-    AllopurinolhypersensitivityForm,
     AnginaForm,
     AnticoagulationForm,
     BleedForm,
@@ -16,10 +15,10 @@ from ..forms import (
     ColchicineinteractionForm,
     DiabetesForm,
     ErosionsForm,
-    FebuxostathypersensitivityForm,
     GastricbypassForm,
     GoutForm,
     HeartattackForm,
+    HepatitisForm,
     HypertensionForm,
     HyperuricemiaForm,
     IbdForm,
@@ -33,30 +32,6 @@ from ..forms import (
 )
 
 pytestmark = pytest.mark.django_db
-
-
-class TestAllopurinolhypersensitivityForm(TestCase):
-    def test___init__(self):
-        form = AllopurinolhypersensitivityForm()
-        # Assert value field is correct
-        self.assertIn(
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value",
-            form.fields,
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"].label,
-            "Allopurinol Hypersensitivity",
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"].help_text,
-            "Does the patient have any history of allopurinol hypersensitivity syndrome?",
-        )
-        self.assertTrue(
-            isinstance(
-                form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"],
-                TypedChoiceField,
-            )
-        )
 
 
 class TestAnginaForm(TestCase):
@@ -287,30 +262,6 @@ class TestErosionsForm(TestCase):
         )
 
 
-class TestFebuxostathypersensitivityForm(TestCase):
-    def test___init__(self):
-        form = FebuxostathypersensitivityForm()
-        # Assert value field is correct
-        self.assertIn(
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value",
-            form.fields,
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"].label,
-            "Febuxostat Hypersensitivity",
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"].help_text,
-            "Does the patient have any history of febuxostat hypersensitivity syndrome?",
-        )
-        self.assertTrue(
-            isinstance(
-                form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"],
-                TypedChoiceField,
-            )
-        )
-
-
 class TestGastricbypassForm(TestCase):
     def test___init__(self):
         form = GastricbypassForm()
@@ -413,6 +364,30 @@ class TestHeartattackForm(TestCase):
             isinstance(
                 form.fields[f"{MedHistoryTypes.HEARTATTACK}-value"],
                 BooleanField,
+            )
+        )
+
+
+class TestHepatitisForm(TestCase):
+    def test___init__(self):
+        form = HepatitisForm()
+        # Assert value field is correct
+        self.assertIn(
+            f"{MedHistoryTypes.HEPATITIS}-value",
+            form.fields,
+        )
+        self.assertEqual(
+            form.fields[f"{MedHistoryTypes.HEPATITIS}-value"].label,
+            "Hepatitis",
+        )
+        self.assertEqual(
+            form.fields[f"{MedHistoryTypes.HEPATITIS}-value"].help_text,
+            "Has the patient had hepatitis?",
+        )
+        self.assertTrue(
+            isinstance(
+                form.fields[f"{MedHistoryTypes.HEPATITIS}-value"],
+                TypedChoiceField,
             )
         )
 

@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any
 from django.apps import apps  # pylint: disable=E0401  # type: ignore
 from django.contrib import messages  # pylint: disable=E0401  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
-from django.db.models import Q  # pylint: disable=E0401  # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
 from django.urls import reverse  # pylint: disable=E0401  # type: ignore
 from django.views.generic import (  # pylint: disable=E0401  # type: ignore
@@ -29,29 +28,29 @@ from ..labs.models import Hlab5801
 from ..medhistorydetails.forms import CkdDetailOptionalForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import (
-    AllopurinolhypersensitivityForm,
     AnginaForm,
     CadForm,
     ChfForm,
     CkdForm,
-    FebuxostathypersensitivityForm,
     HeartattackForm,
+    HepatitisForm,
     OrgantransplantForm,
     PvdForm,
     StrokeForm,
+    UratestonesForm,
     XoiinteractionForm,
 )
 from ..medhistorys.models import (
-    Allopurinolhypersensitivity,
     Angina,
     Cad,
     Chf,
     Ckd,
-    Febuxostathypersensitivity,
     Heartattack,
+    Hepatitis,
     Organtransplant,
     Pvd,
     Stroke,
+    Uratestones,
     Xoiinteraction,
 )
 from ..treatments.choices import UltChoices
@@ -96,22 +95,16 @@ class UltAidBase:
     }
     medallergys = UltChoices
     medhistorys = {
-        MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY: {
-            "form": AllopurinolhypersensitivityForm,
-            "model": Allopurinolhypersensitivity,
-        },
         MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
         MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
         MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
         MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY: {
-            "form": FebuxostathypersensitivityForm,
-            "model": Febuxostathypersensitivity,
-        },
         MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
+        MedHistoryTypes.HEPATITIS: {"form": HepatitisForm, "model": Hepatitis},
         MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
         MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
         MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
+        MedHistoryTypes.URATESTONES: {"form": UratestonesForm, "model": Uratestones},
         MedHistoryTypes.XOIINTERACTION: {"form": XoiinteractionForm, "model": Xoiinteraction},
     }
     medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
@@ -169,16 +162,6 @@ class UltAidDetailBase(AutoPermissionRequiredMixin, DetailView):
 
     model = UltAid
     object: UltAid
-
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
-        return context
 
     def get_permission_object(self):
         return self.object

@@ -155,10 +155,83 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} ov
         return medallergy_attr(Treatments.ALLOPURINOL, self)
 
     @cached_property
+    def allopurinol_allergy_interp(self) -> str:
+        """Method that interprets the allopurinol_allergy attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
+        if self.allopurinol_allergy:
+            allergy_str = f"<strong>{Subject_the} {pos} an allergy to allopurinol </strong>, so it's not \
+recommended for {subject_the}."
+        if self.allopurinolhypersensitivity:
+            allergy_str += self.allopurinolhypersensitivity_interp
+        return mark_safe(allergy_str)
+
+    @property
+    def allopurinol_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+        """Method that returns a dict of allopurinol contraindications."""
+        contra_dict = {}
+        if self.allopurinol_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.allopurinol_allergy)
+        if self.hlab5801_contra:
+            contra_dict["HLA-B*5801"] = ("hlab5801", self.hlab5801_contra_interp)
+        if self.xoiinteraction:
+            contra_dict["Medication Interaction"] = (
+                "xoiinteraction",
+                f"{self.xoi_interactions(treatment='Allopurinol')}",
+            )
+        return Treatments.ALLOPURINOL.label, contra_dict
+
+    @classmethod
+    def allopurinol_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Cheap",
+            "Side Effects": "Increased risk of gout flares during the initiation period. Otherwise, usually none.",
+            "Warning-Rash": "A new rash while taking allopurinol could be a sign of a serious allergic reaction \
+and it should always be stopped immediately and the healthcare provider contacted.",
+        }
+
+    @cached_property
+    def allopurinol_info_dict(self) -> str:
+        info_dict = self.allopurinol_info()
+        if self.hepatitis:
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if not getattr(self, "hlab5801", None) and not self.hlab5801_contra:
+            info_dict.update(
+                {
+                    "Warning-HLA-B*5801": "<a class='samepage-link' href='#hlab5801'>HLA-B*5801</a> status is \
+unknown. Consider checking it before starting allopurinol."
+                }
+            )
+        return info_dict
+
+    @cached_property
     def allopurinolhypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns AllopurinolHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        return medhistory_attr(MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY, self)
+        return None
+
+    @cached_property
+    def allopurinolhypersensitivity_interp(self) -> str:
+        """Method that interprets the allopurinolhypersensitivity attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        main_str = format_lazy(
+            """Allopurinol hypersensitivity syndrome is a potentially life-threatening reaction to \
+allopurinol. Thankfully it's very rare. It's risk is increased in individuals with the \
+<a target='_next' href={}>HLA-B*58:01</a> genotype.""",
+            reverse("labs:about-hlab5801"),
+        )
+        main_str += " <br> <br> "
+        if self.allopurinolhypersensitivity:
+            main_str += f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of allopurinol \
+hypersensitivity</strong>."
+        main_str += " Generally, anyone with a history of allopurinol hypersensitivity shouldn't take allopurinol. \
+In some cases, some individuals can be de-sensitized to allopurinol. This should be done under the direction of a \
+rheumatologist."
 
     @cached_property
     def angina(self) -> Union["MedHistory", bool]:
@@ -327,6 +400,7 @@ beyond the capabilities of this tool to manage safely."
     def colchicine_info(cls) -> str:
         return {
             "Availability": "Prescription only",
+            "Cost": "Moderate",
             "Caution": "Can cause stomach upset when taken at the doses effective for Flares.",
             "Side Effects": "Diarrhea, nausea, vomiting, and abdominal pain.",
             "Interactions": cls.colchicine_interactions().capitalize(),
@@ -365,6 +439,23 @@ verapamil, quinidine)"
         """Method that returns a list of cardiovascular disease MedHistory objects
         from self.medhistorys_qs or or self.medhistorys.all()."""
         return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
+
+    @cached_property
+    def cvdiseases_febuxostat_interp(self) -> str | None:
+        (subject_the,) = self.get_str_attrs("subject_the")
+        if self.cvdiseases:
+            if self.febuxostat_cvdiseases:
+                return mark_safe(
+                    f"Because of {subject_the}'s <a class='samepage-link' target'_next' href='#cvdiseases'>\
+cardiovascular disease</a>, febuxostat should be used cautiously and {subject_the}'s treatment for \
+prevention should be optimized."
+                )
+            else:
+                return mark_safe(
+                    f"Febuxostat is contraindicated because {subject_the}'s <a class='samepage-link' target'_next' \
+href='#cvdiseases'>cardiovascular disease</a> and the UltAid settings are set to contraindicate febuxostat in \
+this scenario."
+                )
 
     @cached_property
     def cvdiseases_interp(self) -> str:
@@ -480,6 +571,25 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
         return medhistory_attr(MedHistoryTypes.EROSIONS, self)
 
     @cached_property
+    def erosions_interp(self) -> str:
+        """Method that interprets the erosions attribute and returns a str explanation."""
+        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+
+        main_str = format_lazy(
+            """Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions are a sign of advanced \
+gout and are associated with more severe disease. While they do not influence the choice of ULT, they \
+help determine how aggressive to treat the patient's gout by determining what the <a target='_next' \
+href={}>goal uric acid</a> should be.""",
+            reverse("goalurates:about"),
+        )
+        if self.erosions:
+            main_str += f" <strong>{Subject_the} has gouty erosions, and {gender_subject} should be treated \
+aggressively with ULT."
+        else:
+            main_str += f" <strong>{Subject_the} does not have erosions.</strong>"
+        return mark_safe(main_str)
+
+    @cached_property
     def ethnicity_hlab5801_risk(self) -> bool:
         """Method that determines whether an object object has an ethnicity and whether
         it is an ethnicity that has a high prevalence of HLA-B*58:01 genotype."""
@@ -491,11 +601,72 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
         or self.medallergys.all()."""
         return medallergy_attr(Treatments.FEBUXOSTAT, self)
 
+    @property
+    def febuxostat_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+        """Method that returns a dict of febuxostat contraindications."""
+        contra_dict = {}
+        if self.febuxostat_cvdiseases:
+            contra_dict["Cardiovascular Disease"] = ("cvdiseases", self.cvdiseases_febuxostat_interp)
+        if self.febuxostat_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.febuxostat_allergy)
+        if self.xoiinteraction:
+            contra_dict["Medication Interaction"] = (
+                "xoiinteraction",
+                f"{self.xoi_interactions(treatment='Febuxostat')}",
+            )
+        return Treatments.FEBUXOSTAT.label, contra_dict
+
+    @cached_property
+    def febuxostat_cvdiseases(self) -> bool:
+        """Method that determines whether or not the object has a contraindication
+        to febuxostat due to CVD."""
+        if self.cvdiseases:
+            return self.defaulttrtsettings.febu_cv_disease
+        return False
+
+    @classmethod
+    def febuxostat_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Expensive",
+            "Side Effects": "Increased risk of gout flares during the initiation period. Otherwise, usually none.",
+            "Warning-Rash": "A new rash while taking febuxostat could be a sign of a serious allergic reaction \
+and it should always be stopped immediately and the healthcare provider contacted.",
+        }
+
+    @cached_property
+    def febuxostat_info_dict(self) -> str:
+        info_dict = self.febuxostat_info()
+        if self.hepatitis:
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if self.cvdiseases:
+            info_dict.update({"Warning-Cardiovascular Disease": self.cvdiseases_febuxostat_interp})
+        return info_dict
+
     @cached_property
     def febuxostathypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns FebuxostatHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        return medhistory_attr(MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY, self)
+        return None
+
+    @cached_property
+    def febuxostathypersensitivity_interp(self) -> str:
+        """Method that interprets the febuxostathypersensitivity attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        main_str = "Febuxostat hypersensitivity syndrome is a potentially life-threatening reaction to \
+febuxostat. Like allopurinol hypersensitivity, it is very rare. It is generally less well \
+reported (scientifically) than hypersensitivity to allopurinol."
+
+        main_str += " <br> <br> "
+        if self.febuxostathypersensitivity:
+            main_str += f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of febuxostat \
+hypersensitivity</strong>."
+        main_str += " Generally, anyone with a history of febuxostat hypersensitivity shouldn't take febuxostat. \
+In some cases, some individuals can be de-sensitized to febuxostat. This should be done under the direction of a \
+rheumatologist."
 
     @cached_property
     def gastricbypass(self) -> Union["MedHistory", bool]:
@@ -589,6 +760,37 @@ contraindicated."
         return medhistory_attr(MedHistoryTypes.HEARTATTACK, self)
 
     @cached_property
+    def hepatitis(self) -> Union["MedHistory", bool]:
+        """Method that returns Hepatitis object from self.medhistorys_qs or or self.medhistory_set.all()."""
+        return medhistory_attr(MedHistoryTypes.HEPATITIS, self)
+
+    @cached_property
+    def hepatitis_interp(self) -> str:
+        """Method that interprets the hepatitis attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, pos_neg, gender_pos = self.get_str_attrs("Subject_the", "pos", "pos_neg", "gender_pos")
+        main_str = "Liver function test (LFT) abnormalities are common in individuals with gout and can \
+be caused or exacerbated medications used to treat gout. While pre-existing liver conditions, \
+such as hepatitis or cirrhosis, are not a contraindication to gout treatment, \
+they can make LFT interpretation more complicated and often require a patient get more frequent lab monitoring. \
+<br> <br> "
+        if self.hepatitis:
+            main_str += f" <strong>{Subject_the} {pos} hepatitis</strong> and as a result, \
+{gender_pos} liver function tests should be monitored closely."
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg} hepatitis</strong>, so routine \
+monitoring of {gender_pos} LFTs is appropriate."
+        return mark_safe(main_str)
+
+    @classmethod
+    def hepatitis_warning(cls) -> str:
+        return mark_safe(
+            "Liver function test abnormalities are common and should be \
+monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or cirrhosis</a>."
+        )
+
+    @cached_property
     def hlab5801_contra(self) -> bool:
         """Property that returns True if the object's hlab5801 contraindicates
         allopurinol."""
@@ -601,6 +803,39 @@ contraindicated."
                 else self.defaulttrtsettings(trttype=TrtTypes.ULT)
             ),
         )
+
+    @cached_property
+    def hlab5801_contra_interp(self) -> str:
+        """Method that interprets the hlab5801_contra attribute and returns a str explanation."""
+        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+        hlab5801 = getattr(self, "hlab5801", None)
+        if self.hlab5801_contra:
+            if hlab5801 and hlab5801.value:
+                return f" <strong>{Subject_the} has the HLA-B*5801 genotype</strong>, \
+and as a result, allopurinol should not be the first line ULT treatment for {gender_subject}."
+            else:
+                return f" <strong>{Subject_the} is of a descent at high risk for the HLA-B*5801 gene</strong>, \
+but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting allopurinol."
+        elif hlab5801 and not hlab5801.value:
+            return f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>."
+        else:
+            return f" <strong>{Subject_the} has not had testing for the HLA-B*5801 gene</strong>."
+
+    @cached_property
+    def hlab5801_interp(self) -> str:
+        """Method that interprets the hlab5801_contra related model manager and returns a str explanation."""
+
+        main_str = format_lazy(
+            """<a target='_next' href={}>HLA-B*5801</a> is a gene that is associated with an \
+increased risk of allopurinol hypersensitivity syndrome. It is more common in individuals of certain \
+ancestries, such as those of African American, Korean, Han Chinese, or Thai descent. The American \
+College of Rheumatology recommends checking individuals of these descents for this gene before \
+starting allopurinol.""",
+            reverse("labs:about-hlab5801"),
+        )
+        main_str += " <br> <br> "
+        main_str += self.hlab5801_contra_interp
+        return mark_safe(main_str)
 
     @cached_property
     def hypertension(self) -> Union["MedHistory", bool]:
@@ -922,6 +1157,69 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         return False
 
     @cached_property
+    def probenecid_ckd_contra_interp(self) -> str:
+        """Method that interprets the probenecid_ckd_contra attribute and returns a str explanation."""
+        if self.probenecid_ckd_contra:
+            (subject_the,) = self.get_str_attrs("subject_the")
+            return f"Probenecid is not recommended for {subject_the} with {self.ckddetail.explanation}."
+        else:
+            raise ValueError("probenecid_ckd_contra_interp should not be called if probenecid_ckd_contra is False.")
+
+    @property
+    def probenecid_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+        """Method that returns a dict of probenecid contraindications."""
+        contra_dict = {}
+        if self.probenecid_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.probenecid_allergy)
+        if self.probenecid_ckd_contra:
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.probenecid_ckd_contra_interp)
+        if self.uratestones:
+            contra_dict["Urate Kidney Stones"] = (
+                "uratestones",
+                f"{self.probenecid_uratestones_interp}",
+            )
+        return Treatments.PROBENECID.label, contra_dict
+
+    @classmethod
+    def probenecid_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Cheap",
+            "Side Effects": "Flushing, as well as increased risk of gout flares during the initiation period.",
+            "Warning-Urate Kidney Stones": "Increases risk of uric acid kidney stones.",
+        }
+
+    @cached_property
+    def probenecid_info_dict(self) -> str:
+        info_dict = self.probenecid_info()
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        return info_dict
+
+    @cached_property
+    def probenecid_uratestones_interp(self) -> str:
+        """Method that interprets the uratestones attribute and returns a str explanation."""
+
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        main_str = format_lazy(
+            """Uric acid kidney stones can be exacerbated by medications that increase \
+urinary uric acid filtration, such as <a target='_next' href={}>probenecid</a>. """,
+            reverse("treatments:about-ult") + "#probenecid",
+        )
+        if self.uratestones:
+            return mark_safe(
+                main_str
+                + f"<strong>{Subject_the} has a history of uric acid kidney stones</strong>, \
+and as such shouldn't be prescribed probenecid."
+            )
+        else:
+            return mark_safe(
+                main_str
+                + f"<strong>{Subject_the} does not have a history of uric acid kidney stones\
+</strong>."
+            )
+
+    @cached_property
     def pud(self) -> Union["MedHistory", bool]:
         """Method that returns Pud object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -1050,6 +1348,25 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
         return medhistory_attr(MedHistoryTypes.TOPHI, self)
 
     @cached_property
+    def tophi_interp(self) -> str:
+        """Method that interprets the tophi attribute and returns a str explanation."""
+        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+
+        main_str = format_lazy(
+            """Like <a class='samepage-link' href='#erosions'>erosions</a>, tophi are a sign of advanced \
+gout and are associated with more severe disease. Tophi are actually little clumps of \
+<a target='_blank' href={}>uric acid</a> in and around joints. They require more aggressive \
+treatment with ULT in order to eliminate them. If left untreated, they can cause permanent joint damage.""",
+            reverse("labs:about-urate"),
+        )
+        if self.tophi:
+            main_str += f" <strong>{Subject_the} has tophi, and {gender_subject} should be treated \
+aggressively with ULT."
+        else:
+            main_str += f" <strong>{Subject_the} does not have tophi.</strong>"
+        return mark_safe(main_str)
+
+    @cached_property
     def uratestones(self) -> Union["MedHistory", bool]:
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -1060,6 +1377,34 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
         """Method that returns XoiInteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)
+
+    @classmethod
+    def xoi_interactions(cls, treatment: str | None = None) -> str:
+        return mark_safe(
+            f"{treatment if treatment else 'Xanthine oxidase inhibitors'} (<a target='_next' \
+href='https://en.wikipedia.org/wiki/Xanthine_oxidase_inhibitor'>XOI</a>) interact{'s' if treatment else ''} \
+with <a target='_next' href='https://en.wikipedia.org/wiki/Azathioprine'>azathioprine</a>, \
+<a target='_next' href='https://en.wikipedia.org/wiki/Mercaptopurine'>6-mercaptopurine</a>, \
+and <a target='_next' href='https://en.wikipedia.org/wiki/Theophylline'>theophylline</a>."
+        )
+
+    @cached_property
+    def xoiinteraction_interp(self) -> str:
+        """Method that interprets the xoiinteraction attribute and returns a str explanation."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        main_str = "Allopurinol and febuxostat are \
+<a target='_next' href='https://en.wikipedia.org/wiki/Xanthine_oxidase_inhibitors'>xanthine oxidase inhibitors</a> \
+(XOIs) that are used to treat gout. \
+They can interact with other medications, such as azathioprine, 6-mercaptopurine, and theophylline, \
+    by inhibiting their metabolism. This can lead to increased levels of these medications in the blood, \
+        which can cause toxicity and severe side effects. "
+        if self.xoiinteraction:
+            main_str += f" <br> <br> <strong>{Subject_the} is on a mediaction  \
+that interacts with XOIs</strong> and should not be on allopurinol or febuxostat except under rare circumstances \
+and under the close supervision of a healthcare provider."
+        else:
+            main_str += f" <strong>{Subject_the} is not on a medication that interacts with XOIs.</strong>"
+        return mark_safe(main_str)
 
 
 class TreatmentAidMixin:

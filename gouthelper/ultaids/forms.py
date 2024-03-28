@@ -31,8 +31,6 @@ class UltAidForm(
             "decisionaid",
             "gender",
             "hlab5801",
-            "medallergys",
-            "medhistorys",
             "ethnicity",
         )
 
@@ -53,18 +51,15 @@ class UltAidForm(
         )
         forms_helper_insert_about_the_patient(layout=self.helper.layout)
         if not self.patient:
-            forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_ethnicity(layout=self.helper.layout)
-            forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
+        if not self.patient:
+            forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.XOIINTERACTION)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.ORGANTRANSPLANT)
         forms_helper_insert_medallergys(layout=self.helper.layout, treatments=self.medallergys)
-        forms_helper_insert_medhistory(
-            layout=self.helper.layout, medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
-        )
-        forms_helper_insert_medhistory(
-            layout=self.helper.layout, medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
-        )
+        forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.HEPATITIS)
+        forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.URATESTONES)

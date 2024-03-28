@@ -85,6 +85,15 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(Ult, aid_list)
         self.assertEqual(len(aid_list), 5)
 
+    def test__hepatitis(self):
+        aid_dict = MedHistoryTypesAids(MedHistoryTypes.HEPATITIS).get_medhistorytypes_aid_dict()
+        self.assertTrue(isinstance(aid_dict, dict))
+        self.assertIn(MedHistoryTypes.HEPATITIS, aid_dict)
+        aid_list = aid_dict.get(MedHistoryTypes.HEPATITIS)
+        self.assertTrue(isinstance(aid_list, list))
+        self.assertIn(UltAid, aid_list)
+        self.assertEqual(len(aid_list), 1)
+
     def test__with_patient(self):
         for _ in range(5):
             flare = create_flare(user=create_psp())

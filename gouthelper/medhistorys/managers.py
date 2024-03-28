@@ -3,15 +3,6 @@ from django.db.models import Manager  # type: ignore
 from .choices import MedHistoryTypes
 
 
-class AllopurinolhypersensitivityManager(Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY)
-
-    def create(self, **kwargs):
-        kwargs.update({"medhistorytype": MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY})
-        return super().create(**kwargs)
-
-
 class AnginaManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(medhistorytype=MedHistoryTypes.ANGINA)
@@ -102,15 +93,6 @@ class ErosionsManager(Manager):
         return super().create(**kwargs)
 
 
-class FebuxostathypersensitivityManager(Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY)
-
-    def create(self, **kwargs):
-        kwargs.update({"medhistorytype": MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY})
-        return super().create(**kwargs)
-
-
 class GastricbypassManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(medhistorytype=MedHistoryTypes.GASTRICBYPASS)
@@ -140,6 +122,15 @@ class HeartattackManager(Manager):
 
     def create(self, **kwargs):
         kwargs.update({"medhistorytype": MedHistoryTypes.HEARTATTACK})
+        return super().create(**kwargs)
+
+
+class HepatitisManager(Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(medhistorytype=MedHistoryTypes.HEPATITIS)
+
+    def create(self, **kwargs):
+        kwargs.update({"medhistorytype": MedHistoryTypes.HEPATITIS})
         return super().create(**kwargs)
 
 
