@@ -36,7 +36,9 @@
   </div>
   <div class="row">
     <div class="col">
-      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation</a> | <a class="samepage-link" href="#options">Options</a> | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation</a>
+      {% if object.options_without_rec %}| <a class="samepage-link" href="#options">Options</a>{% endif %}
+      | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
   </div>
 {% endblock heading %}

@@ -216,7 +216,7 @@ def forms_helper_insert_medallergys(
                         Medication Allergies </label>
                         """
                     ),
-                    Div(),
+                    Div(css_class="row"),
                     Div(
                         HTML(
                             f"""Does {subject_the} have an allergy to any of these medications?
@@ -238,13 +238,16 @@ def forms_helper_insert_medallergys(
     for treatment in treatments:
         layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
             Div(
-                HTML(
-                    f"""
-                    {{% load crispy_forms_tags %}}
-                    {{% crispy medallergy_{treatment}_form %}}
-                    """
+                Div(
+                    HTML(
+                        f"""
+                        {{% load crispy_forms_tags %}}
+                        {{% crispy medallergy_{treatment}_form %}}
+                        """
+                    ),
+                    css_class="form-check form-check-inline medhistory_form-check",
                 ),
-                css_class="form-check form-check-inline medhistory_form-check",
+                css_class="col",
             ),
         )
 

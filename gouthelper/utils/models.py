@@ -161,10 +161,11 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} ov
 
         Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
         if self.allopurinol_allergy:
-            allergy_str = f"<strong>{Subject_the} {pos} an allergy to allopurinol </strong>, so it's not \
+            if self.allopurinolhypersensitivity:
+                allergy_str = self.allopurinolhypersensitivity_interp
+            else:
+                allergy_str = f"<strong>{Subject_the} {pos} an allergy to allopurinol </strong>, so it's not \
 recommended for {subject_the}."
-        if self.allopurinolhypersensitivity:
-            allergy_str += self.allopurinolhypersensitivity_interp
         return mark_safe(allergy_str)
 
     @property
@@ -202,8 +203,10 @@ and it should always be stopped immediately and the healthcare provider contacte
         if not getattr(self, "hlab5801", None) and not self.hlab5801_contra:
             info_dict.update(
                 {
-                    "Warning-HLA-B*5801": "<a class='samepage-link' href='#hlab5801'>HLA-B*5801</a> status is \
+                    "Warning-HLA-B*5801": mark_safe(
+                        "<a class='samepage-link' href='#hlab5801'>HLA-B*5801</a> status is \
 unknown. Consider checking it before starting allopurinol."
+                    )
                 }
             )
         return info_dict
@@ -212,26 +215,34 @@ unknown. Consider checking it before starting allopurinol."
     def allopurinolhypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns AllopurinolHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        return None
+        return next(
+            iter(
+                ma
+                for ma in self.medallergys
+                if ma.treatment == Treatments.ALLOPURINOL and ma.matype == ma.MaTypes.HYPERSENSITIVITY
+            ),
+            False,
+        )
 
     @cached_property
     def allopurinolhypersensitivity_interp(self) -> str:
         """Method that interprets the allopurinolhypersensitivity attribute and returns a str explanation
         of the impact of it on a patient's gout."""
 
-        main_str = format_lazy(
-            """Allopurinol hypersensitivity syndrome is a potentially life-threatening reaction to \
-allopurinol. Thankfully it's very rare. It's risk is increased in individuals with the \
+        if self.allopurinolhypersensitivity:
+            main_str = f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of allopurinol \
+hypersensitivity</strong>, "
+        else:
+            main_str = "Allopurinol hypersensitivity syndrome is "
+        main_str += format_lazy(
+            """a potentially life-threatening reaction to allopurinol. <br> <br> Generally, \
+anyone with a history of allopurinol hypersensitivity shouldn't take allopurinol, \
+though, in some cases individuals can be de-sensitized. This should be done under the direction of a \
+rheumatologist. Risk of allopurinol hypersensitivity is increased in individuals with the \
 <a target='_next' href={}>HLA-B*58:01</a> genotype.""",
             reverse("labs:about-hlab5801"),
         )
-        main_str += " <br> <br> "
-        if self.allopurinolhypersensitivity:
-            main_str += f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of allopurinol \
-hypersensitivity</strong>."
-        main_str += " Generally, anyone with a history of allopurinol hypersensitivity shouldn't take allopurinol. \
-In some cases, some individuals can be de-sensitized to allopurinol. This should be done under the direction of a \
-rheumatologist."
+        return mark_safe(main_str)
 
     @cached_property
     def angina(self) -> Union["MedHistory", bool]:
@@ -442,19 +453,19 @@ verapamil, quinidine)"
 
     @cached_property
     def cvdiseases_febuxostat_interp(self) -> str | None:
-        (subject_the,) = self.get_str_attrs("subject_the")
+        (subject_the_pos,) = self.get_str_attrs("subject_the_pos")
         if self.cvdiseases:
-            if self.febuxostat_cvdiseases:
+            if self.febuxostat_cvdiseases_contra:
                 return mark_safe(
-                    f"Because of {subject_the}'s <a class='samepage-link' target'_next' href='#cvdiseases'>\
-cardiovascular disease</a>, febuxostat should be used cautiously and {subject_the}'s treatment for \
-prevention should be optimized."
+                    f"Febuxostat is contraindicated because of {subject_the_pos} <a class='samepage-link' \
+target'_next' href='#cvdiseases'>cardiovascular disease</a> and the UltAid settings are set to contraindicate \
+febuxostat in this scenario."
                 )
             else:
                 return mark_safe(
-                    f"Febuxostat is contraindicated because {subject_the}'s <a class='samepage-link' target'_next' \
-href='#cvdiseases'>cardiovascular disease</a> and the UltAid settings are set to contraindicate febuxostat in \
-this scenario."
+                    f"Because of {subject_the_pos} <a class='samepage-link' target'_next' href='#cvdiseases'>\
+cardiovascular disease</a>, febuxostat should be used cautiously and {subject_the_pos} treatment for \
+prevention should be optimized."
                 )
 
     @cached_property
@@ -605,7 +616,7 @@ aggressively with ULT."
     def febuxostat_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
         """Method that returns a dict of febuxostat contraindications."""
         contra_dict = {}
-        if self.febuxostat_cvdiseases:
+        if self.febuxostat_cvdiseases_contra:
             contra_dict["Cardiovascular Disease"] = ("cvdiseases", self.cvdiseases_febuxostat_interp)
         if self.febuxostat_allergy:
             contra_dict["Allergy"] = ("medallergys", self.febuxostat_allergy)
@@ -617,11 +628,11 @@ aggressively with ULT."
         return Treatments.FEBUXOSTAT.label, contra_dict
 
     @cached_property
-    def febuxostat_cvdiseases(self) -> bool:
+    def febuxostat_cvdiseases_contra(self) -> bool:
         """Method that determines whether or not the object has a contraindication
         to febuxostat due to CVD."""
         if self.cvdiseases:
-            return self.defaulttrtsettings.febu_cv_disease
+            return not self.defaulttrtsettings.febu_cv_disease
         return False
 
     @classmethod
@@ -649,24 +660,31 @@ and it should always be stopped immediately and the healthcare provider contacte
     def febuxostathypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns FebuxostatHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        return None
+        return next(
+            iter(
+                ma
+                for ma in self.medallergys
+                if ma.treatment == Treatments.FEBUXOSTAT and ma.matype == ma.MaTypes.HYPERSENSITIVITY
+            ),
+            False,
+        )
 
     @cached_property
     def febuxostathypersensitivity_interp(self) -> str:
         """Method that interprets the febuxostathypersensitivity attribute and returns a str explanation
         of the impact of it on a patient's gout."""
 
-        main_str = "Febuxostat hypersensitivity syndrome is a potentially life-threatening reaction to \
-febuxostat. Like allopurinol hypersensitivity, it is very rare. It is generally less well \
-reported (scientifically) than hypersensitivity to allopurinol."
-
-        main_str += " <br> <br> "
         if self.febuxostathypersensitivity:
-            main_str += f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of febuxostat \
-hypersensitivity</strong>."
-        main_str += " Generally, anyone with a history of febuxostat hypersensitivity shouldn't take febuxostat. \
-In some cases, some individuals can be de-sensitized to febuxostat. This should be done under the direction of a \
-rheumatologist."
+            main_str = f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of febuxostat \
+hypersensitivity</strong>, "
+        else:
+            main_str = "Febuxostat hypersensitivity syndrome is "
+        main_str += "a potentially life-threatening reaction to \
+febuxostat. <br> <br> Generally, anyone with a history of febuxostat hypersensitivity shouldn't take febuxostat, \
+though some individuals can be de-sensitized under the direction of a \
+rheumatologist. Like allopurinol hypersensitivity, it is very rare, but is generally less well \
+reported (scientifically) than hypersensitivity to allopurinol."
+        return mark_safe(main_str)
 
     @cached_property
     def gastricbypass(self) -> Union["MedHistory", bool]:
@@ -1104,9 +1122,9 @@ new or stopping any old medications."
     def organtransplant_warning(self) -> str | None:
         """Method that returns a warning str if the object has an associated
         OrganTransplant MedHistory object."""
-        Subject_the, pos, gender_pos = self.get_str_attrs("subject_the", "pos", "gender_pos")
+        Subject_the, pos, gender_pos = self.get_str_attrs("Subject_the", "pos", "gender_pos")
         return mark_safe(
-            f"{Subject_the} {pos} an organ transplant. {Subject_the} should consult with {gender_pos} \
+            f"{Subject_the} {pos} an organ transplant and should consult with {gender_pos} \
 transplant providers, including a pharmacist, prior to starting any new or stopping any old medications."
         )
 

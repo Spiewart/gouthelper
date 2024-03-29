@@ -3,12 +3,14 @@ from typing import TYPE_CHECKING
 
 from django import template  # type: ignore
 from django.template.base import TemplateSyntaxError  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
 
 from .ethnicitys.helpers import ethnicitys_hlab5801_risk
 from .treatments.choices import Treatments, TrtTypes
 from .utils.helpers import TrtDictStr
 
 if TYPE_CHECKING:
+    from .defaults.models import UltAidSettings
     from .ethnicitys.models import Ethnicity
 
 register = template.Library()
@@ -126,3 +128,15 @@ def concat_str_with_underscore(template_string, arg):
 def trt_dict_to_str(dosing_dict: dict, trttype: TrtTypes, treatment: Treatments) -> str:
     """Return a string explaining a trt_dict's recommendations."""
     return TrtDictStr(dosing_dict, trttype, treatment).trt_dict_to_str()
+
+
+@register.simple_tag(name="trt_dose_adj_to_str")
+def trt_dose_adj_to_str(
+    dosing_dict: dict,
+    ultaidsettings: "UltAidSettings",
+) -> str:
+    """Return a string explaining a trt_dict's recommendations."""
+    return mark_safe(
+        f"increase the dose {dosing_dict['dose_adj']} mg every {int(ultaidsettings.dose_adj_interval.days / 7)} \
+weeks until uric acid is at <a class='samepage-link' href='#goalurate'>goal</a>"
+    )

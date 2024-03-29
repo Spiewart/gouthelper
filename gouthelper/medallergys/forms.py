@@ -1,6 +1,7 @@
 from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import Div, Field, Layout  # type: ignore
 from django import forms  # type: ignore
+from django.utils.html import mark_safe
 
 from ..treatments.choices import Treatments
 from ..utils.helpers import get_str_attrs
@@ -23,7 +24,14 @@ class MedAllergyTreatmentForm(forms.ModelForm):
         self.treatment = kwargs.pop("treatment")
         super().__init__(*args, **kwargs)
         self.value = f"medallergy_{self.treatment}"
-        self.fields.update({self.value: forms.BooleanField(required=False)})
+        self.fields.update(
+            {
+                self.value: forms.BooleanField(
+                    required=False,
+                    widget=forms.CheckboxInput(attrs={"class": "slider form-control"}),
+                )
+            }
+        )
         self.fields[self.value].label = Treatments[self.treatment].label
 
         # If treatment is not allopurinol or febuxostat, remove the matype field
@@ -37,17 +45,21 @@ class MedAllergyTreatmentForm(forms.ModelForm):
                     )
                 }
             )
-            self.fields[
-                trt_matype
-            ].label = f"Was this allergy {Treatments[self.treatment].label} Hypersensitivity \
-Syndrome?"
-
+            self.fields[trt_matype].label = "Hypersensitivity Syndrome"
+            self.fields[trt_matype].help_text = mark_safe(
+                "Was this a <a target='_next' \
+href='https://en.wikipedia.org/wiki/Allopurinol_hypersensitivity_syndrome'>hypersensitivity reaction</a>?"
+            )
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Div(
                 Div(
-                    Field(self.value, wrapper_class="medallergy_select"),
+                    Field(
+                        self.value,
+                        css_class="form-check-input",
+                        wrapper_class="medallergy_select form-check form-switch",
+                    ),
                     css_class="col",
                 ),
                 css_class="row",

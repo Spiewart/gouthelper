@@ -775,6 +775,13 @@ class UltAidSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metacla
             # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
             # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
+                name="%(app_label)s_%(class)s_dose_adj_interval_valid",
+                check=(
+                    models.Q(dose_adj_interval__lte=timedelta(days=84))
+                    & models.Q(dose_adj_interval__gte=timedelta(days=14))
+                ),
+            ),
+            models.CheckConstraint(
                 name="%(app_label)s_%(class)s_initial_febuxostat_dose_ckd",
                 check=(models.Q(febu_ckd_initial_dose__in=FebuxostatDoses.values)),
             ),
@@ -815,6 +822,15 @@ class UltAidSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metacla
         verbose_name="Allopurinol / high risk ethnicity / no HLA-B*5801",
         help_text="Use allopurinol in high risk ethnicity without HLA-B*5801?",
         default=False,
+    )
+    dose_adj_interval = models.DurationField(
+        _("Dose Adjustment Interval"),
+        help_text="How often is the dose adjusted?",
+        validators=[
+            MaxValueValidator(timedelta(days=84)),
+            MinValueValidator(timedelta(days=14)),
+        ],
+        default=timedelta(days=42),
     )
     febu_ckd_initial_dose = models.DecimalField(
         _("Initial Febuxostat CKD Dose"),

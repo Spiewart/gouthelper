@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Union
 
 from django.utils import timezone  # type: ignore
 
+from ..genders.choices import Genders
 from ..treatments.choices import Freqs, Treatments, TrtTypes
 from ..treatments.helpers import stringify_dosing_dict
 
@@ -53,6 +54,7 @@ class TrtDictStr:
     dose: Decimal
     dose2: Decimal | None
     dose3: Decimal | None
+    dose_adj: Decimal | None
     freq: Freqs | None
     freq2: Freqs | None
     freq3: Freqs | None
@@ -162,6 +164,12 @@ def get_str_attrs(
     patient: Union["GoutHelperPatientModel", None] = None,
     request_user: Union["User", None] = None,
 ) -> dict[str, str]:
+    def get_obj_gender(obj: Any) -> Genders | None:
+        gender_obj = getattr(obj, "gender", None)
+        return gender_obj.value if gender_obj else None
+
+    gender = get_obj_gender(patient if patient else obj)
+
     str_attrs = {}
     if patient:
         if request_user and request_user == patient:
@@ -179,9 +187,17 @@ def get_str_attrs(
                     "subject_the": "you",
                     "subject_pos": "your",
                     "subject_the_pos": "your",
-                    "gender_pos": "hers" if hasattr(patient, "gender") and patient.gender.value else "his",
-                    "gender_subject": "she" if hasattr(patient, "gender") and patient.gender.value else "he",
-                    "gender_ref": "her" if hasattr(patient, "gender") and patient.gender.value else "him",
+                    "gender_pos": (
+                        "hers" if gender == Genders.FEMALE else "his" if gender == Genders.MALE else "his or hers"
+                    ),
+                    "gender_subject": (
+                        "she" if gender == Genders.FEMALE else "he" if gender == Genders.MALE else "he or she"
+                    ),
+                    "gender_ref": "her"
+                    if gender == Genders.FEMALE
+                    else "him"
+                    if gender == Genders.MALE
+                    else "him or her",
                 }
             )
             str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
@@ -196,9 +212,15 @@ def get_str_attrs(
                     "pos_past": "had",
                     "pos_neg": "doesn't have",
                     "pos_neg_past": "hasn't had",
-                    "gender_pos": "her" if patient.gender.value else "his",
-                    "gender_subject": "she" if patient.gender.value else "he",
-                    "gender_ref": "her" if patient.gender.value else "him",
+                    "gender_pos": (
+                        "her" if gender == Genders.FEMALE else "his" if gender == Genders.MALE else "his or hers"
+                    ),
+                    "gender_subject": (
+                        "she" if gender == Genders.FEMALE else "he" if gender == Genders.MALE else "he or she"
+                    ),
+                    "gender_ref": (
+                        "her" if gender == Genders.FEMALE else "him" if gender == Genders.MALE else "him or her"
+                    ),
                 }
             )
             str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
@@ -226,17 +248,13 @@ def get_str_attrs(
                 "subject_pos": "patient's",
                 "subject_the_pos": "the patient's",
                 "gender_pos": (
-                    "hers"
-                    if obj and obj.gender and obj.gender.value
-                    else "his"
-                    if obj and obj.gender
-                    else "his or hers"
+                    "hers" if gender == Genders.FEMALE else "his" if gender == Genders.MALE else "his or hers"
                 ),
                 "gender_subject": (
-                    "she" if obj and obj.gender and obj.gender.value else "he" if obj and obj.gender else "he or she"
+                    "she" if gender == Genders.FEMALE else "he" if gender == Genders.MALE else "he or she"
                 ),
                 "gender_ref": (
-                    "her" if obj and obj.gender and obj.gender.value else "him" if obj and obj.gender else "him or her"
+                    "her" if gender == Genders.FEMALE else "him" if gender == Genders.MALE else "him or her"
                 ),
             }
         )

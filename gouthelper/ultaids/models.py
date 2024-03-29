@@ -19,6 +19,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, TrtTypes, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..users.models import Pseudopatient
+from ..utils.links import get_link_febuxostat_cv_risk
 from ..utils.models import GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import aids_json_to_trt_dict, aids_probenecid_ckd_contra, aids_xois_ckd_contra
 from .managers import UltAidManager
@@ -163,27 +164,34 @@ in patients with CKD of unclear stage (severity).""",
         (subject_the,) = self.get_str_attrs("subject_the")
         main_str = format_lazy(
             """Compared to allopurinol, <a target='_blank' href={}>febuxostat</a> was associated associated \
-with an increased risk of cardiovascular events and mortality in late-stage clinical trials required by the FDA
-(White et al., N Engl J Med, 2018, PMID: <a target='_next' href='https://pubmed.ncbi.nlm.nih.gov/29527974/'>29527974\
-</a>). This is a contested subject and while not contraindicated in individuals with cardiovascular disease, \
+with an increased risk of cardiovascular events and mortality in late-stage clinical trials required by the FDA\
+<sup><a class='samepage-link' href='#cvdiseases_interp-ref1'>1</a></sup>. This is a contested subject and while
+not contraindicated in individuals with cardiovascular disease, \
 febuxostat should be used cautiously in these individuals, who should also have a discussion with their provider \
 about the risks and benefits. <br> <br> """,
             reverse("treatments:about-ult") + "#febuxostat",
         )
         if self.cvdiseases:
-            if self.febuxostat_cvdiseases:
-                main_str += mark_safe(
-                    f"Because <strong>{subject_the} has cardiovascular disease \
-({self.cvdiseases_str.lower()})</strong>, \
-febuxostat should be used cautiously and {subject_the}'s treatment for prevention should be optimized."
-                )
-            else:
+            if self.febuxostat_cvdiseases_contra:
                 main_str += mark_safe(
                     f"Febuxostat is contraindicated because <strong>{subject_the} has cardiovascular disease \
 ({self.cvdiseases_str.lower()})</strong> and the UltAid settings are set to contraindicate febuxostat in \
 this scenario."
                 )
+            else:
+                main_str += mark_safe(
+                    f"Because <strong>{subject_the} has cardiovascular disease \
+({self.cvdiseases_str.lower()})</strong>, \
+febuxostat should be used cautiously and {subject_the}'s treatment for prevention should be optimized."
+                )
 
+        main_str += (
+            "<br> <br> <div class='explanation-references'><ol>"
+            + "<li id='cvdiseases_interp-ref1'>"
+            + get_link_febuxostat_cv_risk()
+            + "</li>"
+            + "</ol></div>"
+        )
         return mark_safe(main_str)
 
     @cached_property
@@ -262,27 +270,27 @@ this scenario."
         main_str = ""
         if self.medallergys:
             if self.allopurinol_allergy:
-                main_str += f"<strong>{Subject_the} {pos} an allergy to allopurinol </strong>, so it's not \
-recommended for {subject_the}."
                 if self.allopurinolhypersensitivity:
-                    main_str += "<br> <br> "
                     main_str += self.allopurinolhypersensitivity_interp
+                else:
+                    main_str += f"<strong>{Subject_the} {pos} an allergy to allopurinol</strong>, so it's not \
+    recommended for {subject_the}."
             if self.febuxostat_allergy:
                 if self.allopurinol_allergy:
                     main_str += "<br> <br> "
-                main_str += f"<strong>{Subject_the} {pos} a medication allergy to febuxostat</strong> \
-, so it's not recommended for {subject_the}."
                 if self.febuxostathypersensitivity:
-                    main_str += "<br> <br> "
                     main_str += self.febuxostathypersensitivity_interp
+                else:
+                    main_str += f"<strong>{Subject_the} {pos} a medication allergy to febuxostat</strong>\
+    , so it's not recommended for {subject_the}."
             if self.probenecid_allergy:
                 if self.allopurinol_allergy or self.febuxostat_allergy:
                     main_str += "<br> <br> "
-                main_str += f"<strong>{Subject_the} {pos} a an allergy to febuxostat </strong>, so it's \
+                main_str += f"<strong>{Subject_the} {pos} a an allergy to probenecid</strong>, so it's \
 not recommended for {subject_the}."
         else:
             main_str += f"Usually, allergy to a medication is an absolute contraindication to its use. \
-{Subject_the} {pos_neg} any allergies to ULT treatments."
+<strong>{Subject_the} {pos_neg} any allergies to ULT treatments</strong>."
         return mark_safe(main_str)
 
     @cached_property

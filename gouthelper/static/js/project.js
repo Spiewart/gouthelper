@@ -8,6 +8,21 @@ function add_asterisk(input) {
   }
 }
 
+function check_medallergy(treatment) {
+  // function that checks whether a medallergy checkbox is checked for a treatment
+  // and shows the treatment_matype field if so
+  var id = 'medallergy_' + treatment;
+  if ($('#id_' + id).is(':checked')) {
+    $('#div_id_' + treatment + '_matype').show();
+  } else {
+    $('#div_id_' + treatment + '_matype').hide();
+    // uncheck the treatment_matype field
+    $('#id_' + treatment + '_matype')
+      .val('')
+      .removeAttr('checked');
+  }
+}
+
 function check_plusminus(id) {
   // function that checks whether (+) or (-) is in the text of the element with id=id
   // and toggles collapse to open if (+) and close if (-)
