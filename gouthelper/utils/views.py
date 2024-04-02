@@ -554,6 +554,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
+        print(form.initial)
+        print(form.has_changed())
+        print(form.changed_data)
         if isinstance(form.instance, User):
             self.user = form.save()
             save_aid_obj = False
@@ -588,8 +591,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if self.medallergys:
             if ma_2_save:
                 for ma in ma_2_save:
-                    if self.user and ma.user is None:
-                        ma.user = self.user
+                    if self.user:
+                        if ma.user is None:
+                            ma.user = self.user
                     else:
                         if getattr(ma, aid_obj_attr, None) is None:
                             setattr(ma, aid_obj_attr, aid_obj)
@@ -600,8 +604,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if self.medhistorys:
             if mh_2_save:
                 for mh in mh_2_save:
-                    if self.user and mh.user is None:
-                        mh.user = self.user
+                    if self.user:
+                        if mh.user is None:
+                            mh.user = self.user
                     else:
                         if getattr(mh, aid_obj_attr, None) is None:
                             setattr(mh, aid_obj_attr, aid_obj)
@@ -619,8 +624,9 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             if labs_2_save:
                 # Modify and remove labs from the object
                 for lab in labs_2_save:
-                    if self.user and lab.user is None:
-                        lab.user = self.user
+                    if self.user:
+                        if lab.user is None:
+                            lab.user = self.user
                     elif not self.user and getattr(lab, aid_obj_attr, None) is None:
                         setattr(lab, aid_obj_attr, aid_obj)
                     lab.save()
@@ -683,6 +689,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             )
         if "patient" not in kwargs and self.user:
             kwargs["patient"] = self.user
+        kwargs.update({"str_attrs": self.str_attrs})
         return super().get_context_data(**kwargs)
 
     def get_form_kwargs(self) -> dict[str, Any]:
@@ -1039,6 +1046,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     if query_obj
                     else None
                 )
+                print(ma_obj)
                 ma_forms.update(
                     {
                         f"medallergy_{treatment}_form": MedAllergyTreatmentForm(

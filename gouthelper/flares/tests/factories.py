@@ -99,24 +99,28 @@ def flare_data_factory(
     data["redness"] = fake.boolean()
     data["joints"] = get_random_joints()
     # 50/50 chance of having clinician diagnosis and 50/50 chance of having aspiration
-    if fake.boolean():
-        data["diagnosed"] = True
+    if fake.boolean() or data.get("urate-value", None):
+        data["medical_evaluation"] = True
+        data["diagnosed"] = fake.boolean() if fake.boolean() else ""
         if fake.boolean():
             data["aspiration"] = True
             data["crystal_analysis"] = fake.boolean()
         else:
             data["aspiration"] = False
             data["crystal_analysis"] = ""
+        # Check if there is data for a Urate in the data
+        if data.get("urate-value", None):
+            # If so, mark urate-check as True
+            data["urate_check"] = True
+        else:
+            # If not, mark urate-check as False
+            data["urate_check"] = False
     else:
-        data["diagnosed"] = False
+        data["medical_evaluation"] = False
+        data["aspiration"] = ""
         data["crystal_analysis"] = ""
-    # Check if there is data for a Urate in the data
-    if data.get("urate-value", None):
-        # If so, mark urate-check as True
-        data["urate_check"] = True
-    else:
-        # If not, mark urate-check as False
-        data["urate_check"] = False
+        data["diagnosed"] = ""
+        data["urate_check"] = ""
     return data
 
 
@@ -176,11 +180,15 @@ class CreateFlare(MedHistoryCreatorMixin, OneToOneCreatorMixin):
             )
             if date_diff and fake.boolean():
                 if fake.boolean():
-                    flare.date_ended = fake.date_between_dates(
-                        date_start=flare.date_started + timedelta(days=1),
-                        date_end=flare.date_started
-                        + (date_diff if date_diff < timedelta(days=14) else timedelta(days=14)),
-                    ) if date_diff > timedelta(days=1) else flare.date_started + date_diff
+                    flare.date_ended = (
+                        fake.date_between_dates(
+                            date_start=flare.date_started + timedelta(days=1),
+                            date_end=flare.date_started
+                            + (date_diff if date_diff < timedelta(days=14) else timedelta(days=14)),
+                        )
+                        if date_diff > timedelta(days=1)
+                        else flare.date_started + date_diff
+                    )
                 else:
                     flare.date_ended = (
                         fake.date_between_dates(

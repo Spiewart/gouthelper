@@ -1,6 +1,12 @@
 from django.db.models import IntegerChoices, TextChoices  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
+DIAGNOSED_CHOCIES = (
+    (True, _("Symptoms from gout")),
+    (False, _("Symptoms NOT from gout")),
+    (None, _("Provider wasn't sure")),
+)
+
 
 class LessLikelys(IntegerChoices):
     FEMALE = 0, _("Pre-menopausal female without CKD")

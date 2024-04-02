@@ -7,9 +7,12 @@ def delete_old_medhistorytypes(apps, schema_editor):
     MedHistory = apps.get_model("medhistorys", "MedHistory")
     MedHistory.objects.filter(medhistorytype="ALLOPURINOLHYPERSENSITIVITY").delete()
     MedHistory.objects.filter(medhistorytype="FEBUXOSTATHYPERSENSITIVITY").delete()
-    MedHistory.history.filter(medhistorytype="ALLOPURINOLHYPERSENSITIVITY").delete()
-    MedHistory.history.filter(medhistorytype="FEBUXOSTATHYPERSENSITIVITY").delete()
-    
+    try:
+        MedHistory.history.filter(medhistorytype="ALLOPURINOLHYPERSENSITIVITY").delete()
+        MedHistory.history.filter(medhistorytype="FEBUXOSTATHYPERSENSITIVITY").delete()
+    except AttributeError:
+        pass
+
 class Migration(migrations.Migration):
     dependencies = [
         ("medhistorys", "0011_pud_and_more"),

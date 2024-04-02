@@ -42,6 +42,7 @@ from ..medhistorys.forms import (
 )
 from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from ..users.models import Pseudopatient
+from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
 from .forms import FlareForm
 from .models import Flare
@@ -116,6 +117,12 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
 
     success_message = "Flare created successfully!"
 
+    def get_initial(self) -> dict[str, Any]:
+        initial = super().get_initial()
+        initial["onset"] = None
+        initial["redness"] = None
+        return initial
+
     def post(self, request, *args, **kwargs):
         (
             errors,
@@ -179,14 +186,9 @@ class FlareDetailBase(AutoPermissionRequiredMixin, DetailView):
     model = Flare
     object: Flare
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.FLARE, tag__isnull=False)
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
+        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
         return context
 
     def get_permission_object(self):
@@ -274,6 +276,12 @@ class FlarePseudopatientCreate(
 
     permission_required = "flares.can_add_flare"
     success_message = "%(username)s's Flare successfully created."
+
+    def get_initial(self) -> dict[str, Any]:
+        initial = super().get_initial()
+        initial["onset"] = None
+        initial["redness"] = None
+        return initial
 
     def post(self, request, *args, **kwargs):
         (
@@ -420,16 +428,24 @@ class FlarePseudopatientUpdate(
     def get_initial(self) -> dict[str, Any]:
         """Overwrite get_initial() to populate form non-field field inputs"""
         initial = super().get_initial()
-        if getattr(self.object, "crystal_analysis") is not None:
-            initial["aspiration"] = True
-        elif getattr(self.object, "diagnosed"):
-            initial["aspiration"] = False
+        crystal_analysis = getattr(self.object, "crystal_analysis")
+        diagnosed = getattr(self.object, "diagnosed")
+        urate = getattr(self.object, "urate")
+        if crystal_analysis is not None or diagnosed is not None or urate is not None:
+            initial["medical_evaluation"] = True
+            if crystal_analysis is not None:
+                initial["aspiration"] = True
+            else:
+                initial["aspiration"] = False
+            if urate is not None:
+                initial["urate_check"] = True
+            else:
+                initial["urate_check"] = False
         else:
+            initial["medical_evaluation"] = False
             initial["aspiration"] = None
-        if getattr(self.object, "urate", None):
-            initial["urate_check"] = True
-        else:
-            initial["urate_check"] = False
+            initial["diagnosed"] = None
+            initial["urate_check"] = None
         return initial
 
     def get_success_message(self, cleaned_data) -> str:
@@ -489,18 +505,26 @@ class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
     success_message = "Flare updated successfully!"
 
     def get_initial(self) -> dict[str, Any]:
-        """Overwrite get_initial() to populate form non-field form inputs"""
+        """Overwrite get_initial() to populate form non-field field inputs"""
         initial = super().get_initial()
-        if getattr(self.object, "crystal_analysis") is not None:
-            initial["aspiration"] = True
-        elif getattr(self.object, "diagnosed"):
-            initial["aspiration"] = False
+        crystal_analysis = getattr(self.object, "crystal_analysis")
+        diagnosed = getattr(self.object, "diagnosed")
+        urate = getattr(self.object, "urate")
+        if crystal_analysis is not None or diagnosed is not None or urate is not None:
+            initial["medical_evaluation"] = True
+            if crystal_analysis is not None:
+                initial["aspiration"] = True
+            else:
+                initial["aspiration"] = False
+            if urate is not None:
+                initial["urate_check"] = True
+            else:
+                initial["urate_check"] = False
         else:
+            initial["medical_evaluation"] = False
             initial["aspiration"] = None
-        if getattr(self.object, "urate", None):
-            initial["urate_check"] = True
-        else:
-            initial["urate_check"] = False
+            initial["diagnosed"] = None
+            initial["urate_check"] = None
         return initial
 
     def get_queryset(self):

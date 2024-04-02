@@ -228,8 +228,7 @@
           // check if the link is collapsed
           if (!$(href).hasClass('show')) {
             var link_collapse = $(href + ' > .collapse');
-            var collapsed = link_collapse.hasClass('show');
-            if (collapsed == false) {
+            if (link_collapse.length && link_collapse.hasClass('show') == false) {
               new bootstrap.Collapse(link_collapse, {
                 toggle: true
               });

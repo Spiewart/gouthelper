@@ -4,8 +4,8 @@
 {% load project_tags %}
 
 {% block title %}
-  {% if form.instance.pk %}
-    Update Flare
+  {% if form.instance.created %}
+    Edit Flare
   {% else %}
     New Flare
   {% endif %}
@@ -19,9 +19,11 @@
 {% endblock heading %}
 {% block subheading %}
   {% if form.instance.created %}
-    Update this Flare for updated information.
+    Edit
+    {{ str_attrs.subject_the_pos }}
+    Flare for updated information.
   {% else %}
-    Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
+    Are {{ str_attrs.subject_the_pos }} symptoms due to gout? Find out.
   {% endif %}
 {% endblock subheading %}
 {% block content %}
@@ -80,10 +82,10 @@
           changeYear: true
         });
       });
-      $('#id_diagnosed').change(diagnosed_checker);
-      diagnosed_checker($('#id_diagnosed'));
-      $('#id_aspiration').change(diagnosed_checker);
-      diagnosed_checker($('#id_aspiration'));
+      $('#id_medical_evaluation').change(medical_evaluation_checker);
+      medical_evaluation_checker($('#id_medical_evaluation'));
+      $('#id_aspiration').change(aspiration_checker);
+      aspiration_checker($('#id_aspiration'));
       $('#id_urate_check').change(urate_checker);
       urate_checker($('#id_urate_check'));
     });

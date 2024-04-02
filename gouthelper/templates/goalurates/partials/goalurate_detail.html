@@ -4,29 +4,8 @@
   {% else %}
     <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
   {% endif %}
-  <ul>
-    {% if patient %}
-      <li>Target uric acid level for {{ patient }}</li>
-    {% else %}
-      <li>Target uric acid level for the patient</li>
-    {% endif %}
-    <li>
-      Adjust
-      {% if ult %}
-        {{ ult }}
-      {% else %}
-        ULT
-      {% endif %}
-      dose until serum uric acid is
-      {% if patient %}
-        {{ object.goalurate.get_goal_urate_display }}
-      {% else %}
-        {{ object.get_goal_urate_display }}
-      {% endif %}
-      or less
-    </li>
-    <li>Once 'at goal', a maintenance dose is prescribed to keep the uric acid at this level</li>
-    <li>
+  <ul class="list-group list-group-horizontal">
+    <li class="list-group-item flex-fill d-flex justify-content-center">
       <a class="samepage-link" href="#erosions">Erosions</a>
       {% if object.erosions %}
         (+)
@@ -34,7 +13,7 @@
         (-)
       {% endif %}
     </li>
-    <li>
+    <li class="list-group-item flex-fill d-flex justify-content-center">
       <a class="samepage-link" href="#tophi">Tophi</a>
       {% if object.tophi %}
         (+)
@@ -43,6 +22,31 @@
       {% endif %}
     </li>
   </ul>
+  {% if ult %}
+    <ul>
+      {% if patient %}
+        <li>Target uric acid level for {{ patient }}</li>
+      {% else %}
+        <li>Target uric acid level for the patient</li>
+      {% endif %}
+      <li>
+        Adjust
+        {% if ult %}
+          {{ ult }}
+        {% else %}
+          ULT
+        {% endif %}
+        dose until serum uric acid is
+        {% if patient %}
+          {{ object.goalurate.get_goal_urate_display }}
+        {% else %}
+          {{ object.get_goal_urate_display }}
+        {% endif %}
+        or less
+      </li>
+      <li>Once "at goal", a maintenance dose is prescribed to keep the uric acid at this level</li>
+    </ul>
+  {% endif %}
   {% if patient %}
     <a type="button"
        class="btn btn-primary btn-lg mini-button"

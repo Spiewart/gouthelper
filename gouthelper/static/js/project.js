@@ -512,29 +512,47 @@ function urate_checker() {
   }
 }
 
-function diagnosed_checker() {
-  if ($('#id_diagnosed').val() == 'True') {
+function aspiration_checker() {
+  if ($('#id_aspiration').val() == 'True') {
+    $('#crystal_analysis').show();
+    $('#id_crystal_analysis').prop('required', true);
+    add_asterisk($('#crystal_analysis'));
+  } else {
+    $('#crystal_analysis').hide();
+    $('#id_crystal_analysis').val('');
+    $('#id_crystal_analysis').prop('required', false);
+    remove_asterisk($('#crystal_analysis'));
+  }
+}
+
+function medical_evaluation_checker() {
+  if ($('#id_medical_evaluation').val() == 'True') {
+    $('#urate_check').show();
+    $('#div_id_urate_check').prop('required', true);
+    add_asterisk($('#div_id_urate_check'));
+    urate_checker();
+    $('#diagnosed').show();
+    $('#div_id_diagnosed').prop('required', true);
+    add_asterisk($('#div_id_diagnosed'));
     $('#aspiration').show();
     $('#div_id_aspiration').prop('required', true);
     add_asterisk($('#div_id_aspiration'));
-    if ($('#id_aspiration').val() == 'True') {
-      $('#crystal_analysis').show();
-      $('#div_id_crystal_analysis').val('required', true);
-      add_asterisk($('#div_id_crystal_analysis'));
-    } else {
-      $('#crystal_analysis').hide();
-      $('#div_id_crystal_analysis').prop('required', false);
-      $('#id_crystal_analysis').val('');
-      remove_asterisk($('#div_id_crystal_analysis'));
-    }
+    aspiration_checker();
   } else {
+    $('#urate_check').hide();
+    $('#div_id_urate_check').prop('required', false);
+    $('#id_urate_check').val('');
+    remove_asterisk($('#div_id_urate_check'));
+    urate_checker();
+    $('#diagnosed').hide();
+    $('#div_id_diagnosed').prop('required', false);
+    $('#id_diagnosed').val('');
+    remove_asterisk($('#div_id_diagnosed'));
     $('#aspiration').hide();
     $('#div_id_aspiration').prop('required', false);
     $('#id_aspiration').val('');
-    $('#crystal_analysis').hide();
-    $('#div_id_crystal_analysis').prop('required', false);
-    $('#id_crystal_analysis').val('');
-    remove_asterisk($('#div_id_crystal_analysis'));
+    remove_asterisk($('#div_id_aspiration'));
+    aspiration_checker();
   }
 }
 

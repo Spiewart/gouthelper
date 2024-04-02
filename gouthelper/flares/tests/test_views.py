@@ -539,13 +539,6 @@ class TestFlareDetail(TestCase):
             "flares:pseudopatient-detail", kwargs={"username": user_f.user.username, "pk": user_f.pk}
         )
 
-    def test__get_context_data(self):
-        response = self.client.get(reverse("flares:detail", kwargs={"pk": self.flare.pk}))
-        context = response.context_data
-        for content in self.content_qs:
-            self.assertIn(content.slug, context)
-            self.assertEqual(context[content.slug], {content.tag: content})
-
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.flare.pk}).get_queryset()
         self.assertTrue(isinstance(qs, QuerySet))
@@ -2349,6 +2342,7 @@ class TestFlareUpdate(TestCase):
             "joints": self.flare.joints,
             "onset": True,
             "redness": True,
+            "medical_evaluation": True,
             "urate_check": True,
             "urate-value": Decimal("14.4"),
             f"{MedHistoryTypes.CKD}-value": False,
@@ -2586,6 +2580,7 @@ menopause status to evaluate their flare.",
 
         self.flare_data.update(
             {
+                "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": "",
             }

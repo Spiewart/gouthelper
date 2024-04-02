@@ -248,7 +248,7 @@ def get_str_attrs(
                 "subject_pos": "patient's",
                 "subject_the_pos": "the patient's",
                 "gender_pos": (
-                    "hers" if gender == Genders.FEMALE else "his" if gender == Genders.MALE else "his or hers"
+                    "her" if gender == Genders.FEMALE else "his" if gender == Genders.MALE else "his or her"
                 ),
                 "gender_subject": (
                     "she" if gender == Genders.FEMALE else "he" if gender == Genders.MALE else "he or she"

@@ -215,12 +215,16 @@ class UrateFlareForm(BaseLabForm):
     def __init__(self, *args, **kwargs):
         self.patient = kwargs.pop("patient", None)
         self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
-        self.fields["value"].label = "Flare Urate"
+        self.fields["value"].label = "Uric Acid Level"
         self.fields["value"].decimal_places = 1
         self.fields["value"].help_text = mark_safe(
-            "Uric acid is typically reported in micrograms per deciliter (mg/dL)."
+            f"What was {self.str_attrs.get('subject_pos')} uric acid level? \
+Uric acid is typically reported in micrograms per deciliter (mg/dL)."
         )
         self.fields["value"].validators.append(labs_urates_max_value)
         self.helper = FormHelper(self)

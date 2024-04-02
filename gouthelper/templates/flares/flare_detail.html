@@ -218,20 +218,10 @@
             </h3>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="Flare" con_obj=demographics id="demographics" label="Demographics" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=hyperuricemia id="hyperuricemia" label="Hyperuricemia" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=diagnosed id="diagnosed" label="Physician Diagnosis" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=onset id="onset" label="Acute Onset" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=erythema id="redness" label="Erythema" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=duration id="duration" label="Duration" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=ckd id="ckd" label="CKD" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=cvdiseases id="cvdiseases" label="Cardiovascular Diseases" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=gout id="gout" label="Gout" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=crystalanalysis id="crystal_analysis" label="Crystal Analysis" %}
-            {% include "_explanation.html" with aidtype="Flare" con_obj=joints id="joints" label="Joints" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>

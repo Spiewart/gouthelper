@@ -4,9 +4,12 @@
   <li>
     <strong>Dosing:</strong> {% trt_dict_to_str dosing_dict=info_dict trttype=trttype treatment=trt %}
   </li>
-  <li>
-    <strong>Dose Adjustment:</strong> {% trt_dose_adj_to_str dosing_dict=info_dict ultaidsettings=object.defaulttrtsettings %}
-  </li>
+  {% if not trttype %}
+    <!-- Flare and Ppx TrtTypes are 1 and 2 and will evaluate to positive -->
+    <li>
+      <strong>Dose Adjustment:</strong> {% trt_dose_adj_to_str dosing_dict=info_dict ultaidsettings=object.defaulttrtsettings %}
+    </li>
+  {% endif %}
   {% with trt.lower|concat_str_with_underscore:"info_dict" as trt_info %}
     {% with object|getattribute:trt_info as trt_info_dict %}
       {% for key, val in trt_info_dict.items %}

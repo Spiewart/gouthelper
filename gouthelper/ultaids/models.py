@@ -243,6 +243,7 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
             ("medallergys", "Medication Allergies", self.medallergys, self.medallergys_interp),
             ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
             ("tophi", "Tophi", self.tophi, self.tophi_interp),
+            ("uratestones", "Urate Kidney Stones", self.uratestones, self.uratestones_interp),
             (
                 "xoiinteraction",
                 "Xanthine Oxidase Inhibitor Interaction",
@@ -274,7 +275,7 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
                     main_str += self.allopurinolhypersensitivity_interp
                 else:
                     main_str += f"<strong>{Subject_the} {pos} an allergy to allopurinol</strong>, so it's not \
-    recommended for {subject_the}."
+recommended for {subject_the}."
             if self.febuxostat_allergy:
                 if self.allopurinol_allergy:
                     main_str += "<br> <br> "
@@ -282,7 +283,7 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
                     main_str += self.febuxostathypersensitivity_interp
                 else:
                     main_str += f"<strong>{Subject_the} {pos} a medication allergy to febuxostat</strong>\
-    , so it's not recommended for {subject_the}."
+, so it's not recommended for {subject_the}."
             if self.probenecid_allergy:
                 if self.allopurinol_allergy or self.febuxostat_allergy:
                     main_str += "<br> <br> "

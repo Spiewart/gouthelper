@@ -195,7 +195,16 @@ and it should always be stopped immediately and the healthcare provider contacte
 
     @cached_property
     def allopurinol_info_dict(self) -> str:
-        info_dict = self.allopurinol_info()
+        if self.xoi_ckd_dose_reduction:
+            info_dict = {
+                "Dosing-CKD": mark_safe(
+                    "Dose has been reduced due to <a class='samepage-link' \
+href='#ckd'>chronic kidney disease</a>"
+                )
+            }
+            info_dict.update(self.allopurinol_info())
+        else:
+            info_dict = self.allopurinol_info()
         if self.hepatitis:
             info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
         if self.organtransplant:
@@ -349,9 +358,11 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         of the impact of it on a patient's gout."""
 
         subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
-        main_str = f"Many medications, including several used for gout treatment, are processed by the kidneys. \
-As a result, chronic kidney disease (CKD) can affect medication dosing and safety. \
-<strong>{subject_the} {pos if self.ckd else pos_neg} CKD.</strong>"
+        main_str = f"In addition to being a significant risk factor for gout, chronic kidney disease (CKD) \
+affects the body's processing of many medications, including several used for gout treatment, \
+and can affect medication dosing and safety. \
+<strong>{subject_the} {pos if self.ckd else pos_neg} \
+{self.ckddetail.explanation if self.ckddetail else 'CKD'}.</strong>"
         return main_str
 
     @cached_property
@@ -595,7 +606,7 @@ href={}>goal uric acid</a> should be.""",
         )
         if self.erosions:
             main_str += f" <strong>{Subject_the} has gouty erosions, and {gender_subject} should be treated \
-aggressively with ULT."
+aggressively with ULT.</strong>"
         else:
             main_str += f" <strong>{Subject_the} does not have erosions.</strong>"
         return mark_safe(main_str)
@@ -647,7 +658,16 @@ and it should always be stopped immediately and the healthcare provider contacte
 
     @cached_property
     def febuxostat_info_dict(self) -> str:
-        info_dict = self.febuxostat_info()
+        if self.xoi_ckd_dose_reduction:
+            info_dict = {
+                "Dosing-CKD": mark_safe(
+                    "Dose has been reduced due to <a class='samepage-link' \
+href='#ckd'>chronic kidney disease</a>"
+                )
+            }
+            info_dict.update(self.febuxostat_info())
+        else:
+            info_dict = self.febuxostat_info()
         if self.hepatitis:
             info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
         if self.organtransplant:
@@ -829,15 +849,20 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
         hlab5801 = getattr(self, "hlab5801", None)
         if self.hlab5801_contra:
             if hlab5801 and hlab5801.value:
-                return f" <strong>{Subject_the} has the HLA-B*5801 genotype</strong>, \
+                return mark_safe(
+                    f" <strong>{Subject_the} has the HLA-B*5801 genotype</strong>, \
 and as a result, allopurinol should not be the first line ULT treatment for {gender_subject}."
+                )
             else:
-                return f" <strong>{Subject_the} is of a descent at high risk for the HLA-B*5801 gene</strong>, \
-but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting allopurinol."
+                return mark_safe(
+                    f" <strong>{Subject_the} is of a descent at high risk for the HLA-B*5801 \
+gene</strong>, but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting \
+allopurinol."
+                )
         elif hlab5801 and not hlab5801.value:
-            return f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>."
+            return mark_safe(f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>.")
         else:
-            return f" <strong>{Subject_the} has not had testing for the HLA-B*5801 gene</strong>."
+            return mark_safe(f" <strong>{Subject_the} has not had testing for the HLA-B*5801 gene</strong>.")
 
     @cached_property
     def hlab5801_interp(self) -> str:
@@ -1389,6 +1414,19 @@ aggressively with ULT."
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.URATESTONES, self)
+
+    @cached_property
+    def uratestones_interp(self) -> str:
+        """Method that interprets the uratestones attribute and returns a str explanation."""
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        main_str = "Probenecid increases urinary filtration of uric acid and predisposes individuals \
+to uric acid kidney stones. "
+        if self.uratestones:
+            main_str += f" <strong>{Subject_the} {pos} a history of uric acid kidney stones</strong> \
+and should not be prescribed probenecid."
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg} a history of uric acid kidney stones</strong>."
+        return mark_safe(main_str)
 
     @cached_property
     def xoiinteraction(self) -> Union["MedHistory", bool]:
