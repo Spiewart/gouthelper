@@ -82,6 +82,8 @@
           changeYear: true
         });
       });
+      $('#id_date_ended').change(aki_checker);
+      aki_checker($('#id_date_ended'));
       $('#id_medical_evaluation').change(medical_evaluation_checker);
       medical_evaluation_checker($('#id_medical_evaluation'));
       $('#id_aspiration').change(aspiration_checker);

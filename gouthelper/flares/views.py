@@ -104,8 +104,13 @@ class FlareBase:
     ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
         urate_val = oto_forms["urate_form"].cleaned_data.get("value", None)
         urate_check = form.cleaned_data.get("urate_check", None)
+        print(urate_check)
+        print(urate_val)
         if urate_check and not urate_val:
-            urate_error = ValidationError(message="If urate was checked, we should know it!")
+            urate_error = ValidationError(
+                message="If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box."
+            )
             form.add_error("urate_check", urate_error)
             oto_forms["urate_form"].add_error("value", urate_error)
             errors_bool = True
@@ -143,26 +148,37 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
             _,  # labs_2_save,
             _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
         mh_forms, errors_bool = self.post_process_menopause(
             mh_forms=mh_forms,
-            dateofbirth=oto_forms["dateofbirth_form"].cleaned_data.get("value"),
-            gender=oto_forms["gender_form"].cleaned_data.get("value"),
+            dateofbirth=(
+                oto_forms["dateofbirth_form"].cleaned_data.get("value")
+                if hasattr(oto_forms["dateofbirth_form"], "cleaned_data")
+                else None
+            ),
+            gender=(
+                oto_forms["gender_form"].cleaned_data.get("value")
+                if hasattr(oto_forms["gender_form"], "cleaned_data")
+                else None
+            ),
         )
         form, oto_forms, errors_bool = self.post_process_urate_check(
             form=form, oto_forms=oto_forms, errors_bool=errors_bool
         )
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=None,
-                lab_formsets=None,
-                labs=None,
-            )
+        if errors or errors_bool:
+            # TODO: figure out if it is necessary to re-render_errors() or whether
+            # TODO: we can just return the errors because they were modified in place
+            if errors_bool and not errors:
+                return super().render_errors(
+                    form=form,
+                    oto_forms=oto_forms,
+                    mh_forms=mh_forms,
+                    mh_det_forms=mh_det_forms,
+                    ma_forms=None,
+                    lab_formsets=None,
+                    labs=None,
+                )
+            else:
+                return errors
         else:
             return self.form_valid(
                 form=form,
@@ -303,21 +319,22 @@ class FlarePseudopatientCreate(
             _,  # labs_2_save,
             _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
         form, oto_forms, errors_bool = self.post_process_urate_check(
             form=form, oto_forms=oto_forms, errors_bool=errors
         )
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=None,
-                lab_formsets=None,
-                labs=None,
-            )
+        if errors or errors_bool:
+            if errors_bool and not errors:
+                return super().render_errors(
+                    form=form,
+                    oto_forms=oto_forms,
+                    mh_forms=mh_forms,
+                    mh_det_forms=mh_det_forms,
+                    ma_forms=None,
+                    lab_formsets=None,
+                    labs=None,
+                )
+            else:
+                return errors
         else:
             return self.form_valid(
                 form=form,
@@ -471,19 +488,20 @@ class FlarePseudopatientUpdate(
             _,  # labs_2_save,
             _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
         form, oto_forms, errors_bool = self.post_process_urate_check(form=form, oto_forms=oto_forms)
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=ma_forms,
-                lab_formsets=lab_formsets,
-                labs=self.labs if hasattr(self, "labs") else None,
-            )
+        if errors or errors_bool:
+            if errors_bool and not errors:
+                return super().render_errors(
+                    form=form,
+                    oto_forms=oto_forms,
+                    mh_forms=mh_forms,
+                    mh_det_forms=mh_det_forms,
+                    ma_forms=ma_forms,
+                    lab_formsets=lab_formsets,
+                    labs=self.labs if hasattr(self, "labs") else None,
+                )
+            else:
+                return errors
         return self.form_valid(
             form=form,
             oto_2_save=oto_2_save,
@@ -550,22 +568,23 @@ class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
             _,  # labs_2_save,
             _,  # labs_2_rem,
         ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
         mh_forms, errors_bool = self.post_process_menopause(mh_forms=mh_forms, post_object=form.instance)
         form, oto_forms, errors_bool = self.post_process_urate_check(
             form=form, oto_forms=oto_forms, errors_bool=errors_bool
         )
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=None,
-                lab_formsets=None,
-                labs=None,
-            )
+        if errors or errors_bool:
+            if errors_bool and not errors:
+                return super().render_errors(
+                    form=form,
+                    oto_forms=oto_forms,
+                    mh_forms=mh_forms,
+                    mh_det_forms=mh_det_forms,
+                    ma_forms=None,
+                    lab_formsets=None,
+                    labs=None,
+                )
+            else:
+                return errors
         return self.form_valid(
             form=form,
             oto_2_save=oto_2_save,

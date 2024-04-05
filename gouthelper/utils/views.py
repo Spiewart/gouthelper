@@ -554,9 +554,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         **kwargs,
     ) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
-        print(form.initial)
-        print(form.has_changed())
-        print(form.changed_data)
         if isinstance(form.instance, User):
             self.user = form.save()
             save_aid_obj = False
@@ -871,13 +868,19 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             request_user=self.request.user,
             str_attrs=self.str_attrs,
         )
+        form_is_valid = form.is_valid()
+        oto_forms_is_valid = validate_form_list(form_list=oto_forms.values()) if oto_forms else True
+        ma_forms_is_valid = validate_form_list(form_list=ma_forms.values()) if ma_forms else True
+        mh_forms_is_valid = validate_form_list(form_list=mh_forms.values()) if mh_forms else True
+        mh_det_forms_is_valid = validate_form_list(form_list=mh_det_forms.values()) if mh_det_forms else True
+        lab_formsets_is_valid = validate_formset_list(formset_list=lab_formsets.values()) if lab_formsets else True
         if (
-            form.is_valid()
-            and (validate_form_list(form_list=oto_forms.values()) if oto_forms else True)
-            and (validate_form_list(form_list=ma_forms.values()) if ma_forms else True)
-            and (validate_form_list(form_list=mh_forms.values()) if mh_forms else True)
-            and (validate_form_list(form_list=mh_det_forms.values()) if mh_det_forms else True)
-            and (validate_formset_list(formset_list=lab_formsets.values()) if lab_formsets else True)
+            form_is_valid
+            and oto_forms_is_valid
+            and ma_forms_is_valid
+            and mh_forms_is_valid
+            and mh_det_forms_is_valid
+            and lab_formsets_is_valid
         ):
             errors_bool = False
             form.save(commit=False)
@@ -1046,7 +1049,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     if query_obj
                     else None
                 )
-                print(ma_obj)
                 ma_forms.update(
                     {
                         f"medallergy_{treatment}_form": MedAllergyTreatmentForm(

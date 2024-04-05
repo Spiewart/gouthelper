@@ -43,16 +43,9 @@ def test__flare_data_factory():
         assert isinstance(data["date_started"], str)
         if "date_ended" in data:
             assert isinstance(data["date_ended"], str)
-        if "urate-value" in data:
-            assert isinstance(data["urate-value"], Decimal)
-            assert "urate_check" in data
-            assert data["urate_check"] is True
-        else:
-            assert "urate_check" in data
-            assert data["urate_check"] is False
-        assert "diagnosed" in data
-        assert isinstance(data["diagnosed"], bool)
-        if data["diagnosed"]:
+        if data["medical_evaluation"]:
+            assert "diagnosed" in data
+            assert isinstance(data["diagnosed"], bool) or data["diagnosed"] == ""
             assert "aspiration" in data
             assert isinstance(data["aspiration"], bool)
             if data["aspiration"]:
@@ -60,8 +53,15 @@ def test__flare_data_factory():
                 assert isinstance(data["crystal_analysis"], bool)
             else:
                 assert "crystal_analysis" not in data or data["crystal_analysis"] == ""
+            if "urate-value" in data:
+                assert isinstance(data["urate-value"], Decimal)
+                assert "urate_check" in data
+                assert data["urate_check"] is True
+            else:
+                assert "urate_check" in data
+                assert data["urate_check"] is False
         else:
-            assert "aspiration" not in data
+            assert data["aspiration"] == ""
 
         # Test the onetoone field data
         assert "dateofbirth-value" in data
@@ -104,10 +104,12 @@ def test__flare_data_factory():
             assert data["urate_check"] is True
         else:
             assert "urate_check" in data
-            assert data["urate_check"] is False
-        assert "diagnosed" in data
-        assert isinstance(data["diagnosed"], bool)
-        if data["diagnosed"]:
+            assert data["urate_check"] is False or data["urate_check"] == ""
+        assert "medical_evaluation" in data
+        assert isinstance(data["medical_evaluation"], bool)
+        if data["medical_evaluation"]:
+            assert "diagnosed" in data
+            assert isinstance(data["diagnosed"], bool) or data["diagnosed"] == ""
             assert "aspiration" in data
             assert isinstance(data["aspiration"], bool)
             if data["aspiration"]:
@@ -115,8 +117,17 @@ def test__flare_data_factory():
                 assert isinstance(data["crystal_analysis"], bool)
             else:
                 assert "crystal_analysis" not in data or data["crystal_analysis"] == ""
+            assert "urate_check" in data
+            assert isinstance(data["urate_check"], bool)
+            if data["urate_check"]:
+                assert "urate-value" in data
+                assert isinstance(data["urate-value"], Decimal)
         else:
-            assert "aspiration" not in data
+            assert "aspiration" not in data or data["aspiration"] == ""
+            assert "crystal_analysis" not in data or data["crystal_analysis"] == ""
+            assert "diagnosed" not in data or data["diagnosed"] == ""
+            assert "urate_check" not in data or data["urate_check"] == ""
+            assert "urate-value" not in data or data["urate-value"] == ""
 
         # Test the onetoone field data
         assert "dateofbirth-value" not in data

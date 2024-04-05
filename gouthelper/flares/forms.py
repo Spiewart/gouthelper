@@ -3,6 +3,8 @@ from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 from django.utils import timezone  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
@@ -29,6 +31,7 @@ class FlareForm(
     class Meta:
         model = Flare
         fields = (
+            "aki",
             "crystal_analysis",
             "date_ended",
             "date_started",
@@ -45,6 +48,33 @@ class FlareForm(
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
+        self.fields["aki"].help_text = _(
+            mark_safe(
+                format_lazy(
+                    """{} {} have an acute kidney injury (<a target='_next' href='{}'>AKI</a>){}? \
+<strong>Leave blank if creatinine was not checked</strong>.""",
+                    "Did" if self.instance.date_ended else self.str_attrs.get("Query"),
+                    self.str_attrs.get("subject_the"),
+                    "https://www.aafp.org/pubs/afp/issues/2012/1001/p631/jcr:content/root/aafp-article-primary-content\
+-container/aafp_article_main_par/aafp_tables_content0.enlarge.html",
+                    " during this flare",
+                )
+            )
+        )
+        self.fields["aki"].choices = YES_OR_NO_OR_NONE
+        self.fields["aki"].initial = None
+        self.fields.update(
+            {
+                "aspiration": forms.TypedChoiceField(
+                    widget=forms.Select,
+                    choices=YES_OR_NO_OR_NONE,
+                    required=False,
+                    initial=None,
+                    empty_value=None,
+                    coerce=lambda x: x == "True",
+                )
+            }
+        )
         self.fields.update(
             {
                 "crystal_analysis": forms.TypedChoiceField(
@@ -65,7 +95,7 @@ class FlareForm(
         self.fields[
             "date_ended"
         ].help_text = f"When did {self.str_attrs.get('subject_the_pos')} symptoms resolve? \
-Leave blank if symptoms are ongoing."
+<strong>Leave blank if symptoms are ongoing</strong>."
         self.fields["joints"].label = "Joint(s)"
         self.fields["joints"].help_text = f"Which of {self.str_attrs.get('subject_the_pos')} joints were affected?"
         self.fields.update(
@@ -258,6 +288,14 @@ for these symptoms?"
                         ),
                         Div(
                             Div(
+                                "aki",
+                                css_class="col",
+                            ),
+                            css_class="row",
+                            css_id="aki",
+                        ),
+                        Div(
+                            Div(
                                 "aspiration",
                                 css_class="col",
                             ),
@@ -314,6 +352,7 @@ for these symptoms?"
 
     def clean(self):
         cleaned_data = super().clean()
+        aki = cleaned_data.get("aki", None)
         aspiration = cleaned_data.get("aspiration", None)
         crystal_analysis = cleaned_data.get("crystal_analysis", None)
         date_started = cleaned_data.get("date_started", None)
@@ -328,7 +367,11 @@ for these symptoms?"
                 self.add_error("date_ended", "Date ended must be after date started.")
         if medical_evaluation:
             if aspiration is None:
-                self.add_error("aspiration", "Joint aspiration must be selected if a clinician diagnosed the flare.")
+                self.add_error(
+                    "aspiration",
+                    f"Joint aspiration must be selected if {self.str_attrs.get('subject_the')} had a \
+medical examination.",
+                )
             elif aspiration and crystal_analysis is None:
                 self.add_error(
                     "crystal_analysis", "Results of crystal analysis must be selected if aspiration is selected."
@@ -338,6 +381,8 @@ for these symptoms?"
                     "urate_check", "Uric acid lab check must be selected if a clinician evaluated the flare."
                 )
         else:
+            if aki is not None:
+                cleaned_data["aki"] = ""
             if diagnosed is not None:
                 cleaned_data["diagnosed"] = ""
             if aspiration is not None:

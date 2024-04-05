@@ -100,7 +100,7 @@ class TestFlareBase(TestCase):
             urate=UrateFactory(value=Decimal("5.0")),
         )
         self.flare_data = model_to_dict(self.flare)
-        self.flare_data.update({"urate_check": True})
+        self.flare_data.update({"medical_evaluation": True, "aspiration": True, "urate_check": True})
         self.form = FlareForm(data=self.flare_data)
         self.form.is_valid()
         self.form.clean()
@@ -142,10 +142,12 @@ class TestFlareBase(TestCase):
             self.onetoone_forms,
         )
         # Assert there are errors on the urate form
-        self.assertTrue(self.onetoone_forms["urate_form"].errors)
         self.assertTrue(errors_bool)
+        self.assertTrue(self.onetoone_forms["urate_form"].errors)
         self.assertEqual(
-            self.onetoone_forms["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+            self.onetoone_forms["urate_form"].errors["value"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
 
 
@@ -164,6 +166,8 @@ class TestFlareCreate(TestCase):
             "onset": True,
             "redness": True,
             "stage": Stages.THREE,
+            "medical_evaluation": True,
+            "aspiration": False,
             "urate_check": False,
             "urate": "",
             "diagnosed": False,
@@ -284,6 +288,7 @@ class TestFlareCreate(TestCase):
             Gender.objects.count(),
         )
         response = self.client.post(reverse("flares:create"), self.flare_data)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Flare.objects.count(), flare_count + 1)
         self.assertEqual(DateOfBirth.objects.count(), dateofbirth_count + 1)
@@ -352,6 +357,8 @@ class TestFlareCreate(TestCase):
             "joints": [LimitedJointChoices.ELBOWL],
             "onset": True,
             "redness": True,
+            "medical_evaluation": True,
+            "aspiration": False,
             "urate_check": True,
             "urate-value": Decimal("5.0"),
             "diagnosed": False,
@@ -360,6 +367,7 @@ class TestFlareCreate(TestCase):
             f"{MedHistoryTypes.MENOPAUSE}-value": True,
         }
         response = self.client.post(reverse("flares:create"), flare_data)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Flare.objects.count(), flare_count + 1)
         self.assertEqual(Urate.objects.count(), urates_count + 1)
@@ -382,6 +390,8 @@ class TestFlareCreate(TestCase):
             "joints": [LimitedJointChoices.ELBOWL],
             "onset": True,
             "redness": True,
+            "medical_evaluation": True,
+            "aspiration": False,
             "urate_check": True,
             "urate-value": Decimal("5.0"),
             "diagnosed": False,
@@ -495,6 +505,7 @@ menopause status to evaluate their flare.",
     def test__urate_check_not_valid(self):
         self.flare_data.update(
             {
+                "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": "",
             }
@@ -504,7 +515,9 @@ menopause status to evaluate their flare.",
         # Assert that the UrateForm has an error
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
-            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+            response.context_data["urate_form"].errors["value"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
 
 
@@ -513,19 +526,6 @@ class TestFlareDetail(TestCase):
         self.flare = create_flare()
         self.factory = RequestFactory()
         self.view: FlareDetail = FlareDetail
-        self.content_qs = Content.objects.filter(
-            Q(tag=Content.Tags.EXPLANATION) | Q(tag=Content.Tags.WARNING),
-            context=Content.Contexts.FLARE,
-            slug__isnull=False,
-        ).all()
-
-    def test__contents(self):
-        self.assertTrue(self.view().contents)
-        self.assertTrue(isinstance(self.view().contents, QuerySet))
-        for content in self.view().contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, self.view().contents)
 
     def test__dispatch_redirects_if_flare_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
@@ -863,6 +863,7 @@ class TestFlarePseudopatientCreate(TestCase):
         data = flare_data_factory(self.psp)
         data.update(
             {
+                "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": "",
             }
@@ -871,17 +872,21 @@ class TestFlarePseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
-        assert response.status_code == 200
         forms_print_response_errors(response)
+        assert response.status_code == 200
         # Assert that the form has an error on the urate_check field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
-            response.context_data["form"].errors["urate_check"][0], "If urate was checked, we should know it!"
+            response.context_data["form"].errors["urate_check"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Assert that the urate_form has an error on the value field
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
-            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+            response.context_data["urate_form"].errors["value"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Change the fake data such that the urate stuff passes but that diagnosed is True but aspiration is
         # not selected, which should result in an error on the aspiration field
@@ -901,9 +906,9 @@ class TestFlarePseudopatientCreate(TestCase):
         forms_print_response_errors(response)
         # Assert that the form has an error on the aspiration field
         self.assertTrue(response.context_data["form"].errors)
-        self.assertEqual(
+        self.assertIn(
+            "Joint aspiration must be selected if",
             response.context_data["form"].errors["aspiration"][0],
-            "Joint aspiration must be selected if a clinician diagnosed the flare.",
         )
 
     def test__post_returns_high_likelihood_prevalence_flare(self):
@@ -1004,8 +1009,9 @@ class TestFlarePseudopatientCreate(TestCase):
                 "joints": [LimitedJointChoices.HIPL],
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
+                "medical_evaluation": True,
                 "diagnosed": False,
-                "aspiration": "",
+                "aspiration": False,
                 "crystal_analysis": "",
                 "date_started": timezone.now().date() - timedelta(days=135),
                 "date_ended": timezone.now().date() - timedelta(days=5),
@@ -1679,9 +1685,14 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "onset": flare.onset,
                 "redness": flare.redness,
                 "joints": flare.joints,
+                "medical_evaluation": (
+                    True if flare.diagnosed is not None or flare.crystal_analysis or flare.urate else False
+                ),
                 "urate_check": True if flare.urate else False,
                 "diagnosed": flare.diagnosed,
-                "aspiration": True if flare.crystal_analysis is not None else False if flare.diagnosed else None,
+                "aspiration": (
+                    True if flare.crystal_analysis is not None else False if flare.diagnosed is not None else None
+                ),
                 "crystal_analysis": flare.crystal_analysis,
                 "date_started": flare.date_started,
                 "date_ended": flare.date_ended,
@@ -1812,7 +1823,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             # Assert that the initial data has the correct key/val pairs
             if flare.crystal_analysis:
                 self.assertEqual(initial["aspiration"], True)
-            elif flare.diagnosed:
+            elif flare.diagnosed is not None:
                 self.assertIsNotNone(initial["aspiration"])
             else:
                 self.assertEqual(initial["aspiration"], None)
@@ -2119,6 +2130,8 @@ class TestFlarePseudopatientUpdate(TestCase):
         data = flare_data_factory(self.psp)
         data.update(
             {
+                "medical_evaluation": True,
+                "aspiration": False,
                 "urate_check": True,
                 "urate-value": "",
             }
@@ -2132,12 +2145,16 @@ class TestFlarePseudopatientUpdate(TestCase):
         # Assert that the form has an error on the urate_check field
         self.assertTrue(response.context_data["form"].errors)
         self.assertEqual(
-            response.context_data["form"].errors["urate_check"][0], "If urate was checked, we should know it!"
+            response.context_data["form"].errors["urate_check"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Assert that the urate_form has an error on the value field
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
-            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+            response.context_data["urate_form"].errors["value"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Change the fake data such that the urate stuff passes but that diagnosed is True but aspiration is
         # not selected, which should result in an error on the aspiration field
@@ -2157,9 +2174,9 @@ class TestFlarePseudopatientUpdate(TestCase):
         forms_print_response_errors(response)
         # Assert that the form has an error on the aspiration field
         self.assertTrue(response.context_data["form"].errors)
-        self.assertEqual(
+        self.assertIn(
+            "Joint aspiration must be selected",
             response.context_data["form"].errors["aspiration"][0],
-            "Joint aspiration must be selected if a clinician diagnosed the flare.",
         )
 
     def test__post_returns_high_likelihood_prevalence_flare(self):
@@ -2215,6 +2232,7 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "joints": [LimitedJointChoices.KNEER],
                 "date_started": timezone.now().date() - timedelta(days=7),
                 "date_ended": "",
+                "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
                 "diagnosed": True,
@@ -2229,6 +2247,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a moderate likelihood and prevalence
+        print(flare.user.medhistory_set.all())
         self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
         self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
 
@@ -2251,10 +2270,11 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "onset": False,
                 "redness": False,
                 "joints": [LimitedJointChoices.HIPL],
+                "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
                 "diagnosed": False,
-                "aspiration": "",
+                "aspiration": False,
                 "crystal_analysis": "",
                 "date_started": timezone.now().date() - timedelta(days=135),
                 "date_ended": timezone.now().date() - timedelta(days=5),
@@ -2591,5 +2611,7 @@ menopause status to evaluate their flare.",
         forms_print_response_errors(response)
         self.assertTrue(response.context_data["urate_form"].errors)
         self.assertEqual(
-            response.context_data["urate_form"].errors["value"][0], "If urate was checked, we should know it!"
+            response.context_data["urate_form"].errors["value"][0],
+            "If the serum uric acid was checked, please tell us the value! \
+If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )

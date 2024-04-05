@@ -250,8 +250,6 @@ def set_psp_gender_attr(
     psp: Pseudopatient,
     menopause: bool = False,
 ) -> None:
-    print("setting gender")
-    print(gender)
     if gender is not None and gender is False:
         psp.gender = None
     else:

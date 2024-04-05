@@ -11,7 +11,6 @@ from .lists import COMMON_GOUT_JOINTS
 if TYPE_CHECKING:
     from datetime import date
 
-    from ..flares.models import Flare
     from ..genders.models import Gender
     from ..labs.models import Urate
     from ..medhistorys.models import MedHistory
@@ -74,7 +73,7 @@ def flares_calculate_prevalence_points(
     cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + [MedHistoryTypes.HYPERTENSION])
     if cvdiseases:
         points += 1.5
-    if urate and urate.value > Decimal("5.88"):
+    if flares_diagnostic_rule_urate_high(urate):
         points += 3.5
     return points
 
@@ -83,6 +82,12 @@ def flares_common_joints(joints: list[LimitedJointChoices]) -> list[LimitedJoint
     """Method that takes a list of joints and returns a list of those joints that are
     in COMMON_GOUT_JOINTS."""
     return [joint for joint in joints if joint in COMMON_GOUT_JOINTS]
+
+
+def flares_diagnostic_rule_urate_high(urate: Union["Urate", None]) -> bool:
+    """Method that returns True if the urate is high enough to qualify as hyperuricemia
+    for the diagnostic rule for gout."""
+    return urate and urate.value > Decimal("5.88")
 
 
 def flares_get_less_likelys(
@@ -107,22 +112,9 @@ def flares_get_less_likelys(
         less_likelys.append(abnormal_duration)
     if not flares_common_joints(joints):
         less_likelys.append(LessLikelys.JOINTS)
-    if crystal_analysis is False:
+    if crystal_analysis is not None and crystal_analysis is False:
         less_likelys.append(LessLikelys.NEGCRYSTALS)
     return less_likelys
-
-
-def flares_get_likelihood_str(flare: "Flare") -> str:
-    if flare.likelihood == Likelihoods.UNLIKELY:
-        flare_str = "Gout isn't likely and alternative causes of the symptoms should be investigated."
-    elif flare.likelihood == Likelihoods.EQUIVOCAL:
-        flare_str = "Indeterminate likelihood of gout and it can't be ruled in or out. \
-Physician evaluation is recommended."
-    elif flare.likelihood == Likelihoods.LIKELY:
-        flare_str = "Gout is very likely. Not a whole lot else needs to be done, other than treat the gout!"
-    else:
-        flare_str = "Flare hasn't been processed yet..."
-    return flare_str
 
 
 def flares_calculate_likelihood(

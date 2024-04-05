@@ -37,13 +37,14 @@ class TestFlareForm(TestCase):
 
     def test__form_fields(self):
         self.assertTrue(isinstance(self.form.fields["crystal_analysis"], forms.TypedChoiceField))
-        self.assertEqual(
-            self.form.fields["crystal_analysis"].help_text, "Was monosodium urate found in the synovial fluid?"
+        self.assertIn(
+            "Was monosodium urate found in",
+            self.form.fields["crystal_analysis"].help_text,
         )
-        self.assertEqual(self.form.fields["joints"].help_text, "Which joints were affected?")
+        self.assertIn("joints were affected?", self.form.fields["joints"].help_text)
         self.assertEqual(self.form.fields["joints"].label, "Joint(s)")
         self.assertTrue(isinstance(self.form.fields["onset"], forms.TypedChoiceField))
-        self.assertEqual(self.form.fields["onset"].help_text, "Did the symptoms start and peak in a day or less?")
+        self.assertIn("symptoms start and peak in a day or less?", self.form.fields["onset"].help_text)
         self.assertEqual(self.form.fields["onset"].label, "Rapid Onset")
         # TODO: Finish testing all the rest of the form fields...
 
@@ -82,6 +83,7 @@ class TestFlareForm(TestCase):
             {
                 "date_started": timezone.now() + timedelta(days=8),
                 "date_ended": timezone.now() + timedelta(days=1),
+                "medical_evaluation": True,
                 "diagnosed": True,
                 "aspiration": "",
                 "crystal_analysis": True,
@@ -91,10 +93,8 @@ class TestFlareForm(TestCase):
         self.form.clean()
         self.assertEqual(self.form.errors["date_started"][0], "Date started must be in the past.")
         self.assertEqual(self.form.errors["date_ended"][0], "Date ended must be after date started.")
-        self.assertEqual(
-            self.form.errors["aspiration"][0], "Joint aspiration must be selected if a clinician diagnosed the flare."
-        )
-        self.assertEqual(self.form.cleaned_data["crystal_analysis"], "")
+        self.assertIn("Joint aspiration must be selected", self.form.errors["aspiration"][0])
+        self.assertEqual(self.form.cleaned_data["crystal_analysis"], True)
         self.flare_data.update(
             {
                 "aspiration": True,

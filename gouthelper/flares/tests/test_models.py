@@ -25,10 +25,6 @@ class TestFlareMethods(TestCase):
     def setUp(self):
         self.flare = create_flare()
 
-    def test__constraint_diagnosed_valid(self):
-        with self.assertRaises(IntegrityError):
-            create_flare(diagnosed=False, crystal_analysis=True)
-
     def test__constraint_date_started_not_in_future(self):
         with self.assertRaises(IntegrityError):
             create_flare(date_started=(timezone.now() + timedelta(days=1)).date(), date_ended=None)

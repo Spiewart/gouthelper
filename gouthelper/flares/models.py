@@ -1,5 +1,4 @@
 from datetime import timedelta
-from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.conf import settings  # type: ignore
@@ -21,14 +20,15 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
-from ..utils.helpers import calculate_duration, now_date
+from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
 from .helpers import (
     flares_abnormal_duration,
     flares_calculate_prevalence_points,
     flares_common_joints,
-    flares_get_likelihood_str,
+    flares_diagnostic_rule_urate_high,
+    flares_get_less_likelys,
     flares_uncommon_joints,
 )
 from .managers import FlareManager
@@ -120,6 +120,14 @@ class Flare(
     Likelihoods = Likelihoods
     Prevalences = Prevalences
 
+    aki = models.BooleanField(
+        choices=BOOL_CHOICES,
+        verbose_name=_("Acute Kidney Injury"),
+        help_text=_("Did the patient have acute kidney injury during this flare?"),
+        default=None,
+        null=True,
+        blank=True,
+    )
     crystal_analysis = models.BooleanField(
         choices=BOOL_CHOICES,
         verbose_name=_("Crystal Analysis"),
@@ -243,9 +251,9 @@ monosodium urate crystals on polarized microscopy?"
 
         (Subject_the, subject_the, tobe) = self.get_str_attrs("Subject_the", "subject_the", "tobe")
 
-        ckd_str += " CKD is a significant risk factor for gout because uric acid is excreted by the kidneys, \
-and impaired kidney function causes bodily retention of uric acid. <br> <br>\
-Gout is not included in the Diagnostic Rule, so it doesn't play any role in our calculation of the gout prevalence \
+        ckd_str += " Uric acid is also excreted by the kidneys, \
+and impaired kidney function causes bodily retention of uric acid, hence the risk of gout. <br> <br>\
+CKD is not included in the Diagnostic Rule, so it doesn't play any role in our calculation of the gout prevalence \
 in a population similar to the Flare reported. However, GoutHelper includes CKD as a variable in Flare estimations of \
 likelihood only to interpret pre-menopausal women who almost never experience gout in the absence of chronic kidney \
 disease."
@@ -276,9 +284,8 @@ to have gout, which doesn't apply to {subject_the}."
     def common_joints_str(self) -> str:
         """Method that returns a str of the joints of a Flare that are
         in COMMON_GOUT_JOINTS."""
-        enum_list = [getattr(LimitedJointChoices, joint) for joint in self.common_joints]
-        # https://stackoverflow.com/questions/10880813/typeerror-sequence-item-0-expected-string-int-found
-        return ", ".join([str(joint.label).lower() for joint in enum_list])
+
+        return self.stringify_joints([getattr(LimitedJointChoices, joint) for joint in self.common_joints])
 
     @cached_property
     def crystal_analysis_interp(self) -> str:
@@ -323,12 +330,48 @@ by a synovial fluid analysis that did not contain monosodium urate."
                 if self.diagnosed is True:
                     crystal_analysis_str += f" <strong>The provider disagreed with the synovial fluid analysis in \
 that he or she diagnosed {subject_the} with gout</strong>, but the synovial fluid analysis did not contain \
-monosodium urate crystals. GoutHelper didn't modify the Flare likelihood in this context, but instead relies \
-on the rest of the information provided to determine the likelihood of gout."
+monosodium urate crystals, so GoutHelper decreased the likelihood of gout."
         else:
             crystal_analysis_str += f"<strong>{Subject_the} {pos_neg_past} a joint aspiration</strong>, \
 so the presence or absence of monosodium urate crystals in the synovial fluid is unknown."
         return mark_safe(crystal_analysis_str)
+
+    @cached_property
+    def crystal_proven_gout_explanation(self) -> str:
+        subject_the_pos = self.get_str_attrs("subject_the_pos")
+        return mark_safe(
+            format_lazy(
+                """A provider diagnosed {} as gout, and monosodium <a target='_next" \
+href={}>urate</a> crystals were observed in {} synovial fluid, consistent with a high likelihood of gout, \
+though this is a non-empiric determination made by GoutHelper and not based in Diagnostic Rule evidence.""",
+                self,
+                reverse("labs:about-urate"),
+                subject_the_pos,
+            )
+        )
+
+    @cached_property
+    def crystal_unproven(self) -> bool:
+        """Method that determines if a Flare was diagnosed as not due to gout and proven
+        with a crystal analysis of aspirated synovial fluid."""
+        return (
+            self.diagnosed is not None
+            and not self.diagnosed
+            and self.crystal_analysis is not None
+            and not self.crystal_analysis
+        )
+
+    @cached_property
+    def crystal_unproven_explanation(self) -> str:
+        (subject_the,) = self.get_str_attrs("subject_the")
+        return mark_safe(
+            format_lazy(
+                """{} was <a class='samepage-link' href='#diagnosed'>diagnosed</a> \
+with something other than gout and had a joint aspiration with a negative <a class='samepage-link' \
+href='#crystal_analysis'>crystal analysis</a>.""",
+                subject_the,
+            )
+        )
 
     @cached_property
     def cvdiseases_interp(self) -> str:
@@ -401,7 +444,7 @@ were due to gout. This has no effect on the likelihood of gout."
             else:
                 diagnosed_str = f"<strong>A provider did not evaluate {subject_the_pos} symptoms</strong>. \
     This has no effect on the likelihood of gout."
-        elif self.diagnosed:
+        elif self.diagnosed is True:
             diagnosed_str = f"<strong>A provider diagnosed {subject_the_pos} symptoms as due to gout</strong>."
             if self.crystal_analysis:
                 diagnosed_str += " <strong>The presence of monosodium urate crystals in the synovial fluid \
@@ -411,7 +454,7 @@ confirms the diagnosis</strong>. GoutHelper interprets the likelihood of gout as
 confirmed</strong>. GoutHelper doesn't adjust the likelihood of gout in this context."
             else:
                 diagnosed_str += " <strong>The absence of monosodium urate crystals in the synovial fluid \
-does not confirm the diagnosis</strong>. GoutHelper doesn't adjust the likelihood of gout in this context. \
+did not confirm the diagnosis</strong>. GoutHelper doesn't adjust the likelihood of gout in this context. \
 There are two possibilities to explain this scenario: 1) the patient has gout, but the crystals were not \
 detected in the synovial fluid, or 2) the patient does not have gout and the provider's diagnosis is incorrect."
         else:
@@ -438,13 +481,12 @@ ruled out gout."
 
         (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
         duration_str = f"<strong>{Subject_the_pos} flare {'lasted' if self.date_ended else 'has been ongoing for'} \
-{self.duration.days} day{'s' if self.duration.days > 1 else ''}</strong>. "
+{self.duration.days} day{'s' if self.duration.days > 1 or self.duration.days == 0 else ''}</strong>. "
         if self.abnormal_duration == LessLikelys.TOOLONG:
             duration_str += "This duration is atypically long for a gout flare, and as such GoutHelper \
 reduced the likelihood that these symptoms were due to gout. "
         elif self.abnormal_duration == LessLikelys.TOOSHORT:
-            duration_str += "The duration of this flare is atypically short for gout, and as such GoutHelper \
-reduced the likelihood that these symptoms were due to gout. "
+            duration_str += self.tooshort_explanation
         else:
             if not self.date_ended:
                 if self.duration.days < 2:
@@ -471,13 +513,21 @@ and as such GoutHelper did not adjust the likelihood that these symptoms were du
             ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
             ("demographics", "Demographic Risk", self.demographic_risk, self.demographic_risk_interp),
             ("diagnosed", "Clinician Diagnosis", self.diagnosed, self.diagnosed_interp),
-            ("duration", "Duration", self.duration, self.duration_interp),
+            ("duration", "Duration", self.abnormal_duration, self.duration_interp),
             ("erythema", "Erythema", self.redness, self.redness_interp),
             ("gout", "Gout Diagnosis", self.gout, self.gout_interp),
             ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp),
             ("joints", "Joints", self.joints, self.joints_interp),
             ("onset", "Onset", self.onset, self.onset_interp),
         ]
+
+    @cached_property
+    def female_explanation(self) -> str:
+        """Method that explains the pre-menopausal female LessLikelys."""
+        (subject_the,) = self.get_str_attrs("subject_the")
+        return f"Pre-menopausal females typically do not get gout unless they have chronic kidney disease, \
+which is not the case with {subject_the}. Consequently, GoutHelper reduced the likelihood that {subject_the} \
+symptoms were due to gout."
 
     @cached_property
     def firstmtp(self) -> bool:
@@ -523,9 +573,7 @@ This does not affect the Diagnostic Rule score."
     def hyperuricemia(self) -> bool:
         """Method that returns True if a Flare has a Urate that is
         in the hyperuricemic range (>= 6 mg/dL) and False if not."""
-        if self.urate:
-            return self.urate.value > Decimal("5.88")
-        return False
+        return flares_diagnostic_rule_urate_high(self.urate)
 
     @cached_property
     def hyperuricemia_interp(self) -> str:
@@ -539,21 +587,43 @@ This does not affect the Diagnostic Rule score."
                 self.urate,
             )
             if self.hyperuricemia:
-                hyperuricemia_str += "which is hyperuricemic (>= 5.88 mg/dL)</strong>. This increases the Diagnostic \
-Rule score by 3.5 points."
+                hyperuricemia_str += "which is hyperuricemic (>= 5.88 mg/dL)</strong> per the Diagnostic Rule. \
+This increases the Diagnostic Rule score by 3.5 points."
             else:
-                hyperuricemia_str += "which is not hyperuricemic (>= 5.88 mg/dL)</strong>. This does not affect the \
-Diagnostic Rule score."
+                hyperuricemia_str += "which is not hyperuricemic (>= 5.88 mg/dL)</strong> per the Diagnostic Rule. \
+This does not affect the Diagnostic Rule score."
         else:
             hyperuricemia_str = f"<strong>{Subject_the_pos} serum uric acid level was not measured during the \
 flare</strong>. This does not affect the Diagnostic Rule score."
         return mark_safe(hyperuricemia_str)
 
     @property
+    def joints_explanation(self) -> str:
+        """Method that provides a str explanation for the joints field."""
+        subject_the_pos, Subject_the_pos = self.get_str_attrs("subject_the_pos", "Subject_the_pos")
+        if self.LessLikelys.JOINTS in self.less_likelys:
+            return f"The joints involved in {subject_the_pos} flare are atypical for gout. \
+GoutHelper reduced the likelihood that these symptoms were due to gout."
+        else:
+            if not self.uncommon_joints:
+                joints_str = f"Some of the joints involved in {subject_the_pos} flare are typical for gout \
+({self.common_joints}) and others are not ({self.uncommon_joints_str})."
+            else:
+                joints_str = f"The joints involved in {subject_the_pos} flare ({self.common_joints_str}) \
+are typical for gout."
+            joints_str += "GoutHelper only reduces a Flare's likelihood if ALL of the affected joints are \
+atypical for gout."
+            if self.firstmtp:
+                joints_str += f" {Subject_the_pos} flare involved {self.firstmtp_str}, which is the most \
+common location for gout flares. Involvement of the 1st MTP joint(s) adds 2.5 points \
+To the Diagnostic Rule score."
+            return joints_str
+
+    @property
     def joints_interp(self):
         """Method that returns a str interpretation of the joints field."""
         (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
-        joints = self.joints_str
+        joints = self.joints_str()
         joints_str = f"<strong>{Subject_the_pos} Flare involved: the {joints}, "
         if self.firstmtp:
             joints_str += "and included the base of the big toe</strong>. The base of the big toe, \
@@ -566,21 +636,203 @@ Lack of involvement of the 1st MTP joint(s) does not rule out gout, but doesn't 
 score."
         return mark_safe(joints_str)
 
-    @cached_property
     def joints_str(self):
         """
         Function that returns a str of the joints affected by the flare
         returns: [str]: [str describing the joints(s) of the flare]
         """
-        return f"{', '.join(joint.lower() for joint in self.get_joints_list())}"
+        joints = self.get_joints_list()
+        if joints and len(joints) > 1:
+            if len(joints) == 2:
+                joints_str = f"{joints[0].lower()} and {joints[1].lower()}"
+            else:
+                joints_str = (
+                    ", ".join([joint.lower() for joint in joints[: len(joints) - 1]]) + ", and " + joints[-1].lower()
+                )
+        else:
+            ", ".join([joint.lower() for joint in joints])
+        return joints_str
+
+    @cached_property
+    def less_likelys(self) -> list[LessLikelys]:
+        """Method that returns a list of the LessLikelys for a Flare."""
+        return flares_get_less_likelys(
+            age=self.age,
+            date_ended=self.date_ended,
+            duration=self.duration,
+            gender=self.user.gender if self.user else self.gender,
+            joints=self.joints,
+            menopause=self.menopause,
+            crystal_analysis=self.crystal_analysis,
+            ckd=self.ckd,
+        )
 
     @property
-    def likelihood_str(self):
-        return flares_get_likelihood_str(flare=self)
+    def less_likelys_explanations(self) -> list[str]:
+        """Method that returns a list of the LessLikelys explanations for a Flare."""
+        return [
+            (self.LessLikelys(less_likely).label, self.less_likely_get_explanation(less_likely))
+            for less_likely in self.less_likelys
+        ]
+
+    def less_likely_get_explanation(self, less_likely: LessLikelys) -> str:
+        """Method that takes a less likely and gets a str to link to the correct explanation."""
+        if less_likely == self.LessLikelys.FEMALE:
+            return "demographics"
+        elif less_likely == self.LessLikelys.JOINTS:
+            return "joints"
+        elif less_likely == self.LessLikelys.NEGCRYSTALS:
+            return "crystal_analysis"
+        elif less_likely == self.LessLikelys.TOOLONG:
+            return "duration"
+        elif less_likely == self.LessLikelys.TOOSHORT:
+            return "duration"
+        elif less_likely == self.LessLikelys.TOOYOUNG:
+            return "age"
+        else:
+            raise ValueError("Unsupported LessLikelys")
+
+    @property
+    def less_likelys_str(self) -> str:
+        """Method that returns a str of the LessLikelys for a Flare."""
+        return ", ".join([less_likely.label.lower() for less_likely in self.less_likelys])
+
+    def likelihood_base_explanation(self) -> str:
+        subject_the_pos, subject_the = self.get_str_attrs("subject_the_pos", "subject_the")
+        likelihood_exp_str = format_lazy(
+            """<strong>The likelihood of gout for {} Flare is \
+{}</strong> based on a {} <a class='samepage-link' href='#prevalence'>Diagnostic Rule</a> score""",
+            subject_the_pos,
+            self.Likelihoods(self.likelihood).label.lower(),
+            self.Prevalences(self.prevalence).name.lower(),
+            subject_the,
+        )
+        return mark_safe(likelihood_exp_str)
+
+    def likelihood_likely_explanation(self) -> str:
+        """Method that interprets an LIKELY likelihood for a Flare."""
+        likelihood_exp_str = self.likelihood_base_explanation()
+        if self.prevalence == self.Prevalences.HIGH:
+            likelihood_exp_str += " that was not adjusted for any <em>less likely</em> factors."
+            if self.diagnosed and self.crystal_analysis:
+                crystal_proven_str = self.crystal_proven_gout_explanation
+                crystal_proven_str = first_letter_lowercase(crystal_proven_str)
+                likelihood_exp_str += " Also, " + crystal_proven_str
+        elif self.prevalence == self.Prevalences.MEDIUM:
+            likelihood_exp_str += " that was lowered due to: {self.less_likelys_str}."
+        elif self.prevalence == self.Prevalences.LOW:
+            pass
+        else:
+            raise ValueError("Trying to explain a Flare likelihood without a prevalence")
+        return mark_safe(likelihood_exp_str)
+
+    def likelihood_equivocal_explanation(self) -> str:
+        """Method that interprets an EQUIVOCAL likelihood for a Flare."""
+        likelihood_exp_str = self.likelihood_base_explanation()
+        if self.prevalence == self.Prevalences.HIGH:
+            likelihood_exp_str += " that was lowered due to <em>less likely</em> factors:"
+        elif self.prevalence == self.Prevalences.MEDIUM:
+            pass
+        elif self.prevalence == self.Prevalences.LOW:
+            pass
+        else:
+            raise ValueError("Trying to explain a Flare likelihood without a prevalence")
+        return mark_safe(likelihood_exp_str)
+
+    def likelihood_get_explanation(self, likelihood: Likelihoods) -> str:
+        """Method that takes a likelihood and returns the appropriate explanation."""
+        if likelihood == Likelihoods.LIKELY:
+            return self.likelihood_likely_explanation()
+        elif likelihood == Likelihoods.EQUIVOCAL:
+            return self.likelihood_equivocal_explanation()
+        elif likelihood == Likelihoods.UNLIKELY:
+            return self.likelihood_unlikely_explanation()
+        else:
+            raise ValueError("Trying to explain a Flare likelihood without a likelihood")
+
+    def likelihood_unlikely_explanation(self) -> str:
+        """Method that interprets an UNLIKELY likelihood for a Flare."""
+        likelihood_exp_str = self.likelihood_base_explanation()
+        if self.prevalence == self.Prevalences.HIGH:
+            if self.crystal_unproven:
+                likelihood_exp_str += " whose likelihood was lowered because " + self.crystal_unproven_explanation
+                if self.less_likelys:
+                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
+been lowered due to:"
+            else:
+                raise ValueError(
+                    "Trying to explain a Flare with an unlikely likelihood and a high prevalence \
+without a negative diagnosis and supporting crystal analysis"
+                )
+        elif self.prevalence == self.Prevalences.MEDIUM:
+            if self.crystal_unproven:
+                likelihood_exp_str += " whose likelihood was lowered because " + self.crystal_unproven_explanation
+            if self.less_likelys:
+                if self.crystal_unproven:
+                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
+been lowered due to:"
+                else:
+                    likelihood_exp_str += " that was lowered due to:"
+            else:
+                raise ValueError(
+                    "Trying to explain a Flare with an unlikely likelihood and a medium prevalence \
+without any less likely factors"
+                )
+        elif self.prevalence == self.Prevalences.LOW:
+            if self.crystal_unproven:
+                likelihood_exp_str += " whose likelihood was lowered because " + self.crystal_unproven_explanation
+            if self.less_likelys:
+                if self.crystal_unproven:
+                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
+been lowered due to:"
+                else:
+                    likelihood_exp_str += " that was lowered due to:"
+        else:
+            raise ValueError("Trying to explain a Flare likelihood without a prevalence")
+        return mark_safe(likelihood_exp_str)
+
+    @property
+    def likelihood_explanation(self):
+        """Method that returns a str explanation of the likelihood field."""
+        if self.likelihood:
+            return self.likelihood_get_explanation(likelihood=self.likelihood)
+        # The Flare has not yet been processed and the likelihood field is None
+        else:
+            return f"The likelihood of gout for {self} has not been calculated yet."
+
+    @property
+    def likelihood_interp(self):
+        if self.likelihood == Likelihoods.UNLIKELY:
+            return "Gout isn't likely."
+        elif self.likelihood == Likelihoods.EQUIVOCAL:
+            return "Gout can't be ruled in or out."
+        elif self.likelihood == Likelihoods.LIKELY:
+            return "Gout is very likely."
+        else:
+            return "Flare hasn't been processed yet..."
+
+    @property
+    def likelihood_recommendation(self):
+        if self.likelihood == Likelihoods.UNLIKELY:
+            return "Consider alternative causes of the symptoms."
+        elif self.likelihood == Likelihoods.EQUIVOCAL:
+            return "Medical evaluation is needed."
+        elif self.likelihood == Likelihoods.LIKELY:
+            return "Treat the gout!"
+        else:
+            return "Flare hasn't been processed yet..."
 
     @property
     def monoarticular(self):
         return not self.polyarticular
+
+    @property
+    def negcrystals_explanation(self) -> str:
+        """Method that explains the NEGCRYSTALS LessLikelys."""
+        (subject_the_pos,) = self.get_str_attrs("subject_the_pos")
+        return f"Joint aspiration was performed but synovial fluid analysis did not show monosodium urate crystals \
+, which argues against the diagnosis of gout. As a result, GoutHelper reduced the likelihood that {subject_the_pos} \
+symptoms were due to gout."
 
     @cached_property
     def onset_interp(self) -> str:
@@ -655,6 +907,46 @@ The absence of erythema (redness) does not add any points to the Diagnostic Rule
         flare_str += f"{self.date_ended.strftime('%m/%d/%Y')})" if self.date_ended else "present)"
         return flare_str
 
+    @classmethod
+    def stringify_joints(cls, joints: list[LimitedJointChoices]) -> str:
+        """Method that returns a str of the joints of a Flare."""
+        if joints and len(joints) > 1:
+            if len(joints) == 2:
+                return f"{joints[0].label.lower()} and {joints[1].label.lower()}"
+            else:
+                return (
+                    ", ".join([joint.label.lower() for joint in joints[: len(joints) - 1]])
+                    + ", and "
+                    + joints[-1].label.lower()
+                )
+        else:
+            return ", ".join([joint.label.lower() for joint in joints])
+
+    @cached_property
+    def toolong_explanation(self) -> str:
+        """Method that explains the TOOLONG LessLikelys."""
+        Subject_the_pos, pos_past, pos = self.get_str_attrs("Subject_the_pos", "pos_past", "pos")
+        return f"{Subject_the_pos} gout symptoms {'lasted' if self.date_ended else 'have lasted'} for \
+longer than is consistent with gout, so GoutHelper reduced the likelihood that \
+{pos_past if self.date_ended else pos} symptoms {'were' if self.date_ended else 'are'} due to gout."
+
+    @cached_property
+    def tooshort_explanation(self) -> str:
+        """Method that explains the TOOSHORT LessLikelys."""
+        Subject_the_pos, gender_pos, gender_subject = self.get_str_attrs(
+            "Subject_the_pos", "gender_pos", "gender_subject"
+        )
+        return f"{Subject_the_pos} gout symptoms resolved too quickly to be consistent with gout, \
+so GoutHelper reduced the likelihood that {gender_pos} symptoms were due to gout. If {gender_subject} \
+started treatment early (immediately at flare onset), it may have resolved the symptoms quickly."
+
+    @cached_property
+    def tooyoung_explanation(self) -> str:
+        """Method that explains the TOOYOUNG LessLikelys."""
+        Subject_the, subject_the_pos = self.get_str_attrs("Subject_the", "subject_the_pos")
+        return f"{Subject_the} is too young to have gout, which is why GoutHelper reduced the likelihood that \
+{subject_the_pos} symptoms were due to gout."
+
     @cached_property
     def uncommon_joints(self) -> list[LimitedJointChoices]:
         """Method that returns a list of the joints of a Flare that are
@@ -665,9 +957,7 @@ The absence of erythema (redness) does not add any points to the Diagnostic Rule
     def uncommon_joints_str(self) -> str:
         """Method that returns a str of the joints of a Flare that are
         NOT in COMMON_GOUT_JOINTS."""
-        enum_list = [getattr(LimitedJointChoices, joint) for joint in self.uncommon_joints]
-        # https://stackoverflow.com/questions/10880813/typeerror-sequence-item-0-expected-string-int-found
-        return ", ".join([str(joint.label).lower() for joint in enum_list])
+        return self.stringify_joints([getattr(LimitedJointChoices, joint) for joint in self.uncommon_joints])
 
     def update_aid(self, qs: Union["Flare", "User", None] = None) -> "Flare":
         """Updates Flare prevalence and likelihood fields.

@@ -40,31 +40,45 @@
         <div class="row">
           <div class="col">
             <div class="card card-body spacious-cards" id="likelihood">
-              <h4 class="card-title">
-                <a href="{% url 'flares:about' %}#likelihood">Likelihood</a> of Gout: <u>{{ flare.get_likelihood_display }}</u>
-              </h4>
+              <h3 class="card-title">
+                <a href="{% url 'flares:about' %}#likelihood">Likelihood</a>: {{ flare.get_likelihood_display }}
+              </h3>
               <ul>
-                <li>{{ flare.likelihood_str }}</li>
+                <li>
+                  Interpretation: {{ flare.likelihood_interp }}
+                  <li>Recommendation: {{ flare.likelihood_recommendation }}</li>
+                  <li>
+                    Explanation: {{ flare.likelihood_explanation }}
+                    {% if flare.less_likelys %}
+                      <ul>
+                        {% for less_likely, less_likely_link in flare.less_likelys_explanations %}
+                          <li>
+                            <!-- djlint:off -->{{ less_likely }} - <a class="samepage-link" href=#{{ less_likely_link }}><em>explanation</em></a><!-- djlint:on -->
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </li>
+                </li>
               </ul>
             </div>
+          </div>
+          <div class="col">
             <div class="card card-body spacious-cards" id="prevalence">
-              <h4 class="card-title">
-                <a href="{% url 'flares:about' %}#prevalence">Prevalence</a> of Gout: <u>{{ flare.prevalence.lower.capitalize }}</u>
-              </h4>
+              <h3 class="card-title">
+                <a href="{% url 'flares:about' %}#prevalence">Prevalence</a>: {{ flare.prevalence.lower.capitalize }}
+              </h3>
               <ul>
                 <li>
-                  {{ flare.get_prevalence_display }} of patients with similar symptoms
-                  have gout.
+                  <a href="{% url 'flares:about' %}#diagnosticrule">Diagnostic Rule</a> Score: <strong>{{ flare.prevalence_points }}</strong>
                 </li>
-                <li>
-                  <a href="{% url 'flares:about' %}#diagnosticrule">Diagnostic Rule</a> Score: {{ flare.prevalence_points }}
-                  {% if flare.polyarticular %}
-                    <li>
-                      NOTE: Prevalence is based on a single joint flare (monoarticular).
-                      Multi-joint flares (polyarticular) should be interpreted with caution if at all.
-                    </li>
-                  {% endif %}
-                </li>
+                <li>{{ flare.get_prevalence_display }} of similar patients have gout.</li>
+                {% if flare.polyarticular %}
+                  <li>
+                    Warning: the Diagnostic Rule was based on single joint flares (monoarticular).
+                    Multi-joint flares (polyarticular), such as this one, should be interpreted with caution, if at all.
+                  </li>
+                {% endif %}
               </ul>
             </div>
           </div>
@@ -95,7 +109,7 @@
                     {% if object.uncommon_joints %}<li>Uncommon joints: {{ object.uncommon_joints_str }}</li>{% endif %}
                     {% if object.firstmtp %}
                       <li>
-                        <a class="samepage-link" href="#joints">1st MTP</a>: {{ object.firstmtp_str|capfirst }}
+                        <a class="samepage-link" href="#joints">1st MTP</a>: {{ object.firstmtp_str|capfirst }} (<strong>2.5 points</strong>)
                       </li>
                     {% endif %}
                   </ul>
@@ -116,14 +130,14 @@
                 </li>
                 <li>
                   {% if flare.onset %}
-                    <a class="samepage-link" href="#onset">Onset</a>: rapid
+                    <a class="samepage-link" href="#onset">Onset</a>: rapid (<strong>0.5 points</strong>)
                   {% else %}
                     Onset: gradual
                   {% endif %}
                 </li>
                 <li>
                   {% if flare.redness %}
-                    <a class="samepage-link" href="#redness">Erythema</a> (redness): present
+                    <a class="samepage-link" href="#redness">Erythema</a> (redness): present (<strong>1 point</strong>)
                   {% else %}
                     Erythema (redness): absent
                   {% endif %}
@@ -146,6 +160,7 @@
                 <li>Age: {{ flare.age }}</li>
                 <li>
                   Gender: {{ flare.gender }}
+                  {% if not gender %}(<strong>2 points</strong>){% endif %}
                   {% if flare.menopause %}
                     , post-menopausal
                   {% elif object.ckd %}
@@ -157,10 +172,14 @@
                 <h6>Medical History</h6>
                 <ul>
                   {% if object.cvdiseases %}
-                    {% include "medhistorys/partials/cvdiseases.html" with aidtype="Flare" %}
+                    <li>
+                      <a class="samepage-link" href="#cvdiseases">CV disease(s)</a>: {{ object.cvdiseases_str }} (<strong>1.5 points</strong>)
+                    </li>
                   {% endif %}
                   {% if object.gout %}
-                    {% include '_contra.html' with id="gout" aidtype="Flare" %}
+                    <li>
+                      <a class="samepage-link" href="#gout">Gout</a> (<strong>2 points</strong>)
+                    </li>
                   {% endif %}
                   {% if flare.ckd %}
                     {% include '_contra.html' with id="ckd" aidtype="Flare" %}
@@ -175,31 +194,33 @@
               <ul>
                 <li>
                   {% if flare.diagnosed %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosed</a>
+                    <a class="samepage-link" href="#diagnosed">Diagnosed</a> with gout
+                  {% elif flare.diagnosed is not None %}
+                    <a class="samepage-link" href="#diagnosed">Diagnosed</a> with something other than gout
                   {% else %}
-                    Not diagnosed
+                    No diagnostic evaluation
                   {% endif %}
-                  by clinician
                 </li>
                 <li>
-                  {% if not flare.crystal_analysis %}
-                    Not proven
-                  {% else %}
-                    <a class="samepage-link" href="#crystalanalysis">Proven</a>
-                  {% endif %}
-                  by crystal analysis
-                </li>
-                <li>
-                  Uric acid level:
-                  {% if flare.urate %}
-                    {% if flare.urate.high %}
-                      <a class="samepage-link" href="#hyperuricemia">high</a>
-                    {% elif flare.urate.low %}
-                      low
+                  Joint Aspiration:
+                  {% if flare.crystal_analysis is not None %}
+                    {% if flare.crystal_analysis %}
+                      <a class="samepage-link" href="#crystalanalysis">(+) monosodium urate</a>
                     {% else %}
-                      normal
+                      (-) monosodium urate
                     {% endif %}
-                    ({{ flare.urate.value_str }})
+                  {% else %}
+                    none
+                  {% endif %}
+                </li>
+                <li>
+                  Uric acid:
+                  {% if flare.urate %}
+                    {% if flare.hyperuricemia %}
+                      <a class="samepage-link" href="#hyperuricemia">hyperuricemic</a> - {{ flare.urate.value_str }} (<strong>3.5 points</strong>)
+                    {% else %}
+                      not hyperuricemic - {{ flare.urate.value_str }}
+                    {% endif %}
                   {% else %}
                     not checked
                   {% endif %}
@@ -228,23 +249,3 @@
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <link rel="stylesheet"
-        href="https://code.jquery.com/ui/1.11.0/themes/smoothness/jquery-ui.css" />
-  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
-  <script src="https://code.jquery.com/ui/1.11.0/jquery-ui.js"></script>
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

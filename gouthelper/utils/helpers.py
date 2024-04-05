@@ -115,6 +115,12 @@ def duration_decimal_parser(json_dict):
     return json_dict
 
 
+def first_letter_lowercase(string: str) -> str:
+    """Method that takes a string and returns the string with the first letter
+    lowercase."""
+    return string[:1].lower() + string[1:]
+
+
 def get_or_create_qs_attr(obj: Any, name: str) -> list:
     """Method that takes any object and a string and creates an empty list
     attr on the object if it doesn't already exist. Adds an "s" to the end

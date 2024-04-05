@@ -502,13 +502,31 @@ function menopause_checker(
 function urate_checker() {
   if ($('#id_urate_check').val() == 'True') {
     $('#urate').show();
-    $('#id_urate-value').prop('required', true);
     add_asterisk($('#urate'));
   } else {
     $('#urate').hide();
     $('#id_urate-value').val('');
-    $('#id_urate-value').prop('required', false);
     remove_asterisk($('#urate'));
+  }
+}
+
+function aki_checker() {
+  // method that checks if the date_ended field is blank and adjusts the
+  // first word of the aki help_text to "Does" if it is blank and "Did" if it is not
+  if ($('#id_date_ended').val() == '') {
+    // change the first word of the help_text to "Does"
+    var help_text = $('#hint_id_aki').text();
+    intro = help_text.replace(/ .*/, '');
+    if (intro != 'Does') {
+      $('#hint_id_aki').text(help_text.replace(/[^\s]*/, 'Does'));
+    }
+  } else {
+    // change the first word of the help_text to "Did"
+    var help_text = $('#hint_id_aki').text();
+    intro = help_text.replace(/ .*/, '');
+    if (intro != 'Did') {
+      $('#hint_id_aki').text(help_text.replace(/[^\s]*/, 'Did'));
+    }
   }
 }
 
@@ -527,6 +545,9 @@ function aspiration_checker() {
 
 function medical_evaluation_checker() {
   if ($('#id_medical_evaluation').val() == 'True') {
+    $('#aki').show();
+    $('#div_id_aki').prop('required', true);
+    add_asterisk($('#div_id_aki'));
     $('#urate_check').show();
     $('#div_id_urate_check').prop('required', true);
     add_asterisk($('#div_id_urate_check'));
@@ -539,6 +560,10 @@ function medical_evaluation_checker() {
     add_asterisk($('#div_id_aspiration'));
     aspiration_checker();
   } else {
+    $('#aki').hide();
+    $('#div_id_aki').prop('required', false);
+    $('#id_aki').val('');
+    remove_asterisk($('#div_id_aki'));
     $('#urate_check').hide();
     $('#div_id_urate_check').prop('required', false);
     $('#id_urate_check').val('');
