@@ -64,6 +64,7 @@ class Flare(
                         user__isnull=False,
                         dateofbirth__isnull=True,
                         gender__isnull=True,
+                        flareaid__isnull=True,
                     )
                     | models.Q(
                         user__isnull=True,
@@ -164,6 +165,12 @@ monosodium urate crystals on polarized microscopy?"
         help_text=_("Did a medical provider think these symptoms were from gout?"),
         blank=True,
         null=True,
+    )
+    flareaid = models.ForeignKey(
+        "flareaids.FlareAid",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     # Gender is required, but can be null if user is not null
     gender = models.OneToOneField(
@@ -288,6 +295,37 @@ to have gout, which doesn't apply to {subject_the}."
         return self.stringify_joints([getattr(LimitedJointChoices, joint) for joint in self.common_joints])
 
     @cached_property
+    def contradiction(self) -> dict[str, str]:
+        """Method that returns a dictionary of contradictions for the Flare to use in templates."""
+        # If the user has a positive crystal analysis but the likelihood is unlikely, that can be a sign
+        # that there is some confusion or disagreement in the form fields.
+        Subject_the, pos_past = self.get_str_attrs("Subject_the", "pos_past")
+        if self.crystal_analysis and self.likelihood != self.Likelihoods.LIKELY:
+            return mark_safe(
+                f"<strong>Something seems off</strong>. {Subject_the} {pos_past} a joint aspiration \
+and the synovial fluid contained monosodium urate which is the gold standard for diagnosing gout. \
+The likelihood of gout should be high."
+            )
+        # If the user was diagnosed with gout but the likelihood is unlikely, it will be noted.
+        elif self.diagnosed and self.likelihood == self.Likelihoods.UNLIKELY:
+            return mark_safe(
+                f"<strong>Something seems off</strong>. {Subject_the} was diagnosed with gout, \
+but the likelihood of gout is unlikely."
+            )
+        # If the user is diagnosed as not having gout without a crystal analysis, but gout is likely,
+        # it should be noted.
+        elif (
+            self.diagnosed is not None
+            and self.diagnosed is False
+            and self.likelihood == self.Likelihoods.LIKELY
+            and self.crystal_analysis is None
+        ):
+            return mark_safe(
+                f"<strong>Something seems off</strong>. {Subject_the} was diagnosed as \
+not having gout, but the likelihood of gout is high."
+            )
+
+    @cached_property
     def crystal_analysis_interp(self) -> str:
         (Subject_the, subject_the, subject_the_pos, pos_past, pos_neg_past) = self.get_str_attrs(
             "Subject_the",
@@ -349,6 +387,20 @@ though this is a non-empiric determination made by GoutHelper and not based in D
                 subject_the_pos,
             )
         )
+
+    @property
+    def crystal_analysis_negative_str(self):
+        """Method that returns a str of the crystal analysis negative result."""
+        Subject_the, pos_past = self.get_str_attrs("Subject_the", "pos_past")
+        return f"{Subject_the} {pos_past} a joint aspiration and the synovial fluid did not contain \
+monosodium urate crystals."
+
+    @property
+    def crystal_analysis_positive_str(self):
+        """Method that returns a str of the crystal analysis positive result."""
+        Subject_the, pos_past = self.get_str_attrs("Subject_the", "pos_past")
+        return f"{Subject_the} {pos_past} a joint aspiration and the synovial fluid contained \
+monosodium urate crystals."
 
     @cached_property
     def crystal_unproven(self) -> bool:
@@ -627,7 +679,7 @@ To the Diagnostic Rule score."
         joints_str = f"<strong>{Subject_the_pos} Flare involved: the {joints}, "
         if self.firstmtp:
             joints_str += "and included the base of the big toe</strong>. The base of the big toe, \
-otherwise known as the first metatarsophalangeal (1st MTP) joints, is the most common location for gout flares. \
+otherwise known as the first metatarsophalangeal (1st MTP) joint, is the most common location for gout flares. \
 Involvement of the 1st MTP joint(s) adds 2.5 points to the Diagnostic Rule score."
         else:
             joints_str += "but did not involve the base of the big toe</strong>. The base of the big toe, \
@@ -731,10 +783,8 @@ score."
         likelihood_exp_str = self.likelihood_base_explanation()
         if self.prevalence == self.Prevalences.HIGH:
             likelihood_exp_str += " that was lowered due to <em>less likely</em> factors:"
-        elif self.prevalence == self.Prevalences.MEDIUM:
-            pass
-        elif self.prevalence == self.Prevalences.LOW:
-            pass
+        elif self.prevalence == self.Prevalences.MEDIUM or self.prevalence == self.Prevalences.LOW:
+            likelihood_exp_str += "."
         else:
             raise ValueError("Trying to explain a Flare likelihood without a prevalence")
         return mark_safe(likelihood_exp_str)
@@ -759,6 +809,8 @@ score."
                 if self.less_likelys:
                     likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
 been lowered due to:"
+                else:
+                    likelihood_exp_str += "."
             else:
                 raise ValueError(
                     "Trying to explain a Flare with an unlikely likelihood and a high prevalence \
@@ -816,7 +868,10 @@ been lowered due to:"
         if self.likelihood == Likelihoods.UNLIKELY:
             return "Consider alternative causes of the symptoms."
         elif self.likelihood == Likelihoods.EQUIVOCAL:
-            return "Medical evaluation is needed."
+            rec_str = "Medical evaluation is needed."
+            if not self.urate:
+                rec_str += f" Check {self.get_str_attrs('subject_the_pos')[0]} serum uric acid."
+            return rec_str
         elif self.likelihood == Likelihoods.LIKELY:
             return "Treat the gout!"
         else:

@@ -40,7 +40,7 @@ class LimitedJointChoices(TextChoices):
 
 class Likelihoods(TextChoices):
     UNLIKELY = "UNLIKELY", _("Unlikely")
-    EQUIVOCAL = "EQUIVOCAL", _("Equivocal")
+    EQUIVOCAL = "EQUIVOCAL", _("Indeterminate")
     LIKELY = "LIKELY", _("Likely")
 
 

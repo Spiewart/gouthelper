@@ -59,6 +59,7 @@
                       </ul>
                     {% endif %}
                   </li>
+                  {% if flare.contradiction %}<li>{{ flare.contradiction }}</li>{% endif %}
                 </li>
               </ul>
             </div>
@@ -205,7 +206,7 @@
                   Joint Aspiration:
                   {% if flare.crystal_analysis is not None %}
                     {% if flare.crystal_analysis %}
-                      <a class="samepage-link" href="#crystalanalysis">(+) monosodium urate</a>
+                      <a class="samepage-link" href="#crystal_analysis">(+) monosodium urate</a>
                     {% else %}
                       (-) monosodium urate
                     {% endif %}

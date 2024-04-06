@@ -55,8 +55,8 @@ def labs_eGFR_range_for_stage(
 
 def labs_eGFR_calculator(
     creatinine: Union["Creatinine", Decimal],
-    age: int = 45,
-    gender: int = Genders.MALE,
+    age: int,
+    gender: int,
 ) -> Decimal:
     """
     Calculates eGFR from Creatinine value.

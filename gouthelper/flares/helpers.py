@@ -103,7 +103,7 @@ def flares_get_less_likelys(
     """Return list of strings of less likelys for a Flare."""
 
     less_likelys = []
-    if gender.value == Genders.FEMALE and age < 45 and not menopause and not ckd:
+    if gender.value == Genders.FEMALE and age < 60 and not menopause and not ckd:
         less_likelys.append(LessLikelys.FEMALE)
     if age < 18:
         less_likelys.append(LessLikelys.TOOYOUNG)

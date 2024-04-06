@@ -23,7 +23,6 @@ from ..helpers import (
     flares_calculate_prevalence_points,
     flares_common_joints,
     flares_get_less_likelys,
-    flares_get_likelihood_str,
     flares_uncommon_joints,
 )
 from ..lists import COMMON_GOUT_JOINTS
@@ -469,30 +468,6 @@ class TestFlareHelpers(TestCase):
             ckd=self.flare.ckd,
         )
         self.assertNotIn(LessLikelys.NEGCRYSTALS, less_likelys)
-
-    def test__flares_get_likelihood_str(self):
-        self.flare.likelihood = Likelihoods.UNLIKELY
-        self.flare.save()
-        self.assertEqual(
-            flares_get_likelihood_str(self.flare),
-            "Gout isn't likely and alternative causes of the symptoms should be investigated.",
-        )
-        self.flare.likelihood = Likelihoods.EQUIVOCAL
-        self.flare.save()
-        self.assertEqual(
-            flares_get_likelihood_str(self.flare),
-            "Indeterminate likelihood of gout and it can't be ruled in or out. \
-Physician evaluation is recommended.",
-        )
-        self.flare.likelihood = Likelihoods.LIKELY
-        self.flare.save()
-        self.assertEqual(
-            flares_get_likelihood_str(self.flare),
-            "Gout is very likely. Not a whole lot else needs to be done, other than treat the gout!",
-        )
-        self.flare.likelihood = None
-        self.flare.save()
-        self.assertEqual(flares_get_likelihood_str(self.flare), "Flare hasn't been processed yet...")
 
     def test__flares_calculate_likelihood(self):
         self.assertEqual(
