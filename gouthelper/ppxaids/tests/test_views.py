@@ -308,7 +308,6 @@ class TestPpxAidDetail(TestCase):
         del ppxaid.aid_dict
         del ppxaid.recommendation
         del ppxaid.options
-        print(ppxaid.recommendation)
         self.assertFalse(ppxaid.recommendation[0] == Treatments.NAPROXEN)
 
     def test__get_object_does_not_update(self):

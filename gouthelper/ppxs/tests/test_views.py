@@ -1417,7 +1417,6 @@ class TestPpxUpdate(TestCase):
         """Test that post() removes 3 existing Urates for the Ppx."""
         # Create fake data with data for 3 urates to be deleted
         data = ppx_data_factory(ppx=self.ppx, urates=None)
-        print(data)
 
         # Post the data
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)

@@ -35,6 +35,8 @@ from .managers import FlareManager
 from .services import FlareDecisionAid
 
 if TYPE_CHECKING:
+    from ..flareaids.models import FlareAid
+
     User = get_user_model()
 
 
@@ -233,6 +235,17 @@ monosodium urate crystals on polarized microscopy?"
         """Method that returns True if a Flare is abnormally long or short
         for a typical gout flare."""
         return flares_abnormal_duration(duration=self.duration, date_ended=self.date_ended)
+
+    def add_flareaid(self, flareaid: "FlareAid", commit: bool = True) -> None:
+        """Method that adds a FlareAid to a Flare. Checks to make sure the Flare doesn't
+        have a user before adding the FlareAid."""
+        if self.user:
+            raise ValueError(f"Flare has a User, use {self.user}'s FlareAid.")
+        else:
+            self.flareaid = flareaid
+            if commit:
+                self.full_clean()
+                self.save()
 
     @classmethod
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:

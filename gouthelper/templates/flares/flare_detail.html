@@ -29,6 +29,25 @@
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flares:about' %}"
          role="button">About</a>
+      {% if object.user %}
+        {% if object.user.flareaid %}
+          {{ object.user.flareaid }}
+        {% else %}
+          <a type="button"
+             class="btn btn-primary btn-lg spacious-buttons"
+             href="{% url 'flareaids:pseudopatient-create' username=self.object.user.username %}"
+             role="button">FlareAid</a>
+        {% endif %}
+      {% else %}
+        {% if object.flareaid %}
+          {{ object.flareaid }}
+        {% else %}
+          <a type="button"
+             class="btn btn-primary btn-lg spacious-buttons"
+             href="{% url 'flareaids:flare-create' flare=object.pk %}"
+             role="button">FlareAid</a>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

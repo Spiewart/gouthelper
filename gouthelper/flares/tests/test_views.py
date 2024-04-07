@@ -956,8 +956,6 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         psp = create_psp(
             dateofbirth=timezone.now().date() - timedelta(days=365 * 64), gender=Genders.FEMALE, medhistorys=[]
         )
-        print("just made psp in test, here is its gender:")
-        print(psp.gender)
         # Create a fake data dict
         data = flare_data_factory(psp)
         # Modify data entries to indicate a moderate likelihood and prevalence flare
@@ -2247,7 +2245,6 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a moderate likelihood and prevalence
-        print(flare.user.medhistory_set.all())
         self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
         self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
 

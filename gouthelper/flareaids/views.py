@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type:
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
 from django.urls import reverse  # pylint: disable=E0401  # type: ignore
+from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import (  # pylint: disable=E0401  # type: ignore
     CreateView,
     DetailView,
@@ -20,6 +21,7 @@ from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignor
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.models import DateOfBirth
+from ..flares.models import Flare
 from ..genders.forms import GenderFormOptional
 from ..genders.models import Gender
 from ..medhistorydetails.forms import CkdDetailForm
@@ -125,8 +127,18 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
     permission_required = "flareaids.can_add_flareaid"
     success_message = "FlareAid successfully created."
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        """Add ultaid to context if it exists."""
+        context = super().get_context_data(**kwargs)
+        context.update({"flare": self.flare})
+        return context
+
     def get_permission_object(self):
-        return None
+        flare_kwarg = self.kwargs.get("flare", None)
+        self.flare = Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
+        if self.flare and self.flare.user:
+            raise PermissionError("Trying to create a FlareAid for a Flare with a user with an anonymous view.")
+        return self.flare.user if self.flare else None
 
     def post(self, request, *args, **kwargs):
         (
@@ -151,6 +163,7 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
         if errors:
             return errors
         else:
+            kwargs.update({"flare": self.flare})
             return self.form_valid(
                 form=form,
                 oto_2_save=oto_2_save,
@@ -163,7 +176,12 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
                 ma_2_rem=ma_2_rem,
                 labs_2_save=None,
                 labs_2_rem=None,
+                **kwargs,
             )
+
+    @cached_property
+    def related_object(self) -> Flare:
+        return Flare.related_objects.get(pk=self.kwargs["flare"]) if "flare" in self.kwargs else None
 
 
 class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):

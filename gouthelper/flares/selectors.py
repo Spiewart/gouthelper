@@ -53,6 +53,7 @@ def flare_relations(qs: "QuerySet") -> "QuerySet":
 def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
     """QuerySet to fetch all the related objects for a Flare without the User."""
     return flare_relations(qs).select_related(
+        "flareaid",
         "urate",
         "user",
     )

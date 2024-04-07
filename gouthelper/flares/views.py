@@ -104,8 +104,6 @@ class FlareBase:
     ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
         urate_val = oto_forms["urate_form"].cleaned_data.get("value", None)
         urate_check = form.cleaned_data.get("urate_check", None)
-        print(urate_check)
-        print(urate_val)
         if urate_check and not urate_val:
             urate_error = ValidationError(
                 message="If the serum uric acid was checked, please tell us the value! \

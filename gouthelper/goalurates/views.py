@@ -162,7 +162,6 @@ class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
 
 class GoalUrateDetail(GoalUrateDetailBase):
     def dispatch(self, request, *args, **kwargs):
-        print("calling dispatch")
         self.object = self.get_object()
         # Check if the object has a User and if there is no username in the kwargs,
         # redirect to the username url

@@ -669,7 +669,6 @@ class TestFlareHelpers(TestCase):
             urate=urate,
             mhs=[MedHistoryTypes.CHF],
         )
-        print(flare.urate)
         likelihood = get_likelihood(flare=flare)
         self.assertEqual(likelihood, Likelihoods.LIKELY)
         flare.date_started = (timezone.now() - timedelta(days=2)).date()
