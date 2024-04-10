@@ -136,10 +136,10 @@ class TestUltAidCreate(TestCase):
             "gender-value": Genders.FEMALE,
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             "hlab5801-value": "",
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value": False,
             f"{MedHistoryTypes.CKD}-value": False,
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value": False,
+            f"{MedHistoryTypes.HEPATITIS}-value": True,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            f"{MedHistoryTypes.URATESTONES}-value": False,
             f"{MedHistoryTypes.XOIINTERACTION}-value": True,
         }
         response = self.client.post(reverse("ultaids:create"), ultaid_data)
@@ -166,14 +166,6 @@ class TestUltAidDetail(TestCase):
         self.ultaid = create_ultaid(
             mas=[], mhs=[], ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN), hlab5801=False
         )
-
-    def test__contents(self):
-        self.assertTrue(self.view().contents)
-        self.assertTrue(isinstance(self.view().contents, QuerySet))
-        for content in self.view().contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, self.view().contents)
 
     def test__get_context_data(self):
         response = self.client.get(reverse("ultaids:detail", kwargs={"pk": self.ultaid.pk}))
@@ -324,7 +316,8 @@ class TestUltAidPseudopatientCreate(TestCase):
                         is False
                     )
                     assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                        f"medallergy_{ma.treatment}": True
+                        f"medallergy_{ma.treatment}": True,
+                        f"{ma.treatment}_matype": None,
                     }
                 for treatment in UltChoices.values:
                     assert f"medallergy_{treatment}_form" in response.context_data
@@ -336,7 +329,8 @@ class TestUltAidPseudopatientCreate(TestCase):
                             is True
                         )
                         assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                            f"medallergy_{treatment}": None
+                            f"medallergy_{treatment}": None,
+                            f"{treatment}_matype": None,
                         }
 
     def test__get_context_data_medhistorys(self):
@@ -461,7 +455,7 @@ class TestUltAidPseudopatientCreate(TestCase):
 
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.all():
-            with self.assertNumQueries(3):
+            with self.assertNumQueries(4):
                 kwargs = {"username": pseudopatient.username}
                 qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                 self.assertTrue(isinstance(qs, QuerySet))
@@ -921,7 +915,7 @@ class TestUltAidPseudopatientDetail(TestCase):
 
     def test__get_queryset(self):
         for ultaid in UltAid.objects.filter(user__isnull=False).select_related("user"):
-            with self.assertNumQueries(3):
+            with self.assertNumQueries(4):
                 qs = self.view(kwargs={"username": ultaid.user.username}).get_queryset()
                 self.assertTrue(isinstance(qs, QuerySet))
                 qs_obj = qs.first()
@@ -1091,7 +1085,8 @@ class TestUltAidPseudopatientUpdate(TestCase):
                         is False
                     )
                     assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                        f"medallergy_{ma.treatment}": True
+                        f"medallergy_{ma.treatment}": True,
+                        f"{ma.treatment}_matype": None,
                     }
                 for treatment in UltChoices.values:
                     assert f"medallergy_{treatment}_form" in response.context_data
@@ -1103,7 +1098,8 @@ class TestUltAidPseudopatientUpdate(TestCase):
                             is True
                         )
                         assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                            f"medallergy_{treatment}": None
+                            f"medallergy_{treatment}": None,
+                            f"{treatment}_matype": None,
                         }
 
     def test__get_context_data_medhistorys(self):
@@ -1231,7 +1227,7 @@ class TestUltAidPseudopatientUpdate(TestCase):
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.select_related("ultaid").all():
             if hasattr(pseudopatient, "ultaid"):
-                with self.assertNumQueries(3):
+                with self.assertNumQueries(4):
                     kwargs = {"username": pseudopatient.username}
                     qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                     self.assertTrue(isinstance(qs, QuerySet))

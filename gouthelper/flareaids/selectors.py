@@ -52,7 +52,7 @@ def flareaid_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return flareaid_relations(qs).select_related("user")
+    return flareaid_relations(qs).select_related("flare", "user")
 
 
 def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":

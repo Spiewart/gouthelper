@@ -74,10 +74,10 @@ def ultaid_data_factory(
         mas=mas,
         mhs=mhs,
         bool_mhs=[
-            MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY,
             MedHistoryTypes.CKD,
-            MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,
+            MedHistoryTypes.HEPATITIS,
             MedHistoryTypes.ORGANTRANSPLANT,
+            MedHistoryTypes.URATESTONES,
             MedHistoryTypes.XOIINTERACTION,
         ],
         aid_mh_dets=[MedHistoryTypes.CKD],

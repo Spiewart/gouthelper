@@ -98,7 +98,7 @@ class TestHlab5801Form(TestCase):
     def test__value_field(self):
         form = Hlab5801Form()
         self.assertEqual(form.fields["value"].label, "HLA-B*5801 Genotype")
-        self.assertEqual(form.fields["value"].help_text, mark_safe("Is the patient's HLA-B*5801 genotype known?"))
+        self.assertIn("HLA-B*5801</a> genotype known?", form.fields["value"].help_text)
         self.assertFalse(form.fields["value"].required)
 
 
@@ -135,10 +135,10 @@ class TestUrateFlareForm(TestCase):
 
     def test__value(self):
         """Tests for the value field on UrateFlareForm."""
-        self.assertEqual(self.form.fields["value"].label, "Flare Urate")
-        self.assertEqual(
+        self.assertEqual(self.form.fields["value"].label, "Uric Acid Level")
+        self.assertIn(
+            "What was patient's uric acid level?",
             self.form.fields["value"].help_text,
-            mark_safe("Uric acid is typically reported in micrograms per deciliter (mg/dL)."),
         )
         self.assertEqual(self.form.fields["value"].decimal_places, 1)
         self.assertFalse(self.form.fields["value"].required)

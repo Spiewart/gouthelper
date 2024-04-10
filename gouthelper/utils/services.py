@@ -872,6 +872,6 @@ class TreatmentAidService(AidService):
         """
         decisionaid_dict = self._create_decisionaid_dict()
         self.model_attr.decisionaid = self._save_trt_dict_to_decisionaid(
-            decisionaid_dict=decisionaid_dict, commit=False
+            decisionaid_dict=decisionaid_dict, commit=commit
         )
         return super()._update(commit=commit)

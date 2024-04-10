@@ -24,24 +24,30 @@ class CreatinineBase:
     class Meta:
         abstract = True
 
-    @property
-    def eGFR(self: "BaselineCreatinine") -> Decimal:  # type: ignore
+    def calculate_eGFR(
+        self: "BaselineCreatinine",
+        age: int,
+        gender: int,
+    ) -> Decimal:  # type: ignore
         """
         Method for calculating eGFR.
         Requires age, gender, race, and a creatinine value.
         Required variables can be called with method or pulled from object's user's profile.
         """
-        return labs_eGFR_calculator(creatinine=self)
+        return labs_eGFR_calculator(creatinine=self.value, age=age, gender=gender)
 
-    @property
-    def stage(self: "BaselineCreatinine") -> "Stages":  # type: ignore
+    def calculate_stage(
+        self: "BaselineCreatinine",
+        age: int,
+        gender: int,
+    ) -> "Stages":  # type: ignore
         """Method that takes calculated eGFR and returns Ckd stage
 
         Returns:
             [Stages / int]: [CKD stage]
         """
         # self.eGFR returns a Decimal for labs_stage_calculator()
-        return labs_stage_calculator(self.eGFR)
+        return labs_stage_calculator(self.calculate_eGFR(age=age, gender=gender))
 
 
 class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):

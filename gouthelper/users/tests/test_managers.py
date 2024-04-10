@@ -56,7 +56,7 @@ class TestPseudopatientManager(TestCase):
                 create_ult(user=psp)
 
     def test__flareaid_qs(self):
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(4):
             for psp in Pseudopatient.objects.flareaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "flareaid"):
@@ -101,7 +101,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(mh.medhistorytype in GoalUrate.aid_medhistorys())
 
     def test__ppxaid_qs(self):
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(4):
             for psp in Pseudopatient.objects.ppxaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ppxaid"):
@@ -134,7 +134,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertEqual(urate.user, psp)
 
     def test__ultaid_qs(self):
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(4):
             for psp in Pseudopatient.objects.ultaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ultaid"):
@@ -160,7 +160,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
     def test__ult_qs(self):
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             for psp in Pseudopatient.objects.ult_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ult"):

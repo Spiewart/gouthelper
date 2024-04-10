@@ -93,14 +93,6 @@ class TestMedHistoryGet(TestCase):
             self.medhistorys.append(getattr(self, medhistory.name.lower()))
         self.nullhistorys = []
 
-    # Test each of the imported helpers
-    def test__allopurinolhypersensitivity(self):
-        self.assertEqual(
-            medhistorys_get(self.medhistorys, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY).pk,
-            self.allopurinolhypersensitivity.pk,
-        )
-        self.assertFalse(medhistorys_get(self.nullhistorys, MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY))
-
     def test__anticoagulation(self):
         self.assertEqual(
             medhistorys_get(self.medhistorys, MedHistoryTypes.ANTICOAGULATION).pk, self.anticoagulation.pk
@@ -128,13 +120,6 @@ class TestMedHistoryGet(TestCase):
     def test__erosions(self):
         self.assertEqual(medhistorys_get(self.medhistorys, MedHistoryTypes.EROSIONS).pk, self.erosions.pk)
         self.assertFalse(medhistorys_get(self.nullhistorys, MedHistoryTypes.EROSIONS))
-
-    def test__febuxostathypersensitivity(self):
-        self.assertEqual(
-            medhistorys_get(self.medhistorys, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY).pk,
-            self.febuxostathypersensitivity.pk,
-        )
-        self.assertFalse(medhistorys_get(self.nullhistorys, MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY))
 
     def test__gastricbypass(self):
         self.assertEqual(medhistorys_get(self.medhistorys, MedHistoryTypes.GASTRICBYPASS).pk, self.gastricbypass.pk)

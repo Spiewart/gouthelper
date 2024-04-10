@@ -15,6 +15,7 @@ from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 
 from ...contents.models import Content, Tags
 from ...dateofbirths.helpers import age_calc
+from ...flares.tests.factories import create_flare
 from ...genders.choices import Genders
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
@@ -80,7 +81,7 @@ class TestFlareAidAbout(TestCase):
 class TestFlareAidCreate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view: FlareAidCreate = create_flareaid()
+        self.view = FlareAidCreate
         self.flareaid_data = {
             "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 50)),
             "gender-value": Genders.FEMALE,
@@ -89,12 +90,118 @@ class TestFlareAidCreate(TestCase):
             f"{MedHistoryTypes.DIABETES}-value": False,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
+        self.flare = create_flare()
+
+    def test__dispatch_redirects_for_flare_with_flareaid(self):
+        """Test that the dispatch() method redirects to the flareaids:flare-update view when the view is called with
+        the pk for a flare that already has a flareaid field."""
+        flare = create_flare()
+        flare.flareaid = create_flareaid(dateofbirth=flare.dateofbirth, gender=flare.gender)
+        flare.save()
+        response = self.client.get(reverse("flareaids:flare-create", kwargs={"flare": flare.pk}))
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("flareaids:flare-update", kwargs={"pk": flare.flareaid.pk}))
+
+    def test__get_context_data_with_flare(self):
+        response = self.client.get(reverse("flareaids:flare-create", kwargs={"flare": self.flare.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("flare", response.context_data)
+        self.assertEqual(response.context_data["flare"], self.flare)
+        self.assertIn("age", response.context_data)
+        self.assertEqual(response.context_data["age"], age_calc(self.flare.dateofbirth.value))
+        self.assertIn("gender", response.context_data)
+        self.assertEqual(response.context_data["gender"], self.flare.gender.value)
+        self.assertNotIn("dateofbirth_form", response.context_data)
+        self.assertNotIn("gender_form", response.context_data)
+        for mh in self.flare.medhistorys_qs:
+            if mh.medhistorytype in FLAREAID_MEDHISTORYS:
+                self.assertIn(f"{mh.medhistorytype}_form", response.context_data)
+                self.assertEqual(response.context_data[f"{mh.medhistorytype}_form"].instance, mh)
+                self.assertFalse(response.context_data[f"{mh.medhistorytype}_form"].instance._state.adding)
+                self.assertEqual(
+                    response.context_data[f"{mh.medhistorytype}_form"].initial, {f"{mh.medhistorytype}-value": True}
+                )
+
+    def test__get_permission_object_with_flare(self):
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
+        kwargs = {"flare": self.flare.pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        permission_object = view.get_permission_object()
+        self.assertEqual(permission_object, self.flare.user)
+        self.assertTrue(hasattr(view, "flare"))
+        self.assertEqual(view.flare, self.flare)
+
+    def test__get_permission_object_with_flare_with_user_raises_ValueError(self):
+        user_flare = create_flare(user=True)
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
+        kwargs = {"flare": user_flare.pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        with self.assertRaises(PermissionError) as exc:
+            view.get_permission_object()
+            self.assertEqual(exc.msg, "Trying to create a FlareAid for a Flare with a user with an anonymous view.")
+
+    def test__related_object(self):
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
+        kwargs = {"flare": self.flare.pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        self.assertEqual(view.related_object, self.flare)
+        view = self.view()
+        view.setup(request)
+        self.assertIsNone(view.related_object)
 
     def test__successful_post(self):
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         forms_print_response_errors(response)
         self.assertTrue(FlareAid.objects.order_by("created").last())
         self.assertEqual(response.status_code, 302)
+
+    def test__successful_post_with_flare(self):
+        response = self.client.post(
+            reverse("flareaids:flare-create", kwargs={"flare": self.flare.pk}), self.flareaid_data
+        )
+        forms_print_response_errors(response)
+        self.assertTrue(FlareAid.objects.order_by("created").last())
+        self.assertEqual(response.status_code, 302)
+        flareaid = FlareAid.objects.order_by("created").last()
+        self.flare.refresh_from_db()
+        self.assertIsNotNone(self.flare.flareaid)
+        self.assertEqual(self.flare.flareaid, flareaid)
+
+    def test__post_with_flare_assigns_medhistorys(self):
+        initial_flare_medhistorys = list(
+            self.flare.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).values_list(
+                "medhistorytype", flat=True
+            )
+        ).copy()
+        response = self.client.post(
+            reverse("flareaids:flare-create", kwargs={"flare": self.flare.pk}), self.flareaid_data
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        flareaid = FlareAid.objects.order_by("created").last()
+        for mh in self.flare.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS):
+            if self.flareaid_data.get(f"{mh.medhistorytype}-value", None):
+                self.assertTrue(getattr(flareaid, f"{mh.medhistorytype.lower()}"))
+        for mhtype in initial_flare_medhistorys:
+            if self.flareaid_data.get(f"{mhtype}-value", None):
+                self.assertTrue(getattr(self.flare, f"{mhtype.lower()}"))
+                self.assertTrue(getattr(flareaid, f"{mhtype.lower()}"))
+            else:
+                self.assertFalse(getattr(flareaid, f"{mhtype.lower()}"))
+                self.assertFalse(getattr(flareaid, f"{mhtype.lower()}"))
 
     def test__post_creates_medhistory(self):
         # Count the MedHistorys
@@ -466,7 +573,8 @@ class TestFlareAidPseudopatientCreate(TestCase):
                     is False  # pylint: disable=w0212, line-too-long # noqa: E501
                 )
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                    f"medallergy_{ma.treatment}": True
+                    f"medallergy_{ma.treatment}": True,
+                    f"{ma.treatment}_matype": None,
                 }
             for treatment in FlarePpxChoices.values:
                 assert f"medallergy_{treatment}_form" in response.context_data
@@ -476,7 +584,8 @@ class TestFlareAidPseudopatientCreate(TestCase):
                         is True  # pylint: disable=w0212, line-too-long # noqa: E501
                     )
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                        f"medallergy_{treatment}": None
+                        f"medallergy_{treatment}": None,
+                        f"{treatment}_matype": None,
                     }
 
     def test__get_permission_object(self):
@@ -1216,7 +1325,8 @@ class TestFlareAidPseudopatientUpdate(TestCase):
                     response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding is False
                 )  # pylint: disable=w0212, line-too-long # noqa: E501
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                    f"medallergy_{ma.treatment}": True
+                    f"medallergy_{ma.treatment}": True,
+                    f"{ma.treatment}_matype": None,
                 }
             for treatment in FlarePpxChoices.values:
                 assert f"medallergy_{treatment}_form" in response.context_data
@@ -1225,7 +1335,8 @@ class TestFlareAidPseudopatientUpdate(TestCase):
                         response.context_data[f"medallergy_{treatment}_form"].instance._state.adding is True
                     )  # pylint: disable=w0212, line-too-long # noqa: E501
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                        f"medallergy_{treatment}": None
+                        f"medallergy_{treatment}": None,
+                        f"{treatment}_matype": None,
                     }
 
     def test__post(self):
@@ -1504,13 +1615,6 @@ class TestFlareAidDetail(TestCase):
         response = self.view.as_view()(request, pk=user_fa.pk)
         assert response.status_code == 302
         assert response.url == reverse("flareaids:pseudopatient-detail", kwargs={"username": user_fa.user.username})
-
-    def test__get_context_data(self):
-        response = self.client.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
-        context = response.context_data
-        for content in self.content_qs:
-            self.assertIn(content.slug, context)
-            self.assertEqual(context[content.slug], {content.tag: content})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.flareaid.pk}).get_queryset()

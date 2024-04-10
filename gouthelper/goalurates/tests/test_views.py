@@ -263,6 +263,7 @@ class TestGoalUrateUpdate(TestCase):
     def test__get_form_kwargs(self):
         view = self.view()
         view.setup(self.request, pk=self.goalurate.id)
+        view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertFalse(kwargs.get("htmx"))
 
@@ -270,6 +271,7 @@ class TestGoalUrateUpdate(TestCase):
         self.request.htmx = True
         view = self.view()
         view.setup(self.request, pk=self.goalurate.id)
+        view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertTrue(kwargs.get("htmx"))
 

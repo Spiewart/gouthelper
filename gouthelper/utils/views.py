@@ -290,10 +290,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         self,
         labs: dict[str, tuple[type["BaseModelFormSet"], type["FormHelper"], "QuerySet"]],
         query_object: Union["MedAllergyAidHistoryModel", User, None],
+        kwargs: dict,
         patient: Pseudopatient | None = None,
         request_user: User | None = None,
         str_attrs: dict[str, str] = None,
-        **kwargs: dict,
     ) -> None:
         """Method adds a formset of labs to the context. Uses a QuerySet that takes a query_object
         as an arg to populate existing Lab objects."""
@@ -441,25 +441,31 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         """Method to populate the kwargs dict with forms for the objects's related 1to1 models. For
         required one to one objects, the value is set as a kwarg for the context."""
         for onetoone, onetoone_dict in onetoones.items():
-            form_str = f"{onetoone}_form"
-            oto_obj = self.get_oto_obj(query_object, onetoone, self.object) if query_object else None
-            if form_str not in kwargs:
+            if self.related_object and getattr(self.related_object, onetoone) and onetoone not in kwargs:
                 if onetoone == "dateofbirth":
-                    kwargs[form_str] = onetoone_dict["form"](
-                        instance=oto_obj if oto_obj else onetoone_dict["model"](),
-                        initial={"value": age_calc(oto_obj.value) if oto_obj else None},
-                        patient=patient,
-                        request_user=request_user,
-                        str_attrs=str_attrs,
-                    )
+                    kwargs["age"] = age_calc(getattr(query_object, onetoone).value)
                 else:
-                    # Add the form to the context with a new instance of the related model
-                    kwargs[form_str] = onetoone_dict["form"](
-                        instance=oto_obj if oto_obj else onetoone_dict["model"](),
-                        patient=patient,
-                        request_user=request_user,
-                        str_attrs=str_attrs,
-                    )
+                    kwargs[onetoone] = getattr(query_object, onetoone).value
+            else:
+                form_str = f"{onetoone}_form"
+                oto_obj = self.get_oto_obj(query_object, onetoone, self.object) if query_object else None
+                if form_str not in kwargs:
+                    if onetoone == "dateofbirth":
+                        kwargs[form_str] = onetoone_dict["form"](
+                            instance=oto_obj if oto_obj else onetoone_dict["model"](),
+                            initial={"value": age_calc(oto_obj.value) if oto_obj else None},
+                            patient=patient,
+                            request_user=request_user,
+                            str_attrs=str_attrs,
+                        )
+                    else:
+                        # Add the form to the context with a new instance of the related model
+                        kwargs[form_str] = onetoone_dict["form"](
+                            instance=oto_obj if oto_obj else onetoone_dict["model"](),
+                            patient=patient,
+                            request_user=request_user,
+                            str_attrs=str_attrs,
+                        )
         # Add the required one to one objects to the context
         for onetoone in req_otos:
             if onetoone not in kwargs:
@@ -515,6 +521,20 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     kwargs=kwargs,
                 )
             )
+        # Raise a redirect if trying to create a related Aid for an Aid that already has that Aid set (i.e. FlareAid
+        # for a Flare with a flareaid attr already set)
+        elif self.related_object:
+            related_model_name = self.related_object._meta.model_name
+            if self.create_view and getattr(self.related_object, self.model_name.lower(), None):
+                messages.error(
+                    request, f"{self.related_object} already has a {self.model_name}. Please update it instead."
+                )
+                return HttpResponseRedirect(
+                    reverse(
+                        f"{self.model_name.lower()}s:{related_model_name}-update",
+                        kwargs={"pk": getattr(self.related_object, self.model_name.lower()).pk},
+                    )
+                )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid_save_otos(
@@ -533,6 +553,17 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 if getattr(form.instance, oto_attr, None) is None:
                     if not self.user or oto_attr == "urate":
                         setattr(form.instance, oto_attr, oto)
+
+    def form_valid_related_object_otos(
+        self,
+        form: "ModelForm",
+        onetoones: dict[str, "FormModelDict"],
+        related_object: "MedAllergyAidHistoryModel",
+    ):
+        for oto_attr in onetoones.keys():
+            related_object_oto = getattr(related_object, oto_attr, None)
+            if related_object_oto and getattr(form.instance, oto_attr, None) is None:
+                setattr(form.instance, oto_attr, related_object_oto)
 
     def form_valid_delete_otos(self, oto_2_rem: list[Model] | None, form: "ModelForm") -> None:
         """Method to delete the OneToOne related models. Related fields for the OneToOne are
@@ -581,23 +612,35 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if self.onetoones:
             self.form_valid_save_otos(oto_2_save, form)
             self.form_valid_delete_otos(oto_2_rem, form)
+            if self.related_object:
+                self.form_valid_related_object_otos(
+                    form=form,
+                    onetoones=self.onetoones,
+                    related_object=self.related_object,
+                )
         if kwargs:
             for key, val in kwargs.items():
-                if isinstance(val, Model):
-                    if key in aid_obj._meta.fields and getattr(aid_obj, key, None) is None:
-                        setattr(aid_obj, key, val)
-                        if save_aid_obj is not True:
-                            save_aid_obj = True
-                    elif (
-                        aid_obj._meta.model_name in val._meta.fields
-                        and getattr(val, aid_obj._meta.model_name, None) is None
-                    ):
-                        setattr(val, self.model_name, aid_obj)
-                        val.full_clean()
-                        val.save()
+                if (
+                    isinstance(val, Model)
+                    and key in [field.name for field in aid_obj._meta.fields]
+                    and getattr(aid_obj, key, None) is None
+                ):
+                    setattr(aid_obj, key, val)
+                    if save_aid_obj is not True:
+                        save_aid_obj = True
         if save_aid_obj:
             aid_obj.save()
-        aid_obj_attr = aid_obj.__class__.__name__.lower()
+        aid_obj_attr = aid_obj._meta.model_name
+        if kwargs:
+            for key, val in kwargs.items():
+                if (
+                    isinstance(val, Model)
+                    and aid_obj_attr in [field.name for field in val._meta.fields]
+                    and getattr(val, aid_obj_attr, None) is None
+                ):
+                    setattr(val, aid_obj_attr, aid_obj)
+                    val.full_clean()
+                    val.save()
         if self.medallergys:
             if ma_2_save:
                 for ma in ma_2_save:
@@ -837,6 +880,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
 
         return cd.get(f"{mh}-value", False)
 
+    @cached_property
+    def model_name(self) -> str:
+        return self.model.__name__
+
     def post(self, request, *args, **kwargs):
         """Processes forms for primary and related models"""
         # user and object attrs are set by the dispatch() method on the child class
@@ -1021,9 +1068,11 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                                 request.POST,
                                 queryset=getattr(self, f"{lab}_formset_qs").filter(**{query_obj_attr: query_object}),
                                 prefix=lab,
-                                patient=patient,
-                                request_user=request_user,
-                                str_attrs=str_attrs,
+                                form_kwargs={
+                                    "patient": patient,
+                                    "request_user": request_user,
+                                    "str_attrs": str_attrs,
+                                },
                             )
                         }
                     )
@@ -1034,9 +1083,11 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                                 request.POST,
                                 queryset=getattr(self, f"{lab}_formset_qs").none(),
                                 prefix=lab,
-                                patient=patient,
-                                request_user=request_user,
-                                str_attrs=str_attrs,
+                                form_kwargs={
+                                    "patient": patient,
+                                    "request_user": request_user,
+                                    "str_attrs": str_attrs,
+                                },
                             )
                         }
                     )
@@ -1059,7 +1110,8 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             for treatment in medallergys:
                 ma_obj = (
                     next(
-                        iter([ma for ma in getattr(query_object, "medallergys_qs") if ma.treatment == treatment]), None
+                        iter([ma for ma in getattr(query_object, "medallergys_qs", []) if ma.treatment == treatment]),
+                        None,
                     )
                     if query_object
                     else None
@@ -1187,18 +1239,19 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         oto_forms: dict[str, "ModelForm"] = {}
         if onetoones:
             for onetoone in onetoones:
-                oto_obj = self.get_oto_obj(query_object, onetoone, self.object) if query_object else None
-                oto_forms.update(
-                    {
-                        f"{onetoone}_form": onetoones[onetoone]["form"](
-                            request.POST,
-                            instance=oto_obj if oto_obj else onetoones[onetoone]["model"](),
-                            patient=patient,
-                            request_user=request_user,
-                            str_attrs=str_attrs,
-                        )
-                    }
-                )
+                if not self.related_object or (self.related_object and not getattr(self.related_object, onetoone)):
+                    oto_obj = self.get_oto_obj(query_object, onetoone, self.object) if query_object else None
+                    oto_forms.update(
+                        {
+                            f"{onetoone}_form": onetoones[onetoone]["form"](
+                                request.POST,
+                                instance=oto_obj if oto_obj else onetoones[onetoone]["model"](),
+                                patient=patient,
+                                request_user=request_user,
+                                str_attrs=str_attrs,
+                            )
+                        }
+                    )
         return oto_forms
 
     def post_process_lab_formsets(
@@ -1429,7 +1482,9 @@ menopause status to evaluate their flare."
         oto_2_rem: list[Model] = []
         for oto_form_str, oto_form in oto_forms.items():
             object_attr = oto_form_str.split("_")[0]
-            if object_attr not in req_otos:
+            if object_attr not in req_otos and (
+                not self.related_object or (self.related_object and not getattr(self.related_object, "object_attr"))
+            ):
                 try:
                     oto_form.check_for_value()
                     # Check if the onetoone changed
@@ -1456,6 +1511,11 @@ menopause status to evaluate their flare."
         return (
             self.user if self.user else self.object if not self.create_view else getattr(self, "related_object", None)
         )
+
+    @cached_property
+    def related_object(self) -> Any:
+        """Meant to defualt to None, but can be overwritten in child views."""
+        return None
 
     def render_errors(
         self,

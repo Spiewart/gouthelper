@@ -105,7 +105,7 @@ class TestFlareMethods(TestCase):
     def test__common_joints_str_plural(self):
         self.flare.joints = [LimitedJointChoices.KNEER, LimitedJointChoices.ANKLEL]
         self.flare.save()
-        self.assertEqual(self.flare.common_joints_str, "right knee, left ankle")
+        self.assertEqual(self.flare.common_joints_str, "right knee and left ankle")
 
     def test__duration(self):
         self.assertEqual(
@@ -158,29 +158,24 @@ class TestFlareMethods(TestCase):
         self.assertEqual(self.flare.joints_str(), "right knee")
         self.flare.joints = [LimitedJointChoices.KNEER, LimitedJointChoices.ANKLEL]
         self.flare.save()
-        self.assertEqual(self.flare.joints_str(), "right knee, left ankle")
+        self.assertEqual(self.flare.joints_str(), "right knee and left ankle")
 
-    def test__likelihood_str(self):
+    def test__likelihood_interp(self):
         self.assertEqual(self.flare.likelihood_str, "Flare hasn't been processed yet...")
         self.flare.likelihood = Likelihoods.UNLIKELY
         self.flare.save()
-        self.assertEqual(
-            self.flare.likelihood_str,
-            "Gout isn't likely and alternative causes of the symptoms should be investigated.",
-        )
+        self.assertEqual(self.flare.likelihood_str, "Gout isn't likely.")
         self.flare.likelihood = Likelihoods.EQUIVOCAL
         self.flare.save()
         self.assertEqual(
             self.flare.likelihood_str,
-            "Indeterminate likelihood of gout and it can't be ruled in or out. \
-Physician evaluation is recommended.",
+            "Gout can't be ruled in or out.",
         )
         self.flare.likelihood = Likelihoods.LIKELY
         self.flare.save()
         self.assertEqual(
             self.flare.likelihood_str,
-            "Gout is very likely. Not a whole lot else needs to be done, other \
-than treat the gout!",
+            "Gout is very likely.",
         )
 
     def test__polyarticular(self):
@@ -246,7 +241,7 @@ than treat the gout!",
 
     def test__uncommon_joints_str(self):
         self.flare.joints = [LimitedJointChoices.HIPL, LimitedJointChoices.SHOULDERR, LimitedJointChoices.MTP1L]
-        self.assertEqual(self.flare.uncommon_joints_str, "left hip, right shoulder")
+        self.assertEqual(self.flare.uncommon_joints_str, "left hip and right shoulder")
 
     def test__update(self):
         self.assertIsNone(self.flare.prevalence)

@@ -31,10 +31,10 @@ class TestUltAidDataFactory(TestCase):
         self.bools_or_empty_str = [True, False, ""]
         self.True_or_empty_str = [True, ""]
         self.bool_mhs = [
-            MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY,
             MedHistoryTypes.CKD,
-            MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,
+            MedHistoryTypes.HEPATITIS,
             MedHistoryTypes.ORGANTRANSPLANT,
+            MedHistoryTypes.URATESTONES,
             MedHistoryTypes.XOIINTERACTION,
         ]
 
@@ -154,6 +154,8 @@ class TestUltAidDataFactory(TestCase):
             for mh in ULTAID_MEDHISTORYS:
                 self.assertIn(f"{mh}-value", data)
                 if mh not in [MedHistoryTypes.CKD, MedHistoryTypes.CAD]:
+                    print(mh)
+                    print(self.bool_mhs)
                     self.assertEqual(
                         data[f"{mh}-value"],
                         True if getattr(self.user_with_ultaid, mh.lower()) else False if mh in self.bool_mhs else "",

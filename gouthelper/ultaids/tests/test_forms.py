@@ -40,8 +40,6 @@ class TestUltAidForm(TestCase):
         self.assertIn(f"{MedHistoryTypes.CKD}-value", response.rendered_content)
         self.assertIn(f"{MedHistoryTypes.ORGANTRANSPLANT}-value", response.rendered_content)
         self.assertIn(f"{MedHistoryTypes.XOIINTERACTION}-value", response.rendered_content)
-        self.assertIn(f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value", response.rendered_content)
-        self.assertIn(f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value", response.rendered_content)
         self.assertIn("medallergys", response.rendered_content)
         for medallergy in UltChoices.values:
             self.assertIn(f"medallergy_{medallergy}", response.rendered_content)

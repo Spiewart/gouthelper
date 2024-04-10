@@ -23,6 +23,7 @@ from .services import FlareAidDecisionAid
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
+    from ..flares.models import Flare
     from ..medhistorys.choices import MedHistoryTypes
 
     User = get_user_model()
@@ -191,6 +192,9 @@ treatment is typically very short and the risk of bleeding is low."
                             )
                         except KeyError:
                             return None
+
+    def related_aid(self) -> Union["Flare", None]:
+        return getattr(self, "flare", None)
 
     @classmethod
     def trttype(cls) -> str:

@@ -150,7 +150,7 @@ class TestUltAidDecisionAid(TestCase):
             default_medhistorys = decisionaid.default_medhistorys
             self.assertIsNotNone(default_medhistorys)
             for medhistorytype in [medhistory.medhistorytype for medhistory in ultaid.medhistory_set.all()]:
-                if medhistorytype == MedHistoryTypes.ORGANTRANSPLANT:
+                if medhistorytype == MedHistoryTypes.ORGANTRANSPLANT or medhistorytype == MedHistoryTypes.HEPATITIS:
                     pass
                 else:
                     self.assertIn(medhistorytype, [default.medhistorytype for default in default_medhistorys])

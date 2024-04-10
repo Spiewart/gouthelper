@@ -397,7 +397,7 @@ class TestUltPseudopatientCreate(TestCase):
 
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.all():
-            with self.assertNumQueries(2):
+            with self.assertNumQueries(3):
                 kwargs = {"username": pseudopatient.username}
                 qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                 self.assertTrue(isinstance(qs, QuerySet))
@@ -735,7 +735,7 @@ class TestUltPseudopatientDetail(TestCase):
 
     def test__get_queryset(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
-            with self.assertNumQueries(2):
+            with self.assertNumQueries(3):
                 qs = self.view(kwargs={"username": ult.user.username}).get_queryset()
                 self.assertTrue(isinstance(qs, QuerySet))
                 qs_obj = qs.first()
@@ -987,7 +987,7 @@ class TestUltPseudopatientUpdate(TestCase):
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.select_related("ult").all():
             if hasattr(pseudopatient, "ult"):
-                with self.assertNumQueries(2):
+                with self.assertNumQueries(3):
                     kwargs = {"username": pseudopatient.username}
                     qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                     self.assertTrue(isinstance(qs, QuerySet))

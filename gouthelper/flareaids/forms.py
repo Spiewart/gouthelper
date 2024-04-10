@@ -34,6 +34,7 @@ class FlareAidForm(
         )
 
     def __init__(self, *args, **kwargs):
+        self.flare = kwargs.pop("flare", None)
         self.medallergys = kwargs.pop("medallergys")
         self.patient = kwargs.pop("patient", None)
         self.request_user = kwargs.pop("request_user", None)
@@ -49,7 +50,7 @@ class FlareAidForm(
             ),
         )
         forms_helper_insert_about_the_patient(layout=self.helper.layout)
-        if not self.patient:
+        if not self.patient and not self.flare:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])

@@ -12,12 +12,7 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...medhistorys.models import Erosions, Tophi
-from ...medhistorys.tests.factories import (
-    AllopurinolhypersensitivityFactory,
-    CkdFactory,
-    FebuxostathypersensitivityFactory,
-    XoiinteractionFactory,
-)
+from ...medhistorys.tests.factories import CkdFactory, XoiinteractionFactory
 from ...treatments.choices import AllopurinolDoses, FebuxostatDoses, Treatments
 from ..models import UltAid
 from .factories import UltAidFactory
@@ -48,15 +43,6 @@ class TestUltAid(TestCase):
             ULTAID_MEDHISTORYS,
         )
 
-    def test__contraindications_allopurinolhypersensitivity(self):
-        self.assertFalse(
-            self.ultaid.contraindications,
-        )
-        del self.ultaid.allopurinolhypersensitivity
-        del self.ultaid.contraindications
-        AllopurinolhypersensitivityFactory(ultaid=self.ultaid)
-        self.assertTrue(self.ultaid.contraindications)
-
     def test__contraindications_allopurinol_allergy(self):
         self.assertFalse(
             self.ultaid.contraindications,
@@ -83,15 +69,6 @@ class TestUltAid(TestCase):
         del self.ultaid.contraindications
         self.ultaid.hlab5801 = Hlab5801Factory(value=True)
         self.ultaid.save()
-        self.assertTrue(self.ultaid.contraindications)
-
-    def test__contraindications_febuxostathypersensitivity(self):
-        self.assertFalse(
-            self.ultaid.contraindications,
-        )
-        del self.ultaid.febuxostathypersensitivity
-        del self.ultaid.contraindications
-        FebuxostathypersensitivityFactory(ultaid=self.ultaid)
         self.assertTrue(self.ultaid.contraindications)
 
     def test__contraindications_febuxostat_allergys(self):
@@ -158,18 +135,20 @@ class TestUltAid(TestCase):
             self.ultaid.recommendation,
             (Treatments.ALLOPURINOL, self.ultaid.options[Treatments.ALLOPURINOL]),
         )
-        AllopurinolhypersensitivityFactory(ultaid=self.ultaid)
+        MedAllergyFactory(treatment=Treatments.ALLOPURINOL, ultaid=self.ultaid)
         self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
+        del self.ultaid.options
         self.assertEqual(
             self.ultaid.recommendation,
             (Treatments.FEBUXOSTAT, self.ultaid.options[Treatments.FEBUXOSTAT]),
         )
-        FebuxostathypersensitivityFactory(ultaid=self.ultaid)
+        MedAllergyFactory(treatment=Treatments.FEBUXOSTAT, ultaid=self.ultaid)
         self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
+        del self.ultaid.options
         self.assertEqual(
             self.ultaid.recommendation,
             (Treatments.PROBENECID, self.ultaid.options[Treatments.PROBENECID]),
@@ -179,6 +158,7 @@ class TestUltAid(TestCase):
         self.ultaid.update_aid()
         self.ultaid.refresh_from_db()
         del self.ultaid.aid_dict
+        del self.ultaid.options
         self.assertIsNone(self.ultaid.recommendation)
 
     def test__tophi(self):
@@ -215,16 +195,9 @@ class TestUltAidUpdate(TestCase):
         # due to no HLA-B*5801 test
         self.ultaid = UltAidFactory(ethnicity=EthnicityFactory(value=Ethnicitys.CAUCASIANAMERICAN))
 
-    def test__allopurinolhypersensitivity_recommends_febuxostat(self):
-        AllopurinolhypersensitivityFactory(ultaid=self.ultaid)
-        self.ultaid.update_aid()
-        self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])
-        self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
-        self.assertEqual(Treatments.FEBUXOSTAT, self.ultaid.recommendation[0])
-
     def test__dualhypersensitivity_recommends_probenecid(self):
-        AllopurinolhypersensitivityFactory(ultaid=self.ultaid)
-        FebuxostathypersensitivityFactory(ultaid=self.ultaid)
+        MedAllergyFactory(treatment=Treatments.ALLOPURINOL, ultaid=self.ultaid)
+        MedAllergyFactory(treatment=Treatments.FEBUXOSTAT, ultaid=self.ultaid)
         self.ultaid.update_aid()
         self.assertNotIn(Treatments.ALLOPURINOL, self.ultaid.options)
         self.assertTrue(self.ultaid.aid_dict[Treatments.ALLOPURINOL]["contra"])

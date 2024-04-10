@@ -37,8 +37,8 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) 
                     """
                         <hr size="3" color="dark">
                         <legend>About {% if patient %}{{ patient }} \
-({{ patient.gender }}, age {{ age }}) \
-{% else %}the Patient{% endif %}</legend>
+({{ patient.gender }}, age {{ age }}) {% else %} {{ str_attrs.subject_the }} {% endif %} \
+{% if view.related_object %}({{ view.related_object.gender }}, age {{ view.related_object.age }}) {% endif %}</legend>
                     """
                 ),
                 css_id="about-the-patient",

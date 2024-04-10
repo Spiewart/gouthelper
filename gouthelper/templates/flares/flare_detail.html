@@ -29,25 +29,6 @@
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flares:about' %}"
          role="button">About</a>
-      {% if object.user %}
-        {% if object.user.flareaid %}
-          {{ object.user.flareaid }}
-        {% else %}
-          <a type="button"
-             class="btn btn-primary btn-lg spacious-buttons"
-             href="{% url 'flareaids:pseudopatient-create' username=self.object.user.username %}"
-             role="button">FlareAid</a>
-        {% endif %}
-      {% else %}
-        {% if object.flareaid %}
-          {{ object.flareaid }}
-        {% else %}
-          <a type="button"
-             class="btn btn-primary btn-lg spacious-buttons"
-             href="{% url 'flareaids:flare-create' flare=object.pk %}"
-             role="button">FlareAid</a>
-        {% endif %}
-      {% endif %}
     </div>
   </div>
 {% endblock heading %}
@@ -102,6 +83,37 @@
               </ul>
             </div>
           </div>
+        </div>
+      </div>
+      <div id="treatment">
+        <hr size="3" color="dark" />
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Treatment</u>
+            </h3>
+          </div>
+        </div>
+        <div id="flareaid">
+          {% if object.user %}
+            {% if object.user.flareaid %}
+              {{ object.user.flareaid }}
+            {% else %}
+              <a type="button"
+                 class="btn btn-primary btn-lg spacious-buttons"
+                 href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}"
+                 role="button">FlareAid</a>
+            {% endif %}
+          {% else %}
+            {% if object.flareaid %}
+              {{ object.flareaid }}
+            {% else %}
+              <a type="button"
+                 class="btn btn-primary btn-lg spacious-buttons"
+                 href="{% url 'flareaids:flare-create' flare=object.pk %}"
+                 role="button">FlareAid</a>
+            {% endif %}
+          {% endif %}
         </div>
       </div>
       <div id="details">
@@ -169,9 +181,9 @@
             <div class="card card-body spacious-cards" id="about-patient">
               <h4>Patient</h4>
               <h6>
-                Demographics:
+                <a class="samepage-link" href="#demographics">Demographics</a>:
                 {% if object.at_risk_for_gout %}
-                  <a class="samepage-link" href="#demographics">at-risk</a>
+                  at-risk
                 {% else %}
                   not at-risk
                 {% endif %}
@@ -218,14 +230,14 @@
                   {% elif flare.diagnosed is not None %}
                     <a class="samepage-link" href="#diagnosed">Diagnosed</a> with something other than gout
                   {% else %}
-                    No diagnostic evaluation
+                    <a class="samepage-link" href="#diagnosed">No diagnostic evaluation</a>
                   {% endif %}
                 </li>
                 <li>
-                  Joint Aspiration:
+                  <a class="samepage-link" href="#crystal_analysis">Joint aspiration</a>:
                   {% if flare.crystal_analysis is not None %}
                     {% if flare.crystal_analysis %}
-                      <a class="samepage-link" href="#crystal_analysis">(+) monosodium urate</a>
+                      (+) monosodium urate
                     {% else %}
                       (-) monosodium urate
                     {% endif %}
@@ -234,10 +246,10 @@
                   {% endif %}
                 </li>
                 <li>
-                  Uric acid:
+                  <a class="samepage-link" href="#hyperuricemia">Uric acid</a>:
                   {% if flare.urate %}
                     {% if flare.hyperuricemia %}
-                      <a class="samepage-link" href="#hyperuricemia">hyperuricemic</a> - {{ flare.urate.value_str }} (<strong>3.5 points</strong>)
+                      hyperuricemic - {{ flare.urate.value_str }} (<strong>3.5 points</strong>)
                     {% else %}
                       not hyperuricemic - {{ flare.urate.value_str }}
                     {% endif %}

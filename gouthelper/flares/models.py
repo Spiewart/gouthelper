@@ -168,7 +168,7 @@ monosodium urate crystals on polarized microscopy?"
         blank=True,
         null=True,
     )
-    flareaid = models.ForeignKey(
+    flareaid = models.OneToOneField(
         "flareaids.FlareAid",
         on_delete=models.SET_NULL,
         null=True,
@@ -472,22 +472,28 @@ doesn't get any extra points for {gender_pos} Diagnostic Rule score."
             if self.user
             else self.gender.value == Genders.MALE and self.age >= 18
         ):
-            demo_str = "an adult male"
+            demo_desc = "an adult male"
         elif self.post_menopausal:
-            demo_str = "a post-menopausal female"
+            demo_desc = "a post-menopausal female"
         elif self.premenopausal_with_ckd:
-            demo_str = "a pre-menopausal female with chronic kidney disease"
+            demo_desc = "a pre-menopausal female with chronic kidney disease"
         else:
-            demo_str = "adult pre-menopausal female without chronic kidney disease"
+            demo_desc = "adult pre-menopausal female without chronic kidney disease"
         if self.demographic_risk:
-            return mark_safe(
-                f"<strong>{Subject_the} is {demo_str}, which is a demographic considered at \
-risk for gout</strong>. GoutHelper only reduces the likelihood of a Flare being gout if the demographic is not at \
+            demo_str = f"<strong>{Subject_the} is {demo_desc}, which is a demographic considered at \
+risk for gout</strong>."
+            if (
+                self.user.gender.value == Genders.MALE
+                if self.user
+                else self.gender.value == Genders.MALE and self.age >= 18
+            ):
+                demo_str += " This increases the Diagnostic Rule score by 2 points."
+            demo_str += " GoutHelper only reduces the likelihood of a Flare being gout if the demographic is not at \
 risk."
-            )
+            return mark_safe(demo_str)
         else:
             return mark_safe(
-                f"<strong>{Subject_the} is {demo_str}, a demographic that is not typically considered at risk for \
+                f"<strong>{Subject_the} is {demo_desc}, a demographic that is not typically considered at risk for \
 gout</strong>, so GoutHelper adjusted the Flare likelihood to be lower."
             )
 
@@ -709,14 +715,13 @@ score."
         joints = self.get_joints_list()
         if joints and len(joints) > 1:
             if len(joints) == 2:
-                joints_str = f"{joints[0].lower()} and {joints[1].lower()}"
+                return f"{joints[0].lower()} and {joints[1].lower()}"
             else:
-                joints_str = (
+                return (
                     ", ".join([joint.lower() for joint in joints[: len(joints) - 1]]) + ", and " + joints[-1].lower()
                 )
         else:
-            ", ".join([joint.lower() for joint in joints])
-        return joints_str
+            return ", ".join([joint.lower() for joint in joints])
 
     @cached_property
     def less_likelys(self) -> list[LessLikelys]:

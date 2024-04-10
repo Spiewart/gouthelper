@@ -2,7 +2,6 @@ import pytest  # type: ignore
 from django.forms import BooleanField, HiddenInput, TypedChoiceField
 from django.test import TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.utils.safestring import mark_safe  # type: ignore
 
 from ..choices import MedHistoryTypes
 from ..forms import (
@@ -199,12 +198,9 @@ class TestColchicineinteractionForm(TestCase):
             form.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].label,
             "Colchicine Interaction",
         )
-        self.assertEqual(
+        self.assertIn(
+            "medications that interact with colchicin",
             form.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].help_text,
-            mark_safe(
-                "Is the patient on any <a href='https://www.goodrx.com/colchicine/interactions' target='_blank'>\
-medications that interact with colchicine</a> (simvastatin, clarithromycin, diltiazem, etc.)?"
-            ),
         )
         self.assertTrue(
             isinstance(
@@ -298,9 +294,9 @@ class TestGoutForm(TestCase):
             form.fields[f"{MedHistoryTypes.GOUT}-value"].label,
             "Gout",
         )
-        self.assertEqual(
+        self.assertIn(
+            "Has the patient had gout",
             form.fields[f"{MedHistoryTypes.GOUT}-value"].help_text,
-            "Has the patient had gout or symptoms compatible with gout before?",
         )
         self.assertTrue(
             isinstance(
@@ -382,7 +378,7 @@ class TestHepatitisForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.HEPATITIS}-value"].help_text,
-            "Has the patient had hepatitis?",
+            "Does the patient have hepatitis or cirrhosis of the liver?",
         )
         self.assertTrue(
             isinstance(

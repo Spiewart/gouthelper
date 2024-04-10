@@ -568,7 +568,8 @@ class TestPpxAidPseudopatientCreate(TestCase):
                     is False
                 )
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                    f"medallergy_{ma.treatment}": True
+                    f"medallergy_{ma.treatment}": True,
+                    f"{ma.treatment}_matype": None,
                 }
             for treatment in FlarePpxChoices.values:
                 assert f"medallergy_{treatment}_form" in response.context_data
@@ -580,7 +581,8 @@ class TestPpxAidPseudopatientCreate(TestCase):
                         is True
                     )
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                        f"medallergy_{treatment}": None
+                        f"medallergy_{treatment}": None,
+                        f"{treatment}_matype": None,
                     }
 
     def test__get_permission_object(self):
@@ -862,12 +864,8 @@ class TestPpxAidPseudopatientCreate(TestCase):
         assert response.status_code == 302
         # Test that an anonymous User can't create an Admin's PpxAid
         response = self.client.get(reverse("ppxaids:pseudopatient-create", kwargs={"username": admin_psp.username}))
-        # Test that a Provider can create his or her own Pseudopatient's PpxAid
-        response = self.client.get(
-            reverse("ppxaids:pseudopatient-create", kwargs={"username": psp.username}),
-        )
-        assert response.status_code == 200
-        # Test that a Provider can create an anonymous Pseudopatient's PpxAid
+        assert response.status_code == 302
+        # Test that anyone can create an anonymous Pseudopatient's PpxAid
         response = self.client.get(
             reverse("ppxaids:pseudopatient-create", kwargs={"username": psp.username}),
         )
@@ -1306,7 +1304,8 @@ class TestPpxAidPseudopatientUpdate(TestCase):
                     response.context_data[f"medallergy_{ma.treatment}_form"].instance._state.adding is False
                 )  # pylint: disable=w0212, line-too-long # noqa: E501
                 assert response.context_data[f"medallergy_{ma.treatment}_form"].initial == {
-                    f"medallergy_{ma.treatment}": True
+                    f"medallergy_{ma.treatment}": True,
+                    f"{ma.treatment}_matype": None,
                 }
             for treatment in FlarePpxChoices.values:
                 assert f"medallergy_{treatment}_form" in response.context_data
@@ -1315,7 +1314,8 @@ class TestPpxAidPseudopatientUpdate(TestCase):
                         response.context_data[f"medallergy_{treatment}_form"].instance._state.adding is True
                     )  # pylint: disable=w0212, line-too-long # noqa: E501
                     assert response.context_data[f"medallergy_{treatment}_form"].initial == {
-                        f"medallergy_{treatment}": None
+                        f"medallergy_{treatment}": None,
+                        f"{treatment}_matype": None,
                     }
 
     def test__post(self):

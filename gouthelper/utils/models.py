@@ -1204,7 +1204,8 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         """Method that interprets the probenecid_ckd_contra attribute and returns a str explanation."""
         if self.probenecid_ckd_contra:
             (subject_the,) = self.get_str_attrs("subject_the")
-            return f"Probenecid is not recommended for {subject_the} with {self.ckddetail.explanation}."
+            return f"Probenecid is not recommended for {subject_the} with \
+{self.ckddetail.explanation if self.ckddetail else 'CKD of unknown stage'}."
         else:
             raise ValueError("probenecid_ckd_contra_interp should not be called if probenecid_ckd_contra is False.")
 

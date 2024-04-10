@@ -27,13 +27,12 @@
     {% endif %}
     FlareAid for updated recommendations.
   {% else %}
-    Figure out how to treat
-    {% if patient %}
-      {{ patient }}'s gout flares
+    Create treatment recommendations <strong>for</strong>
+    {% if view.related_object %}
+      <strong>{{ view.related_object }}</strong>.
     {% else %}
-      a gout flare
+      <strong>{{ str_attrs.subject_the_pos }}</strong> gout flares.
     {% endif %}
-    .
   {% endif %}
 {% endblock subheading %}
 {% block content %}

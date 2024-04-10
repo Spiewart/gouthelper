@@ -7,6 +7,7 @@ from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...ppxaids.models import PpxAid
 from ...ultaids.models import UltAid
 from ...ults.models import Ult
+from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
 from ..choices import MedHistoryTypes
 from ..dicts import MedHistoryTypesAids
@@ -97,8 +98,9 @@ class TestGetMedHistorytypeAids(TestCase):
     def test__with_patient(self):
         for _ in range(5):
             flare = create_flare(user=create_psp())
-            aid_dict = MedHistoryTypesAids(FLARE_MEDHISTORYS, patient=flare.user).get_medhistorytypes_aid_dict()
-            self.assertTrue(isinstance(aid_dict, dict))
+            aid_dict = MedHistoryTypesAids(
+                FLARE_MEDHISTORYS, patient=Pseudopatient.objects.flares_qs().filter(pk=flare.user.pk).get()
+            ).get_medhistorytypes_aid_dict()
             for medhistorytype in FLARE_MEDHISTORYS:
                 self.assertIn(medhistorytype, aid_dict)
                 aid_list = aid_dict.get(medhistorytype)

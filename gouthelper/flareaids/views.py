@@ -127,6 +127,17 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
     permission_required = "flareaids.can_add_flareaid"
     success_message = "FlareAid successfully created."
 
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.flare:
+            kwargs.update({"flare": self.flare})
+        return kwargs
+
+    @cached_property
+    def flare(self) -> Flare | None:
+        flare_kwarg = self.kwargs.get("flare", None)
+        return Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         """Add ultaid to context if it exists."""
         context = super().get_context_data(**kwargs)
@@ -134,8 +145,6 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
         return context
 
     def get_permission_object(self):
-        flare_kwarg = self.kwargs.get("flare", None)
-        self.flare = Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
         if self.flare and self.flare.user:
             raise PermissionError("Trying to create a FlareAid for a Flare with a user with an anonymous view.")
         return self.flare.user if self.flare else None
@@ -181,7 +190,7 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
 
     @cached_property
     def related_object(self) -> Flare:
-        return Flare.related_objects.get(pk=self.kwargs["flare"]) if "flare" in self.kwargs else None
+        return self.flare
 
 
 class FlareAidDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -405,6 +414,22 @@ class FlareAidUpdate(
 
     success_message = "FlareAid successfully updated."
 
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.flare:
+            kwargs.update({"flare": self.flare})
+        return kwargs
+
+    @cached_property
+    def flare(self) -> Flare | None:
+        return getattr(self.object, "flare", None)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        """Add ultaid to context if it exists."""
+        context = super().get_context_data(**kwargs)
+        context.update({"flare": self.flare})
+        return context
+
     def get_queryset(self):
         return FlareAid.related_objects.filter(pk=self.kwargs["pk"])
 
@@ -447,3 +472,7 @@ class FlareAidUpdate(
                 labs_2_save=None,
                 labs_2_rem=None,
             )
+
+    @cached_property
+    def related_object(self) -> Flare:
+        return self.flare

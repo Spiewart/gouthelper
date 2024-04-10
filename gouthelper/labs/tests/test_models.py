@@ -6,21 +6,10 @@ from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ..choices import Abnormalitys, Units
-from ..helpers import labs_eGFR_calculator, labs_stage_calculator
 from ..models import Urate
 from .factories import BaselineCreatinineFactory, Hlab5801Factory, UrateFactory
 
 pytestmark = pytest.mark.django_db
-
-
-class TestCreatinineBase(TestCase):
-    def test__eGFR_property_returns_eGFR_object(self):
-        creatinine = BaselineCreatinineFactory()
-        assert creatinine.eGFR == labs_eGFR_calculator(creatinine)
-
-    def test__stage_property_returns_labs_stage_calculator(self):
-        creatinine = BaselineCreatinineFactory()
-        assert creatinine.stage == labs_stage_calculator(creatinine.eGFR)
 
 
 class TestLabBase(TestCase):

@@ -1680,6 +1680,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             assert response.context_data["form"].instance == flare
             assert response.context_data["form"].instance._state.adding is False
             assert response.context_data["form"].initial == {
+                "aki": None,
                 "onset": flare.onset,
                 "redness": flare.redness,
                 "joints": flare.joints,
@@ -1903,7 +1904,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                query_obj=user,
+                query_object=user,
             )
             for onetoone, modelform_dict in view.onetoones.items():
                 # Assert that the onetoone_forms dict has the correct keys
@@ -1936,7 +1937,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                query_obj=user,
+                query_object=user,
             )
             # Create some fake flare data
             data = flare_data_factory(user=user, flare=flare)
