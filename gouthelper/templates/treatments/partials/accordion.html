@@ -1,7 +1,7 @@
 {% load project_tags %}
 
 <div class="accordion" id="accordion{{ parent }}">
-  {% for trt, info_dict in info_dicts.items %}
+  {% for trt in options %}
     <div class="accordion-item">
       <h2 class="accordion-header">
         <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}"
@@ -20,7 +20,7 @@
       <div id="collapse{{ trt }}{{ parent }}"
            class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
            data-bs-parent="#accordion{{ parent }}">
-        <div class="accordion-body">{% include accordion_body with info_dict=info_dict trt=trt trttype=trttype %}</div>
+        <div class="accordion-body">{% include accordion_body with trt=trt %}</div>
       </div>
     </div>
   {% endfor %}

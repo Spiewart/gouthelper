@@ -49,7 +49,7 @@ class UltAidForm(
                 "",
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
+        forms_helper_insert_about_the_patient(layout=self.helper.layout, ethnicity=True)
         if not self.patient:
             forms_helper_insert_ethnicity(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)

@@ -20,7 +20,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
-from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date
+from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date, shorten_date_for_str
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
 from .helpers import (
@@ -585,7 +585,7 @@ and as such GoutHelper did not adjust the likelihood that these symptoms were du
             ("demographics", "Demographic Risk", self.demographic_risk, self.demographic_risk_interp),
             ("diagnosed", "Clinician Diagnosis", self.diagnosed, self.diagnosed_interp),
             ("duration", "Duration", self.abnormal_duration, self.duration_interp),
-            ("erythema", "Erythema", self.redness, self.redness_interp),
+            ("redness", "Erythema", self.redness, self.redness_interp),
             ("gout", "Gout Diagnosis", self.gout, self.gout_interp),
             ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp),
             ("joints", "Joints", self.joints, self.joints_interp),
@@ -873,11 +873,11 @@ been lowered due to:"
     @property
     def likelihood_interp(self):
         if self.likelihood == Likelihoods.UNLIKELY:
-            return "Gout isn't likely."
+            return "Gout isn't likely"
         elif self.likelihood == Likelihoods.EQUIVOCAL:
-            return "Gout can't be ruled in or out."
+            return "Gout can't be ruled in or out"
         elif self.likelihood == Likelihoods.LIKELY:
-            return "Gout is very likely."
+            return "Gout is very likely"
         else:
             return "Flare hasn't been processed yet..."
 
@@ -945,6 +945,22 @@ as is typical for gout flares. This does not add any points to the Diagnostic Ru
             and self.ckd
         )
 
+    @property
+    def prevalence_explanation(self) -> str:
+        (subject_the_pos,) = self.get_str_attrs("subject_the_pos")
+        if self.prevalence == self.Prevalences.LOW:
+            return (
+                f"A low prevalence is associated with very low odds that {subject_the_pos} symptoms are due to gout."
+            )
+        elif self.prevalence == self.Prevalences.MEDIUM:
+            return "Flares that fall into the medium prevalence range benefit most from additional \
+investigations, such as a joint aspiration."
+        elif self.prevalence == self.Prevalences.HIGH:
+            return "Flares whose characteristics place them in a high prevalence group are highly likely to be due to \
+gout and should probably just be treated as such."
+        else:
+            raise ValueError("This flare has not been processed and does not yet have a prevalence.")
+
     @cached_property
     def prevalence_points(self) -> float:
         """Method that returns the Diagnostic Rule points for prevalence for a Flare."""
@@ -972,13 +988,8 @@ The absence of erythema (redness) does not add any points to the Diagnostic Rule
         return mark_safe(redness_str)
 
     def __str__(self):
-        if self.user:
-            flare_str = f"{self.user}'s Flare"
-        else:
-            flare_str = "Flare"
-        flare_str += f" ({self.date_started.strftime('%m/%d/%Y')} - "
-        flare_str += f"{self.date_ended.strftime('%m/%d/%Y')})" if self.date_ended else "present)"
-        return flare_str
+        return f" Flare ({shorten_date_for_str(self.date_started)} - \
+{shorten_date_for_str(self.date_ended) if self.date_ended else 'present'})"
 
     @classmethod
     def stringify_joints(cls, joints: list[LimitedJointChoices]) -> str:

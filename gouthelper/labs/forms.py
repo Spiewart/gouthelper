@@ -142,6 +142,7 @@ class Hlab5801Form(BaseLabForm):
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
+        self.fields["value"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["value"].initial = None
         self.fields["value"].required = False
         self.fields["value"].label = "HLA-B*5801 Genotype"
@@ -152,7 +153,6 @@ class Hlab5801Form(BaseLabForm):
                 reverse_lazy("labs:about-hlab5801"),
             )
         )
-        self.fields["value"].choices = YES_OR_NO_OR_UNKNOWN
         self.helper = FormHelper(self)
         self.helper.form_tag = False
 

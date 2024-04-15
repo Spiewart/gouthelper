@@ -15,6 +15,7 @@ from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
+from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
 from .forms import GoalUrateForm
 from .models import GoalUrate
@@ -152,8 +153,7 @@ class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
+        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
         return context
 
     def get_permission_object(self):

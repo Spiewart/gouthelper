@@ -44,6 +44,7 @@
               action="{% url 'flareaids:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -52,6 +53,7 @@
               action="{% url 'flareaids:update' form.instance.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
@@ -62,16 +64,29 @@
               action="{% url 'flareaids:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'flareaids:create' %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if view.related_object %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:flare-create' view.related_object.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% endif %}
     {% endif %}
   </main>

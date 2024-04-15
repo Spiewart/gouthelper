@@ -13,6 +13,7 @@
   </div>
 </div>
 <ul>
+  {% call_method object 'treatment_not_an_option_dict' trt as info_dict %}
   {% for contra_exp, contra in info_dict.items %}
     <li>
       <!-- djlint:off --><a class="samepage-link" href=#{{ contra.0 }}>{{ contra_exp }}</a><!-- djlint:on -->

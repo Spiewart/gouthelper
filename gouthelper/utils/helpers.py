@@ -266,3 +266,24 @@ def get_str_attrs(
         )
         str_attrs.update({key.capitalize(): val.capitalize() for key, val in str_attrs.items()})
     return str_attrs
+
+
+def shorten_date_for_str(date: datetime, abbrev_last_week: bool = False, show_time: bool = False) -> str:
+    """Method that takes a datetime object and returns a shortened str that is more amenable to presentation in
+    length-limited HTML snippets."""
+    # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
+    if abbrev_last_week and date >= timezone.now() - timedelta(days=7):
+        if show_time:
+            return f"{date.strftime('%a-%I:%M%p')}"
+        else:
+            return f"{date.strftime('%a')}"
+    elif date.year == timezone.now().year:
+        if show_time:
+            return f"{date.strftime('%b %d-%I:%M%p')}"
+        else:
+            return f"{date.strftime('%b %d')}"
+    else:
+        if show_time:
+            return f"{date.strftime('%b %d-%Y-%I:%M%p')}"
+        else:
+            return f"{date.strftime('%b %d-%Y')}"

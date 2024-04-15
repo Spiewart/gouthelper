@@ -117,6 +117,34 @@ treatment is typically very short and the risk of bleeding is low."
         return mark_safe(anticoag_str)
 
     @classmethod
+    def get_flare_optional_treatments(cls, flare: Union["Flare", None]) -> tuple[str, dict] | None:
+        """Applies FlareAid recommendation to a Flare object."""
+        if flare:
+            if flare.monoarticular:
+                return (
+                    "Joint Injection",
+                    {
+                        "Monoarticular": "Because the flare is monoarticular (in a single joint), a \
+    targeted corticosteroid injection could be considered.",
+                        "Injectables": "Injectable corticosteroids include \
+    methylprednisolone acetate (Depo-Medrol) and triamcinolone acetonide (Kenalog).",
+                        "Dosing": "The dose of \
+    either is typically 20 mg for small joints or 40 mg for large joints.",
+                    },
+                )
+            elif flare.polyarticular:
+                return (
+                    "Loading Dose",
+                    {
+                        "Polyarticular": "Because the flare is polyarticular, which is \
+    disabling, an initial starter dose of systemic corticosteroid could be considered if symptoms are very severe.",
+                        "Oral Dosing": "Prednisone 60 mg by mouth for 1-3 days.",
+                        "Intramuscular Dosing": "Methylprednisolone 62.5 mg intramuscularly.",
+                    },
+                )
+        return None
+
+    @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:
         return FlareAidSettings
 
@@ -159,6 +187,9 @@ treatment is typically very short and the risk of bleeding is low."
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
+    def has_related_object(self) -> bool:
+        return self.flare is not None
+
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
         """Returns {dict} of FlareAid's Flare Treatment recommendation {treatment: dosing}."""
@@ -195,6 +226,11 @@ treatment is typically very short and the risk of bleeding is low."
 
     def related_aid(self) -> Union["Flare", None]:
         return getattr(self, "flare", None)
+
+    def optional_treatment(self, flare: Union["Flare", None] = None) -> tuple[str, dict] | None:
+        """Returns a dictionary of the dosing for a given treatment."""
+        print(flare)
+        return self.get_flare_optional_treatments(flare if flare else self.related_aid())
 
     @classmethod
     def trttype(cls) -> str:

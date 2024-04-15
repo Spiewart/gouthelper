@@ -5,5 +5,5 @@
   <h3>
     <u>Not Recommended</u>
   </h3>
-  {% include "treatments/partials/accordion.html" with info_dicts=object.not_options_dict parent="NotOptions" accordion_body="treatments/partials/contraindications.html" %}
+  {% include "treatments/partials/accordion.html" with options=object.not_options_label_list parent="NotOptions" accordion_body="treatments/partials/contraindications.html" %}
 </div>

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps
 
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
     from ..ppxs.models import Ppx
     from ..ultaids.models import UltAid
     from ..ults.models import Ult
-    from ..users.models import Pseudopatient
 
 CVD_CONTRAS: dict[MedHistoryTypes, Contraindications] = {cvd: Contraindications.RELATIVE for cvd in CV_DISEASES}
 
@@ -120,46 +119,17 @@ class MedHistoryTypesAids:
     def __init__(
         self,
         mhtypes: list[MedHistoryTypes] | MedHistoryTypes,
-        patient: Union["Pseudopatient", None] = None,
+        related_object: Any | None = None,
     ):
         self.mhtypes = mhtypes if isinstance(mhtypes, list) else [mhtypes]
-        self.patient = patient
-        self._set_model_attrs()
-
-    def _set_model_attrs(self):
-        if (
-            self.patient
-            and (hasattr(self.patient, "flare_qs") or hasattr(self.patient, "flares_qs"))
-            or not self.patient
-        ) and next(iter(self.mhtypes)) in FLARE_MEDHISTORYS:
-            self.Flare = apps.get_model("flares", "Flare")
-        if (self.patient and hasattr(self.patient, "flareaid") or not self.patient) and next(
-            iter(self.mhtypes)
-        ) in FLAREAID_MEDHISTORYS:
-            self.FlareAid = apps.get_model("flareaids", "FlareAid")
-        if (self.patient and hasattr(self.patient, "goalurate") or not self.patient) and next(
-            iter(self.mhtypes)
-        ) in GOALURATE_MEDHISTORYS:
-            self.GoalUrate = apps.get_model("goalurates", "GoalUrate")
-        if (self.patient and hasattr(self.patient, "ppxaid") or not self.patient) and next(
-            iter(self.mhtypes)
-        ) in PPXAID_MEDHISTORYS:
-            self.PpxAid = apps.get_model("ppxaids", "PpxAid")
-        if (self.patient and hasattr(self.patient, "ppx") or not self.patient) and next(
-            iter(self.mhtypes)
-        ) in PPX_MEDHISTORYS:
-            self.Ppx = apps.get_model("ppxs", "Ppx")
-        if (self.patient and hasattr(self.patient, "ultaid") or not self.patient) and next(
-            iter(self.mhtypes)
-        ) in ULTAID_MEDHISTORYS:
-            self.UltAid = apps.get_model("ultaids", "UltAid")
-        if (
-            self.patient
-            and hasattr(self.patient, "ult")
-            or not self.patient
-            and next(iter(self.mhtypes)) in ULT_MEDHISTORYS
-        ):
-            self.Ult = apps.get_model("ults", "Ult")
+        self.related_object = related_object
+        self.Flare = apps.get_model("flares", "Flare")
+        self.FlareAid = apps.get_model("flareaids", "FlareAid")
+        self.GoalUrate = apps.get_model("goalurates", "GoalUrate")
+        self.PpxAid = apps.get_model("ppxaids", "PpxAid")
+        self.Ppx = apps.get_model("ppxs", "Ppx")
+        self.UltAid = apps.get_model("ultaids", "UltAid")
+        self.Ult = apps.get_model("ults", "Ult")
 
     def get_medhistorytype_aid_list(
         self,
@@ -175,29 +145,72 @@ class MedHistoryTypesAids:
     ]:
         aid_list = []
         if (
-            self.patient
+            self.related_object
             and (
-                hasattr(self.patient, "flare_qs")
-                and self.patient.flare_qs
-                or hasattr(self.patient, "flares_qs")
-                and self.patient.flares_qs
+                getattr(self.related_object, "flare", None)
+                and self.related_object.flare
+                or getattr(self.related_object, "flare_qs", None)
+                and self.related_object.flare_qs
+                or getattr(self.related_object, "flares_qs", None)
+                and self.related_object.flares_qs
+                or isinstance(self.related_object, self.Flare)
             )
-            or not self.patient
+            or not self.related_object
         ) and mhtype in FLARE_MEDHISTORYS:
             aid_list.append(self.Flare)
-        if (self.patient and hasattr(self.patient, "flareaid") or not self.patient) and mhtype in FLAREAID_MEDHISTORYS:
+        if (
+            (
+                self.related_object
+                and getattr(self.related_object, "flareaid", None)
+                or isinstance(self.related_object, self.FlareAid)
+            )
+            or not self.related_object
+        ) and mhtype in FLAREAID_MEDHISTORYS:
             aid_list.append(self.FlareAid)
         if (
-            self.patient and hasattr(self.patient, "goalurate") or not self.patient
+            (
+                self.related_object
+                and getattr(self.related_object, "goalurate", None)
+                or isinstance(self.related_object, self.GoalUrate)
+            )
+            or not self.related_object
         ) and mhtype in GOALURATE_MEDHISTORYS:
             aid_list.append(self.GoalUrate)
-        if (self.patient and hasattr(self.patient, "ppxaid") or not self.patient) and mhtype in PPXAID_MEDHISTORYS:
+        if (
+            (
+                self.related_object
+                and getattr(self.related_object, "ppxaid", None)
+                or isinstance(self.related_object, self.PpxAid)
+            )
+            or not self.related_object
+        ) and mhtype in PPXAID_MEDHISTORYS:
             aid_list.append(self.PpxAid)
-        if (self.patient and hasattr(self.patient, "ppx") or not self.patient) and mhtype in PPX_MEDHISTORYS:
+        if (
+            (
+                self.related_object
+                and getattr(self.related_object, "ppx", None)
+                or isinstance(self.related_object, self.Ppx)
+            )
+            or not self.related_object
+        ) and mhtype in PPX_MEDHISTORYS:
             aid_list.append(self.Ppx)
-        if (self.patient and hasattr(self.patient, "ultaid") or not self.patient) and mhtype in ULTAID_MEDHISTORYS:
+        if (
+            (
+                self.related_object
+                and getattr(self.related_object, "ultaid", None)
+                or isinstance(self.related_object, self.UltAid)
+            )
+            or not self.related_object
+        ) and mhtype in ULTAID_MEDHISTORYS:
             aid_list.append(self.UltAid)
-        if (self.patient and hasattr(self.patient, "ult") or not self.patient) and mhtype in ULT_MEDHISTORYS:
+        if (
+            (
+                self.related_object
+                and getattr(self.related_object, "ult", None)
+                or isinstance(self.related_object, self.Ult)
+            )
+            or not self.related_object
+        ) and mhtype in ULT_MEDHISTORYS:
             aid_list.append(self.Ult)
         return aid_list
 

@@ -1,16 +1,14 @@
-from datetime import timedelta
-
 from django.apps import apps  # type: ignore
 from django.contrib.auth.models import AbstractUser
 from django.db.models import CharField, CheckConstraint, Q
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..utils.helpers import shorten_date_for_str
 from ..utils.models import GoutHelperPatientModel
 from .choices import Roles
 from .helpers import get_user_change
@@ -62,13 +60,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     def __str__(self) -> str:
         """Unicode representation of User."""
         if self.role == Roles.PSEUDOPATIENT:
-            # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
-            if self.created >= timezone.now() - timedelta(days=7):
-                return f"GoutPatient [{self.created.strftime('%a-%I:%M%p')}]"
-            elif self.created.year == timezone.now().year:
-                return f"GoutPatient [{self.created.strftime('%b %d-%I:%M%p')}]"
-            else:
-                return f"GoutPatient [{self.created.strftime('%b %d-%Y-%I:%M%p')}]"
+            return f"GoutPatient [{shorten_date_for_str(date=self.created, abbrev_last_week=True, show_time=True)}]"
         return super().__str__()
 
     @cached_property

@@ -6,6 +6,6 @@
     <h3>
       <u>Options</u>
     </h3>
-    {% include "treatments/partials/accordion.html" with info_dicts=options parent="Options" accordion_body="treatments/partials/dosing.html" modify_header=True %}
+    {% include "treatments/partials/accordion.html" with options=options.keys parent="Options" accordion_body="treatments/partials/dosing.html" modify_header=True %}
   </div>
 {% endif %}

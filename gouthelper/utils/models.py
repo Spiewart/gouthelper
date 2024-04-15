@@ -16,7 +16,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from .helpers import get_str_attrs
+from .helpers import TrtDictStr, get_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
@@ -27,6 +27,8 @@ from .services import (
 )
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
     from django.contrib.auth import get_user_model
     from django.db.models import QuerySet
 
@@ -169,7 +171,7 @@ recommended for {subject_the}."
         return mark_safe(allergy_str)
 
     @property
-    def allopurinol_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+    def allopurinol_contra_dict(self) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of allopurinol contraindications."""
         contra_dict = {}
         if self.allopurinol_allergy:
@@ -181,7 +183,7 @@ recommended for {subject_the}."
                 "xoiinteraction",
                 f"{self.xoi_interactions(treatment='Allopurinol')}",
             )
-        return Treatments.ALLOPURINOL.label, contra_dict
+        return contra_dict
 
     @classmethod
     def allopurinol_info(cls) -> str:
@@ -329,8 +331,8 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         return medhistory_attr(MedHistoryTypes.CAD, self)
 
     @cached_property
-    def celecoxib_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Celecoxib", self.nsaids_contra_dict[1]
+    def celecoxib_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def celecoxib_info(cls):
@@ -442,7 +444,7 @@ macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibit
 verapamil, quinidine)"
 
     @property
-    def colchicine_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+    def colchicine_contra_dict(self) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of colchicine contraindications."""
         contra_dict = {}
         if self.colchicine_allergy:
@@ -454,7 +456,7 @@ verapamil, quinidine)"
                 "colchicineinteraction",
                 f"Colchicine interacts with {self.colchicine_interactions()}",
             )
-        return Treatments.COLCHICINE.label, contra_dict
+        return contra_dict
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
@@ -552,8 +554,8 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
         return mark_safe(main_str)
 
     @cached_property
-    def diclofenac_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Diclofenac", self.nsaids_contra_dict[1]
+    def diclofenac_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def diclofenac_info(cls):
@@ -624,7 +626,7 @@ aggressively with ULT.</strong>"
         return medallergy_attr(Treatments.FEBUXOSTAT, self)
 
     @property
-    def febuxostat_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+    def febuxostat_contra_dict(self) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of febuxostat contraindications."""
         contra_dict = {}
         if self.febuxostat_cvdiseases_contra:
@@ -636,7 +638,7 @@ aggressively with ULT.</strong>"
                 "xoiinteraction",
                 f"{self.xoi_interactions(treatment='Febuxostat')}",
             )
-        return Treatments.FEBUXOSTAT.label, contra_dict
+        return contra_dict
 
     @cached_property
     def febuxostat_cvdiseases_contra(self) -> bool:
@@ -845,13 +847,13 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
     @cached_property
     def hlab5801_contra_interp(self) -> str:
         """Method that interprets the hlab5801_contra attribute and returns a str explanation."""
-        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+        Subject_the, gender_ref = self.get_str_attrs("Subject_the", "gender_ref")
         hlab5801 = getattr(self, "hlab5801", None)
         if self.hlab5801_contra:
             if hlab5801 and hlab5801.value:
                 return mark_safe(
                     f" <strong>{Subject_the} has the HLA-B*5801 genotype</strong>, \
-and as a result, allopurinol should not be the first line ULT treatment for {gender_subject}."
+and as a result, allopurinol should not be the first line ULT treatment for {gender_ref}."
                 )
             else:
                 return mark_safe(
@@ -918,8 +920,8 @@ contraindication to NSAIDs from this perspective."
         return mark_safe(main_str)
 
     @cached_property
-    def ibuprofen_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Ibuprofen", self.nsaids_contra_dict[1]
+    def ibuprofen_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def ibuprofen_info(cls):
@@ -934,8 +936,8 @@ contraindication to NSAIDs from this perspective."
         return info_dict
 
     @cached_property
-    def indomethacin_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Indomethacin", self.nsaids_contra_dict[1]
+    def indomethacin_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def indomethacin_info(cls):
@@ -970,8 +972,8 @@ these medications."
             main_str += f"<br> <br> {Subject_the} doesn't have any medication allergies."
 
     @cached_property
-    def meloxicam_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Meloxicam", self.nsaids_contra_dict[1]
+    def meloxicam_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def meloxicam_info(cls):
@@ -988,8 +990,8 @@ these medications."
         return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
 
     @cached_property
-    def methylprednisolone_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Methylprednisolone", self.steroids_contra_dict[1]
+    def methylprednisolone_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1]
 
     @classmethod
     def methylprednisolone_info(cls) -> str:
@@ -1000,8 +1002,8 @@ these medications."
         return self.steroid_info_dict
 
     @cached_property
-    def naproxen_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Naproxen", self.nsaids_contra_dict[1]
+    def naproxen_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1]
 
     @classmethod
     def naproxen_info(cls):
@@ -1059,7 +1061,7 @@ these medications."
         return False
 
     @cached_property
-    def nsaids_contra_dict(self) -> tuple[str, dict[str, str, Any | list[Any] | None]]:
+    def nsaids_contra_dict(self) -> dict[str, str, Any | list[Any] | None]:
         """Method that returns a dict of NSAID contraindications.
 
         Returns:
@@ -1093,7 +1095,7 @@ these medications."
             )
         if self.ckd:
             contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
-        return "NSAIDs", contra_dict
+        return contra_dict
 
     @classmethod
     def nsaid_info(cls):
@@ -1160,8 +1162,8 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         return medhistory_attr(OTHER_NSAID_CONTRAS, self)
 
     @cached_property
-    def prednisone_contra_dict(self) -> dict[str, tuple[str, str]]:
-        return "Prednisone", self.steroids_contra_dict[1]
+    def prednisone_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1]
 
     @classmethod
     def prednisone_info(cls) -> str:
@@ -1210,7 +1212,7 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
             raise ValueError("probenecid_ckd_contra_interp should not be called if probenecid_ckd_contra is False.")
 
     @property
-    def probenecid_contra_dict(self) -> tuple[str, dict[str, Any | list[Any] | None]]:
+    def probenecid_contra_dict(self) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of probenecid contraindications."""
         contra_dict = {}
         if self.probenecid_allergy:
@@ -1222,7 +1224,7 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
                 "uratestones",
                 f"{self.probenecid_uratestones_interp}",
             )
-        return Treatments.PROBENECID.label, contra_dict
+        return contra_dict
 
     @classmethod
     def probenecid_info(cls) -> str:
@@ -1329,7 +1331,7 @@ and as such shouldn't be prescribed probenecid."
         return None
 
     @cached_property
-    def steroids_contra_dict(self) -> tuple[str, dict[str, str, Any | list[Any] | None]]:
+    def steroids_contra_dict(self) -> dict[str, str, Any | list[Any] | None]:
         """Method that returns a dict of corticosteroid contraindications.
 
         Returns:
@@ -1348,7 +1350,7 @@ and as such shouldn't be prescribed probenecid."
                 "medallergys",
                 self.steroid_allergy,
             )
-        return "Steroids", contra_dict
+        return contra_dict
 
     @classmethod
     def steroid_info(cls):
@@ -1371,7 +1373,7 @@ and as such shouldn't be prescribed probenecid."
         """Method that returns a warning str if the object has an associated
         Diabetes MedHistory object."""
         Subject_the, pos, Gender_subject, gender_pos = self.get_str_attrs(
-            "subject_the", "pos", "Gender_subject", "gender_pos"
+            "Subject_the", "pos", "Gender_subject", "gender_pos"
         )
         return mark_safe(
             f"{Subject_the} {pos} <a class='samepage-link' href='#diabetes'>diabetes</a> and could \
@@ -1468,20 +1470,13 @@ class TreatmentAidMixin:
     """Mixin to add methods for interpreting treatment aids."""
 
     @cached_property
-    def not_options(self) -> list[str]:
+    def not_options(self) -> dict[str, dict]:
         """Returns {list} of FlareAids's Flare Treatment options that are not recommended."""
         return aids_not_options(trt_dict=self.aid_dict, defaultsettings=self.defaulttrtsettings)
 
-    @cached_property
-    def not_options_dict(self) -> dict:
-        """Method that returns a dict of Treatments that are not options and another dict of key/val
-        pairs of contraindication strings and the objects that make up those strings."""
-        not_options_dict = {}
-        if self.not_options:
-            for not_option in self.not_options:
-                contra_dict = getattr(self, f"{not_option.lower()}_contra_dict")
-                not_options_dict.update({contra_dict[0]: contra_dict[1]})
-        return not_options_dict
+    @property
+    def not_options_label_list(self) -> list[str]:
+        return [Treatments(key).label if key in Treatments else key for key in self.not_options.keys()]
 
     @cached_property
     def options(self) -> dict:
@@ -1494,6 +1489,43 @@ class TreatmentAidMixin:
         return aids_options(
             trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
         )
+
+    @property
+    def recommendation_is_none_str(self) -> str:
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            f"<strong>No recommendation available</strong>. {Subject_the} is medically complicated \
+enough that GoutHelper can't safely make a recommendation and in this case human judgement is required. \
+See a rheumatologist for further evaluation."
+        )
+
+    def treatment_dose_adjustment(self, trt: Treatments) -> "Decimal":
+        return self.options[trt]["dose_adj"]
+
+    def treatment_dosing_dict(self, trt: Treatments) -> dict[str, str]:
+        """Returns a dictionary of the dosing for a given treatment."""
+        dosing_dict = {}
+        dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
+        # Flare and Ppx TrtTypes are 1 and 2 and will evaluate to positive
+        if not self.trttype():
+            dosing_dict.update(
+                {"Dose Adjustment": self.treatment_dose_adjustment_str(trt, self.treatment_dose_adjustment(trt))}
+            )
+        info_dict = getattr(self, f"{trt.lower()}_info_dict")
+        for key, val in info_dict.items():
+            dosing_dict.update({key: val})
+        return dosing_dict
+
+    def treatment_dosing_str(self, trt: Treatments) -> str:
+        """Returns a string of the dosing for a given treatment."""
+        try:
+            return TrtDictStr(self.options[trt], self.trttype(), trt).trt_dict_to_str()
+        except KeyError as exc:
+            raise KeyError(f"{trt} not in {self} options.") from exc
+
+    def treatment_not_an_option_dict(self, trt: Treatments) -> tuple[str, dict]:
+        """Returns a dictionary of the contraindications for a given treatment."""
+        return getattr(self, f"{trt.lower()}_contra_dict")
 
 
 class FlarePpxMixin(GoutHelperBaseModel):

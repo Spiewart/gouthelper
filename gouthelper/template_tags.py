@@ -1,22 +1,34 @@
 import re  # type: ignore
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django import template  # type: ignore
 from django.template.base import TemplateSyntaxError  # type: ignore
-from django.utils.html import mark_safe  # type: ignore
 
 from .ethnicitys.helpers import ethnicitys_hlab5801_risk
-from .treatments.choices import Treatments, TrtTypes
-from .utils.helpers import TrtDictStr
 
 if TYPE_CHECKING:
-    from .defaults.models import UltAidSettings
     from .ethnicitys.models import Ethnicity
 
 register = template.Library()
 
 numeric_test = re.compile(r"^\d+$")
 register = template.Library()
+
+
+@register.simple_tag
+def call_method(obj: Any, method_name: str, *args):
+    """Template tag to call a method on an object with arguments.
+
+    Args:
+        obj (Any): the Python object on which to call the method
+        method_name (str): string name of the method to call
+
+    Returns:
+        Any: the return value of the method call
+    """
+    # https://stackoverflow.com/questions/72329332/how-i-can-to-pass-parameter-to-model-method-in-django-template
+    method = getattr(obj, method_name)
+    return method(*args)
 
 
 @register.filter(name="risk_ethnicity")
@@ -122,21 +134,3 @@ def get_partial_str(template_string, arg):
 def concat_str_with_underscore(template_string, arg):
     """Return a string with the arg appended to the template_string and followed by "_"."""
     return f"{template_string}_{arg}"
-
-
-@register.simple_tag(name="trt_dict_to_str")
-def trt_dict_to_str(dosing_dict: dict, trttype: TrtTypes, treatment: Treatments) -> str:
-    """Return a string explaining a trt_dict's recommendations."""
-    return TrtDictStr(dosing_dict, trttype, treatment).trt_dict_to_str()
-
-
-@register.simple_tag(name="trt_dose_adj_to_str")
-def trt_dose_adj_to_str(
-    dosing_dict: dict,
-    ultaidsettings: "UltAidSettings",
-) -> str:
-    """Return a string explaining a trt_dict's recommendations."""
-    return mark_safe(
-        f"increase the dose {dosing_dict['dose_adj']} mg every {int(ultaidsettings.dose_adj_interval.days / 7)} \
-weeks until uric acid is at <a class='samepage-link' href='#goalurate'>goal</a>"
-    )

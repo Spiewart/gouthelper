@@ -25,6 +25,8 @@ from ..utils.services import aids_json_to_trt_dict, aids_probenecid_ckd_contra, 
 from .managers import UltAidManager
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
     from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models.query import QuerySet
 
@@ -326,6 +328,14 @@ not recommended for {subject_the}."
             return self.goalurate.tophi
         except AttributeError:
             return False
+
+    def treatment_dose_adjustment_str(self, trt: Treatments, dose_adjustment: "Decimal") -> str:
+        """Return a string explaining a trt_dict's recommendations."""
+        return mark_safe(
+            f"increase the dose {dose_adjustment} mg every \
+{int(self.defaulttrtsettings.dose_adj_interval.days / 7)} weeks until uric acid is at \
+<a class='samepage-link' href='#goalurate'>goal</a>"
+        )
 
     @classmethod
     def trttype(cls) -> str:

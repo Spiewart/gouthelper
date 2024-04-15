@@ -368,8 +368,11 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
     ) -> None:
         """Method that iterates over the medhistorys dict and adds the forms to the context."""
         mhtype_aids = (
-            MedHistoryTypesAids(mhtypes=list(self.medhistorys.keys()), patient=patient).get_medhistorytypes_aid_dict()
-            if self.create_view and patient
+            MedHistoryTypesAids(
+                mhtypes=list(self.medhistorys.keys()),
+                related_object=patient if patient else self.related_object if self.related_object else None,
+            ).get_medhistorytypes_aid_dict()
+            if self.create_view and (patient or self.related_object)
             else None
         )
         for mhtype, mh_dict in medhistorys.items():
@@ -462,6 +465,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                         # Add the form to the context with a new instance of the related model
                         kwargs[form_str] = onetoone_dict["form"](
                             instance=oto_obj if oto_obj else onetoone_dict["model"](),
+                            initial={"value": oto_obj.value if oto_obj else None},
                             patient=patient,
                             request_user=request_user,
                             str_attrs=str_attrs,
@@ -693,7 +697,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             aid_obj.update_aid(qs=aid_obj)
         if self.request.htmx:
             return kwargs.get("htmx")
-        return HttpResponseRedirect(aid_obj.get_absolute_url() + "?updated=True")
+        return HttpResponseRedirect(self.get_success_url())
 
     def get(self, request, *args, **kwargs):
         """Overwritten to not call get_object()."""
@@ -795,6 +799,15 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
     def get_permission_object(self):
         """Returns the view's object, which will have already been set by dispatch()."""
         return self.object if not self.create_view else self.user if self.user else None
+
+    def get_success_url(self):
+        """Overwritten to take optional next parameter from url"""
+        next_url = self.request.POST.get("next", None)
+        print(next_url)
+        if next_url:
+            return next_url
+        else:
+            return super().get_success_url() + "?updated=True"
 
     @cached_property
     def goutdetail(self) -> bool:
@@ -1153,9 +1166,10 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         if medhistorys:
             mhtype_aids = (
                 MedHistoryTypesAids(
-                    mhtypes=list(self.medhistorys.keys()), patient=patient
+                    mhtypes=list(self.medhistorys.keys()),
+                    related_object=patient if patient else self.related_object if self.related_object else None,
                 ).get_medhistorytypes_aid_dict()
-                if self.create_view and patient
+                if self.create_view and (patient or self.related_object)
                 else None
             )
             for medhistory in medhistorys:

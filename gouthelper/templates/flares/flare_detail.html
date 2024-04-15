@@ -6,8 +6,7 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1>Flare</h1>
-      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+      <h1>{{ object }}</h1>
     </div>
     <div class="col align-items-center d-flex justify-content-end">
       {% if object.user %}
@@ -31,6 +30,17 @@
          role="button">About</a>
     </div>
   </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#outcome">Outcome</a>
+      {% if object.options_without_rec %}| <a class="samepage-link" href="#options">Options</a>{% endif %}
+      | <a class="samepage-link" href="#treatment">Treatment</a> | <a class="samepage-link" href="#details">Details</a>
+      | <a class="samepage-link" href="#explanations">Explanations</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+    </div>
+  </div>
 {% endblock heading %}
 {% block content %}
   <main role="main">
@@ -45,7 +55,7 @@
               </h3>
               <ul>
                 <li>
-                  Interpretation: {{ flare.likelihood_interp }}
+                  Interpretation: {{ flare.likelihood_interp }}.
                   <li>Recommendation: {{ flare.likelihood_recommendation }}</li>
                   <li>
                     Explanation: {{ flare.likelihood_explanation }}
@@ -74,6 +84,7 @@
                   <a href="{% url 'flares:about' %}#diagnosticrule">Diagnostic Rule</a> Score: <strong>{{ flare.prevalence_points }}</strong>
                 </li>
                 <li>{{ flare.get_prevalence_display }} of similar patients have gout.</li>
+                <li>{{ flare.prevalence_explanation }}</li>
                 {% if flare.polyarticular %}
                   <li>
                     Warning: the Diagnostic Rule was based on single joint flares (monoarticular).
@@ -90,14 +101,14 @@
         <div class="row">
           <div class="col">
             <h3>
-              <u>Treatment</u>
+              <u>Treatment / FlareAid</u>
             </h3>
           </div>
         </div>
         <div id="flareaid">
           {% if object.user %}
             {% if object.user.flareaid %}
-              {{ object.user.flareaid }}
+              {% include 'flareaids/flare_card.html' with object=object.user.flareaid flare=object %}
             {% else %}
               <a type="button"
                  class="btn btn-primary btn-lg spacious-buttons"
@@ -106,7 +117,7 @@
             {% endif %}
           {% else %}
             {% if object.flareaid %}
-              {{ object.flareaid }}
+              {% include 'flareaids/flare_card.html' with object=object.flareaid flare=object %}
             {% else %}
               <a type="button"
                  class="btn btn-primary btn-lg spacious-buttons"
@@ -131,27 +142,25 @@
               <h4 class="card-title">Clinical Description</h4>
               <ul>
                 <li>
-                  {% if flare.polyarticular %}
-                    Polyarticular
-                  {% else %}
-                    Monoarticular
-                  {% endif %}
+                  <a class="samepage-link" href="#joints">
+                    {% if flare.polyarticular %}
+                      Polyarticular
+                    {% else %}
+                      Monoarticular
+                    {% endif %}
+                  </a>
                   <ul>
                     {% if object.common_joints %}<li>Common joints: {{ object.common_joints_str }}</li>{% endif %}
                     {% if object.uncommon_joints %}<li>Uncommon joints: {{ object.uncommon_joints_str }}</li>{% endif %}
                     {% if object.firstmtp %}
                       <li>
-                        <a class="samepage-link" href="#joints">1st MTP</a>: {{ object.firstmtp_str|capfirst }} (<strong>2.5 points</strong>)
+                        1st MTP: {{ object.firstmtp_str|capfirst }} (<strong>2.5 points</strong>)
                       </li>
                     {% endif %}
                   </ul>
                 </li>
                 <li>
-                  {% if object.abnormal_duration %}
-                    {{ flare.duration.days }} days long
-                  {% else %}
-                    <a class="samepage-link" href="#duration">{{ flare.duration.days }} days long</a>
-                  {% endif %}
+                  <a class="samepage-link" href="#duration">{{ flare.duration.days }} days long</a>
                   ({{ flare.date_started }} -
                   {% if flare.date_ended %}
                     {{ flare.date_ended }}
@@ -168,10 +177,11 @@
                   {% endif %}
                 </li>
                 <li>
+                  <a class="samepage-link" href="#redness">Erythema</a> (redness):
                   {% if flare.redness %}
-                    <a class="samepage-link" href="#redness">Erythema</a> (redness): present (<strong>1 point</strong>)
+                    present (<strong>1 point</strong>)
                   {% else %}
-                    Erythema (redness): absent
+                    absent
                   {% endif %}
                 </li>
               </ul>

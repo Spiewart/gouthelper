@@ -14,6 +14,7 @@ from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, TrtTypes
 from ..users.models import Pseudopatient
+from ..utils.helpers import TrtDictStr
 from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import aids_json_to_trt_dict
 from .managers import PpxAidManager
@@ -173,6 +174,13 @@ class PpxAid(
                             )
                         except KeyError:
                             return None
+
+    def treatment_dosing_str(self, trt: "Treatments") -> str:
+        """Returns a string of the dosing for a given treatment."""
+        try:
+            return TrtDictStr(self.options[trt], TrtTypes.PPX, trt).trt_dict_to_str()
+        except KeyError as exc:
+            raise KeyError(f"{trt} not in {self} options.") from exc
 
     @classmethod
     def trttype(cls) -> str:

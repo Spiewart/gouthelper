@@ -164,18 +164,18 @@ class TestFlareMethods(TestCase):
         self.assertEqual(self.flare.likelihood_str, "Flare hasn't been processed yet...")
         self.flare.likelihood = Likelihoods.UNLIKELY
         self.flare.save()
-        self.assertEqual(self.flare.likelihood_str, "Gout isn't likely.")
+        self.assertEqual(self.flare.likelihood_str, "Gout isn't likely")
         self.flare.likelihood = Likelihoods.EQUIVOCAL
         self.flare.save()
         self.assertEqual(
             self.flare.likelihood_str,
-            "Gout can't be ruled in or out.",
+            "Gout can't be ruled in or out",
         )
         self.flare.likelihood = Likelihoods.LIKELY
         self.flare.save()
         self.assertEqual(
             self.flare.likelihood_str,
-            "Gout is very likely.",
+            "Gout is very likely",
         )
 
     def test__polyarticular(self):

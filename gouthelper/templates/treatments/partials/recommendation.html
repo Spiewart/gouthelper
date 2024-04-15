@@ -1,34 +1,19 @@
+{% load project_tags %}
+
 <div class="col">
   {% if recommendation %}
     <div class="card card-body spacious-cards">
       <h4 class="card-title">{{ recommendation.0.lower.capitalize }}</h4>
-      {% include "treatments/partials/dosing.html" with trt=recommendation.0 info_dict=recommendation.1 %}
+      {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
+      <ul>
+        {% for key, val in dosing_dict.items %}
+          <li>
+            <strong>{{ key }}</strong>: {{ val }}
+          </li>
+        {% endfor %}
+      </ul>
     </div>
   {% else %}
-    <p>
-      No recommendation available.
-      {% if patient %}
-        {{ patient }}
-      {% else %}
-        The patient
-      {% endif %}
-      is medically complicated enough that
-      GoutHelper can't safely make a recommendation.
-      {% if trttype == 1 %}
-        <!-- FLARE -->
-        There is ALWAYS a way to treat a gout flare, but in this case human judgement is required.
-      {% elif trttype == 0 %}
-        <!-- ULT -->
-        {% if object.xoiinteraction %}
-          Xanthine oxidase inhibitor (XOI) interactions can be managed, but should be done so carefully
-          with a rheumatologist and a pharmacist.
-        {% endif %}
-        {% if object.allopurinolhypersensitivity or object.febuxostathypersensitivity %}
-          De-sensitization is an option for patients with a history of allopurinol or febuxostat hypersensitivity, but
-          this should be done with a rheumatologist and pharmacist.
-        {% endif %}
-      {% endif %}
-      See a rheumatologist for further evaluation.
-    </p>
+    <p>{{ object.recommendation_is_none_str }}</p>
   {% endif %}
 </div>

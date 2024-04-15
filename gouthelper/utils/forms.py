@@ -26,18 +26,33 @@ class OneToOneForm(ModelForm):
             raise EmptyRelatedModel
 
 
-def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False) -> "Layout":
+def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, ethnicity: bool = False) -> "Layout":
     """Method that inserts a Div with an id="about-the-patient" and a legend
     into a crispy_forms.layout.Layout object"""
     layout_len = len(layout)
-    if not htmx:
+    if ethnicity:
         layout[layout_len - 1].append(
             Div(
                 HTML(
                     """
                         <hr size="3" color="dark">
                         <legend>About {% if patient %}{{ patient }} \
-({{ patient.gender }}, age {{ age }}) {% else %} {{ str_attrs.subject_the }} {% endif %} \
+({{ patient.gender }}, age {{ patient.age }}, {{ patient.ethnicity }}) {% else %} {{ str_attrs.subject_the }} \
+{% endif %} {% if view.related_object %}({{ view.related_object.gender }}, age {{ view.related_object.age }}) \
+{% endif %}</legend>
+                    """
+                ),
+                css_id="about-the-patient",
+            ),
+        )
+    elif not htmx:
+        layout[layout_len - 1].append(
+            Div(
+                HTML(
+                    """
+                        <hr size="3" color="dark">
+                        <legend>About {% if patient %}{{ patient }} \
+({{ patient.gender }}, age {{ patient.age }}) {% else %} {{ str_attrs.subject_the }} {% endif %} \
 {% if view.related_object %}({{ view.related_object.gender }}, age {{ view.related_object.age }}) {% endif %}</legend>
                     """
                 ),
