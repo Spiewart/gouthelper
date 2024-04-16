@@ -15,7 +15,7 @@
   <h1>PPx</h1>
 {% endblock heading %}
 {% block subheading %}
-  Does a patient need flare prophylaxis?
+  Does {{ str_attrs.subject_the }} need flare prophylaxis?
 {% endblock subheading %}
 {% block content %}
   <main class="container">
@@ -120,10 +120,12 @@
         maxDate: "0",
       });
     });
-    document.ready = function() {
+    $(document).ready(function() {
       // call starting_ult_help_text() to set the help text for the starting_ult field
-      $('#id_on_ult').change(starting_ult_help_text);
-      starting_ult_help_text($('#id_on_ult'));
-    };
+      $('#id_on_ult').change(function() {
+        starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Pos = '{{str_attrs.Pos}}', Tobe = '{{str_attrs.Tobe}}');
+      });
+      starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Pos = '{{str_attrs.Pos}}', Tobe = '{{str_attrs.Tobe}}');
+    });
   </script>
 {% endblock inline_javascript %}

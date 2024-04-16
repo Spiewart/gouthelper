@@ -4,13 +4,17 @@
 {% load project_tags %}
 
 {% block title %}
-  New GoalUrate
+  {% if form.instance.created %}
+    Edit GoalUrate
+  {% else %}
+    New GoalUrate
+  {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>GoalUrate</h1>
 {% endblock heading %}
 {% block subheading %}
-  Determine what a patient's goal uric acid level is.
+  Determine what {{ str_attrs.subject_the_pos }} goal uric acid level is.
 {% endblock subheading %}
 {% block content %}
   <main class="container">
@@ -63,6 +67,3 @@
     {% endif %}
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-{% endblock inline_javascript %}

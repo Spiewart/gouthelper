@@ -59,7 +59,7 @@ class Ppx(
         default=Indications.NOTINDICATED,
     )
     starting_ult = models.BooleanField(
-        _("Starting ULT?"),
+        _("Starting Urate-Lowering Therapy (ULT)"),
         choices=BOOL_CHOICES,
         default=False,
         help_text="Is the patient starting ULT?",

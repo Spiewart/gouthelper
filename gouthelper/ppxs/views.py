@@ -290,7 +290,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
 class PpxPseudopatientUpdate(
     PpxPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    success_message = "%(username)s's Ppx successfully created."
+    success_message = "%(user)s's Ppx successfully updated."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -299,7 +299,7 @@ class PpxPseudopatientUpdate(
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.

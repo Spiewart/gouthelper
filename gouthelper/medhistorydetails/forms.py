@@ -175,7 +175,7 @@ than 6.0 mg/dL in the past 6 months?""",
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
-        self.fields["on_ppx"].label = "Already on PPx?"
+        self.fields["on_ppx"].label = "Prophylaxis (PPx)"
         self.fields["on_ppx"].help_text = format_lazy(
             """{} {} already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
             self.str_attrs["Tobe"],
@@ -183,9 +183,9 @@ than 6.0 mg/dL in the past 6 months?""",
             reverse_lazy("treatments:about-ppx"),
         )
         self.fields["on_ppx"].required = True
-        self.fields["on_ult"].label = "Already on ULT?"
+        self.fields["on_ult"].label = "Urate-Lowering Therapy (ULT)"
         self.fields["on_ult"].help_text = format_lazy(
-            """{} {} on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
+            """{} {} on <a href="{}" target="_blank">urate-lowering therapy</a> (ULT)?""",
             self.str_attrs["Tobe"],
             self.str_attrs["subject_the"],
             reverse_lazy("treatments:about-ult"),
@@ -256,5 +256,5 @@ class GoutDetailPpxForm(GoutDetailForm):
         self.fields["hyperuricemic"].help_text = mark_safe(
             f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had a uric acid greater \
 than 6.0 mg/dL in the past 6 months? If you want to enter values and dates for uric acids, \
-you can do so <a href='#labs_formset_table'>below</a> and we will make this determination for you."
+you can do so <a href='#urate_formset_table'>below</a> and we will make this determination for you."
         )

@@ -35,8 +35,8 @@ class PpxForm(
         super().__init__(*args, **kwargs)
         self.fields[
             "starting_ult"
-        ].help_text = "Is the patient either just starting ULT (urate-lowering therapy) or \
-has started ULT in the last 3 months?"
+        ].help_text = f"Is {self.str_attrs.get('subject_the')} just starting ULT (urate-lowering therapy) or \
+{self.str_attrs.get('pos')} {self.str_attrs.get('gender_subject')} started ULT in the last 3 months?"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -65,4 +65,4 @@ has started ULT in the last 3 months?"
                 css_id="starting_ult",
             ),
         )
-        forms_helper_insert_urates_formset(layout=self.helper.layout)
+        forms_helper_insert_urates_formset(layout=self.helper.layout, str_attrs=self.str_attrs)

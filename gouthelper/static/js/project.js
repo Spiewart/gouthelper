@@ -602,7 +602,7 @@ function subject_checker() {
 }
 
 // Ppx JS
-function starting_ult_help_text() {
+function starting_ult_help_text(subject_the, Pos, Tobe) {
   // function that updates the help text of the starting_ult field
   // first get the on_ult field value
   var on_ult = $('#id_on_ult').val();
@@ -610,14 +610,18 @@ function starting_ult_help_text() {
   if (on_ult == 'True') {
     // if on_Ult is true, change help text to "Has the patient started
     // ULT in the last 3 months?"
+    $('#div_id_starting_ult').show();
     $('#hint_id_starting_ult').text(
-      'Has the patient started ULT ("urate-lowering therapy") in the last 3 months?',
+      `${Pos} ${subject_the} started urate-lowering therapy (ULT) in the last 3 months?`,
+    );
+  } else if (on_ult == 'False') {
+    // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
+    $('#div_id_starting_ult').show();
+    $('#hint_id_starting_ult').text(
+      `${Tobe} ${subject_the} starting urate-lowering therapy (ULT)?`,
     );
   } else {
-    // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
-    $('#hint_id_starting_ult').text(
-      'Is the patient starting ULT ("urate-lowering therapy")?',
-    );
+    $('#div_id_starting_ult').hide();
   }
 }
 // Ult JS

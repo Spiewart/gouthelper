@@ -695,6 +695,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             aid_obj.update_aid(qs=self.user)
         else:
             aid_obj.update_aid(qs=aid_obj)
+        messages.success(self.request, self.get_success_message(form.cleaned_data))
         if self.request.htmx:
             return kwargs.get("htmx")
         return HttpResponseRedirect(self.get_success_url())

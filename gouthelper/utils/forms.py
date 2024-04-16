@@ -388,9 +388,13 @@ def forms_helper_insert_hlab5801(layout: "Layout") -> "Layout":
     )
 
 
-def forms_helper_insert_urates_formset(layout: "Layout") -> "Layout":
+def forms_helper_insert_urates_formset(
+    layout: "Layout",
+    str_attrs: dict[str, str],
+) -> "Layout":
     """Helper method that inserts a Urate Labs formset into a crispy_forms.layout.Layout object
     as part of a multi-model form."""
+    subject_str = f"{str_attrs.get('subject_the')} {str_attrs.get('pos_past')} {str_attrs.get('gender_pos')}"
     layout_len = len(layout)
     sub_len = len(layout[layout_len - 1])
     layout[layout_len - 1][sub_len - 1].append(
@@ -398,7 +402,7 @@ def forms_helper_insert_urates_formset(layout: "Layout") -> "Layout":
             Div(
                 Div(
                     HTML(
-                        f"""<hr size="3" color="dark"><legend>Urates</legend><div class="form-text">Has the patient had his or her uric acid level checked in the past 12-24 months? Enter as many as you like, in any order.</div>{{% load crispy_forms_tags %}}{{% crispy urate_formset urate_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
+                        f"""<hr size="3" color="dark"><legend>Urates</legend><div class="form-text">Has {subject_str} uric acid level checked in the past 24 months? Enter as many as you like, in any order.</div>{{% load crispy_forms_tags %}}{{% crispy urate_formset urate_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
                     ),
                     css_class="col",
                 ),
