@@ -925,7 +925,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         mh_forms, mh_det_forms = self.post_populate_mh_forms(
             medhistorys=self.medhistorys,
             mh_dets=self.medhistory_details,
-            query_object=(self.user if self.user else self.object if not self.create_view else None),
+            query_object=self.query_object,
             request=request,
             ckddetail=self.ckddetail,
             goutdetail=self.goutdetail,
@@ -965,7 +965,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             )
             ma_2_save, ma_2_rem = self.post_process_ma_forms(
                 ma_forms=ma_forms,
-                query_object=self.user if self.user else form.instance,
+                query_object=self.query_object,
             )
             (
                 mh_2_save,
@@ -976,7 +976,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
             ) = self.post_process_mh_forms(
                 mh_forms=mh_forms,
                 mh_det_forms=mh_det_forms,
-                query_object=self.user if self.user else form.instance,
+                query_object=self.query_object,
                 ckddetail=self.ckddetail,
                 goutdetail=self.goutdetail,
                 dateofbirth=oto_forms.get("dateofbirth_form", None) if oto_forms else None,
@@ -987,7 +987,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 labs_2_rem,
             ) = self.post_process_lab_formsets(
                 lab_formsets=lab_formsets,
-                query_object=self.user if self.user else form.instance,
+                query_object=self.query_object,
             )
             # If there are errors picked up after the initial validation step
             # render the errors as errors and include in the return tuple
@@ -1437,6 +1437,7 @@ menopause status to evaluate their flare."
                     self.add_mh_to_qs(mh=mh_to_include, qs=mhs_2_save)
                 self.add_mh_to_qs(mh=mh_to_include, qs=query_object.medhistorys_qs)
                 if mhtype == MedHistoryTypes.CKD and ckddetail:
+                    print(query_object)
                     ckddetail_errors = self.ckddetail_mh_post_process(
                         ckd=mh_to_include,
                         mh_det_forms=mh_det_forms,
