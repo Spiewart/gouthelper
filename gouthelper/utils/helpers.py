@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Union
 from django.utils import timezone  # type: ignore
 
 from ..genders.choices import Genders
-from ..treatments.choices import Freqs, Treatments, TrtTypes
+from ..treatments.choices import ColchicineDoses, Freqs, Treatments, TrtTypes
 from ..treatments.helpers import stringify_dosing_dict
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ class TrtDictStr:
                 and self.treatment == Treatments.COLCHICINE
                 and self.freq2_val == Freqs.ONCE
             ):
-                trt_str += " (2 tabs)"
+                trt_str += f" ({'2 tabs' if self.dose2 == ColchicineDoses.ONEPOINTTWO else '1 tab'})"
             else:
                 trt_str += f"{self.trttype} {self.treatment} {self.freq2.lower()} for {self.duration2}"
             trt_str += f", then {self.dose3} mg"
@@ -80,7 +80,8 @@ class TrtDictStr:
                 and self.treatment == Treatments.COLCHICINE
                 and self.freq3_val == Freqs.ONCE
             ):
-                trt_str += " (1 tab) an hour after the first dose"
+                trt_str += f" ({'1 tabs' if self.dose3 == ColchicineDoses.POINTSIX else '1/2 tab'}) an hour \
+after the first dose"
             else:
                 trt_str += f" {self.freq3.lower()} for {self.duration3}"
             trt_str += ", then "
