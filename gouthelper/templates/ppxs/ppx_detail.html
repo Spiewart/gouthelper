@@ -7,17 +7,35 @@
   <div class="row">
     <div class="col">
       <h1>Ppx</h1>
-      {% if object.user %}<h5>{{ object.user }}</h5>{% endif %}
     </div>
     <div class="col align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ppxs:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'ppxs:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxs:pseudopatient-update' username=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxs:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation
+        {% if object.recommendations.keys|length > 1 %}s{% endif %}
+      </a> |
+      <a class="samepage-link" href="#details">Details</a>
+      | <a class="samepage-link" href="#urates">Urates</a> | <a class="samepage-link" href="#explanations">Explanations</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
     </div>
   </div>
 {% endblock heading %}
@@ -25,6 +43,27 @@
   <main role="main">
     <div class="container bodytainer">
       <hr size="3" color="dark" />
+      <div id="recommendation">
+        <div class="row">
+          <div class="col">
+            <h2>
+              <u>Recommendation
+                {% if object.recommendations.keys|length > 1 %}s{% endif %}
+              </u>
+            </h2>
+          </div>
+        </div>
+        <div class="row">
+          {% for recommendation, explanation in object.recommendations.items %}
+            <div class="col">
+              <div class="card card-body spacious-cards">
+                <h4 class="card-title">{{ recommendation }}</h4>
+                <p class="card-text">{{ explanation }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
       <div id="indication">
         <div class="row">
           <div class="col">
@@ -73,35 +112,13 @@
             </h3>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=gout id="gout" label="Gout" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ppx id="on_ppx" label="Already On PPx" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ult id="on_ult" label="Already On ULT" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=starting_ult id="starting_ult" label="Starting ULT" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=flaring id="flaring" label="Flaring" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=at_goal id="at_goal" label="At Goal" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=hyperuricemic id="hyperuricemic" label="Hyperuricemic" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

@@ -120,7 +120,7 @@ class PpxAid(
 
     @cached_property
     def explanations(self) -> list[tuple[str, str, bool, str]]:
-        """Method that returns a dictionary of tuples explanations for the FlareAid to use in templates."""
+        """Returns a list of tuples to use as explanations for the FlareAid Detail template."""
         return [
             ("age", "Age", True if self.age >= 65 else False, self.age_interp),
             ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
