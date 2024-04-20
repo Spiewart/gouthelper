@@ -32,7 +32,9 @@
         {% if object.recommendations.keys|length > 1 %}s{% endif %}
       </a> |
       <a class="samepage-link" href="#details">Details</a>
-      | <a class="samepage-link" href="#urates">Urates</a> | <a class="samepage-link" href="#explanations">Explanations</a>
+      |
+      {% if object.urates_qs %}<a class="samepage-link" href="#urates">Urates</a> |{% endif %}
+      <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col align-items-center d-flex justify-content-end">
       {% if object.user %}<span>{{ object.user }}</span>{% endif %}
@@ -64,22 +66,6 @@
           {% endfor %}
         </div>
       </div>
-      <div id="indication">
-        <div class="row">
-          <div class="col">
-            <div class="card card-body">
-              <h3 class="card-title">
-                <u>Indication</u>: <strong>{{ object.get_indication_display }}</strong>
-              </h3>
-              <p class="card-text">{% include "ppxs/_indication_explanation.html" %}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="recommendation">
-        <hr size="3" color="dark" />
-        {% include 'ppxs/_recommendation.html' %}
-      </div>
       <hr size="3" color="dark" />
       <div id="details">
         <div class="row">
@@ -88,23 +74,98 @@
               <u>Details</u>
             </h2>
           </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
+          </div>
         </div>
         <div class="row">
-          <div class="col">{% include "ppxs/_details.html" %}</div>
+          <div class="col">
+            <div class="card card-body" id="gout-card">
+              <h3 class="card-title">
+                <u>Gout</u>
+              </h3>
+              <div class="card-text">
+                <ul>
+                  <li>
+                    <strong><a class="samepage-link" href="#flaring">Flaring</a></strong>: {{ object.flaring_detail }}
+                  </li>
+                  <li>
+                    <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
+                  </li>
+                  <li>
+                    <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card card-body" id="treatment-card">
+              <h3 class="card-title">
+                <u>Treatment</u>
+              </h3>
+              <div class="card-text">
+                <ul>
+                  {% if object.starting_ult %}
+                    <li>
+                      <strong><a class="samepage-link" href="#starting_ult">Starting ULT</a></strong>: {{ object.starting_ult_detail }}
+                    </li>
+                  {% else %}
+                    <li>
+                      <strong><a class="samepage-link" href="#on_ult">On ULT</a></strong>: {{ object.on_ult_detail }}
+                    </li>
+                  {% endif %}
+                  <li>
+                    <strong><a class="samepage-link" href="#on_ppx">On PPx</a></strong>: {{ object.on_ppx_detail }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       {% if object.urates_qs %}
+        <hr size="3" color="dark" />
         <div id="urates">
-          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <h2>
+                <u>Urates</u>
+              </h2>
+            </div>
+            <div class="col align-items-center d-flex justify-content-end">
+              <a href="#top"><small>Back to top</small></a>
+            </div>
+          </div>
           <div class="row">
             <div class="col">
               <div class="card card-body">
-                <h3 class="card-title">
-                  <u>Urates</u>
-                </h3>
-                <ol>
-                  {% for urate in object.urates_qs %}<li>{{ urate }} - {{ urate.date.date }}</li>{% endfor %}
-                </ol>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Level (mg/dL)</th>
+                      <th scope="col">Date Drawn</th>
+                      <th scope="col">At Goal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for urate in object.urates_qs %}
+                      <tr>
+                        <th scope="row">{{ forloop.counter }}</th>
+                        <td>{{ urate.value }}</td>
+                        <td>{{ urate.date.date }}</td>
+                        <td>
+                          {% if urate.value > object.goalurate %}
+                            No
+                          {% else %}
+                            Yes
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -125,7 +186,7 @@
           {% endfor %}
         </div>
       </div>
-      <a href="#top">Back to top</a>
+      <a href="#top"><small>Back to top</small></a>
     </div>
   </main>
 {% endblock content %}

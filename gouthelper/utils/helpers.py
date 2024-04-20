@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
     from ..utils.models import GoutHelperAidModel, GoutHelperPatientModel
+    from ..utils.types import MedAllergyAidHistoryModel
 
     User = get_user_model()
 
@@ -122,7 +123,11 @@ def first_letter_lowercase(string: str) -> str:
     return string[:1].lower() + string[1:]
 
 
-def get_or_create_qs_attr(obj: Any, name: str) -> list:
+def get_or_create_qs_attr(
+    obj: Any,
+    name: str,
+    query_object: Union["MedAllergyAidHistoryModel", "User", None] = None,
+) -> list:
     """Method that takes any object and a string and creates an empty list
     attr on the object if it doesn't already exist. Adds an "s" to the end
     of the name str if it doesn't end with one already. Returns the list attr,
@@ -138,7 +143,7 @@ def get_or_create_qs_attr(obj: Any, name: str) -> list:
 
     qs_name = f"{name}s_qs" if not name.endswith("s") else f"{name}_qs"
     if not hasattr(obj, qs_name):
-        setattr(obj, qs_name, [])
+        setattr(obj, qs_name, getattr(query_object, qs_name, []) if query_object else [])
     return getattr(obj, qs_name)
 
 

@@ -1,6 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING, Any, Literal, Union
 
+from django.apps import apps  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -10,6 +11,9 @@ from django.utils.text import format_lazy  # type: ignore
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
+from ..goalurates.choices import GoalUrates
+from ..labs.helpers import labs_urates_months_at_goal
+from ..labs.selectors import urates_dated_qs
 from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_get_cvdiseases_str
@@ -48,6 +52,8 @@ class GoutHelperBaseModel:
 
     class Meta:
         abstract = True
+
+    GoalUrates = GoalUrates
 
     @classmethod
     def about_allopurinol_url(cls) -> str:
@@ -286,6 +292,39 @@ so""",
         else:
             main_str += f" anticoagulation isn't an issue for {gender_ref} taking them."
         return mark_safe(main_str)
+
+    @cached_property
+    def at_goal_long_term(self) -> bool:
+        """Method that interprets the Ppx's labs (Urates) and returns a bool
+        indicating whether the patient is at goal."""
+        if hasattr(self, "urates_qs"):
+            return labs_urates_months_at_goal(
+                urates=self.urates_qs,
+                goutdetail=self.goutdetail if self.goutdetail else None,
+                goal_urate=self.goalurate,
+                commit=False,
+            )
+        else:
+            return labs_urates_months_at_goal(
+                urates=self.get_dated_urates(),
+                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
+                goal_urate=self.goalurate,
+                commit=False,
+            )
+
+    @property
+    def at_goal_long_term_detail(self) -> str:
+        """Returns a str detailing the patient's long-term uric acid goal status."""
+        Subject_the, pos = self.get_str_attrs("Subject_the", "pos")
+        return mark_safe(
+            format_lazy(
+                """{} {} {} been at goal uric acid ({}) for six months or longer.""",
+                Subject_the,
+                pos,
+                "not" if not self.at_goal_long_term else "",
+                self.goalurate_get_display,
+            )
+        )
 
     @cached_property
     def baselinecreatinine(self) -> Union["BaselineCreatinine", False]:
@@ -709,6 +748,24 @@ reported (scientifically) than hypersensitivity to allopurinol."
         return mark_safe(main_str)
 
     @cached_property
+    def flaring(self) -> bool | None:
+        """Method that returns whether the patient is currently flaring."""
+        return self.goutdetail.flaring
+
+    @cached_property
+    def flaring_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current flaring status."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            format_lazy(
+                """{} is {} experiencing symptoms attributed to gout <a href={}>flares</a>.""",
+                Subject_the,
+                "not" if not self.flaring else "",
+                reverse("flares:about"),
+            )
+        )
+
+    @cached_property
     def gastricbypass(self) -> Union["MedHistory", bool]:
         """Method that returns Gastricbypass object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -777,6 +834,17 @@ contraindicated."
         except AttributeError:
             self.set_str_attrs(patient=self.user)
             return tuple(self.str_attrs[arg] for arg in args)
+
+    @cached_property
+    def goalurate_get_display(self):
+        object_has_goalurate_property = hasattr(self, "goalurate") and not self.object_has_goalurate
+        return (
+            self.goalurate.get_goal_urate_display()
+            if self.object_has_goalurate
+            else self.GoalUrates(self.goalurate).label
+            if object_has_goalurate_property
+            else "6.0 mg/dL, GoutHelper's default"
+        )
 
     @cached_property
     def gout(self) -> Union["MedHistory", bool]:
@@ -893,6 +961,46 @@ starting allopurinol.""",
         """Property that returns Hyperuricemia object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.HYPERURICEMIA, self)
+
+    @cached_property
+    def hyperuricemic(self) -> bool | None:
+        """Returns boolean indicating whether the patient is currently hyperuricemic."""
+        return self.goutdetail.hyperuricemic
+
+    @property
+    def hyperuricemic_detail(self) -> str:
+        """Returns a short str explanation of whether or not the object is hyperuricemic."""
+        Subject_the, tobe, tobe_neg, gender_pos, gender_subject = self.get_str_attrs(
+            "Subject_the", "tobe", "tobe_neg", "gender_pos", "gender_subject"
+        )
+        return mark_safe(
+            format_lazy(
+                """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> greater than {} <a href={}>goal \
+urate</a>: {}.
+                    """,
+                Subject_the,
+                tobe if self.hyperuricemic else tobe_neg,
+                reverse("labs:about-urate"),
+                gender_pos,
+                (
+                    reverse(
+                        "goalurates:pseudopatient-detail",
+                        kwargs={
+                            "username": (
+                                self.username if isinstance(self, GoutHelperPatientModel) else self.user.username
+                            )
+                        },
+                    )
+                    if isinstance(self, GoutHelperPatientModel) or getattr(self, "user", False)
+                    else (
+                        reverse("goalurates:detail", kwargs={"pk": self.goalurate.pk})
+                        if self.object_has_goalurate
+                        else reverse("goalurates:create")
+                    )
+                ),
+                self.goalurate_get_display,
+            )
+        )
 
     @cached_property
     def ibd(self) -> Union["MedHistory", bool]:
@@ -1122,6 +1230,52 @@ rash, fluid retention, and decreased kidney function",
         return info_dict
 
     @cached_property
+    def object_has_goalurate(self) -> bool:
+        GoalUrate = apps.get_model("goalurates.GoalUrate")
+        return hasattr(self, "goalurate") and isinstance(self.goalurate, GoalUrate)
+
+    @cached_property
+    def on_ppx(self) -> bool | None:
+        """Method that returns whether the patient is currently on PPx."""
+        return self.goutdetail.on_ppx
+
+    @property
+    def on_ppx_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current on_ppx status."""
+        Subject_the, Gender_subject = self.get_str_attrs("Subject_the", "Gender_subject")
+        return mark_safe(
+            format_lazy(
+                """{} is {} on flare <a href={}>prophylaxis</a>.""",
+                Subject_the,
+                "not" if not self.on_ppx else "",
+                reverse("treatments:about-ppx"),
+            )
+        )
+
+    @cached_property
+    def on_ult(self) -> bool | None:
+        """Method that returns whether the patient is currently on ULT."""
+        return self.ppx.on_ult
+
+    @property
+    def on_ult_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current on_ult status."""
+        Subject_the, Gender_subject = self.get_str_attrs("Subject_the", "Gender_subject")
+        on_ult_str = format_lazy(
+            """{} is {} on urate-lowering therapy (<a href={}>ULT</a>).""",
+            Subject_the,
+            "not" if not self.starting_ult else "",
+            reverse("treatments:about-ult"),
+        )
+        if self.starting_ult:
+            on_ult_str += f" {Gender_subject} is in the initiation phase of ULT."
+        else:
+            on_ult_str += f" {Gender_subject} is in the maintenance phase of ULT, where the treatment doses are \
+stable and labs are not monitored as frequently. {Gender_subject} should not be experiencing gout flares in \
+this phase."
+        return mark_safe(on_ult_str)
+
+    @cached_property
     def organtransplant(self) -> Union["MedHistory", bool]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
@@ -1315,6 +1469,26 @@ and as such shouldn't be prescribed probenecid."
             obj=self,
             patient=patient,
             request_user=request_user,
+        )
+
+    @cached_property
+    def starting_ult(self) -> bool | None:
+        """Method that returns whether the patient is currently starting ult."""
+        return self.ppx.starting_ult
+
+    @property
+    def starting_ult_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current starting_ult status."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            format_lazy(
+                """{} is {} in the initiation phase of starting urate-lowering therapy \
+(<a href={}>ULT</a>), which is characterized by an increased risk of gout flares \
+, dose adjustment of the treatments until serum uric acid is at goal, and frequent lab monitoring.""",
+                Subject_the,
+                "not" if not self.starting_ult else "",
+                reverse("treatments:about-ult"),
+            )
         )
 
     @cached_property
@@ -1643,6 +1817,9 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
         return age_calc(date_of_birth=self.dateofbirth.value)
+
+    def get_dated_urates(self):
+        return urates_dated_qs().filter(user=self)
 
     @cached_property
     def user(self):

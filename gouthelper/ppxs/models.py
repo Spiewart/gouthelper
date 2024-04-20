@@ -16,7 +16,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
 from ..defaults.helpers import defaults_get_goalurate
-from ..labs.helpers import labs_urates_last_at_goal, labs_urates_months_at_goal, labs_urates_recent_urate
+from ..labs.helpers import labs_urates_last_at_goal, labs_urates_recent_urate
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates, urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
@@ -96,25 +96,6 @@ class Ppx(
     @classmethod
     def aid_labs(cls) -> list[str]:
         return [Urate]
-
-    @cached_property
-    def at_goal_long_term(self) -> bool:
-        """Method that interprets the Ppx's labs (Urates) and returns a bool
-        indicating whether the patient is at goal."""
-        if hasattr(self, "urates_qs"):
-            return labs_urates_months_at_goal(
-                urates=self.urates_qs,
-                goutdetail=self.goutdetail if self.goutdetail else None,
-                goal_urate=self.goalurate,
-                commit=False,
-            )
-        else:
-            return labs_urates_months_at_goal(
-                urates=self.get_dated_urates(),
-                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
-                goal_urate=self.goalurate,
-                commit=False,
-            )
 
     @cached_property
     def at_goal_interp(self) -> str:
@@ -416,7 +397,7 @@ during this stage of treatment are for individuals who are having gout flares or
     def recent_urate(self) -> bool:
         """Method that returns True if the patient has had his or her uric acid checked
         in the last 3 months, False if not."""
-        if hasattr(self, "labs_qs"):
+        if hasattr(self, "urates_qs"):
             return labs_urates_recent_urate(
                 urates=self.urates_qs,
                 sorted_by_date=True,

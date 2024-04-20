@@ -1293,7 +1293,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 f"{post_object.__class__.__name__.lower()}" if not isinstance(post_object, User) else "user"
             )
             for lab_name, lab_formset in lab_formsets.items():
-                qs_attr = get_or_create_qs_attr(post_object, lab_name)
+                qs_attr = get_or_create_qs_attr(post_object, lab_name, self.query_object)
                 if qs_attr:
                     cleaned_data = lab_formset.cleaned_data
                     # NOTE: FOR FUTURE SELF: COPY A LIST WHEN ITERATING OVER IT AND ADDING/REMOVING ELEMENTS

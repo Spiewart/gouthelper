@@ -27,6 +27,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import GoutForm
 from ..medhistorys.models import Gout
 from ..users.models import Pseudopatient
+from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
 from .forms import PpxForm
 from .models import Ppx
@@ -129,6 +130,11 @@ class PpxDetailBase(AutoPermissionRequiredMixin, DetailView):
 
     model = Ppx
     object: Ppx
+
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
+        return context
 
     def get_permission_object(self):
         return self.object
