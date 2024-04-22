@@ -679,7 +679,9 @@ menopause status to evaluate their flare."
             reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
         )
         assert response.status_code == 302
-        assert response.url == reverse("users:pseudopatient-detail", kwargs={"username": psp.username})
+        assert (
+            response.url == reverse("users:pseudopatient-detail", kwargs={"username": psp.username}) + "?updated=True"
+        )
         # Need to delete both gout and goutdetail cached_properties because they are used
         # to fetch one another and will not be updated otherwise
         delattr(psp, "goutdetail")

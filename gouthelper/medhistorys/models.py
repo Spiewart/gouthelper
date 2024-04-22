@@ -251,7 +251,13 @@ class MedHistory(
     objects = models.Manager()
 
     def __str__(self):
-        return f"{self.MedHistoryTypes(self.medhistorytype).label}"
+        try:
+            return f"{self.MedHistoryTypes(self.medhistorytype).label}"
+        except ValueError:
+            try:
+                return f"{self.MedHistoryTypes(self._meta.model_name).label}"
+            except ValueError:
+                return "MedHistory pre-save"
 
     def delete(
         self,
@@ -290,7 +296,6 @@ class MedHistory(
         """Update the set_date field to the current date and time."""
         self.set_date = timezone.now()
         if commit:
-            self.full_clean()
             self.save()
 
 

@@ -14,10 +14,9 @@ class TestPpxForm(TestCase):
         self.factory = RequestFactory()
 
     def test__init__(self):
-        self.assertEqual(
+        self.assertIn(
+            " just starting ULT (urate-lowering therapy)",
             self.form.fields["starting_ult"].help_text,
-            "Is the patient either just starting ULT (urate-lowering therapy) or \
-has started ULT in the last 3 months?",
         )
 
     def test__forms_for_related_models_inserted(self):

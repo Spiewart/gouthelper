@@ -99,7 +99,7 @@ class TestGetMedHistorytypeAids(TestCase):
         for _ in range(5):
             flare = create_flare(user=create_psp())
             aid_dict = MedHistoryTypesAids(
-                FLARE_MEDHISTORYS, patient=Pseudopatient.objects.flares_qs().filter(pk=flare.user.pk).get()
+                FLARE_MEDHISTORYS, related_object=Pseudopatient.objects.flares_qs().filter(pk=flare.user.pk).get()
             ).get_medhistorytypes_aid_dict()
             for medhistorytype in FLARE_MEDHISTORYS:
                 self.assertIn(medhistorytype, aid_dict)

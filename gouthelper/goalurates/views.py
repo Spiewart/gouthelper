@@ -147,10 +147,6 @@ class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
     model = GoalUrate
     object: GoalUrate
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.GOALURATE, tag__isnull=False)
-
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})

@@ -1904,7 +1904,6 @@ class TestFlarePseudopatientUpdate(TestCase):
             onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                query_object=user,
             )
             for onetoone, modelform_dict in view.onetoones.items():
                 # Assert that the onetoone_forms dict has the correct keys
@@ -1937,7 +1936,6 @@ class TestFlarePseudopatientUpdate(TestCase):
             onetoone_forms = view.post_populate_oto_forms(
                 onetoones=view.onetoones,
                 request=request,
-                query_object=user,
             )
             # Create some fake flare data
             data = flare_data_factory(user=user, flare=flare)
@@ -2236,6 +2234,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "urate-value": Decimal("5.0"),
                 "diagnosed": True,
                 "aspiration": False,
+                "crystal_analysis": "",
             }
         )
         # Post the data
@@ -2246,8 +2245,8 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         assert response.status_code == 302
         flare.refresh_from_db()
         # Assert that the flare has a moderate likelihood and prevalence
-        self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
         self.assertEqual(flare.prevalence, Prevalences.MEDIUM)
+        self.assertEqual(flare.likelihood, Likelihoods.EQUIVOCAL)
 
     def test__post_returns_low_likelihood_prevalence_flare(self):
         """Test that a flare is created with a low likelihood and prevalence when the

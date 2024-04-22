@@ -69,7 +69,7 @@ def get_likelihood(flare: "Flare") -> Likelihoods:
 
 class TestFlareHelpers(TestCase):
     def setUp(self):
-        self.flare = create_flare()
+        self.flare = create_flare(mhs=[MedHistoryTypes.CKD])
 
     def test__flares_abnormal_duration_too_long(self):
         self.flare.date_started = timezone.now().date() - timedelta(days=16)
@@ -376,8 +376,24 @@ class TestFlareHelpers(TestCase):
             joints=self.flare.joints,
             menopause=self.flare.menopause,
             crystal_analysis=self.flare.crystal_analysis,
+            ckd=None,
+        )
+        print(self.flare.menopause)
+        print(self.flare.ckd)
+        self.assertIn(LessLikelys.FEMALE, less_likelys)
+        delattr(self.flare, "menopause")
+        less_likelys = flares_get_less_likelys(
+            age=age_calc(self.flare.dateofbirth.value),
+            date_ended=None,
+            duration=self.flare.duration,
+            gender=self.flare.gender,
+            joints=self.flare.joints,
+            menopause=self.flare.menopause,
+            crystal_analysis=self.flare.crystal_analysis,
             ckd=self.flare.ckd,
         )
+        print(self.flare.menopause)
+        print(self.flare.ckd)
         self.assertNotIn(LessLikelys.FEMALE, less_likelys)
 
     def test__flares_get_less_likelys_too_young(self):

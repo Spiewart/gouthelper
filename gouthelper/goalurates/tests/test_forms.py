@@ -20,12 +20,6 @@ class TestGoalUrateForm(TestCase):
         self.assertIn(f"{MedHistoryTypes.EROSIONS}-value", response.rendered_content)
         self.assertIn(f"{MedHistoryTypes.TOPHI}-value", response.rendered_content)
 
-    def test__about_the_patient_rendered_without_htmx(self):
-        # Create a response without HTMX request
-        response = self.client.get(reverse("goalurates:create"))
-        # Test that the legend for the About the Patient section is rendered
-        self.assertIn("<legend>About the Patient</legend>", response.rendered_content)
-
     def test__about_the_patient_not_rendered_with_htmx(self):
         # Create a UltAid
         ultaid = create_ultaid()

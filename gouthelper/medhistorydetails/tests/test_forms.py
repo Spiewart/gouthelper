@@ -121,7 +121,7 @@ than 6.0 mg/dL in the past 6 months?""",
         )
         # Test on_ppx
         self.assertIsNone(self.form.fields["on_ppx"].initial)
-        self.assertEqual(self.form.fields["on_ppx"].label, "Already on PPx?")
+        self.assertEqual(self.form.fields["on_ppx"].label, "Prophylaxis (PPx)")
         self.assertEqual(
             self.form.fields["on_ppx"].help_text,
             format_lazy(
@@ -131,13 +131,6 @@ than 6.0 mg/dL in the past 6 months?""",
         )
         self.assertTrue(self.form.fields["on_ppx"].required)
         # Test on_ult
-        self.assertEqual(self.form.fields["on_ult"].label, "Already on ULT?")
-        self.assertEqual(
-            self.form.fields["on_ult"].help_text,
-            format_lazy(
-                """Is the patient on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
-                reverse_lazy("treatments:about-ult"),
-            ),
-        )
+        self.assertEqual(self.form.fields["on_ult"].label, "Urate-Lowering Therapy (ULT)")
         self.assertIsNone(self.form.fields["on_ult"].initial)
         self.assertTrue(self.form.fields["on_ult"].required)

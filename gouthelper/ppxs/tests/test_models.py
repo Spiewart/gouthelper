@@ -105,8 +105,8 @@ class TestPpx(TestCase):
         """Test the last_urate_at_goal property."""
         ppx = Ppx.objects.get(pk=self.ppx.pk)
 
-        self.assertFalse(ppx.last_urate_at_goal)
-        del ppx.last_urate_at_goal
+        self.assertFalse(ppx.at_goal)
+        del ppx.at_goal
 
         for urate in self.urates:
             urate.ppx = ppx
@@ -114,15 +114,15 @@ class TestPpx(TestCase):
 
         ppx.refresh_from_db()
 
-        self.assertTrue(ppx.last_urate_at_goal)
+        self.assertTrue(ppx.at_goal)
 
         self.latest_urate.value = Decimal("15.0")
         self.latest_urate.save()
 
-        del ppx.last_urate_at_goal
+        del ppx.at_goal
         ppx.refresh_from_db()
 
-        self.assertFalse(ppx.last_urate_at_goal)
+        self.assertFalse(ppx.at_goal)
 
     def test__on_ppx(self):
         """Test the on_ppx property."""
@@ -156,6 +156,7 @@ class TestPpx(TestCase):
         """Test the recent_urate property."""
         self.assertFalse(self.ppx.recent_urate)
         del self.ppx.recent_urate
+        delattr(self.ppx, "urates_qs")
 
         for urate in self.urates:
             urate.ppx = self.ppx

@@ -457,11 +457,13 @@ during this stage of treatment are for individuals who are having gout flares or
         """Method that returns True if the patient has had his or her uric acid checked
         in the last 3 months, False if not."""
         if hasattr(self, "urates_qs"):
+            print("found gqas")
             return labs_urates_recent_urate(
                 urates=self.urates_qs,
                 sorted_by_date=True,
             )
         else:
+            print("didnt find qs")
             return labs_urates_recent_urate(
                 urates=self.get_dated_urates(),
                 sorted_by_date=True,

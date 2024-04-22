@@ -419,6 +419,7 @@ def labs_urates_recent_urate(
         bool: True if the most recent Urate is less than 90 days old,
         False if not."""
     # Check if the list is sorted
+    print(urates)
     if not sorted_by_date:
         # Check that the urates are in chronological order
         for urate_i, urate in enumerate(urates):

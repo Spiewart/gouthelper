@@ -190,14 +190,6 @@ class TestGoalUrateDetail(TestCase):
         self.content_qs = Content.objects.filter(context=Contexts.GOALURATE, tag=Tags.EXPLANATION, slug__isnull=False)
         self.factory = RequestFactory()
 
-    def test__contents(self):
-        view_instance = self.view()
-        self.assertTrue(isinstance(view_instance.contents, QuerySet))
-        for content in view_instance.contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, view_instance.contents)
-
     def test__dispatch_redirects_if_goalurate_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
         GoalUrate has a user."""
@@ -207,12 +199,6 @@ class TestGoalUrateDetail(TestCase):
         response = self.view.as_view()(request, pk=user_gu.pk)
         assert response.status_code == 302
         assert response.url == reverse("goalurates:pseudopatient-detail", kwargs={"username": user_gu.user.username})
-
-    def test__get_context_data(self):
-        view_instance = self.view()
-        for content in view_instance.contents:
-            self.assertIn(content.slug, self.response.context_data)
-            self.assertEqual(self.response.context_data[content.slug], {content.tag: content})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.goalurate.pk}).get_queryset()
@@ -608,17 +594,13 @@ class TestGoalUratePseudopatientDetail(TestCase):
     def test__get_context_data(self):
         """Test the get_context_data() method for the view."""
         request = self.factory.get("/fake-url/")
+        request.user = self.anon
         view = self.view()
         view.setup(request, username=self.anon_psp.username)
         view.object = view.get_object()
         context = view.get_context_data()
         assert "patient" in context
         assert context["patient"] == self.anon_psp
-        contents = Content.objects.filter(context=Contexts.GOALURATE, tag=Tags.EXPLANATION, slug__isnull=False)
-        for mh in GOALURATE_MEDHISTORYS:
-            assert mh.lower() in context
-            assert "explanation" in context[mh.lower()]
-            assert context[mh.lower()]["explanation"] in contents
 
     def test__get_object_sets_user(self):
         """Test that the get_object() method sets the user attribute."""
@@ -678,6 +660,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
 
         # Create the request and set up the view
         request = self.factory.get("/fake-url/")
+        request.user = self.anon
         view = self.view()
         view.setup(request, username=self.empty_psp.username)
         view.object = view.get_object()
@@ -702,6 +685,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
 
         # Create the request and set up the view
         request = self.factory.get("/fake-url/?updated=True")
+        request.user = self.anon
         view = self.view()
         view.setup(request, username=self.empty_psp.username)
         view.object = view.get_object()

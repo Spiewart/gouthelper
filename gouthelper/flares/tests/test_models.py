@@ -161,20 +161,20 @@ class TestFlareMethods(TestCase):
         self.assertEqual(self.flare.joints_str(), "right knee and left ankle")
 
     def test__likelihood_interp(self):
-        self.assertEqual(self.flare.likelihood_str, "Flare hasn't been processed yet...")
+        self.assertEqual(self.flare.likelihood_interp, "Flare hasn't been processed yet...")
         self.flare.likelihood = Likelihoods.UNLIKELY
         self.flare.save()
-        self.assertEqual(self.flare.likelihood_str, "Gout isn't likely")
+        self.assertEqual(self.flare.likelihood_interp, "Gout isn't likely")
         self.flare.likelihood = Likelihoods.EQUIVOCAL
         self.flare.save()
         self.assertEqual(
-            self.flare.likelihood_str,
+            self.flare.likelihood_interp,
             "Gout can't be ruled in or out",
         )
         self.flare.likelihood = Likelihoods.LIKELY
         self.flare.save()
         self.assertEqual(
-            self.flare.likelihood_str,
+            self.flare.likelihood_interp,
             "Gout is very likely",
         )
 
@@ -218,21 +218,17 @@ class TestFlareMethods(TestCase):
         self.flare.date_started = (timezone.now() - timedelta(days=7)).date()
         self.flare.date_ended = None
         self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - present)")
+        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%b %d')} - present)")
         self.flare.date_ended = (timezone.now() - timedelta(days=1)).date()
         self.assertEqual(
             self.flare.__str__(),
-            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
-        )
-        self.assertEqual(
-            self.flare.__str__(),
-            f"Flare ({self.flare.date_started.strftime('%m/%d/%Y')} - {self.flare.date_ended.strftime('%m/%d/%Y')})",
+            f"Flare ({self.flare.date_started.strftime('%b %d')} - {self.flare.date_ended.strftime('%b %d')})",
         )
         self.flare.user = PseudopatientFactory()
         self.assertEqual(
             self.flare.__str__(),
-            f"{self.flare.user}'s Flare ({self.flare.date_started.strftime('%m/%d/%Y')} \
-- {self.flare.date_ended.strftime('%m/%d/%Y')})",
+            f"Flare ({self.flare.date_started.strftime('%b %d')} \
+- {self.flare.date_ended.strftime('%b %d')})",
         )
 
     def test__uncommon_joints(self):

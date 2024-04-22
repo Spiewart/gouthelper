@@ -975,7 +975,7 @@ The absence of erythema (redness) does not add any points to the Diagnostic Rule
         return mark_safe(redness_str)
 
     def __str__(self):
-        return f" Flare ({shorten_date_for_str(self.date_started)} - \
+        return f"Flare ({shorten_date_for_str(self.date_started)} - \
 {shorten_date_for_str(self.date_ended) if self.date_ended else 'present'})"
 
     @classmethod

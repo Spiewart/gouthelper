@@ -93,7 +93,7 @@ class TestFlareAidCreate(TestCase):
         self.flare = create_flare()
 
     def test__dispatch_redirects_for_flare_with_flareaid(self):
-        """Test that the dispatch() method redirects to the flareaids:flare-update view when the view is called with
+        """Test that the dispatch() method redirects to the flareaids:update view when the view is called with
         the pk for a flare that already has a flareaid field."""
         flare = create_flare()
         flare.flareaid = create_flareaid(dateofbirth=flare.dateofbirth, gender=flare.gender)
@@ -101,7 +101,7 @@ class TestFlareAidCreate(TestCase):
         response = self.client.get(reverse("flareaids:flare-create", kwargs={"flare": flare.pk}))
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("flareaids:flare-update", kwargs={"pk": flare.flareaid.pk}))
+        self.assertEqual(response.url, reverse("flareaids:update", kwargs={"pk": flare.flareaid.pk}))
 
     def test__get_context_data_with_flare(self):
         response = self.client.get(reverse("flareaids:flare-create", kwargs={"flare": self.flare.pk}))

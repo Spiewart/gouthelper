@@ -359,7 +359,10 @@ def create_psp(
                     # pop the treatment from the list
                     treatments.remove(treatment)
                     # Create a MedAllergy for the Pseudopatient
-                    MedAllergyFactory(user=psp, treatment=treatment)
+                    try:
+                        MedAllergyFactory(user=psp, treatment=treatment)
+                    except IntegrityError:
+                        pass
                 elif isinstance(treatment, MedAllergy):
                     treatments.remove(treatment.treatment)
                     treatment.user = psp

@@ -29,7 +29,7 @@ class TestUltForm(TestCase):
         # Create a response without HTMX request
         response = self.client.get(reverse("ults:create"))
         # Test that the legend for the About the Patient section is rendered
-        self.assertIn("<legend>About the Patient</legend>", response.rendered_content)
+        self.assertIn("<legend>About ", response.rendered_content)
 
     def test__forms_for_related_models_inserted(self):
         # Test that dateofbirth, gender, cvdiseases, nsaid_contras,

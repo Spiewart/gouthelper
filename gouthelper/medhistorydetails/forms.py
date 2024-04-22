@@ -172,7 +172,9 @@ than {} in the past 6 months?""",
             self.str_attrs["Pos"],
             self.str_attrs["subject_the"],
             reverse_lazy("labs:about-urate"),
-            self.patient.goalurate.get_goal_urate_display() if self.patient else "6.0 mg/dL",
+            self.patient.goalurate.get_goal_urate_display()
+            if self.patient and hasattr(self.patient, "goalurate")
+            else "6.0 mg/dL",
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
@@ -262,6 +264,8 @@ you can do so <a href='#urate_formset_table'>below</a> and we will make this det
                 self.str_attrs["Pos"],
                 self.str_attrs["subject_the"],
                 reverse_lazy("labs:about-urate"),
-                self.patient.goalurate.get_goal_urate_display() if self.patient else "6.0 mg/dL",
+                self.patient.goalurate.get_goal_urate_display()
+                if self.patient and hasattr(self.patient, "goalurate")
+                else "6.0 mg/dL",
             )
         )
