@@ -315,16 +315,27 @@ so""",
     @property
     def at_goal_long_term_detail(self) -> str:
         """Returns a str detailing the patient's long-term uric acid goal status."""
-        Subject_the, pos = self.get_str_attrs("Subject_the", "pos")
-        return mark_safe(
-            format_lazy(
-                """{} {} {} been at goal uric acid ({}) for six months or longer.""",
-                Subject_the,
-                pos,
-                "not" if not self.at_goal_long_term else "",
-                self.goalurate_get_display,
+        Subject_the, tobe, pos = self.get_str_attrs("Subject_the", "tobe", "pos")
+        if self.hyperuricemic is not None and self.hyperuricemic is False:
+            return mark_safe(
+                format_lazy(
+                    """{} {} at goal uric acid ({}), {} for six months or longer.""",
+                    Subject_the,
+                    tobe,
+                    self.goalurate_get_display,
+                    "but not" if not self.at_goal_long_term else "and " + pos + " been",
+                )
             )
-        )
+        else:
+            return mark_safe(
+                format_lazy(
+                    """{} {} {} been at goal uric acid ({}) for six months or longer.""",
+                    Subject_the,
+                    pos,
+                    "not" if not self.at_goal_long_term else "",
+                    self.goalurate_get_display,
+                )
+            )
 
     @cached_property
     def baselinecreatinine(self) -> Union["BaselineCreatinine", False]:
@@ -755,15 +766,28 @@ reported (scientifically) than hypersensitivity to allopurinol."
     @cached_property
     def flaring_detail(self) -> str:
         """Returns a brief detail str explaining the object's current flaring status."""
-        (Subject_the,) = self.get_str_attrs("Subject_the")
-        return mark_safe(
-            format_lazy(
-                """{} is {} experiencing symptoms attributed to gout <a href={}>flares</a>.""",
-                Subject_the,
-                "not" if not self.flaring else "",
-                reverse("flares:about"),
+        Subject_the, subject_the = self.get_str_attrs("Subject_the", "subject_the")
+        if self.flaring is not None:
+            return mark_safe(
+                format_lazy(
+                    """{} is {} experiencing symptoms attributed to gout <a href={}>flares</a>.""",
+                    Subject_the,
+                    "not" if not self.flaring else "",
+                    reverse("flares:about"),
+                )
             )
-        )
+        else:
+            return mark_safe(
+                format_lazy(
+                    """It is not known if {} is experiencing gout flares. \
+    It would be prudent to inquire about this and use the <a href={}>Flare</a> decision aid to \
+    determine if the symptoms are likely due to gout.""",
+                    subject_the,
+                    reverse("flares:pseudopatient-create", kwargs={"username": self.user.username})
+                    if self.user
+                    else reverse("flares:create"),
+                )
+            )
 
     @cached_property
     def gastricbypass(self) -> Union["MedHistory", bool]:
@@ -837,12 +861,12 @@ contraindicated."
 
     @cached_property
     def goalurate_get_display(self):
-        object_has_goalurate_property = hasattr(self, "goalurate") and not self.object_has_goalurate
+        has_goalurate_property = hasattr(self, "goalurate") and not self.has_goalurate
         return (
             self.goalurate.get_goal_urate_display()
-            if self.object_has_goalurate
+            if self.has_goalurate
             else self.GoalUrates(self.goalurate).label
-            if object_has_goalurate_property
+            if has_goalurate_property
             else "6.0 mg/dL, GoutHelper's default"
         )
 
@@ -970,37 +994,43 @@ starting allopurinol.""",
     @property
     def hyperuricemic_detail(self) -> str:
         """Returns a short str explanation of whether or not the object is hyperuricemic."""
-        Subject_the, tobe, tobe_neg, gender_pos, gender_subject = self.get_str_attrs(
-            "Subject_the", "tobe", "tobe_neg", "gender_pos", "gender_subject"
+        Subject_the, tobe, tobe_neg, gender_pos, Subject_the_pos = self.get_str_attrs(
+            "Subject_the", "tobe", "tobe_neg", "gender_pos", "Subject_the_pos"
         )
-        return mark_safe(
-            format_lazy(
-                """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> greater than {} <a href={}>goal \
-urate</a>: {}.
-                    """,
-                Subject_the,
-                tobe if self.hyperuricemic else tobe_neg,
-                reverse("labs:about-urate"),
-                gender_pos,
-                (
-                    reverse(
-                        "goalurates:pseudopatient-detail",
-                        kwargs={
-                            "username": (
-                                self.username if isinstance(self, GoutHelperPatientModel) else self.user.username
-                            )
-                        },
-                    )
-                    if isinstance(self, GoutHelperPatientModel) or getattr(self, "user", False)
-                    else (
-                        reverse("goalurates:detail", kwargs={"pk": self.goalurate.pk})
-                        if self.object_has_goalurate
-                        else reverse("goalurates:create")
-                    )
-                ),
-                self.goalurate_get_display,
+        if self.hyperuricemic is not None:
+            return mark_safe(
+                format_lazy(
+                    """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> \
+greater than {} <a href={}>goal urate</a>: {}.
+                        """,
+                    Subject_the,
+                    tobe if self.hyperuricemic else tobe_neg,
+                    reverse("labs:about-urate"),
+                    gender_pos,
+                    (
+                        reverse(
+                            "goalurates:pseudopatient-detail",
+                            kwargs={
+                                "username": (
+                                    self.username if isinstance(self, GoutHelperPatientModel) else self.user.username
+                                )
+                            },
+                        )
+                        if isinstance(self, GoutHelperPatientModel) or getattr(self, "user", False)
+                        else (
+                            reverse("goalurates:detail", kwargs={"pk": self.goalurate.pk})
+                            if self.has_goalurate
+                            else reverse("goalurates:create")
+                        )
+                    ),
+                    self.goalurate_get_display,
+                )
             )
-        )
+        else:
+            return mark_safe(
+                f"{Subject_the_pos} uric acid level is not known. Serum uric acid should probably \
+be checked."
+            )
 
     @cached_property
     def ibd(self) -> Union["MedHistory", bool]:
@@ -1230,7 +1260,7 @@ rash, fluid retention, and decreased kidney function",
         return info_dict
 
     @cached_property
-    def object_has_goalurate(self) -> bool:
+    def has_goalurate(self) -> bool:
         GoalUrate = apps.get_model("goalurates.GoalUrate")
         return hasattr(self, "goalurate") and isinstance(self.goalurate, GoalUrate)
 
@@ -1264,7 +1294,7 @@ rash, fluid retention, and decreased kidney function",
         on_ult_str = format_lazy(
             """{} is {} on urate-lowering therapy (<a href={}>ULT</a>).""",
             Subject_the,
-            "not" if not self.starting_ult else "",
+            "not" if not self.on_ult else "",
             reverse("treatments:about-ult"),
         )
         if self.starting_ult:
@@ -1483,7 +1513,7 @@ and as such shouldn't be prescribed probenecid."
         return mark_safe(
             format_lazy(
                 """{} is {} in the initiation phase of starting urate-lowering therapy \
-(<a href={}>ULT</a>), which is characterized by an increased risk of gout flares \
+(<a href={}>ULT</a>), which is characterized by an increased risk of gout flares\
 , dose adjustment of the treatments until serum uric acid is at goal, and frequent lab monitoring.""",
                 Subject_the,
                 "not" if not self.starting_ult else "",

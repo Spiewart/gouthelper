@@ -2,6 +2,7 @@ from django.apps import apps  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
+from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
@@ -284,6 +285,13 @@ class MedHistory(
         self.__class__ = MedHistory
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
+
+    def update_set_date(self, commit: bool = True) -> None:
+        """Update the set_date field to the current date and time."""
+        self.set_date = timezone.now()
+        if commit:
+            self.full_clean()
+            self.save()
 
 
 class Angina(MedHistory):

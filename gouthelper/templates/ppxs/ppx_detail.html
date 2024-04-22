@@ -28,11 +28,14 @@
   </div>
   <div class="row">
     <div class="col">
-      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">Recommendation
-        {% if object.recommendations.keys|length > 1 %}s{% endif %}
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">
+        {% if object.recommendations.keys|length > 1 %}
+          Recommendations
+        {% else %}
+          Recommendation
+        {% endif %}
       </a> |
-      <a class="samepage-link" href="#details">Details</a>
-      |
+      <a class="samepage-link" href="#details">Details</a> |
       {% if object.urates_qs %}<a class="samepage-link" href="#urates">Urates</a> |{% endif %}
       <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
@@ -49,8 +52,12 @@
         <div class="row">
           <div class="col">
             <h2>
-              <u>Recommendation
-                {% if object.recommendations.keys|length > 1 %}s{% endif %}
+              <u>
+                {% if object.recommendations.keys|length > 1 %}
+                  Recommendations
+                {% else %}
+                  Recommendation
+                {% endif %}
               </u>
             </h2>
           </div>
@@ -89,13 +96,28 @@
                   <li>
                     <strong><a class="samepage-link" href="#flaring">Flaring</a></strong>: {{ object.flaring_detail }}
                   </li>
-                  <li>
-                    <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
-                  </li>
-                  <li>
-                    <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
-                  </li>
+                  {% if object.hyperuricemic or object.hyperuricemic is None %}
+                    <li>
+                      <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
+                    </li>
+                  {% else %}
+                    <li>
+                      <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
+                    </li>
+                  {% endif %}
                 </ul>
+                {% if object.user %}
+                  {% if not object.user.goalurate %}
+                    <a type="button"
+                       class="btn btn-primary btn-lg mini-button"
+                       hx-get="{% url 'goalurates:pseudopatient-create' username=object.user.username %}"
+                       hx-target="#goalurate"
+                       hx-trigger="click"
+                       role="button">Create GoalUrate</a>
+                  {% endif %}
+                {% else %}
+                  {% if not object.has_goalurate %}{% endif %}
+                {% endif %}
               </div>
             </div>
           </div>
@@ -175,9 +197,12 @@
         <hr size="3" color="dark" />
         <div class="row">
           <div class="col">
-            <h3>
+            <h2>
               <u>Explanations</u>
-            </h3>
+            </h2>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
           </div>
         </div>
         <div class="accordion" id="accordionExplanations">

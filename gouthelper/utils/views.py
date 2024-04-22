@@ -541,6 +541,21 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 )
         return super().dispatch(request, *args, **kwargs)
 
+    def form_valid_update_mh_det_mh(
+        self, mh: "MedHistory", mhs_to_save: list["MedHistory"], mhs_to_rem: list["MedHistory"], commit: bool = True
+    ) -> None:
+        """Checks if the MedHistory object has a MedHistoryDetail that needs to be saved and adjusts the set_date to
+        timezone.now(), also checks if a MedHistoryDetail object that is going to be saved has a MedHistory object
+        that needs to be updated and saved."""
+
+        def need_to_save_mh(mh: "MedHistory", mhs_to_save: list["MedHistory"], mhs_to_rem: list["MedHistory"]) -> bool:
+            return (mhs_to_save and mh not in mhs_to_save or not mhs_to_save) and (
+                mhs_to_rem and mh not in mhs_to_rem or not mhs_to_rem
+            )
+
+        if need_to_save_mh(mh, mhs_to_save, mhs_to_rem):
+            mh.update_set_date(commit=commit)
+
     def form_valid_save_otos(
         self,
         oto_2_save: list[Model] | None,
@@ -667,16 +682,19 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                     else:
                         if getattr(mh, aid_obj_attr, None) is None:
                             setattr(mh, aid_obj_attr, aid_obj)
-                    mh.save()
+                    mh.update_set_date()
             if mh_det_2_save:
                 for mh_det in mh_det_2_save:
                     mh_det.save()
+                    self.form_valid_update_mh_det_mh(mh_det.medhistory, mh_2_save, mh_2_rem)
             if mh_2_rem:
                 for mh in mh_2_rem:
+                    mh.update_set_date(commit=False)
                     mh.delete()
             if mh_det_2_rem:
                 for mh_det in mh_det_2_rem:
                     mh_det.instance.delete()
+                    self.form_valid_update_mh_det_mh(mh_det.medhistory, mh_2_save, mh_2_rem)
         if self.labs:
             if labs_2_save:
                 # Modify and remove labs from the object

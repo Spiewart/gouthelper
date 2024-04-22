@@ -168,10 +168,11 @@ class GoutDetailForm(forms.ModelForm):
         self.fields["hyperuricemic"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["hyperuricemic"].help_text = format_lazy(
             """{} {} had a <a href="{}" target="_blank">uric acid</a> greater \
-than 6.0 mg/dL in the past 6 months?""",
+than {} in the past 6 months?""",
             self.str_attrs["Pos"],
             self.str_attrs["subject_the"],
             reverse_lazy("labs:about-urate"),
+            self.patient.goalurate.get_goal_urate_display() if self.patient else "6.0 mg/dL",
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
@@ -254,7 +255,13 @@ class GoutDetailPpxForm(GoutDetailForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["hyperuricemic"].help_text = mark_safe(
-            f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had a uric acid greater \
-than 6.0 mg/dL in the past 6 months? If you want to enter values and dates for uric acids, \
-you can do so <a href='#urate_formset_table'>below</a> and we will make this determination for you."
+            format_lazy(
+                """{} {} had a <a href={}>uric acid</a> greater than {} in the past 6 months? \
+If you want to enter values and dates for uric acids, \
+you can do so <a href='#urate_formset_table'>below</a> and we will make this determination for you.""",
+                self.str_attrs["Pos"],
+                self.str_attrs["subject_the"],
+                reverse_lazy("labs:about-urate"),
+                self.patient.goalurate.get_goal_urate_display() if self.patient else "6.0 mg/dL",
+            )
         )
