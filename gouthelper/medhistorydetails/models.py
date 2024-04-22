@@ -118,16 +118,22 @@ class GoutDetail(MedHistoryDetail):
     """Describes whether a Patient with a history of gout is actively
     flaring or hyperuricemic (defined as in the past 6 months)."""
 
-    flaring = BooleanField(
+    at_goal = BooleanField(
         choices=BOOL_CHOICES,
-        help_text="Gout flare in the last 6 months?",
+        help_text="Is the patient at goal uric acid level? Goal is typically < 6.0 mg/dL.",
         null=True,
         blank=True,
         default=None,
     )
-    hyperuricemic = BooleanField(
+    at_goal_long_term = BooleanField(
         choices=BOOL_CHOICES,
-        help_text="Uric acid greater than 6.0 mg/dL in the past 6 months?",
+        help_text="Has the patient been at goal uric acid six months or longer? \
+Goal is typically < 6.0 mg/dL.",
+        default=False,
+    )
+    flaring = BooleanField(
+        choices=BOOL_CHOICES,
+        help_text="Any recent gout flares?",
         null=True,
         blank=True,
         default=None,
@@ -143,6 +149,12 @@ class GoutDetail(MedHistoryDetail):
         choices=BOOL_CHOICES,
         help_text="Is the patient on ULT (urate-lowering therapy)?",
         default=False,
+    )
+    starting_ult = models.BooleanField(
+        _("Starting Urate-Lowering Therapy (ULT)"),
+        choices=BOOL_CHOICES,
+        default=False,
+        help_text="Is the patient starting ULT?",
     )
 
     @classmethod

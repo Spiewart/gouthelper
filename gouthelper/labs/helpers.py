@@ -199,7 +199,7 @@ def labs_urates_annotate_order_by_dates(
     urates.sort(key=lambda x: x.date, reverse=True)
 
 
-def labs_urates_hyperuricemic(
+def labs_urates_at_goal_long_term(
     urates: Union["QuerySet[Urate]", list["Urate"]],
     goutdetail: Union["GoutDetail", None] = None,
     goal_urate: GoalUrates = GoalUrates.SIX,
@@ -207,7 +207,7 @@ def labs_urates_hyperuricemic(
 ) -> bool:
     """Method that takes a list of Urate objects and first checks that index 0
     is the most recent and raises a ValueError if not. Then checks if the most
-    recent Urate is above goal_urate and if so, sets goutdetail.hyperuricemic to
+    recent Urate is above goal_urate and if so, sets goutdetail.at_goal to
     True, saves, and returns True. Will not change goutdetail fields if the GoutDetail
     medhistory has a set_date that is newer than the date attr of the
     most recent Urate. If most recent Urate not hyperuricemic, returns False.
@@ -234,18 +234,20 @@ def labs_urates_hyperuricemic(
         # If so, check if there is a Gout MedHistory and if it is hyperuricemic and if the Gout can be edited
         if (
             goutdetail
-            and not goutdetail.hyperuricemic
+            and (
+                (goutdetail.at_goal or goutdetail.at_goal is None)
+                or (goutdetail.at_goal_long_term or goutdetail.at_goal_long_term is None)
+            )
             and commit
             # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
             # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-            and (
-                not goutdetail.medhistory.set_date
-                or goutdetail.medhistory.set_date <= urates[0].date
-                or goutdetail.hyperuricemic is None
-            )
+            and (not goutdetail.medhistory.set_date or goutdetail.medhistory.set_date <= urates[0].date)
         ):
-            # If so, set gout.hyperuricemic to True and save
-            goutdetail.hyperuricemic = True
+            # If so, set gout.at_goal to True and save
+            if goutdetail.at_goal or goutdetail.at_goal is None:
+                goutdetail.at_goal = False
+            if goutdetail.at_goal_long_term or goutdetail.at_goal_long_term is None:
+                goutdetail.at_goal_long_term = False
             goutdetail.full_clean()
             goutdetail.save()
         # Then return True
@@ -265,7 +267,7 @@ def labs_urates_last_at_goal(
     """Method that iterates over a list of urates annotated with a date attr
     and determines if the most recent Urate in the list was at goal, meaning
     below the goal urate. If there is a goutdetail object, will set the
-    goutdetail.hyperuricemic attr to False and save if commit is True."""
+    goutdetail.at_goal attr to False and save if commit is True."""
     # Check if the urates_sorted arg is False
     if not urates_sorted:
         # Sort the urates by date
@@ -284,18 +286,14 @@ def labs_urates_last_at_goal(
         # If so, check if there is a Gout MedHistory and if it is hyperuricemic
         if (
             goutdetail
-            and goutdetail.hyperuricemic is not False
+            and not goutdetail.at_goal
             and commit
             # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
             # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-            and (
-                not goutdetail.medhistory.set_date
-                or goutdetail.medhistory.set_date <= urates[0].date
-                or goutdetail.hyperuricemic is None
-            )
+            and (not goutdetail.medhistory.set_date or goutdetail.medhistory.set_date <= urates[0].date)
         ):
-            # If so, set gout.hyperuricemic to False and save
-            goutdetail.hyperuricemic = False
+            # If so, set gout.at_goal to False and save
+            goutdetail.at_goal = True
             goutdetail.full_clean()
             goutdetail.save()
         # Then return True
@@ -329,6 +327,7 @@ def labs_urates_months_at_goal(
     goal_urate: GoalUrates = GoalUrates.SIX,
     months: int = 6,
     r: int = 0,
+    r_save: bool = False,
     commit: bool = True,
 ) -> bool:
     """
@@ -345,6 +344,7 @@ def labs_urates_months_at_goal(
         goal_urate (GoalUrates enum): goal urate for the user, defaults to 6.0 mg/dL
         months (int): number of months to check for, defaults to 6
         r (int): recursion counter, defaults to 0
+        r_save (bool): defaults to False, True will save the GoutDetail object at the end of the recursion
         commit (bool): defaults to True, True will clean/save, False will not
 
     Returns:
@@ -356,6 +356,9 @@ def labs_urates_months_at_goal(
     # The recursion has run beyond the end of the list
     # Has not found a 6 month period where > 1 Urates were < goal_urate, thus returns False
     if r >= len(urates):
+        if r_save:
+            goutdetail.full_clean()
+            goutdetail.save()
         return False
     # Check if urate at LabCheck[r] is under goal_urate
     if urates[r].value <= goal_urate:
@@ -367,34 +370,44 @@ def labs_urates_months_at_goal(
         # If so, check if there is a Gout MedHistory and if it is hyperuricemic
         if (
             goutdetail
-            and goutdetail.hyperuricemic is not False
+            and not goutdetail.at_goal
             and commit
             # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
             # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-            and (
-                not goutdetail.medhistory.set_date
-                or goutdetail.medhistory.set_date <= urates[0].date
-                or goutdetail.hyperuricemic is None
-            )
+            and (not goutdetail.medhistory.set_date or goutdetail.medhistory.set_date <= urates[0].date)
         ):
-            # If so, set gout.hyperuricemic to False and save
-            goutdetail.hyperuricemic = False
-            goutdetail.full_clean()
-            goutdetail.save()
+            # If so, set gout.at_goal to False and save
+            goutdetail.at_goal = True
+            r_save = True
         # Compare the date of the current Urate to the date of the Urate at urates[r]
         # If the difference is greater than the number of months * 30 days
         if (urates[0].date - urates[r].date) >= timedelta(days=30 * months):
+            if not goutdetail.at_goal_long_term:
+                goutdetail.at_goal_long_term = True
+                goutdetail.full_clean()
+                goutdetail.save()
             # Then return True
             return True
         # If Urates aren't 6 months apart but both are below goal_urate
         # Recurse to the next urate further back in time urates[r+1]
         else:
             return labs_urates_months_at_goal(
-                urates=urates, goutdetail=goutdetail, goal_urate=goal_urate, months=months, r=r + 1
+                urates=urates,
+                goutdetail=goutdetail,
+                goal_urate=goal_urate,
+                months=months,
+                r=r + 1,
+                r_save=r_save,
             )
     # If Urate hasn't been under goal_urate for at least 6 months
     # With 2 or more observations, return False
     else:
+        if goutdetail.at_goal_long_term:
+            goutdetail.at_goal_long_term = False
+            r_save = True
+        if r_save:
+            goutdetail.full_clean()
+            goutdetail.save()
         return False
 
 

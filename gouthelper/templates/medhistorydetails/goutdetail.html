@@ -14,12 +14,12 @@
       </li>
       <li>
         Uric acid status:
-        {% if object.hyperuricemic %}
-          hyperuricemic
-        {% elif object.hyperuricemic is None %}
+        {% if object.at_goal %}
+          under {{ object.goalurate.get_goal_urate_display }}
+        {% elif object.at_goal is None %}
           unknown
         {% else %}
-          under 6.0 mg/dL
+          hyperuricemic
         {% endif %}
       </li>
       <li>

@@ -5,7 +5,6 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...labs.helpers import labs_urates_annotate_order_by_dates
 from ...labs.models import Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.lists import PPX_MEDHISTORYS
@@ -37,18 +36,6 @@ class TestPpx(TestCase):
         self.assertEqual(self.ppx.aid_labs(), [Urate])
         self.assertTrue(isinstance(self.ppx.aid_labs(), list))
 
-    def test__at_goal(self):
-        """Test the at_goal property."""
-        self.assertFalse(self.ppx.at_goal)
-        for urate in self.urates:
-            urate.ppx = self.ppx
-            self.ppx.urates_qs.append(urate)
-            labs_urates_annotate_order_by_dates(urates=self.ppx.urates_qs)
-            urate.save()
-        # Need to delete the cached_property to test the property again.
-        del self.ppx.at_goal
-        self.assertTrue(self.ppx.at_goal)
-
     def test__conditional_indication(self):
         """Test the conditional_indication property."""
         self.assertFalse(self.ppx.conditional_indication)
@@ -73,16 +60,16 @@ class TestPpx(TestCase):
         """Test the get_absolute_url method."""
         self.assertEqual(self.ppx.get_absolute_url(), f"/ppxs/{self.ppx.pk}/")
 
-    def test__hyperuricemic(self):
+    def test__at_goal(self):
         """Test the hyperuricemic property."""
         goutdetail = self.ppx.goutdetail
-        self.assertEqual(self.ppx.hyperuricemic, goutdetail.hyperuricemic)
+        self.assertEqual(self.ppx.at_goal, goutdetail.at_goal)
 
         # Modify the goutdetail and test the property again.
-        goutdetail.hyperuricemic = not goutdetail.hyperuricemic
+        goutdetail.at_goal = not goutdetail.at_goal
         goutdetail.save()
         del self.ppx.gout
-        self.assertEqual(goutdetail.hyperuricemic, self.ppx.hyperuricemic)
+        self.assertEqual(goutdetail.at_goal, self.ppx.at_goal)
 
     def test__indicated(self):
         """Test the indicated property."""
@@ -187,8 +174,8 @@ class TestPpx(TestCase):
         """Test the update_aid method."""
         self.assertEqual(self.ppx.indication, self.ppx.Indications.NOTINDICATED)
 
-        self.ppx.starting_ult = True
-        self.ppx.save()
+        self.ppx.goutdetail.starting_ult = True
+        self.ppx.goutdetail.save()
 
         self.assertTrue(isinstance(self.ppx.update_aid(), Ppx))
         self.ppx.refresh_from_db()
@@ -199,7 +186,7 @@ class TestPpx(TestCase):
         # Fetch the Ppx from the database to avoid it coming with a urates_qs
         # which is created by the create_ppx method
         ppx = Ppx.objects.get(pk=self.ppx.pk)
-        ppx.goutdetail.hyperuricemic = False
+        ppx.goutdetail.at_goal = False
         ppx.goutdetail.save()
 
         self.assertFalse(ppx.urates_discrepant)
@@ -215,7 +202,7 @@ class TestPpx(TestCase):
 
         self.assertFalse(ppx.urates_discrepant)
 
-        ppx.goutdetail.hyperuricemic = True
+        ppx.goutdetail.at_goal = True
         ppx.goutdetail.save()
         ppx.goutdetail.refresh_from_db()
 
@@ -229,7 +216,7 @@ class TestPpx(TestCase):
         """Test the urates_discrepant_str property."""
         ppx = Ppx.objects.get(pk=self.ppx.pk)
 
-        ppx.goutdetail.hyperuricemic = None
+        ppx.goutdetail.at_goal = None
         ppx.goutdetail.save()
 
         self.assertIsNone(ppx.urates_discrepant_str)
@@ -243,7 +230,7 @@ class TestPpx(TestCase):
             "Clarify hyperuricemic status. At least one uric acid was reported but hyperuricemic was not.",
         )
 
-        ppx.goutdetail.hyperuricemic = True
+        ppx.goutdetail.at_goal = True
         ppx.goutdetail.save()
 
         del ppx.goutdetail

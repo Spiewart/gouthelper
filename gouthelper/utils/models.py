@@ -1504,7 +1504,7 @@ and as such shouldn't be prescribed probenecid."
     @cached_property
     def starting_ult(self) -> bool | None:
         """Method that returns whether the patient is currently starting ult."""
-        return self.ppx.starting_ult
+        return self.ppx.goutdetail.starting_ult
 
     @property
     def starting_ult_detail(self) -> str:

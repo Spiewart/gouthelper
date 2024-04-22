@@ -33,8 +33,8 @@ class TestPpxDataFactory(TestCase):
         self.assertIn(data["starting_ult"], self.bools)
         self.assertIn("flaring", data)
         self.assertIn(data["flaring"], self.bools)
-        self.assertIn("hyperuricemic", data)
-        self.assertIn(data["hyperuricemic"], self.bools)
+        self.assertIn("at_goal", data)
+        self.assertIn(data["at_goal"], self.bools)
         self.assertIn("on_ppx", data)
         self.assertIn(data["on_ppx"], self.bools)
         self.assertIn("on_ult", data)
@@ -53,12 +53,10 @@ class TestPpxDataFactory(TestCase):
             data["flaring"],
             self.user_with_ppx.goutdetail.flaring if self.user_with_ppx.goutdetail.flaring is not None else "",
         )
-        self.assertIn("hyperuricemic", data)
+        self.assertIn("at_goal", data)
         self.assertEqual(
-            data["hyperuricemic"],
-            self.user_with_ppx.goutdetail.hyperuricemic
-            if self.user_with_ppx.goutdetail.hyperuricemic is not None
-            else "",
+            data["at_goal"],
+            self.user_with_ppx.goutdetail.at_goal if self.user_with_ppx.goutdetail.at_goal is not None else "",
         )
         self.assertIn("on_ppx", data)
         self.assertEqual(data["on_ppx"], self.user_with_ppx.goutdetail.on_ppx)
@@ -87,12 +85,10 @@ class TestPpxDataFactory(TestCase):
             data["flaring"],
             self.user_with_ppx.goutdetail.flaring if self.user_with_ppx.goutdetail.flaring is not None else "",
         )
-        self.assertIn("hyperuricemic", data)
+        self.assertIn("at_goal", data)
         self.assertEqual(
-            data["hyperuricemic"],
-            self.user_with_ppx.goutdetail.hyperuricemic
-            if self.user_with_ppx.goutdetail.hyperuricemic is not None
-            else "",
+            data["at_goal"],
+            self.user_with_ppx.goutdetail.at_goal if self.user_with_ppx.goutdetail.at_goal is not None else "",
         )
         self.assertIn("on_ppx", data)
         self.assertEqual(data["on_ppx"], self.user_with_ppx.goutdetail.on_ppx)

@@ -147,7 +147,7 @@ def make_goutdetail_kwargs(
             "hyperuricemic": (
                 hyperuricemic_kwarg
                 if hyperuricemic_kwarg
-                else goutdetail.hyperuricemic
+                else goutdetail.at_goal
                 if goutdetail
                 else get_bool_or_empty_str()
             ),
@@ -199,8 +199,8 @@ def update_goutdetail_data(goutdetail: "GoutDetail", data: dict, **kwargs) -> No
             "hyperuricemic": (
                 hyperuricemic_kwarg
                 if hyperuricemic_kwarg
-                else goutdetail.hyperuricemic
-                if goutdetail.hyperuricemic is not None
+                else goutdetail.at_goal
+                if goutdetail.at_goal is not None
                 else ""
             ),
             "on_ppx": (

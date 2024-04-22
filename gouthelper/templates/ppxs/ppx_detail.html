@@ -96,13 +96,13 @@
                   <li>
                     <strong><a class="samepage-link" href="#flaring">Flaring</a></strong>: {{ object.flaring_detail }}
                   </li>
-                  {% if object.hyperuricemic or object.hyperuricemic is None %}
+                  {% if object.at_goal %}
                     <li>
-                      <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
+                      <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
                     </li>
                   {% else %}
                     <li>
-                      <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
+                      <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
                     </li>
                   {% endif %}
                 </ul>

@@ -16,8 +16,8 @@ from ..helpers import (
     labs_eGFR_calculator,
     labs_round_decimal,
     labs_stage_calculator,
+    labs_urates_at_goal_long_term,
     labs_urates_chronological_dates,
-    labs_urates_hyperuricemic,
     labs_urates_last_at_goal,
     labs_urates_max_value,
     labs_urates_months_at_goal,
@@ -208,17 +208,17 @@ class TestLabsUratesChronologicalDates(TestCase):
 
 
 class TestLabsUratesHyperuricemic(TestCase):
-    """Tests for the labs_urates_hyperuricemic() method."""
+    """Tests for the labs_urates_at_goal_long_term() method."""
 
     def test__returns_True(self):
         UrateFactory(value=Decimal("10.0"))
         urate_qs = urates_dated_qs().all()
-        self.assertTrue(labs_urates_hyperuricemic(urates=urate_qs))
+        self.assertTrue(labs_urates_at_goal_long_term(urates=urate_qs))
 
     def test__returns_False(self):
         UrateFactory(value=Decimal("5.0"))
         urate_qs = urates_dated_qs().all()
-        self.assertFalse(labs_urates_hyperuricemic(urates=urate_qs))
+        self.assertFalse(labs_urates_at_goal_long_term(urates=urate_qs))
 
     def test__changes_goutdetail(self):
         """Test that the method changes the GoutDetail associated with the Gout MedHistory
@@ -227,9 +227,9 @@ class TestLabsUratesHyperuricemic(TestCase):
         goutdetail = GoutDetailFactory(medhistory=gout, hyperuricemic=False)
         UrateFactory(value=Decimal("10.0"))
         urate_qs = urates_dated_qs().all()
-        self.assertTrue(labs_urates_hyperuricemic(urates=urate_qs, goutdetail=goutdetail))
+        self.assertTrue(labs_urates_at_goal_long_term(urates=urate_qs, goutdetail=goutdetail))
         # Check to make sure the GoutDetail object has changed
-        self.assertTrue(goutdetail.hyperuricemic)
+        self.assertTrue(goutdetail.at_goal)
 
     def test__doesnt_change_more_recent_gout_goutdetail(self):
         """Tests that the method doesn't change the GoutDetail associated with a more
@@ -238,9 +238,9 @@ class TestLabsUratesHyperuricemic(TestCase):
         goutdetail = GoutDetailFactory(medhistory=gout, hyperuricemic=False)
         UrateFactory(value=Decimal("10.0"), date_drawn=timezone.now() - timedelta(days=5))
         urate_qs = urates_dated_qs().all()
-        self.assertTrue(labs_urates_hyperuricemic(urates=urate_qs, goutdetail=goutdetail))
+        self.assertTrue(labs_urates_at_goal_long_term(urates=urate_qs, goutdetail=goutdetail))
         # Check to make sure the GoutDetail object hasn't changed
-        self.assertFalse(goutdetail.hyperuricemic)
+        self.assertFalse(goutdetail.at_goal)
 
 
 class TestLabsUratesLastAtGoal(TestCase):
@@ -260,27 +260,27 @@ class TestLabsUratesLastAtGoal(TestCase):
         self.assertTrue(labs_urates_last_at_goal(urates=urate_qs))
 
     def test__modifies_goutdetail(self):
-        self.assertTrue(self.goutdetail.hyperuricemic)
+        self.assertTrue(self.goutdetail.at_goal)
         UrateFactory(value=Decimal("5.0"), date_drawn=timezone.now() - timedelta(days=5))
         urate_qs = urates_dated_qs().all()
         self.assertTrue(labs_urates_last_at_goal(urates=urate_qs, goutdetail=self.goutdetail))
-        self.assertFalse(self.goutdetail.hyperuricemic)
+        self.assertFalse(self.goutdetail.at_goal)
 
     def test__doesnt_modify_goutdetail_commit_False(self):
-        self.assertTrue(self.goutdetail.hyperuricemic)
+        self.assertTrue(self.goutdetail.at_goal)
         UrateFactory(value=Decimal("5.0"), date_drawn=timezone.now() - timedelta(days=5))
         urate_qs = urates_dated_qs().all()
         self.assertTrue(labs_urates_last_at_goal(urates=urate_qs, goutdetail=self.goutdetail, commit=False))
-        self.assertTrue(self.goutdetail.hyperuricemic)
+        self.assertTrue(self.goutdetail.at_goal)
 
     def test__doesnt_modify_goutdetail_gout_set_date_more_recent(self):
         self.gout.set_date = timezone.now()
         self.gout.save()
-        self.assertTrue(self.goutdetail.hyperuricemic)
+        self.assertTrue(self.goutdetail.at_goal)
         UrateFactory(value=Decimal("5.0"), date_drawn=timezone.now() - timedelta(days=5))
         urate_qs = urates_dated_qs().all()
         self.assertTrue(labs_urates_last_at_goal(urates=urate_qs, goutdetail=self.goutdetail))
-        self.assertTrue(self.goutdetail.hyperuricemic)
+        self.assertTrue(self.goutdetail.at_goal)
 
     def test__not_sorted_raises_ValueError(self):
         urates = urates_dated_qs().all()
@@ -339,7 +339,7 @@ class TestLabsUrateMonthsAtGoal(TestCase):
         urate_qs = urates_dated_qs().all()
         self.assertTrue(labs_urates_months_at_goal(urates=urate_qs, goutdetail=goutdetail))
         # Check to make sure the GoutDetail object hasn't changed
-        self.assertTrue(goutdetail.hyperuricemic)
+        self.assertTrue(goutdetail.at_goal)
 
 
 class LabsUratesRecentUrate(TestCase):

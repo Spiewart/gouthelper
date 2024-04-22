@@ -7,7 +7,7 @@ from django.utils.functional import cached_property  # type: ignore
 
 from ..defaults.helpers import defaults_get_goalurate
 from ..goalurates.choices import GoalUrates
-from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal, labs_urates_recent_urate
+from ..labs.helpers import labs_urates_at_goal_long_term, labs_urates_months_at_goal, labs_urates_recent_urate
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
@@ -36,7 +36,7 @@ class PpxDecisionAid(AidService):
         # Process the urates to figure out if the Urates indicate that the patient
         # has been at goal uric acid for the past 6 months or longer
         self.at_goal: bool = False
-        if not labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
+        if not labs_urates_at_goal_long_term(urates=self.urates, goutdetail=self.goutdetail):
             self.at_goal = labs_urates_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
         # Check if there is a recent_urate
         self.recent_urate: bool = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
@@ -81,11 +81,7 @@ class PpxDecisionAid(AidService):
                 # This is not guidelines-based, rather GoutHelper-based
                 # The rationale is that if they are on ULT and still hyperuricemic or flaring,
                 # they are at risk of gout flares and should be on prophylaxis while ULT is titrated
-                if (
-                    self.goutdetail.flaring
-                    or self.goutdetail.hyperuricemic
-                    and not (self.at_goal and self.recent_urate)
-                ):
+                if self.goutdetail.flaring or self.goutdetail.at_goal and not (self.at_goal and self.recent_urate):
                     return Indications.CONDITIONAL
                 # If the patient is on ULT and it's not a new start and they aren't flaring
                 # or hyperuricemic, there isn't a patient-centered rationale for prophylaxis
@@ -105,7 +101,7 @@ class PpxDecisionAid(AidService):
     def hyperuricemic(self) -> bool | None:
         """Returns True if the Gout MedHistory hyperuricemic attr is True,
         False if not or there is no Gout."""
-        return self.goutdetail.hyperuricemic
+        return self.goutdetail.at_goal
 
     def _update(self, commit=True) -> "Ppx":
         """Updates Ppx indication fields.

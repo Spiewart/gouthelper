@@ -14,7 +14,7 @@ from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 
 from ...contents.models import Content
 from ...goalurates.choices import GoalUrates
-from ...labs.helpers import labs_urates_hyperuricemic
+from ...labs.helpers import labs_urates_at_goal_long_term
 from ...labs.tests.factories import UrateFactory
 from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
@@ -155,10 +155,10 @@ class TestPpxCreate(TestCase):
         self.assertEqual(goutdetail.medhistory, gout)
         self.assertEqual(goutdetail.on_ult, ppx_data["on_ult"])
         self.assertEqual(goutdetail.flaring, ppx_data["flaring"])
-        hyperuricemic = labs_urates_hyperuricemic(ppx.urates_qs, goutdetail, GoalUrates.SIX, commit=False)
-        self.assertEqual(goutdetail.hyperuricemic, hyperuricemic if hyperuricemic else ppx_data["hyperuricemic"])
+        hyperuricemic = labs_urates_at_goal_long_term(ppx.urates_qs, goutdetail, GoalUrates.SIX, commit=False)
+        self.assertEqual(goutdetail.at_goal, hyperuricemic if hyperuricemic else ppx_data["at_goal"])
         if not hyperuricemic:
-            self.assertEqual(goutdetail.hyperuricemic, ppx_data["hyperuricemic"])
+            self.assertEqual(goutdetail.at_goal, ppx_data["at_goal"])
         if getattr(ppx, "urates_qs", None):
             for urate in ppx.urates_qs:
                 # Assert that the urate value and date_drawn are present in the ppx_data
@@ -252,8 +252,8 @@ class TestPpxDetail(TestCase):
         self.assertEqual(self.ppx.indication, self.ppx.Indications.NOTINDICATED)
 
         # Change the starting_ult field to True
-        self.ppx.starting_ult = True
-        self.ppx.save()
+        self.ppx.goutdetail.starting_ult = True
+        self.ppx.goutdetail.save()
 
         # Re-POST the view and check to see if if the recommendation has been updated
         request = self.factory.get(reverse("ppxs:detail", kwargs={"pk": self.ppx.pk}))
@@ -269,8 +269,8 @@ class TestPpxDetail(TestCase):
         self.assertEqual(self.ppx.indication, self.ppx.Indications.NOTINDICATED)
 
         # Change the starting_ult field to True
-        self.ppx.starting_ult = True
-        self.ppx.save()
+        self.ppx.goutdetail.starting_ult = True
+        self.ppx.goutdetail.save()
 
         # POST the view with the updated=True query param
         # and check to see if if the recommendation has not been updated
@@ -622,7 +622,7 @@ class TestPpxPseudopatientCreate(TestCase):
                 else:
                     assert ppx.indication == ppx.Indications.INDICATED
             elif ppx.goutdetail.on_ult:
-                if (ppx.goutdetail.flaring or ppx.goutdetail.hyperuricemic) and not (ppx.at_goal and ppx.recent_urate):
+                if (ppx.goutdetail.flaring or ppx.goutdetail.at_goal) and not (ppx.at_goal and ppx.recent_urate):
                     assert ppx.indication == ppx.Indications.CONDITIONAL
                 else:
                     assert ppx.indication == ppx.Indications.NOTINDICATED
@@ -1247,7 +1247,7 @@ class TestPpxPseudopatientUpdate(TestCase):
                 else:
                     assert ppx.indication == ppx.Indications.INDICATED
             elif ppx.goutdetail.on_ult:
-                if (ppx.goutdetail.flaring or ppx.goutdetail.hyperuricemic) and not (ppx.at_goal and ppx.recent_urate):
+                if (ppx.goutdetail.flaring or ppx.goutdetail.at_goal) and not (ppx.at_goal and ppx.recent_urate):
                     assert ppx.indication == ppx.Indications.CONDITIONAL
                 else:
                     assert ppx.indication == ppx.Indications.NOTINDICATED
@@ -1450,7 +1450,7 @@ class TestPpxUpdate(TestCase):
             {
                 "on_ult": not self.goutdetail.on_ult,
                 "flaring": not self.goutdetail.flaring,
-                "hyperuricemic": not self.goutdetail.hyperuricemic,
+                "at_goal": not self.goutdetail.at_goal,
             }
         )
 
@@ -1465,6 +1465,6 @@ class TestPpxUpdate(TestCase):
         self.assertEqual(goutdetail.flaring, data["flaring"])
         latest_urate = self.ppx.urate_set.order_by("-date_drawn").last()
         if latest_urate and latest_urate.value > self.ppx.goalurate:
-            self.assertEqual(goutdetail.hyperuricemic, True)
+            self.assertEqual(goutdetail.at_goal, True)
         else:
-            self.assertEqual(goutdetail.hyperuricemic, data["hyperuricemic"])
+            self.assertEqual(goutdetail.at_goal, data["at_goal"])

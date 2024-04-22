@@ -104,7 +104,7 @@ class TestPseudoPatientCreateView(TestCase):
             "gender-value": Genders.MALE,
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
-            "hyperuricemic": True,
+            "at_goal": True,
             "on_ppx": False,
             "on_ult": False,
         }
@@ -128,7 +128,7 @@ class TestPseudoPatientCreateView(TestCase):
         gout = pseudopatient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
-        assert gout.goutdetail.hyperuricemic == data["hyperuricemic"]
+        assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
         # Assert that the Pseudopatient history was set correctly to track the creating User
@@ -165,7 +165,7 @@ menopause status to evaluate their flare."
             "gender-value": Genders.MALE,
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
-            "hyperuricemic": True,
+            "at_goal": True,
             "on_ppx": False,
             "on_ult": False,
         }
@@ -188,7 +188,7 @@ menopause status to evaluate their flare."
         gout = pseudopatient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
-        assert gout.goutdetail.hyperuricemic == data["hyperuricemic"]
+        assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
         # Assert that the Pseudopatient history was set correctly to track the creating User
@@ -210,7 +210,7 @@ menopause status to evaluate their flare."
             "gender-value": Genders.MALE,
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
-            "hyperuricemic": True,
+            "at_goal": True,
             "on_ppx": False,
             "on_ult": False,
         }
@@ -241,7 +241,7 @@ menopause status to evaluate their flare."
         gout = pseudopatient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
-        assert gout.goutdetail.hyperuricemic == data["hyperuricemic"]
+        assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
         # Assert that the Pseudopatient history was set correctly to track the creating User
@@ -641,7 +641,7 @@ class TestPseudopatientUpdateView(TestCase):
         """Test that the post() method updates onetoones and medhistorys/medhistorydetails."""
         psp = create_psp()
         psp.goutdetail.flaring = False
-        psp.goutdetail.hyperuricemic = False
+        psp.goutdetail.at_goal = False
         psp.goutdetail.on_ppx = True
         psp.goutdetail.on_ult = True
         psp.goutdetail.save()
@@ -655,7 +655,7 @@ class TestPseudopatientUpdateView(TestCase):
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
-            "hyperuricemic": True,
+            "at_goal": True,
             "on_ppx": False,
             "on_ult": False,
         }
@@ -691,7 +691,7 @@ menopause status to evaluate their flare."
         assert psp.gender.value == data["gender-value"]
         assert psp.ethnicity.value == data["ethnicity-value"]
         assert psp.goutdetail.flaring == data["flaring"]
-        assert psp.goutdetail.hyperuricemic == data["hyperuricemic"]
+        assert psp.goutdetail.at_goal == data["at_goal"]
         assert psp.goutdetail.on_ppx == data["on_ppx"]
         assert psp.goutdetail.on_ult == data["on_ult"]
         # Test that menopause was created
