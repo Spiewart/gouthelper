@@ -59,9 +59,6 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      // call starting_ult_help_text() to set the help text for the starting_ult field
-      starting_ult_help_text();
-      $('#id_on_ult').change(starting_ult_help_text);
       menopause_checker(patient = false);
       $('#id_dateofbirth-value').change(function() {
         menopause_checker(patient = false, change = true);
@@ -71,4 +68,5 @@
       });
     });
   </script>
+  {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

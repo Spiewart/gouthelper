@@ -14,7 +14,7 @@ from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 
 from ...contents.models import Content
 from ...goalurates.choices import GoalUrates
-from ...labs.helpers import labs_urates_at_goal_long_term
+from ...labs.helpers import labs_urate_within_last_month, labs_urates_last_at_goal
 from ...labs.tests.factories import UrateFactory
 from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
@@ -155,10 +155,12 @@ class TestPpxCreate(TestCase):
         self.assertEqual(goutdetail.medhistory, gout)
         self.assertEqual(goutdetail.on_ult, ppx_data["on_ult"])
         self.assertEqual(goutdetail.flaring, ppx_data["flaring"])
-        hyperuricemic = labs_urates_at_goal_long_term(ppx.urates_qs, goutdetail, GoalUrates.SIX, commit=False)
-        self.assertEqual(goutdetail.at_goal, hyperuricemic if hyperuricemic else ppx_data["at_goal"])
-        if not hyperuricemic:
-            self.assertEqual(goutdetail.at_goal, ppx_data["at_goal"])
+        if labs_urates_last_at_goal(ppx.urates_qs, GoalUrates.SIX) and labs_urate_within_last_month(ppx.urates_qs):
+            self.assertEqual(goutdetail.at_goal, True)
+        elif ppx_data["at_goal"]:
+            self.assertEqual(goutdetail.at_goal, True)
+        else:
+            self.assertEqual(goutdetail.at_goal, False)
         if getattr(ppx, "urates_qs", None):
             for urate in ppx.urates_qs:
                 # Assert that the urate value and date_drawn are present in the ppx_data
@@ -167,8 +169,11 @@ class TestPpxCreate(TestCase):
     def test__post_creates_urate(self):
         """Test that post() method creates a single Urate object"""
         # Create some fake data that indicates new urates are to be created
-        data = ppx_data_factory(urates=[Decimal("9.1"), Decimal("4.5")])
-
+        data = ppx_data_factory(
+            mh_dets={MedHistoryTypes.GOUT: {"at_goal": False, "at_goal_long_term": False}},
+            urates=[Decimal("9.1"), Decimal("14.5")],
+        )
+        print(data)
         # POST the data
         response = self.client.post(reverse("ppxs:create"), data)
         # NOTE: Will print errors for all forms in the context_data.
@@ -182,7 +187,7 @@ class TestPpxCreate(TestCase):
         assert urates
 
         assert next(iter([urate for urate in urates if urate.value == Decimal("9.1")]), None)
-        assert next(iter([urate for urate in urates if urate.value == Decimal("4.5")]), None)
+        assert next(iter([urate for urate in urates if urate.value == Decimal("14.5")]), None)
 
         for urate in urates:
             assert urate.date_drawn
@@ -203,7 +208,7 @@ class TestPpxCreate(TestCase):
         response = self.client.post(reverse("ppxs:create"), data=data)
         assert response.status_code == 200
         assert "form" in response.context_data
-        assert "starting_ult" in response.context_data["form"].errors
+        assert "starting_ult" in response.context_data["goutdetail_form"].errors
 
         # Create some data with data for urates
         data = ppx_data_factory(urates=[Decimal("5.9"), Decimal("7.9"), Decimal("9.9")])
@@ -486,15 +491,22 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__post(self):
         """Test the post() method for the view."""
-        request = self.factory.post("/fake-url/")
+        data = ppx_data_factory(user=self.user)
+        request = self.factory.post("/fake-url/", data=data)
+        request.htmx = False
         if self.user.profile.provider:  # type: ignore
             request.user = self.user.profile.provider  # type: ignore
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
-        assert response.status_code == 200
+        assert response.status_code == 302
+        assert (
+            response.url
+            == reverse("ppxs:pseudopatient-detail", kwargs={"username": self.user.username}) + "?updated=True"
+        )
 
     def test__post_sets_object_user(self):
         """Test that the post() method for the view sets the user on the object."""
@@ -523,7 +535,6 @@ class TestPpxPseudopatientCreate(TestCase):
             {
                 "flaring": not goutdetail.flaring,
                 "on_ppx": not goutdetail.on_ppx,
-                "on_ult": not goutdetail.on_ult,
             }
         )
 
@@ -531,6 +542,7 @@ class TestPpxPseudopatientCreate(TestCase):
         response = self.client.post(
             reverse("ppxs:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Refresh the goutdetail from the db
@@ -539,7 +551,6 @@ class TestPpxPseudopatientCreate(TestCase):
         # Assert that the goutdetail fields are the same as in the data dict
         self.assertEqual(goutdetail.flaring, data["flaring"])
         self.assertEqual(goutdetail.on_ppx, data["on_ppx"])
-        self.assertEqual(goutdetail.on_ult, data["on_ult"])
 
     def test__post_creates_ppx(self):
         """Test that the view creates the User's Ppx."""
@@ -562,12 +573,17 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__post_creates_urates(self):
         """Test that the view creates the User's Urate objects."""
-        data = ppx_data_factory(user=self.psp, urates=[Decimal("5.9"), Decimal("7.9"), Decimal("9.9")])
+        data = ppx_data_factory(
+            user=self.psp,
+            mh_dets={MedHistoryTypes.GOUT: {"at_goal": False, "at_goal_long_term": False}},
+            urates=[Decimal("10.9"), Decimal("7.9"), Decimal("9.9")],
+        )
 
         # POST the data
         response = self.client.post(
             reverse("ppxs:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
         )
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Get the urates
@@ -575,7 +591,7 @@ class TestPpxPseudopatientCreate(TestCase):
 
         # Assert that the urates were created
         self.assertEqual(urates.count(), 3)
-        self.assertIn(Decimal("5.9"), [urate.value for urate in urates])
+        self.assertIn(Decimal("10.9"), [urate.value for urate in urates])
         self.assertIn(Decimal("7.9"), [urate.value for urate in urates])
         self.assertIn(Decimal("9.9"), [urate.value for urate in urates])
 
@@ -617,12 +633,11 @@ class TestPpxPseudopatientCreate(TestCase):
 
             # Test the view logic for setting the indication
             if ppx.starting_ult:
-                if ppx.at_goal:
-                    assert ppx.indication == ppx.Indications.NOTINDICATED
-                else:
-                    assert ppx.indication == ppx.Indications.INDICATED
+                assert ppx.indication == ppx.Indications.INDICATED
             elif ppx.goutdetail.on_ult:
-                if (ppx.goutdetail.flaring or ppx.goutdetail.at_goal) and not (ppx.at_goal and ppx.recent_urate):
+                if (ppx.goutdetail.flaring or not ppx.goutdetail.at_goal) and not (
+                    ppx.at_goal_long_term and ppx.urate_within_90_days
+                ):
                     assert ppx.indication == ppx.Indications.CONDITIONAL
                 else:
                     assert ppx.indication == ppx.Indications.NOTINDICATED
@@ -633,20 +648,6 @@ class TestPpxPseudopatientCreate(TestCase):
         """Test that post returns errors for some common scenarios where the
         data is invalid. Typically, these are scenarios that should be prevented by
         the form or javascript."""
-        # Test that the view returns errors when the baselinecreatinine and
-        # stage are not congruent
-        data = ppx_data_factory(user=self.psp)
-        data.update(
-            {
-                "starting_ult": "",
-            }
-        )
-        response = self.client.post(
-            reverse("ppxs:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
-        )
-        assert response.status_code == 200
-        assert "form" in response.context_data
-        assert "starting_ult" in response.context_data["form"].errors
 
         # Create some data with data for urates
         data = ppx_data_factory(user=self.psp, urates=[Decimal("5.9"), Decimal("7.9"), Decimal("9.9")])
@@ -829,15 +830,12 @@ class TestPpxPseudopatientDetail(TestCase):
         correct url parameters."""
         # Create Pseuduopatient and Ppx that should evaluate to indicated
         psp = create_psp(ppx_indicated=Indications.INDICATED)
-        ppx = create_ppx(
-            user=psp,
-            starting_ult=True,
-        )
+        ppx = create_ppx(user=psp, mh_dets={MedHistoryTypes.GOUT: {"on_ult": True, "starting_ult": True}})
 
         # Assert that the un-updated Ppx is not indicated
         self.assertEqual(ppx.indication, ppx.Indications.NOTINDICATED)
 
-        # GET the view with the updated=True url parameter
+        # GET the view with the updated=False url parameter
         self.client.get(reverse("ppxs:pseudopatient-detail", kwargs={"username": psp.username}))
 
         ppx.refresh_from_db()
@@ -850,10 +848,7 @@ class TestPpxPseudopatientDetail(TestCase):
         ?updated=True url parameter."""
         # Create Pseuduopatient and Ppx that should evaluate to indicated
         psp = create_psp(ppx_indicated=Indications.INDICATED)
-        ppx = create_ppx(
-            user=psp,
-            starting_ult=True,
-        )
+        ppx = create_ppx(user=psp, mh_dets={MedHistoryTypes.GOUT: {"on_ult": True, "starting_ult": True}})
 
         # Assert that the un-updated Ppx is not indicated
         self.assertEqual(ppx.indication, ppx.Indications.NOTINDICATED)
@@ -1108,15 +1103,25 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__post(self):
         """Test the post() method for the view."""
-        request = self.factory.post("/fake-url/")
+        data = ppx_data_factory(user=self.user)
+        request = self.factory.post(
+            "/fake-url/",
+            data=data,
+        )
+        request.htmx = False
         if hasattr(self.user, "profile") and self.user.profile.provider:
             request.user = self.user.profile.provider
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         kwargs = {"username": self.user.username}
         response = self.view.as_view()(request, **kwargs)
-        assert response.status_code == 200
+        assert response.status_code == 302
+        assert (
+            response.url
+            == reverse("ppxs:pseudopatient-detail", kwargs={"username": self.user.username}) + "?updated=True"
+        )
 
     def test__post_updates_goutdetail(self):
         """Test that the view updates the User's GoutDetail."""
@@ -1154,6 +1159,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         # Update the data to change the ppx
         data.update(
             {
+                "on_ult": not self.psp.ppx.on_ult,
                 "starting_ult": not self.psp.ppx.starting_ult,
             }
         )
@@ -1183,12 +1189,14 @@ class TestPpxPseudopatientUpdate(TestCase):
         data.update(
             {
                 f"urate-{total_urates}-date_drawn": "2021-01-01",
-                f"urate-{total_urates}-value": "5.9",
+                f"urate-{total_urates}-value": "15.9",
                 f"urate-{total_urates}-id": "",
                 f"urate-{total_urates+1}-date_drawn": "2021-02-02",
                 f"urate-{total_urates+1}-value": "7.9",
                 f"urate-{total_urates+1}-id": "",
                 "urate-TOTAL_FORMS": total_urates + 2,
+                "at_goal": False,
+                "at_goal_long_term": False,
             }
         )
 
@@ -1196,12 +1204,13 @@ class TestPpxPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ppxs:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Get the urates
         urates = self.psp.urate_set.all()
         # Assert that the urates were created
-        self.assertIn(Decimal("5.9"), [urate.value for urate in urates])
+        self.assertIn(Decimal("15.9"), [urate.value for urate in urates])
         self.assertIn(Decimal("7.9"), [urate.value for urate in urates])
 
     def test__post_deletes_urates(self):
@@ -1242,12 +1251,11 @@ class TestPpxPseudopatientUpdate(TestCase):
 
             # Test the view logic for setting the indication
             if ppx.starting_ult:
-                if ppx.at_goal:
-                    assert ppx.indication == ppx.Indications.NOTINDICATED
-                else:
-                    assert ppx.indication == ppx.Indications.INDICATED
+                assert ppx.indication == ppx.Indications.INDICATED
             elif ppx.goutdetail.on_ult:
-                if (ppx.goutdetail.flaring or ppx.goutdetail.at_goal) and not (ppx.at_goal and ppx.recent_urate):
+                if (ppx.goutdetail.flaring or not ppx.goutdetail.at_goal) and not (
+                    ppx.at_goal_long_term and ppx.urate_within_90_days
+                ):
                     assert ppx.indication == ppx.Indications.CONDITIONAL
                 else:
                     assert ppx.indication == ppx.Indications.NOTINDICATED
@@ -1330,17 +1338,18 @@ class TestPpxUpdate(TestCase):
         # Create a Ppx object
         self.gout = GoutFactory()
         self.goutdetail = GoutDetailFactory(medhistory=self.gout, on_ult=False)
-        self.urate1 = UrateFactory(date_drawn=timezone.now(), value=Decimal("5.9"))
+        self.urate1 = UrateFactory(date_drawn=timezone.now() - timedelta(days=45), value=Decimal("5.9"))
         self.urate2 = UrateFactory(date_drawn=timezone.now() - timedelta(days=180), value=Decimal("7.9"))
         self.urate3 = UrateFactory(date_drawn=timezone.now() - timedelta(days=360), value=Decimal("9.9"))
         self.ppx = create_ppx(
+            mh_dets={MedHistoryTypes.GOUT: {"at_goal": False, "at_goal_long_term": False}},
             labs=[self.urate1, self.urate2, self.urate3],
         )
 
     def test__post_updates_ppx(self):
         """Tests that a POST request updates a Ppx object."""
         # Create some fake post() data based off the existing Ppx object
-        data = ppx_data_factory(ppx=self.ppx, urates=[])
+        data = ppx_data_factory(ppx=self.ppx, urates=None)
 
         # Make a couple data fields the opposite
         data.update(
@@ -1363,7 +1372,9 @@ class TestPpxUpdate(TestCase):
     def test__post_adds_urate(self):
         """Test that post() adds a Urate to the 3 that already exist for the Ppx."""
         # Create fake data with data for an extra urate
-        data = ppx_data_factory(ppx=self.ppx, urates=[Decimal("11.5")])
+        data = ppx_data_factory(
+            ppx=self.ppx, urates=[UrateFactory(value=Decimal("11.5"), date_drawn=timezone.now() - timedelta(days=180))]
+        )
         # Count the number of urates that are going to be deleted
         urates_deleted = count_data_deleted(data)
 
@@ -1398,7 +1409,9 @@ class TestPpxUpdate(TestCase):
         """Test that post() removes 3 existing Urates for the Ppx."""
         # Create fake data with data for 3 urates to be deleted and a new one to be added
         data = ppx_data_factory(
-            ppx=self.ppx, urates=[Decimal("18.9"), *[(urate, {"DELETE": True}) for urate in self.ppx.urate_set.all()]]
+            ppx=self.ppx,
+            at_goal=False,
+            urates=[Decimal("18.9"), *[(urate, {"DELETE": True}) for urate in self.ppx.urate_set.all()]],
         )
 
         # Post the data
@@ -1450,7 +1463,7 @@ class TestPpxUpdate(TestCase):
             {
                 "on_ult": not self.goutdetail.on_ult,
                 "flaring": not self.goutdetail.flaring,
-                "at_goal": not self.goutdetail.at_goal,
+                "starting_ult": not self.ppx.starting_ult,
             }
         )
 
@@ -1463,8 +1476,3 @@ class TestPpxUpdate(TestCase):
         goutdetail = GoutDetail.objects.order_by("created").last()
         self.assertEqual(goutdetail.on_ult, data["on_ult"])
         self.assertEqual(goutdetail.flaring, data["flaring"])
-        latest_urate = self.ppx.urate_set.order_by("-date_drawn").last()
-        if latest_urate and latest_urate.value > self.ppx.goalurate:
-            self.assertEqual(goutdetail.at_goal, True)
-        else:
-            self.assertEqual(goutdetail.at_goal, data["at_goal"])

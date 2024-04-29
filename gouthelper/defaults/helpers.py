@@ -1,40 +1,7 @@
-from typing import TYPE_CHECKING, Any, Union
-
-from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model
-
-from ..goalurates.choices import GoalUrates
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
-
-
-def get_obj_goalurate(obj: Any, default: Union["GoalUrates", None] = GoalUrates.SIX) -> "GoalUrates":
-    """Method that takes an object and returns the user's goal_urate
-    if it exists, otherwise returns GoalUrates.SIX."""
-    obj_gu = getattr(obj, "goalurate", None)
-    return obj_gu.goal_urate if obj_gu else default
-
-
-def defaults_get_goalurate(obj: Any) -> "GoalUrates":
-    """Method that takes an object and checks if it has a related GoalUrate and if so
-    returns the goal_urate attribute. If no GoalUrate is found, it returns
-    the default of GoalUrates.SIX."""
-
-    GoalUrate = apps.get_model("goalurates.GoalUrate")
-    User = get_user_model()
-    if isinstance(obj, GoalUrate):
-        # Return the object's goal_urate attribute if so
-        return obj.goal_urate  # type: ignore
-    elif isinstance(obj, User):
-        user_gu = get_obj_goalurate(obj, default=None)
-        return user_gu.goal_urate if user_gu else next
-    elif getattr(obj, "user", None):
-        return get_obj_goalurate(obj.user)
-    elif isinstance(obj, apps.get_model("ultaids.UltAid")):
-        return get_obj_goalurate(obj)
-    else:
-        return GoalUrates.SIX
 
 
 def defaults_treatments_create_dosing_dict(

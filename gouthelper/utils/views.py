@@ -549,7 +549,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         that needs to be updated and saved."""
 
         def need_to_save_mh(mh: "MedHistory", mhs_to_save: list["MedHistory"], mhs_to_rem: list["MedHistory"]) -> bool:
-            print(mhs_to_save, mhs_to_rem)
             return (mhs_to_save and mh not in mhs_to_save or not mhs_to_save) and (
                 mhs_to_rem and mh not in mhs_to_rem or not mhs_to_rem
             )
@@ -675,7 +674,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 for ma in ma_2_rem:
                     ma.delete()
         if self.medhistorys:
-            print(mh_2_save, mh_2_rem)
             if mh_2_save:
                 for mh in mh_2_save:
                     if self.user:
@@ -832,7 +830,6 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
     def get_success_url(self):
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
-        print(next_url)
         if next_url:
             return next_url
         else:
@@ -899,13 +896,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
 
         gd_form = mh_det_forms["goutdetail_form"]
         gd_mh = getattr(gd_form.instance, "medhistory", None)
-        if (
-            "flaring" in gd_form.changed_data
-            or "hyperuricemic" in gd_form.changed_data
-            or "on_ppx" in gd_form.changed_data
-            or "on_ult" in gd_form.changed_data
-            or not gd_mh
-        ):
+        if gd_form.has_changed or not gd_mh:
             mhd_to_save.append(gd_form.save(commit=False))
             # Check if the form instance has a medhistory attr
             if not gd_mh and gout:
@@ -1006,6 +997,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
                 dateofbirth=oto_forms.get("dateofbirth_form", None) if oto_forms else None,
                 gender=oto_forms.get("gender_form") if oto_forms else None,
             )
+
             (
                 labs_2_save,
                 labs_2_rem,
@@ -1373,7 +1365,7 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         post_qs_target = self.post_get_qs_target(post_object)
         ma_2_save: list["MedAllergy"] = []
         ma_2_rem: list["MedAllergy"] = []
-        get_or_create_qs_attr(post_object, "medallergy")
+        get_or_create_qs_attr(post_qs_target, "medallergy")
         for ma_form_str in ma_forms:
             treatment = ma_form_str.split("_")[1]
             if f"medallergy_{treatment}" in ma_forms[ma_form_str].cleaned_data:
@@ -1467,7 +1459,7 @@ menopause status to evaluate their flare."
         mhdets_2_remove: list[CkdDetail | BaselineCreatinine | None] = []
         errors = False
         # Create medhistory_qs attribute on the form instance if it doesn't exist
-        get_or_create_qs_attr(post_object, "medhistory")
+        get_or_create_qs_attr(post_qs_target, "medhistory")
         for mh_form_str, mh_form in mh_forms.items():
             mhtype = MedHistoryTypes(mh_form_str.split("_")[0])
             mh_obj = (
@@ -1510,7 +1502,7 @@ menopause status to evaluate their flare."
             if f"{mhtype}_form" not in mh_forms:
                 if mhtype == MedHistoryTypes.GOUT and goutdetail:
                     self.goutdetail_mh_post_process(
-                        gout=post_object.gout if not (self.create_view and isinstance(post_object, User)) else None,
+                        gout=getattr(self.query_object, "gout", None),
                         mh_det_forms=mh_det_forms,
                         mhd_to_save=mhdets_2_save,
                     )

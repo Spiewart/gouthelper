@@ -120,12 +120,6 @@
         maxDate: "0",
       });
     });
-    $(document).ready(function() {
-      // call starting_ult_help_text() to set the help text for the starting_ult field
-      $('#id_on_ult').change(function() {
-        starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Pos = '{{str_attrs.Pos}}', Tobe = '{{str_attrs.Tobe}}');
-      });
-      starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Pos = '{{str_attrs.Pos}}', Tobe = '{{str_attrs.Tobe}}');
-    });
   </script>
+  {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

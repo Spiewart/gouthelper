@@ -5,6 +5,7 @@ from django.contrib.auth.base_user import BaseUserManager  # pylint:disable=E040
 from ..flareaids.selectors import flareaid_user_relations
 from ..flares.selectors import flare_user_relations
 from ..goalurates.selectors import goalurate_user_relations
+from ..labs.selectors import dated_urates_relation
 from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
@@ -97,6 +98,9 @@ class PseudopatientManager(BaseUserManager):
 
     def ult_qs(self):
         return ult_user_relations(self.get_queryset())
+
+    def urates_dated_qs(self):
+        return dated_urates_relation(self.get_queryset())
 
     def create(self, **kwargs):
         kwargs.update({"role": Roles.PSEUDOPATIENT})

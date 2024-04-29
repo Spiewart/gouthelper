@@ -5,9 +5,9 @@ from django.contrib.auth import get_user_model
 from django.db.models.query import QuerySet
 from django.utils.functional import cached_property  # type: ignore
 
-from ..defaults.helpers import defaults_get_goalurate
 from ..goalurates.choices import GoalUrates
-from ..labs.helpers import labs_urates_at_goal_long_term, labs_urates_months_at_goal, labs_urates_recent_urate
+from ..goalurates.helpers import goalurates_get_object_goal_urate
+from ..labs.helpers import labs_urate_within_90_days, labs_urate_within_last_month
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
@@ -33,13 +33,10 @@ class PpxDecisionAid(AidService):
         self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None
         self._check_for_gout_and_detail()
         self.urates = self.qs.urates_qs
-        # Process the urates to figure out if the Urates indicate that the patient
-        # has been at goal uric acid for the past 6 months or longer
-        self.at_goal: bool = False
-        if not labs_urates_at_goal_long_term(urates=self.urates, goutdetail=self.goutdetail):
-            self.at_goal = labs_urates_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
-        # Check if there is a recent_urate
-        self.recent_urate: bool = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
+        self.urate_within_last_month = labs_urate_within_last_month(urates=self.urates, sorted_by_date=True)
+        self.urate_within_90_days: bool = labs_urate_within_90_days(urates=self.urates, sorted_by_date=True)
+        self.at_goal = self.model_attr.urates_at_goal
+        self.at_goal_long_term = self.model_attr.urates_at_goal_long_term
 
     gout: Union["MedHistory", None]
     goutdetail: Union["GoutDetail", None]
@@ -60,7 +57,7 @@ class PpxDecisionAid(AidService):
     def goalurate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
-        return defaults_get_goalurate(self.user if self.user else GoalUrates.SIX)
+        return goalurates_get_object_goal_urate(self.user if self.user else GoalUrates.SIX)
 
     @property
     def flaring(self) -> bool:
@@ -74,14 +71,18 @@ class PpxDecisionAid(AidService):
         Returns: Indications enum
         """
         # First check if the patient is on or starting ULT
-        if self.goutdetail and (self.goutdetail.on_ult or self.model_attr.starting_ult):
+        if self.goutdetail and (self.goutdetail.on_ult or self.goutdetail.starting_ult):
             # If the patient is on ULT but isn't starting ULT
-            if self.model_attr.starting_ult is False:
+            if self.goutdetail.starting_ult is False:
                 # Check if their is a "conditional" indication for prophylaxis
                 # This is not guidelines-based, rather GoutHelper-based
                 # The rationale is that if they are on ULT and still hyperuricemic or flaring,
                 # they are at risk of gout flares and should be on prophylaxis while ULT is titrated
-                if self.goutdetail.flaring or self.goutdetail.at_goal and not (self.at_goal and self.recent_urate):
+                if (
+                    self.goutdetail.flaring
+                    or not self.goutdetail.at_goal
+                    and not (self.at_goal_long_term and self.urate_within_90_days)
+                ):
                     return Indications.CONDITIONAL
                 # If the patient is on ULT and it's not a new start and they aren't flaring
                 # or hyperuricemic, there isn't a patient-centered rationale for prophylaxis
@@ -89,7 +90,7 @@ class PpxDecisionAid(AidService):
                     return Indications.NOTINDICATED
             # If they are starting ULT, the ACR guidelines say they should be on prophylaxis
             else:
-                if self.at_goal and self.recent_urate:
+                if self.at_goal_long_term and self.urate_within_90_days:
                     return Indications.NOTINDICATED
                 else:
                     return Indications.INDICATED
@@ -112,5 +113,10 @@ class PpxDecisionAid(AidService):
         Returns:
             ppx: Ppx object
         """
+        # Check and update the at_goal and at_goal_long_term fields
+        if self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month:
+            self.model_attr.goutdetail.update_at_goal(at_goal=self.at_goal)
+        if self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month:
+            self.model_attr.goutdetail.update_at_goal_long_term(at_goal_long_term=self.at_goal_long_term)
         self.model_attr.indication = self._get_indication()
         return super()._update(commit=commit)

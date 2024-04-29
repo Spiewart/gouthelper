@@ -34,6 +34,11 @@ def urates_qs() -> "QuerySet":
     return apps.get_model("labs.Urate").objects.select_related("flare").all()
 
 
+def urates_dated_qs() -> "QuerySet":
+    """QuerySet for dated Urate objects."""
+    return dated_urates(urates_qs())
+
+
 def urates_prefetch(dated: bool = True) -> Prefetch:
     """Prefetch for Urate objects."""
     if dated:
@@ -47,11 +52,6 @@ def urates_prefetch(dated: bool = True) -> Prefetch:
     )
 
 
-def urates_dated_qs() -> "QuerySet":
-    """Custom urate_prefetch_qs for ppx_userless_qs.
-    Annotates Urate.date_drawn with Flare.date_started if Urate.date_drawn is null.
-    This is because Flare objects don't require reporting a date_drawn for the Urate,
-    but Urate's entered elsewhere do."""
-    queryset = apps.get_model("labs.Urate").objects
-    queryset = dated_urates(queryset)
-    return queryset
+def dated_urates_relation(qs: "QuerySet") -> "QuerySet":
+    """Adds prefetch for dated urates."""
+    return qs.prefetch_related(urates_prefetch(dated=True))

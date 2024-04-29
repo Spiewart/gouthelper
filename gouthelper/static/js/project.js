@@ -602,7 +602,17 @@ function subject_checker() {
 }
 
 // Ppx JS
-function starting_ult_help_text(subject_the, Pos, Tobe) {
+function at_goal_checker() {
+  // function that checks whether the at_goal field is True and shows/hides the at_goal_long_term field
+  if ($('#id_at_goal').val() == 'True') {
+    $('#at_goal_long_term').show();
+  } else {
+    $('#at_goal_long_term').hide();
+    $('#id_at_goal_long_term').prop('value', 'False');
+    console.log($('#id_at_goal_long_term').val());
+  }
+}
+function starting_ult_help_text(subject_the, Tobe) {
   // function that updates the help text of the starting_ult field
   // first get the on_ult field value
   var on_ult = $('#id_on_ult').val();
@@ -610,20 +620,17 @@ function starting_ult_help_text(subject_the, Pos, Tobe) {
   if (on_ult == 'True') {
     // if on_Ult is true, change help text to "Has the patient started
     // ULT in the last 3 months?"
-    $('#div_id_starting_ult').show();
     $('#hint_id_starting_ult').text(
-      `${Pos} ${subject_the} started urate-lowering therapy (ULT) in the last 3 months?`,
+      `${Tobe} ${subject_the} in the initial dose-adjustment phase (e.g. titration, usually first 6-12 months) of urate-lowering therapy (ULT)?`,
     );
-  } else if (on_ult == 'False') {
+  } else {
     // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
-    $('#div_id_starting_ult').show();
     $('#hint_id_starting_ult').text(
       `${Tobe} ${subject_the} starting urate-lowering therapy (ULT)?`,
     );
-  } else {
-    $('#div_id_starting_ult').hide();
   }
 }
+
 // Ult JS
 function ult_checker() {
   if ($('#id_num_flares').val() != 2) {

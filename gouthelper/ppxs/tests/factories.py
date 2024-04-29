@@ -2,12 +2,10 @@ import random
 from decimal import Decimal  # pylint: disable=e0401 # type: ignore
 from typing import TYPE_CHECKING, Any, Union  # pylint: disable=e0401 # type: ignore
 
-import factory  # pylint: disable=e0401 # type: ignore
 import pytest  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
-from ...choices import BOOL_CHOICES
 from ...labs.models import Lab, Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
@@ -70,12 +68,6 @@ def ppx_data_factory(
         user=user,
         aid_obj=ppx,
     ).create()
-    if kwargs and "starting_ult" in kwargs:
-        data.update({"starting_ult": kwargs["starting_ult"]})
-    elif ppx:
-        data.update({"starting_ult": ppx.starting_ult})
-    elif user and hasattr(user, "ppx"):
-        data.update({"starting_ult": user.ppx.starting_ult})
     ppx_stub = PpxFactory.stub()
     # Assign stub attrs to the data as key/val pairs
     for attr in dir(ppx_stub):
@@ -110,6 +102,7 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
 def create_ppx(
     user: Union["User", bool, None] = None,
     labs: list[Lab, Decimal] | None = None,
+    mh_dets: dict[MedHistoryTypes : dict[str, Any]] | None = None,
     **kwargs,
 ) -> Ppx:
     """Creates a Ppx with the given user, labs, and medhistorys."""
@@ -129,7 +122,7 @@ def create_ppx(
     return CreatePpx(
         labs=labs_kwarg,
         mhs=PPX_MEDHISTORYS,
-        mh_dets={MedHistoryTypes.GOUT: {}},
+        mh_dets=mh_dets if mh_dets is not None else {MedHistoryTypes.GOUT: {}},
         user=user,
     ).create(mhs_specified=True, **kwargs)
 
@@ -137,5 +130,3 @@ def create_ppx(
 class PpxFactory(DjangoModelFactory):
     class Meta:
         model = Ppx
-
-    starting_ult = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])

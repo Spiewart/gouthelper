@@ -13,12 +13,6 @@ class TestPpxForm(TestCase):
         self.form = PpxForm()
         self.factory = RequestFactory()
 
-    def test__init__(self):
-        self.assertIn(
-            " just starting ULT (urate-lowering therapy)",
-            self.form.fields["starting_ult"].help_text,
-        )
-
     def test__forms_for_related_models_inserted(self):
         # Test that gout and urate formset inserted into the layout.
         response = self.client.get(reverse("ppxs:create"))

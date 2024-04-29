@@ -33,10 +33,6 @@ class PpxForm(
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
-        self.fields[
-            "starting_ult"
-        ].help_text = f"Is {self.str_attrs.get('subject_the')} just starting ULT (urate-lowering therapy) or \
-{self.str_attrs.get('pos')} {self.str_attrs.get('gender_subject')} started ULT in the last 3 months?"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -51,18 +47,4 @@ class PpxForm(
         # Otherwise, add the GoutForm and GoutDetailForm
         else:
             forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
-        layout_len = len(self.helper.layout)
-        sub_len = len(self.helper.layout[layout_len - 1])
-        self.helper.layout[layout_len - 1][sub_len - 1].append(
-            Div(
-                Div(
-                    Div(
-                        "starting_ult",
-                        css_class="col",
-                    ),
-                ),
-                css_class="row",
-                css_id="starting_ult",
-            ),
-        )
         forms_helper_insert_urates_formset(layout=self.helper.layout, str_attrs=self.str_attrs)

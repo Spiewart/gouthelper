@@ -77,6 +77,6 @@
 {% block inline_javascript %}
   {{ block.super }}
   {% with dob_optional=False gender_optional=True %}
-    {% include 'medhistorys/_ckd_js.html' %}
+    {% include 'medhistorydetails/_ckddetail_js.html' %}
   {% endwith %}
 {% endblock inline_javascript %}

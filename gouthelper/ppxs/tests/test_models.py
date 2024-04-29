@@ -61,15 +61,9 @@ class TestPpx(TestCase):
         self.assertEqual(self.ppx.get_absolute_url(), f"/ppxs/{self.ppx.pk}/")
 
     def test__at_goal(self):
-        """Test the hyperuricemic property."""
+        """Test the at_goal property."""
         goutdetail = self.ppx.goutdetail
         self.assertEqual(self.ppx.at_goal, goutdetail.at_goal)
-
-        # Modify the goutdetail and test the property again.
-        goutdetail.at_goal = not goutdetail.at_goal
-        goutdetail.save()
-        del self.ppx.gout
-        self.assertEqual(goutdetail.at_goal, self.ppx.at_goal)
 
     def test__indicated(self):
         """Test the indicated property."""
@@ -92,24 +86,24 @@ class TestPpx(TestCase):
         """Test the last_urate_at_goal property."""
         ppx = Ppx.objects.get(pk=self.ppx.pk)
 
-        self.assertFalse(ppx.at_goal)
-        del ppx.at_goal
+        self.assertFalse(ppx.urates_at_goal)
+        del ppx.all_urates
+        del ppx.urates_at_goal
 
         for urate in self.urates:
             urate.ppx = ppx
             urate.save()
 
-        ppx.refresh_from_db()
-
-        self.assertTrue(ppx.at_goal)
+        self.assertTrue(ppx.urates_at_goal)
 
         self.latest_urate.value = Decimal("15.0")
         self.latest_urate.save()
 
-        del ppx.at_goal
+        del ppx.all_urates
+        del ppx.urates_at_goal
         ppx.refresh_from_db()
 
-        self.assertFalse(ppx.at_goal)
+        self.assertFalse(ppx.urates_at_goal)
 
     def test__on_ppx(self):
         """Test the on_ppx property."""
@@ -187,6 +181,7 @@ class TestPpx(TestCase):
         # which is created by the create_ppx method
         ppx = Ppx.objects.get(pk=self.ppx.pk)
         ppx.goutdetail.at_goal = False
+        ppx.goutdetail.at_goal_long_term = False
         ppx.goutdetail.save()
 
         self.assertFalse(ppx.urates_discrepant)
@@ -200,7 +195,7 @@ class TestPpx(TestCase):
         del ppx.gout
         ppx.refresh_from_db()
 
-        self.assertFalse(ppx.urates_discrepant)
+        self.assertTrue(ppx.urates_discrepant)
 
         ppx.goutdetail.at_goal = True
         ppx.goutdetail.save()
@@ -210,34 +205,4 @@ class TestPpx(TestCase):
         del ppx.goutdetail
         del ppx.gout
 
-        self.assertTrue(ppx.urates_discrepant)
-
-    def test__urates_discrepant_str(self):
-        """Test the urates_discrepant_str property."""
-        ppx = Ppx.objects.get(pk=self.ppx.pk)
-
-        ppx.goutdetail.at_goal = None
-        ppx.goutdetail.save()
-
-        self.assertIsNone(ppx.urates_discrepant_str)
-
-        for urate in self.urates:
-            urate.ppx = ppx
-            urate.save()
-
-        self.assertEqual(
-            ppx.urates_discrepant_str,
-            "Clarify hyperuricemic status. At least one uric acid was reported but hyperuricemic was not.",
-        )
-
-        ppx.goutdetail.at_goal = True
-        ppx.goutdetail.save()
-
-        del ppx.goutdetail
-        del ppx.gout
-        ppx.refresh_from_db()
-
-        self.assertEqual(
-            ppx.urates_discrepant_str,
-            "Clarify hyperuricemic status. Last Urate was at goal, but hyperuricemic reported True.",
-        )
+        self.assertFalse(ppx.urates_discrepant)

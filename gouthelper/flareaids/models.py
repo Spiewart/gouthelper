@@ -229,7 +229,6 @@ treatment is typically very short and the risk of bleeding is low."
 
     def optional_treatment(self, flare: Union["Flare", None] = None) -> tuple[str, dict] | None:
         """Returns a dictionary of the dosing for a given treatment."""
-        print(flare)
         return self.get_flare_optional_treatments(flare if flare else self.related_aid())
 
     @classmethod

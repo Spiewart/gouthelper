@@ -16,7 +16,6 @@ def medhistorys_get(
 ) -> Union[bool, "MedHistory"] | list["MedHistory"]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is medhistorytype or False."""
-
     if isinstance(medhistorytype, MedHistoryTypes):
         return next(
             iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]),
@@ -35,9 +34,11 @@ def medhistory_attr(
     mh_get=medhistorys_get,
 ) -> Union[bool, "MedHistory"]:
     """Method that consolidates the Try / Except logic for getting a MedHistory."""
-    try:
+    if hasattr(obj, "medhistorys_qs"):
         return mh_get(obj.medhistorys_qs, medhistory)
-    except AttributeError as exc:
+    elif hasattr(obj, "user") and obj.user and hasattr(obj.user, "medhistorys_qs"):
+        return mh_get(obj.user.medhistorys_qs, medhistory)
+    else:
         if isinstance(medhistory, MedHistoryTypes):
             if hasattr(obj, "user") and obj.user:
                 qs = obj.user.medhistory_set.filter(medhistorytype=medhistory)
@@ -49,14 +50,14 @@ def medhistory_attr(
             else:
                 qs = obj.medhistory_set.filter(medhistorytype__in=medhistory)
         else:
-            raise TypeError("medhistory must be a MedHistoryTypes or list[MedHistoryTypes].") from exc
+            raise TypeError("medhistory must be a MedHistoryTypes or list[MedHistoryTypes].")
         if select_related:
             if isinstance(select_related, str):
                 qs = qs.select_related(select_related)
             elif isinstance(select_related, list):
                 qs = qs.select_related(*select_related)
             else:
-                raise TypeError("select_related must be a str or list[str].") from exc
+                raise TypeError("select_related must be a str or list[str].")
         return mh_get(qs.all(), medhistory)
 
 

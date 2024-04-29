@@ -144,9 +144,11 @@ class GoutDetailForm(forms.ModelForm):
         model = GoutDetail
         fields = (
             "flaring",
-            "hyperuricemic",
+            "at_goal",
+            "at_goal_long_term",
             "on_ppx",
             "on_ult",
+            "starting_ult",
         )
 
     def __init__(self, *args, **kwargs):
@@ -155,6 +157,11 @@ class GoutDetailForm(forms.ModelForm):
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
+        self.goalurate = (
+            self.patient.goalurate.get_goal_urate_display()
+            if self.patient and hasattr(self.patient, "goalurate")
+            else "6.0 mg/dL"
+        )
         super().__init__(*args, **kwargs)
         self.fields["flaring"].initial = None
         self.fields["flaring"].choices = YES_OR_NO_OR_UNKNOWN
@@ -164,17 +171,22 @@ class GoutDetailForm(forms.ModelForm):
             self.str_attrs["subject_the"],
             reverse_lazy("flares:about"),
         )
-        self.fields["hyperuricemic"].initial = None
-        self.fields["hyperuricemic"].choices = YES_OR_NO_OR_UNKNOWN
-        self.fields["hyperuricemic"].help_text = format_lazy(
-            """{} {} had a <a href="{}" target="_blank">uric acid</a> greater \
-than {} in the past 6 months?""",
-            self.str_attrs["Pos"],
+        self.fields["at_goal"].label = "At Goal Uric Acid Level"
+        self.fields["at_goal"].initial = None
+        self.fields["at_goal"].choices = YES_OR_NO_OR_UNKNOWN
+        self.fields["at_goal"].help_text = format_lazy(
+            """{} {} at goal <a href="{}" target="_blank">uric acid</a> (less than {})?""",
+            self.str_attrs["Tobe"],
             self.str_attrs["subject_the"],
             reverse_lazy("labs:about-urate"),
-            self.patient.goalurate.get_goal_urate_display()
-            if self.patient and hasattr(self.patient, "goalurate")
-            else "6.0 mg/dL",
+            self.goalurate,
+        )
+        self.fields["at_goal_long_term"].label = "At Goal Six Months or Longer"
+        self.fields["at_goal_long_term"].help_text = format_lazy(
+            """{} {} been at goal uric acid (less than {}) for 6 months or longer?""",
+            self.str_attrs["Pos"],
+            self.str_attrs["subject_the"],
+            self.goalurate,
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
@@ -196,6 +208,10 @@ than {} in the past 6 months?""",
         self.fields["on_ult"].initial = None
         self.fields["on_ult"].choices = YES_OR_NO_OR_NONE
         self.fields["on_ult"].required = True
+        self.fields[
+            "starting_ult"
+        ].help_text = f"Is {self.str_attrs.get('subject_the')} just starting ULT (urate-lowering therapy) or \
+{self.str_attrs.get('pos')} {self.str_attrs.get('gender_subject')} started ULT in the last 3 months?"
         self.helper = FormHelper()
         self.helper.form_tag = False
         legend_sub = "the Patient" if not self.patient else self.patient
@@ -222,11 +238,19 @@ than {} in the past 6 months?""",
                     ),
                     Div(
                         Div(
-                            "hyperuricemic",
+                            "at_goal",
                             css_class="col",
                         ),
                         css_class="row",
-                        css_id="hyperuricemic",
+                        css_id="at_goal",
+                    ),
+                    Div(
+                        Div(
+                            "at_goal_long_term",
+                            css_class="col",
+                        ),
+                        css_class="row",
+                        css_id="at_goal_long_term",
                     ),
                     Div(
                         Div(
@@ -244,10 +268,33 @@ than {} in the past 6 months?""",
                         css_class="row",
                         css_id="on_ult",
                     ),
+                    Div(
+                        Div(
+                            "starting_ult",
+                            css_class="col",
+                        ),
+                        css_class="row",
+                        css_id="starting_ult",
+                    ),
                     css_id="goutdetail-form",
                 ),
             ),
         )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        print(cleaned_data)
+        at_goal = cleaned_data["at_goal"]
+        at_goal_long_term = cleaned_data["at_goal_long_term"]
+        if at_goal_long_term is True and at_goal is False:
+            self.add_error(
+                "at_goal",
+                forms.ValidationError(
+                    "If at goal long term, the patient must be at goal uric acid level.",
+                    code="at_goal",
+                ),
+            )
+        return cleaned_data
 
 
 class GoutDetailPpxForm(GoutDetailForm):
@@ -256,16 +303,8 @@ class GoutDetailPpxForm(GoutDetailForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["hyperuricemic"].help_text = mark_safe(
-            format_lazy(
-                """{} {} had a <a href={}>uric acid</a> greater than {} in the past 6 months? \
-If you want to enter values and dates for uric acids, \
-you can do so <a href='#urate_formset_table'>below</a> and we will make this determination for you.""",
-                self.str_attrs["Pos"],
-                self.str_attrs["subject_the"],
-                reverse_lazy("labs:about-urate"),
-                self.patient.goalurate.get_goal_urate_display()
-                if self.patient and hasattr(self.patient, "goalurate")
-                else "6.0 mg/dL",
-            )
+        self.fields["at_goal"].help_text = self.fields["at_goal"].help_text + mark_safe(
+            "If you \
+want to enter values and dates for uric acids, you can do so \
+<a href='#urate_formset_table'>below</a> and we will make this determination for you."
         )

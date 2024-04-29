@@ -136,23 +136,59 @@ def make_goutdetail_kwargs(
 ) -> dict[str, Any]:
     goutdetail_kwargs = mh_dets.get(MedHistoryTypes.GOUT, None) if mh_dets else {}
     flaring_kwarg = goutdetail_kwargs.get("flaring", None) if goutdetail_kwargs else None
-    hyperuricemic_kwarg = goutdetail_kwargs.get("hyperuricemic", None) if goutdetail_kwargs else None
+    at_goal_kwarg = goutdetail_kwargs.get("at_goal", None) if goutdetail_kwargs else None
+    at_goal_long_term_kwarg = goutdetail_kwargs.get("at_goal_long_term", None) if goutdetail_kwargs else None
     on_ppx_kwarg = goutdetail_kwargs.get("on_ppx", None) if goutdetail_kwargs else None
     on_ult_kwarg = goutdetail_kwargs.get("on_ult", None) if goutdetail_kwargs else None
+    starting_ult_kwarg = goutdetail_kwargs.get("starting_ult", None) if goutdetail_kwargs else None
     goutdetail_kwargs.update(
         {
             "flaring": (
-                flaring_kwarg if flaring_kwarg else goutdetail.flaring if goutdetail else get_bool_or_empty_str()
+                flaring_kwarg
+                if flaring_kwarg is not None
+                else goutdetail.flaring
+                if goutdetail
+                else get_bool_or_empty_str()
             ),
-            "hyperuricemic": (
-                hyperuricemic_kwarg
-                if hyperuricemic_kwarg
+            "at_goal": (
+                at_goal_kwarg
+                if at_goal_kwarg is not None
                 else goutdetail.at_goal
                 if goutdetail
                 else get_bool_or_empty_str()
             ),
-            "on_ppx": on_ppx_kwarg if on_ppx_kwarg else goutdetail.on_ppx if goutdetail else fake.boolean(),
-            "on_ult": on_ult_kwarg if on_ult_kwarg else goutdetail.on_ult if goutdetail else fake.boolean(),
+            "on_ppx": on_ppx_kwarg
+            if on_ppx_kwarg is not None
+            else goutdetail.on_ppx
+            if goutdetail
+            else fake.boolean(),
+            "on_ult": on_ult_kwarg
+            if on_ult_kwarg is not None
+            else goutdetail.on_ult
+            if goutdetail
+            else fake.boolean(),
+        }
+    )
+    goutdetail_kwargs.update(
+        {
+            "at_goal_long_term": (
+                at_goal_long_term_kwarg
+                if at_goal_long_term_kwarg is not None
+                else goutdetail.at_goal_long_term
+                if goutdetail
+                else fake.boolean()
+                if goutdetail_kwargs["at_goal"]
+                else False
+            ),
+            "starting_ult": (
+                starting_ult_kwarg
+                if starting_ult_kwarg is not None
+                else goutdetail.starting_ult
+                if goutdetail
+                else fake.boolean()
+                if goutdetail_kwargs["on_ult"]
+                else False
+            ),
         }
     )
     return goutdetail_kwargs
@@ -188,35 +224,45 @@ def make_goutdetail_data(**kwargs) -> dict:
 def update_goutdetail_data(goutdetail: "GoutDetail", data: dict, **kwargs) -> None:
     """Updates a data dictionary with GoutDetail values from a GoutDetail object."""
     flaring_kwarg = kwargs.get("flaring", None) if kwargs else None
-    hyperuricemic_kwarg = kwargs.get("hyperuricemic", None) if kwargs else None
+    at_goal_kwarg = kwargs.get("at_goal", None) if kwargs else None
+    at_goal_long_term_kwarg = kwargs.get("at_goal_long_term", None) if kwargs else None
     on_ppx_kwarg = kwargs.get("on_ppx", None) if kwargs else None
     on_ult_kwarg = kwargs.get("on_ult", None) if kwargs else None
+    starting_ult_kwarg = kwargs.get("starting_ult", None) if kwargs else None
     data.update(
         {
             "flaring": (
-                flaring_kwarg if flaring_kwarg else goutdetail.flaring if goutdetail.flaring is not None else ""
+                flaring_kwarg
+                if flaring_kwarg is not None
+                else goutdetail.flaring
+                if goutdetail.flaring is not None
+                else ""
             ),
-            "hyperuricemic": (
-                hyperuricemic_kwarg
-                if hyperuricemic_kwarg
+            "at_goal": (
+                at_goal_kwarg
+                if at_goal_kwarg is not None
                 else goutdetail.at_goal
                 if goutdetail.at_goal is not None
                 else ""
             ),
+            "at_goal_long_term": (
+                at_goal_long_term_kwarg if at_goal_long_term_kwarg is not None else goutdetail.at_goal_long_term
+            ),
             "on_ppx": (
                 on_ppx_kwarg
-                if on_ppx_kwarg
+                if on_ppx_kwarg is not None
                 else goutdetail.on_ppx
                 if goutdetail.on_ppx is not None
                 else fake.boolean()
             ),
             "on_ult": (
                 on_ult_kwarg
-                if on_ult_kwarg
+                if on_ult_kwarg is not None
                 else goutdetail.on_ult
                 if goutdetail.on_ult is not None
                 else fake.boolean()
             ),
+            "starting_ult": (starting_ult_kwarg if starting_ult_kwarg is not None else goutdetail.starting_ult),
         }
     )
 

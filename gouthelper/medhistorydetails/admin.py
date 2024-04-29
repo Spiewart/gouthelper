@@ -21,9 +21,11 @@ class CkdDetailHistoryAdmin(SimpleHistoryAdmin):
 class GoutDetailHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "flaring",
-        "hyperuricemic",
+        "at_goal",
+        "at_goal_long_term",
         "on_ppx",
         "on_ult",
+        "starting_ult",
         "created",
         "pk",
     )

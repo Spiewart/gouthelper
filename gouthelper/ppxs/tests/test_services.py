@@ -7,6 +7,7 @@ from django.utils import timezone  # type: ignore
 
 from ...goalurates.choices import GoalUrates
 from ...labs.tests.factories import UrateFactory
+from ...medhistorys.choices import MedHistoryTypes
 from ...ppxs.models import Ppx
 from ...ppxs.tests.factories import create_ppx
 from ...ults.choices import Indications
@@ -26,9 +27,7 @@ class TestPpxDecisionAidMethods(TestCase):
 
     def setUp(self):
         # Create a Ppx object without User and set the on_ult attr of its goutdetail to False
-        self.ppx = create_ppx()
-        self.ppx.goutdetail.on_ult = False
-        self.ppx.goutdetail.save()
+        self.ppx = create_ppx(labs=None, mh_dets={MedHistoryTypes.GOUT: {"flaring": False, "on_ult": True}})
         # Create some userless Urate objects
         self.urate1 = UrateFactory(date_drawn=timezone.now())
         self.urate2 = UrateFactory(date_drawn=timezone.now() - timedelta(days=180))
@@ -96,19 +95,11 @@ class TestPpxDecisionAidMethods(TestCase):
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.assertTrue(aid.flaring)
 
-    def test__hyperuricemic(self):
-        """Test that all the hyperuricemic property outcomes return the correct value."""
+    def test__at_goal(self):
+        """Test that all the at_goal property outcomes return the correct value."""
         self.ppx.urate_set.all().delete()
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertEqual(aid.at_goal, self.ppx.at_goal)
-
-        self.ppx.goutdetail.at_goal = True
-        self.ppx.goutdetail.save()
-        del self.ppx.gout
-        del self.ppx.goutdetail
-
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertTrue(aid.hyperuricemic)
+        self.assertEqual(aid.at_goal, self.ppx.urates_at_goal)
 
     def test__init_not_at_goal(self):
         """Test that the constructor sets the GoutDetail object's
@@ -141,7 +132,7 @@ class TestPpxDecisionAidMethods(TestCase):
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.assertTrue(aid.at_goal)
 
-    def test__init_at_goal_changes_hyperuricemic_False(self):
+    def test__init_at_goal_changes_at_goal_to_True(self):
         """Test that the constructor sets the GoutDetail object's
         hyperuricemic field to False when the Urates indicate that the patient
         is hyperuricemic but then at goal."""
@@ -158,20 +149,20 @@ class TestPpxDecisionAidMethods(TestCase):
 
         self.ppx.refresh_from_db()
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertFalse(aid.goutdetail.at_goal)
+        self.assertTrue(aid.goutdetail.at_goal)
         ppx = Ppx.objects.get()
-        self.assertFalse(ppx.goutdetail.at_goal)
+        self.assertTrue(ppx.goutdetail.at_goal)
 
-    def test__init_not_at_goal_changes_hyperuricemic_True(self):
+    def test__init_not_at_goal_changes_at_goal_True(self):
         """Test that the constructor method sets the GoutDetail object's
-        hyperuricemic field to True when the patient is at goal but the
-        Urates indicate he or she is hyperuricemic."""
+        at_goal field to True when the Urates indicate the patient is hyperuricemic."""
         # Set the Ppx's GoutDetail object's hyperuricemic attr to False
-        self.ppx.goutdetail.at_goal = False
+        self.ppx.goutdetail.at_goal = True
+        self.ppx.goutdetail.at_goal_long_term = False
         self.ppx.goutdetail.save()
 
         # Assert that the Ppx's GoutDetail object's hyperuricemic attr is False
-        self.assertFalse(self.ppx.goutdetail.at_goal)
+        self.assertTrue(self.ppx.goutdetail.at_goal)
 
         # Create a Urate object that is hyperuricemic
         UrateFactory(date_drawn=timezone.now(), value=Decimal("9.1"), ppx=self.ppx)
@@ -179,15 +170,10 @@ class TestPpxDecisionAidMethods(TestCase):
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.assertTrue(aid.goutdetail.at_goal)
 
-        ppx = Ppx.objects.get(pk=self.ppx.pk)
-
-        self.assertTrue(ppx.goutdetail.at_goal)
-
     def test__get_indication_not_on_ult(self):
         """Test that _get_indication returns NOTINDICATED when the patient is
         not on ULT."""
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
         self.ppx.goutdetail.on_ult = False
         self.ppx.goutdetail.save()
         # Assert that the Ppx's indication attr is None
@@ -206,11 +192,10 @@ class TestPpxDecisionAidMethods(TestCase):
     def test__get_indication_on_not_starting_ult_no_hyperuricemic_or_flaring(self):
         """Test that get_indication returns NOTINDICATED when the patient is on but not
         starting ULT and is not hyperuricemic or flaring."""
-        self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
         self.ppx.urate_set.all().delete()
-
-        self.ppx.goutdetail.at_goal = False
+        self.ppx.goutdetail.starting_ult = False
+        self.ppx.goutdetail.at_goal = True
+        self.ppx.goutdetail.at_goal_long_term = True
         self.ppx.goutdetail.flaring = False
         self.ppx.goutdetail.on_ult = True
         self.ppx.goutdetail.save()
@@ -221,9 +206,7 @@ class TestPpxDecisionAidMethods(TestCase):
         """Test taht get_indication returns CONDITIONAL when the patient is on but not
         starting ULT and is hyperuricemic but not flaring."""
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
-
-        self.ppx.goutdetail.at_goal = True
+        self.ppx.goutdetail.at_goal = False
         self.ppx.goutdetail.flaring = False
         self.ppx.goutdetail.on_ult = True
         self.ppx.goutdetail.save()
@@ -235,9 +218,8 @@ class TestPpxDecisionAidMethods(TestCase):
         """Test that get_indication returns CONDITIONAL when the patient is on but not
         starting ULT and is flaring but not hyperuricemic."""
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
-
         self.ppx.goutdetail.at_goal = False
+        self.ppx.goutdetail.at_goal_long_term = False
         self.ppx.goutdetail.flaring = True
         self.ppx.goutdetail.on_ult = True
         self.ppx.goutdetail.save()
@@ -249,8 +231,6 @@ class TestPpxDecisionAidMethods(TestCase):
         """Test that get_indication returns CONDITIONAL when the patient is on but not
         starting ULT and is flaring and hyperuricemic."""
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
-
         self.ppx.goutdetail.at_goal = True
         self.ppx.goutdetail.flaring = True
         self.ppx.goutdetail.on_ult = True
@@ -264,9 +244,8 @@ class TestPpxDecisionAidMethods(TestCase):
         starting ULT and the most recent Urate is high, the hyperuricemic is None, and
         flaring is None."""
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
-
-        self.ppx.goutdetail.at_goal = None
+        self.ppx.goutdetail.at_goal = False
+        self.ppx.goutdetail.at_goal_long_term = False
         self.ppx.goutdetail.flaring = None
         self.ppx.goutdetail.on_ult = True
         self.ppx.goutdetail.save()
@@ -283,7 +262,6 @@ class TestPpxDecisionAidMethods(TestCase):
         self.assertEqual(self.ppx.indication, Indications.NOTINDICATED)
 
         self.ppx.goutdetail.starting_ult = False
-        self.ppx.goutdetail.save()
         self.ppx.goutdetail.on_ult = True
         self.ppx.goutdetail.flaring = True
         self.ppx.goutdetail.save()

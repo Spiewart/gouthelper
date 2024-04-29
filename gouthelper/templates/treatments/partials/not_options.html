@@ -1,9 +1,16 @@
 {% load project_tags %}
 
+<hr size="3" color="dark" />
 <div id="not_options">
-  <hr size="3" color="dark" />
-  <h3>
-    <u>Not Recommended</u>
-  </h3>
+  <div class="row">
+    <div class="col">
+      <h2>
+        <u>Not Recommended</u>
+      </h2>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      <a href="#top"><small>Back to top</small></a>
+    </div>
+  </div>
   {% include "treatments/partials/accordion.html" with options=object.not_options_label_list parent="NotOptions" accordion_body="treatments/partials/contraindications.html" %}
 </div>

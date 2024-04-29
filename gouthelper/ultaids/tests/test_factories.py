@@ -154,8 +154,6 @@ class TestUltAidDataFactory(TestCase):
             for mh in ULTAID_MEDHISTORYS:
                 self.assertIn(f"{mh}-value", data)
                 if mh not in [MedHistoryTypes.CKD, MedHistoryTypes.CAD]:
-                    print(mh)
-                    print(self.bool_mhs)
                     self.assertEqual(
                         data[f"{mh}-value"],
                         True if getattr(self.user_with_ultaid, mh.lower()) else False if mh in self.bool_mhs else "",

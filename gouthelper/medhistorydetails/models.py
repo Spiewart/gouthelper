@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, Union
+
 from django.db import models  # type: ignore
 from django.db.models.fields import BooleanField, IntegerField  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
@@ -7,9 +9,16 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
+from ..goalurates.choices import GoalUrates
+from ..labs.helpers import labs_urates_six_months_at_goal
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
+
+if TYPE_CHECKING:
+    from django.db.models.query import QuerySet
+
+    from ..labs.models import Urate
 
 
 class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -118,6 +127,26 @@ class GoutDetail(MedHistoryDetail):
     """Describes whether a Patient with a history of gout is actively
     flaring or hyperuricemic (defined as in the past 6 months)."""
 
+    class Meta(MedHistoryDetail.Meta):
+        constraints = [
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_at_goal_valid",
+                check=(
+                    models.Q(
+                        at_goal=False,
+                        at_goal_long_term=False,
+                    )
+                    | models.Q(
+                        at_goal=True,
+                    )
+                    | models.Q(
+                        at_goal__isnull=True,
+                        at_goal_long_term=False,
+                    )
+                ),
+            ),
+        ]
+
     at_goal = BooleanField(
         choices=BOOL_CHOICES,
         help_text="Is the patient at goal uric acid level? Goal is typically < 6.0 mg/dL.",
@@ -147,15 +176,52 @@ Goal is typically < 6.0 mg/dL.",
     on_ult = BooleanField(
         _("On ULT?"),
         choices=BOOL_CHOICES,
-        help_text="Is the patient on ULT (urate-lowering therapy)?",
+        help_text="Is the patient on or starting ULT (urate-lowering therapy)?",
         default=False,
     )
     starting_ult = models.BooleanField(
         _("Starting Urate-Lowering Therapy (ULT)"),
         choices=BOOL_CHOICES,
         default=False,
-        help_text="Is the patient starting ULT?",
+        help_text="Is the patient starting ULT or is he or she still in the initial \
+dose adjustment (titration) phase?",
     )
+
+    def at_goal_needs_update(
+        self,
+        most_recent_urate: "Urate",
+        goal_urate: GoalUrates = GoalUrates.SIX,
+    ) -> bool:
+        """Returns True if the at_goal field needs updating."""
+        return self.at_goal != (most_recent_urate.value <= goal_urate)
+
+    def at_goal_long_term_needs_update(
+        self,
+        urates: Union["QuerySet[Urate]", list["Urate"]],
+        goal_urate: GoalUrates = GoalUrates.SIX,
+    ) -> bool:
+        """Returns True if the at_goal_long_term field needs updating."""
+        return self.at_goal_long_term != labs_urates_six_months_at_goal(urates, goal_urate)
+
+    def update_at_goal(
+        self,
+        at_goal: bool,
+        commit: bool = False,
+    ) -> None:
+        """Updates the at_goal field based on the arg."""
+        self.at_goal = at_goal
+        if commit:
+            self.save()
+
+    def update_at_goal_long_term(
+        self,
+        at_goal_long_term: bool,
+        commit: bool = False,
+    ) -> None:
+        """Updates the at_goal_long_term field based on the arg."""
+        self.at_goal_long_term = at_goal_long_term
+        if commit:
+            self.save()
 
     @classmethod
     def medhistorytype(cls):

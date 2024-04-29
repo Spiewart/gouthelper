@@ -1,0 +1,14 @@
+<script>
+  $(document).ready(function() {
+    // call starting_ult_help_text() to set the help text for the starting_ult field
+    $('#id_on_ult').change(function() {
+      starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Tobe = '{{str_attrs.Tobe}}');
+    });
+    starting_ult_help_text(subject_the = '{{str_attrs.subject_the}}', Tobe = '{{str_attrs.Tobe}}');
+    // call at_goal_checker() to show/hide the at_goal_long_term field
+    $('#id_at_goal').change(function() {
+      at_goal_checker();
+    });
+    at_goal_checker();
+  });
+</script>

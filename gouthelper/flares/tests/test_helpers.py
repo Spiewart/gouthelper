@@ -378,8 +378,6 @@ class TestFlareHelpers(TestCase):
             crystal_analysis=self.flare.crystal_analysis,
             ckd=None,
         )
-        print(self.flare.menopause)
-        print(self.flare.ckd)
         self.assertIn(LessLikelys.FEMALE, less_likelys)
         delattr(self.flare, "menopause")
         less_likelys = flares_get_less_likelys(
@@ -392,8 +390,6 @@ class TestFlareHelpers(TestCase):
             crystal_analysis=self.flare.crystal_analysis,
             ckd=self.flare.ckd,
         )
-        print(self.flare.menopause)
-        print(self.flare.ckd)
         self.assertNotIn(LessLikelys.FEMALE, less_likelys)
 
     def test__flares_get_less_likelys_too_young(self):

@@ -80,7 +80,7 @@
 {% block inline_javascript %}
   {{ block.super }}
   {% with dob_optional=True gender_optional=True %}
-    {% include 'medhistorys/_ckd_js.html' with optional=True %}
+    {% include 'medhistorydetails/_ckddetail_js.html' with optional=True %}
   {% endwith %}
   <script>
     $(document).ready(function() {

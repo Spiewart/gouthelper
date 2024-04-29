@@ -109,15 +109,11 @@ class TestGoutDetailForm(TestCase):
             self.form.fields["flaring"].help_text,
         )
         self.assertFalse(self.form.fields["flaring"].required)
-        # Test hyperuricemic
-        self.assertIsNone(self.form.fields["hyperuricemic"].initial)
-        self.assertEqual(
-            self.form.fields["hyperuricemic"].help_text,
-            format_lazy(
-                """Has the patient had a <a href="{}" target="_blank">uric acid</a> greater \
-than 6.0 mg/dL in the past 6 months?""",
-                reverse_lazy("labs:about-urate"),
-            ),
+
+        self.assertIsNone(self.form.fields["at_goal"].initial)
+        self.assertIn(
+            "Is the patient at goal",
+            self.form.fields["at_goal"].help_text,
         )
         # Test on_ppx
         self.assertIsNone(self.form.fields["on_ppx"].initial)

@@ -337,7 +337,7 @@ class DataMixin:
         req_otos: list[str] = None,
         user_otos: list[str] = None,
         user: User = None,
-        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] = None,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", None] = None,
     ):
         """Method to set class attributes. Anything that is required (*req) should not have data."""
         self.user = user if user else aid_obj.user if aid_obj else None
@@ -545,7 +545,7 @@ class LabDataMixin(DataMixin):
                     num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
                 else:
                     num_new_labs = 0
-            else:
+            elif self.labs is None:
                 num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
 
             data.update(

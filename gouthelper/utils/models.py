@@ -12,7 +12,14 @@ from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ..goalurates.choices import GoalUrates
-from ..labs.helpers import labs_urates_months_at_goal
+from ..goalurates.helpers import goalurates_get_object_goal_urate
+from ..labs.helpers import (
+    labs_urate_is_newer_than_goutdetail_set_date,
+    labs_urate_within_90_days,
+    labs_urate_within_last_month,
+    labs_urates_at_goal,
+    labs_urates_six_months_at_goal,
+)
 from ..labs.selectors import urates_dated_qs
 from ..medallergys.helpers import medallergy_attr
 from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
@@ -37,7 +44,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
     from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
-    from ..labs.models import BaselineCreatinine
+    from ..labs.models import BaselineCreatinine, Urate
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
@@ -294,29 +301,20 @@ so""",
         return mark_safe(main_str)
 
     @cached_property
+    def at_goal(self) -> bool:
+        return self.goutdetail.at_goal
+
+    @cached_property
     def at_goal_long_term(self) -> bool:
         """Method that interprets the Ppx's labs (Urates) and returns a bool
         indicating whether the patient is at goal."""
-        if hasattr(self, "urates_qs"):
-            return labs_urates_months_at_goal(
-                urates=self.urates_qs,
-                goutdetail=self.goutdetail if self.goutdetail else None,
-                goal_urate=self.goalurate,
-                commit=False,
-            )
-        else:
-            return labs_urates_months_at_goal(
-                urates=self.get_dated_urates(),
-                goutdetail=self.goutdetail if self.goutdetail else None,  # pylint: disable=W0125
-                goal_urate=self.goalurate,
-                commit=False,
-            )
+        return self.goutdetail.at_goal_long_term
 
     @property
     def at_goal_long_term_detail(self) -> str:
         """Returns a str detailing the patient's long-term uric acid goal status."""
         Subject_the, tobe, pos = self.get_str_attrs("Subject_the", "tobe", "pos")
-        if self.hyperuricemic is not None and self.hyperuricemic is False:
+        if self.at_goal is True:
             return mark_safe(
                 format_lazy(
                     """{} {} at goal uric acid ({}), {} for six months or longer.""",
@@ -373,6 +371,11 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         else:
             main_str += f" this isn't an issue for {gender_ref}."
         return mark_safe(main_str)
+
+    @cached_property
+    def belongs_to_patient(self) -> bool:
+        """Method that returns a bool indicating whether the object belongs to a patient."""
+        return getattr(self, "user", False)
 
     @cached_property
     def cad(self) -> Union["MedHistory", bool]:
@@ -930,9 +933,7 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
             hlab5801=self.hlab5801,
             ethnicity=self.ethnicity,
             ultaidsettings=(
-                self.defaulttrtsettings
-                if not isinstance(self, GoutHelperPatientModel)
-                else self.defaulttrtsettings(trttype=TrtTypes.ULT)
+                self.defaulttrtsettings if not self.is_patient else self.defaulttrtsettings(trttype=TrtTypes.ULT)
             ),
         )
 
@@ -989,7 +990,7 @@ starting allopurinol.""",
     @cached_property
     def hyperuricemic(self) -> bool | None:
         """Returns boolean indicating whether the patient is currently hyperuricemic."""
-        return self.goutdetail.hyperuricemic
+        return self.goutdetail.at_goal is False
 
     @property
     def hyperuricemic_detail(self) -> str:
@@ -1010,13 +1011,9 @@ greater than {} <a href={}>goal urate</a>: {}.
                     (
                         reverse(
                             "goalurates:pseudopatient-detail",
-                            kwargs={
-                                "username": (
-                                    self.username if isinstance(self, GoutHelperPatientModel) else self.user.username
-                                )
-                            },
+                            kwargs={"username": (self.username if self.is_patient else self.user.username)},
                         )
-                        if isinstance(self, GoutHelperPatientModel) or getattr(self, "user", False)
+                        if self.is_patient or self.belongs_to_patient
                         else (
                             reverse("goalurates:detail", kwargs={"pk": self.goalurate.pk})
                             if self.has_goalurate
@@ -1084,6 +1081,11 @@ contraindication to NSAIDs from this perspective."
     @cached_property
     def indomethacin_info_dict(self) -> str:
         return self.nsaids_info_dict
+
+    @cached_property
+    def is_patient(self) -> bool:
+        """Method that returns True if the object is a Patient object and False if not."""
+        return isinstance(self, GoutHelperPatientModel)
 
     @cached_property
     def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
@@ -1504,7 +1506,7 @@ and as such shouldn't be prescribed probenecid."
     @cached_property
     def starting_ult(self) -> bool | None:
         """Method that returns whether the patient is currently starting ult."""
-        return self.ppx.goutdetail.starting_ult
+        return self.goutdetail.starting_ult
 
     @property
     def starting_ult_detail(self) -> str:
@@ -1615,6 +1617,79 @@ aggressively with ULT."
         else:
             main_str += f" <strong>{Subject_the} does not have tophi.</strong>"
         return mark_safe(main_str)
+
+    @cached_property
+    def all_urates(self) -> list["Urate"]:
+        """Returns a list of all Urate objects associated with the object."""
+        return self.get_urates()
+
+    @cached_property
+    def most_recent_urate(self) -> "Urate":
+        """Method that returns the most recent Urate object from self.urates_qs or
+        or self.urates.all()."""
+        return self.all_urates.first() if isinstance(self.all_urates, QuerySet) else self.all_urates[0]
+
+    def get_urates(self) -> list["Urate"]:
+        """Method that returns a list of Urate objects from self.urates_qs or
+        or self.urates.all()."""
+        try:
+            return self.urates_qs
+        except AttributeError:
+            return (
+                urates_dated_qs().filter(user=self)
+                if self.is_patient
+                else urates_dated_qs().filter(user=self.user)
+                if self.belongs_to_patient
+                else urates_dated_qs().filter(**{f"{self._meta.model_name.lower()}": self})
+            )
+
+    @cached_property
+    def goal_urate(self) -> GoalUrates:
+        """Returns the object's GoalUrate.goal_urate attribute if object has a GoalUrate otherwise
+        returns the GoutHelper default GoalUrates.SIX."""
+        return goalurates_get_object_goal_urate(self)
+
+    @cached_property
+    def urates_at_goal(
+        self,
+    ) -> bool:
+        """Returns True if the object's most recent Urate object is at goal."""
+        return labs_urates_at_goal(self.all_urates, self.goal_urate)
+
+    @cached_property
+    def urates_at_goal_within_last_month(self) -> bool:
+        return self.urates_at_goal and self.urate_within_last_month
+
+    @cached_property
+    def urates_not_at_goal_within_last_month(self) -> bool:
+        return not self.urates_at_goal and self.urate_within_last_month
+
+    @cached_property
+    def urates_at_goal_long_term(self) -> bool:
+        """Returns True if the object has had urates at goal for at least 6 months."""
+        return labs_urates_six_months_at_goal(self.all_urates, self.goal_urate)
+
+    @cached_property
+    def urates_at_goal_long_term_within_last_month(self) -> bool:
+        """Returns True if the object has had urates at goal for at least 6 months and had a
+        uric acid within the last month."""
+        return self.urates_at_goal_long_term and self.urate_within_last_month
+
+    @cached_property
+    def urates_most_recent_newer_than_gout_set_date(self) -> bool:
+        """Returns True if the object's most recent Urate object is newer than the object's
+        Gout MedHistory set_date."""
+        return labs_urate_is_newer_than_goutdetail_set_date(self.most_recent_urate, self.goutdetail)
+
+    @cached_property
+    def urate_within_last_month(self) -> bool:
+        """Returns True if the object has a Urate object within the last month."""
+        return labs_urate_within_last_month(self.all_urates)
+
+    @cached_property
+    def urate_within_90_days(self) -> bool:
+        """Returns True if the object has a Urate object within the last 3 months."""
+        return labs_urate_within_90_days(self.all_urates)
 
     @cached_property
     def uratestones(self) -> Union["MedHistory", bool]:

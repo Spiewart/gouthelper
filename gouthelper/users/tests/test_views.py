@@ -42,6 +42,7 @@ from ..views import (
     user_detail_view,
 )
 from .factories import UserFactory, create_psp
+from .factories_data import pseudopatient_form_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -105,8 +106,10 @@ class TestPseudoPatientCreateView(TestCase):
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
             "at_goal": True,
+            "at_goal_long_term": False,
             "on_ppx": False,
-            "on_ult": False,
+            "on_ult": True,
+            "starting_ult": False,
         }
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
@@ -166,8 +169,10 @@ menopause status to evaluate their flare."
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
             "at_goal": True,
+            "at_goal_long_term": False,
             "on_ppx": False,
             "on_ult": False,
+            "starting_ult": False,
         }
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
@@ -211,8 +216,10 @@ menopause status to evaluate their flare."
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
             "at_goal": True,
+            "at_goal_long_term": True,
             "on_ppx": False,
-            "on_ult": False,
+            "on_ult": True,
+            "starting_ult": True,
         }
         response = self.client.post(
             reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
@@ -300,7 +307,10 @@ menopause status to evaluate their flare."
         """
         view = PseudopatientCreateView
         kwargs = {"username": self.admin.username}
-        request = self.rf.post(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
+        request = self.rf.post(
+            reverse("users:provider-pseudopatient-create", kwargs=kwargs),
+            data=pseudopatient_form_data_factory(),
+        )
         request.user = self.admin
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
@@ -642,6 +652,7 @@ class TestPseudopatientUpdateView(TestCase):
         psp = create_psp()
         psp.goutdetail.flaring = False
         psp.goutdetail.at_goal = False
+        psp.goutdetail.at_goal_long_term = False
         psp.goutdetail.on_ppx = True
         psp.goutdetail.on_ult = True
         psp.goutdetail.save()
@@ -656,8 +667,10 @@ class TestPseudopatientUpdateView(TestCase):
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
             "at_goal": True,
+            "at_goal_long_term": False,
             "on_ppx": False,
             "on_ult": False,
+            "starting_ult": False,
         }
         # Test that the view returns a ValidationError when the user is a woman aged 40-60
         # and the menopause form is not filled out
