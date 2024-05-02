@@ -7,6 +7,7 @@ from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 from ...genders.models import Gender
 from ...labs.helpers import labs_baselinecreatinine_calculator, labs_eGFR_calculator, labs_stage_calculator
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from ...genders.choices import Genders
     from ...goalurates.models import GoalUrate
     from ...labs.models import BaselineCreatinine
-    from ...medhistorydetails.models import CkdDetail, GoutDetail
+    from ...medhistorydetails.models import CkdDetail
     from ...ppxaids.models import PpxAid
     from ...ppxs.models import Ppx
     from ...ultaids.models import UltAid
@@ -216,8 +217,11 @@ def make_goutdetail_data(**kwargs) -> dict:
     stub = GoutDetailFactory.stub()
     fields = [attr for attr in dir(stub) if not attr.startswith("_") and not attr == "medhistory"]
     for field in fields:
-        attr_kwarg = kwargs.get(field, None) if kwargs else None
-        data.update({field: attr_kwarg if attr_kwarg else getattr(stub, field)})
+        if not GoutDetail._meta.get_field(field).null:
+            attr_kwarg = kwargs.get(field, None) if kwargs else None
+            data.update({field: attr_kwarg if attr_kwarg is not None else getattr(stub, field)})
+        elif field in kwargs:
+            data.update({field: kwargs[field]})
     return data
 
 
@@ -430,4 +434,5 @@ def update_or_create_goutdetail_data(
             else:
                 data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
         else:
+            print(f"update_or_create_goutdetail_data mh_dets = {mh_dets}")
             data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))

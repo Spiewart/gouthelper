@@ -128,18 +128,20 @@ class UltAid(
     def aid_treatments(cls) -> list[Treatments]:
         return UltChoices.values
 
-    @cached_property
+    @property
     def ckd_interp(self) -> str:
         ckd_str = super().ckd_interp
 
         (subject_the, gender_subject) = self.get_str_attrs("subject_the", "gender_subject")
 
-        ckd_str += format_lazy(
-            """<br> <br> <a target='_next' href={}>Allopurinol</a> and <a target='_next' href={}>febuxostat</a> are \
-are filtered out of the body by the kidney. Individuals with advanced chronic kidney disease should have a lower \
+        ckd_str += str(
+            format_lazy(
+                """<br> <br> <a target='_next' href={}>Allopurinol</a> and <a target='_next' href={}>febuxostat</a> \
+are are filtered out of the body by the kidney. Individuals with advanced chronic kidney disease should have a lower \
 initial dose and smaller dose increases than individuals with normal kidney function.""",
-            reverse("treatments:about-ult") + "#allopurinol",
-            reverse("treatments:about-ult") + "#febuxostat",
+                reverse("treatments:about-ult") + "#allopurinol",
+                reverse("treatments:about-ult") + "#febuxostat",
+            )
         )
         if self.xoi_ckd_dose_reduction:
             ckd_str += f" Because {subject_the} has {self.ckddetail.explanation if self.ckddetail else 'CKD'}, \
@@ -237,12 +239,14 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
     def erosions_interp(self) -> str:
         subject_the, pos, gender_subject = self.get_str_attrs("subject_the", "pos", "gender_subject")
         erosions_interp_str = super().erosions_interp
-        erosions_interp_str += format_lazy(
-            """<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions \
+        erosions_interp_str += str(
+            format_lazy(
+                """<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions \
 are a sign of advanced gout and more severe disease. While they don't influence choice of \
 ULT, they necessitate aggressive gout treatment by lowering the <a target='_next' \
 href={}>goal uric acid</a>.""",
-            reverse("goalurates:about"),
+                reverse("goalurates:about"),
+            )
         )
         if self.erosions:
             erosions_interp_str += f" <strong>Because {subject_the} {pos} gouty erosions, \

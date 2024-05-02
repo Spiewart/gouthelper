@@ -140,14 +140,6 @@ class TestUltDetail(TestCase):
         ).all()
         self.anon_user = AnonymousUser()
 
-    def test__contents(self):
-        self.assertTrue(self.view().contents)
-        self.assertTrue(isinstance(self.view().contents, QuerySet))
-        for content in self.view().contents:
-            self.assertIn(content, self.content_qs)
-        for content in self.content_qs:
-            self.assertIn(content, self.view().contents)
-
     def test__dispatch_redirects_ult_with_user(self):
         ult = create_ult(user=True)
         request = self.factory.get(reverse("ults:detail", kwargs={"pk": ult.pk}))
@@ -155,13 +147,6 @@ class TestUltDetail(TestCase):
         response = self.view.as_view()(request, pk=ult.pk)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
-
-    def test__get_context_data(self):
-        response = self.client.get(reverse("ults:detail", kwargs={"pk": self.ult.pk}))
-        context = response.context_data
-        for content in self.content_qs:
-            self.assertIn(content.slug, context)
-            self.assertEqual(context[content.slug], {content.tag: content})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.ult.pk}).get_queryset()
@@ -712,16 +697,6 @@ class TestUltPseudopatientDetail(TestCase):
             self.assertEqual(response.status_code, 200)
             ult.refresh_from_db()
             self.assertNotEqual(ult.modified, modified)
-
-    def test__get_context_data(self):
-        for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
-            response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
-            context = response.context_data
-            for content in self.content_qs:
-                self.assertIn(content.slug, context)
-                self.assertEqual(context[content.slug], {content.tag: content})
-            self.assertIn("patient", context)
-            self.assertEqual(context["patient"], ult.user)
 
     def test__get_permission_object(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):

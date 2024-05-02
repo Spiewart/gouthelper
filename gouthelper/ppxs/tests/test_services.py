@@ -189,8 +189,7 @@ class TestPpxDecisionAidMethods(TestCase):
         starting ULT and is hyperuricemic but not flaring."""
         self.ppx.goutdetail.starting_ult = False
         self.ppx.goutdetail.at_goal = False
-        self.ppx.goutdetail.flaring = False
-        self.ppx.goutdetail.on_ult = True
+        self.ppx.goutdetail.at_goal_long_term = False
         self.ppx.goutdetail.save()
 
         aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))

@@ -374,19 +374,18 @@ class TestFlareHelpers(TestCase):
             duration=self.flare.duration,
             gender=self.flare.gender,
             joints=self.flare.joints,
-            menopause=self.flare.menopause,
+            menopause=None,
             crystal_analysis=self.flare.crystal_analysis,
             ckd=None,
         )
         self.assertIn(LessLikelys.FEMALE, less_likelys)
-        delattr(self.flare, "menopause")
         less_likelys = flares_get_less_likelys(
             age=age_calc(self.flare.dateofbirth.value),
             date_ended=None,
             duration=self.flare.duration,
             gender=self.flare.gender,
             joints=self.flare.joints,
-            menopause=self.flare.menopause,
+            menopause=True,
             crystal_analysis=self.flare.crystal_analysis,
             ckd=self.flare.ckd,
         )

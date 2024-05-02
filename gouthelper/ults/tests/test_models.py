@@ -181,8 +181,8 @@ class TestUlt(TestCase):
                 self.assertFalse(ult.noflares)
 
     def test___str__(self):
-        self.assertEqual(str(self.ult_without_user), f"Ult: created {self.ult_without_user.created.date()}")
-        self.assertEqual(str(self.ult_with_user), f"{self.ult_with_user.user.username.capitalize()}'s Ult")
+        self.assertEqual(str(self.ult_without_user), f"Ult: {self.ult_without_user.get_indication_display()}")
+        self.assertEqual(str(self.ult_with_user), f"Ult: {self.ult_with_user.get_indication_display()}")
 
     def test__strong_indication(self):
         for ult in self.ults:

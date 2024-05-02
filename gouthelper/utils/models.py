@@ -407,7 +407,7 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.CKD, self, ["ckddetail", "baselinecreatinine"])
 
-    @cached_property
+    @property
     def ckd_interp(self) -> str:
         """Method that interprets the ckd attribute and returns a str explanation
         of the impact of it on a patient's gout."""
@@ -1803,19 +1803,24 @@ class FlarePpxMixin(GoutHelperBaseModel):
 
         (subject_the,) = self.get_str_attrs("subject_the")
 
-        ckd_str += format_lazy(
-            """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) are associated \
-with acute kidney injury and chronic kidney disease and thus are not recommended for patients with CKD.""",
-            reverse("treatments:about-flare") + "#nsaids",
+        ckd_str += str(
+            format_lazy(
+                """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) \
+are associated with acute kidney injury and chronic kidney disease and thus are not recommended for patients \
+with CKD.""",
+                reverse("treatments:about-flare") + "#nsaids",
+            )
         )
         if self.ckd:
             ckd_str += f" Therefore, NSAIDs are not recommended for {subject_the}."
 
-        ckd_str += format_lazy(
-            """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and should be \
-used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage 4 or 5, or is \
-on dialysis, colchicine should be avoided.""",
-            reverse("treatments:about-flare") + "#colchicine",
+        ckd_str += str(
+            format_lazy(
+                """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and \
+should be used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage \
+4 or 5, or is on dialysis, colchicine should be avoided.""",
+                reverse("treatments:about-flare") + "#colchicine",
+            )
         )
         if self.ckd:
             if self.colchicine_ckd_contra:

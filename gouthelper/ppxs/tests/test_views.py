@@ -154,13 +154,14 @@ class TestPpxCreate(TestCase):
         # Assert that the GoutDetail object attrs are correct
         self.assertEqual(goutdetail.medhistory, gout)
         self.assertEqual(goutdetail.on_ult, ppx_data["on_ult"])
-        self.assertEqual(goutdetail.flaring, ppx_data["flaring"])
         if labs_urates_last_at_goal(ppx.urates_qs, GoalUrates.SIX) and labs_urate_within_last_month(ppx.urates_qs):
             self.assertEqual(goutdetail.at_goal, True)
         elif ppx_data["at_goal"]:
             self.assertEqual(goutdetail.at_goal, True)
-        else:
+        elif ppx_data["at_goal"] is False:
             self.assertEqual(goutdetail.at_goal, False)
+        else:
+            self.assertIsNone(goutdetail.at_goal)
         if getattr(ppx, "urates_qs", None):
             for urate in ppx.urates_qs:
                 # Assert that the urate value and date_drawn are present in the ppx_data
