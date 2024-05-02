@@ -3,10 +3,7 @@ from typing import TYPE_CHECKING, Union
 from django.apps import apps  # type: ignore
 from django.contrib.auth import get_user_model
 from django.db.models.query import QuerySet
-from django.utils.functional import cached_property  # type: ignore
 
-from ..goalurates.choices import GoalUrates
-from ..goalurates.helpers import goalurates_get_object_goal_urate
 from ..labs.helpers import labs_urate_within_90_days, labs_urate_within_last_month
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
@@ -53,18 +50,6 @@ class PpxDecisionAid(AidService):
         if not self.goutdetail:
             raise TypeError("No GoutDetail associated with Ppx.gout.")
 
-    @cached_property
-    def goalurate(self) -> "GoalUrates":
-        """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
-        returns the GoutHelper default GoalUrates.SIX enum object"""
-        return goalurates_get_object_goal_urate(self.user if self.user else GoalUrates.SIX)
-
-    @property
-    def flaring(self) -> bool:
-        """Returns True the Gout MedHistory flaring attr is True,
-        False if not or there is no Gout."""
-        return self.goutdetail.flaring
-
     def _get_indication(self) -> Indications:
         """Determines the indication for the Ppx object.
 
@@ -98,12 +83,6 @@ class PpxDecisionAid(AidService):
         else:
             return Indications.NOTINDICATED
 
-    @property
-    def hyperuricemic(self) -> bool | None:
-        """Returns True if the Gout MedHistory hyperuricemic attr is True,
-        False if not or there is no Gout."""
-        return self.goutdetail.at_goal
-
     def _update(self, commit=True) -> "Ppx":
         """Updates Ppx indication fields.
 
@@ -113,10 +92,20 @@ class PpxDecisionAid(AidService):
         Returns:
             ppx: Ppx object
         """
-        # Check and update the at_goal and at_goal_long_term fields
-        if self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month:
+
+        def _goutdetail_at_goal_needs_update() -> bool:
+            return self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month
+
+        def _goutdetail_at_goal_long_term_needs_update() -> bool:
+            return (
+                self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month
+            )
+
+        # Check and update the at_goal and at_goal_long_term fields in the GoutDetail
+        if _goutdetail_at_goal_needs_update() or _goutdetail_at_goal_long_term_needs_update():
             self.model_attr.goutdetail.update_at_goal(at_goal=self.at_goal)
-        if self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month:
             self.model_attr.goutdetail.update_at_goal_long_term(at_goal_long_term=self.at_goal_long_term)
+            self.model_attr.goutdetail.full_clean()
+            self.model_attr.goutdetail.save()
         self.model_attr.indication = self._get_indication()
         return super()._update(commit=commit)

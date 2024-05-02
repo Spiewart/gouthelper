@@ -42,6 +42,7 @@
               action="{% url 'ppxaids:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -50,6 +51,7 @@
               action="{% url 'ppxaids:update' form.instance.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
@@ -60,16 +62,29 @@
               action="{% url 'ppxaids:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'ppxaids:create' %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if view.related_object %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ppxaids:ppx-create' view.related_object.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ppxaids:create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% endif %}
     {% endif %}
   </main>

@@ -5,7 +5,6 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
-from ...goalurates.choices import GoalUrates
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...ppxs.models import Ppx
@@ -77,23 +76,6 @@ class TestPpxDecisionAidMethods(TestCase):
         with self.assertRaises(TypeError) as error:
             PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
         self.assertEqual(str(error.exception), "No Gout MedHistory in Ppx.medhistorys.")
-
-    def test__goal_urate(self):
-        """Test that the goal_urate property returns the correct value."""
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertEqual(aid.goalurate, GoalUrates.SIX)
-
-    def test__flaring(self):
-        """Test that all the flaring property outcomes return the correct value."""
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertEqual(aid.flaring, self.ppx.flaring)
-
-        self.ppx.goutdetail.flaring = True
-        self.ppx.goutdetail.save()
-        del self.ppx.flaring  # Delete the cached property
-
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertTrue(aid.flaring)
 
     def test__at_goal(self):
         """Test that all the at_goal property outcomes return the correct value."""

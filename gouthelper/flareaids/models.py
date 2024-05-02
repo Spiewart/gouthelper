@@ -187,9 +187,6 @@ treatment is typically very short and the risk of bleeding is low."
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
-    def has_related_object(self) -> bool:
-        return self.flare is not None
-
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
         """Returns {dict} of FlareAid's Flare Treatment recommendation {treatment: dosing}."""
@@ -224,12 +221,12 @@ treatment is typically very short and the risk of bleeding is low."
                         except KeyError:
                             return None
 
-    def related_aid(self) -> Union["Flare", None]:
+    def related_flare(self) -> Union["Flare", None]:
         return getattr(self, "flare", None)
 
     def optional_treatment(self, flare: Union["Flare", None] = None) -> tuple[str, dict] | None:
         """Returns a dictionary of the dosing for a given treatment."""
-        return self.get_flare_optional_treatments(flare if flare else self.related_aid())
+        return self.get_flare_optional_treatments(flare if flare else self.related_flare())
 
     @classmethod
     def trttype(cls) -> str:

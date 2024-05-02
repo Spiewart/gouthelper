@@ -14,6 +14,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import ErosionsForm, TophiForm
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
+from ...ppxs.tests.factories import create_ppx
 from ...ultaids.tests.factories import create_ultaid
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
@@ -178,6 +179,23 @@ class TestGoalUrateCreate(TestCase):
         self.assertIn("form", response.context)
         self.assertTrue(response.context[f"{MedHistoryTypes.EROSIONS}_form"].errors)
         self.assertTrue(response.context[f"{MedHistoryTypes.TOPHI}_form"].errors)
+
+    def test__post_creates_goalurate_with_ppx(self):
+        """Test that the post() method with a ppx url parameter creates a GoalUrate
+        with the correct Ppx."""
+        ppx = create_ppx()
+        data = {
+            f"{MedHistoryTypes.EROSIONS}-value": True,
+            f"{MedHistoryTypes.TOPHI}-value": True,
+        }
+        response = self.client.post(reverse("goalurates:ppx-create", kwargs={"ppx": ppx.id}), data=data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        goal_urate = GoalUrate.objects.order_by("created").last()
+        self.assertTrue(goal_urate.ppx)
+        self.assertEqual(goal_urate.ppx, ppx)
+        ppx.refresh_from_db()
+        self.assertEqual(ppx.goalurate, goal_urate)
 
 
 class TestGoalUrateDetail(TestCase):

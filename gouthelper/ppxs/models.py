@@ -55,7 +55,8 @@ class Ppx(
         constraints = [
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_xor_ppxaid",
-                check=models.Q(user__isnull=False, ppxaid__isnull=True) | models.Q(user__isnull=True),
+                check=models.Q(user__isnull=False, goalurate__isnull=True, ppxaid__isnull=True)
+                | models.Q(user__isnull=True),
             ),
             models.CheckConstraint(
                 check=models.Q(indication__gte=0) & models.Q(indication__lte=2),
@@ -63,6 +64,12 @@ class Ppx(
             ),
         ]
 
+    goalurate = models.OneToOneField(
+        "goalurates.GoalUrate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     indication = models.IntegerField(
         _("Indication"),
         validators=[MinValueValidator(0), MaxValueValidator(2)],
@@ -103,7 +110,7 @@ class Ppx(
         """Method that returns an explanation of the PPx's at_goal_long_term status."""
         (Subject_the, pos) = self.get_str_attrs("Subject_the", "pos")
         at_goal_str = format_lazy(
-            """<strong>{} {} been at goal uric acid for six months or longer</strong>. \
+            """<strong>{} {} {}been at goal uric acid for six months or longer</strong>. \
 For patients who are on flare prophylaxis, prophylaxis is continued until they \
 are <a target='_next' href={}>at goal</a> uric acid for 3-6 months, per ACR guidelines. GoutHelper \
 defaults to six months.
@@ -238,7 +245,7 @@ has been at goal uric acid for six months or longer.""",
         if not self.on_ppx:
             raise ValueError("Calling continue_prophylaxis_recommendation on a Ppx that is not on prophylaxis.")
         else:
-            Subject_the_pos = self.get_str_attrs("Subject_the_pos")
+            (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
             return {
                 "Continue Prophylaxis": f"{Subject_the_pos} uric acid \
 {'was at goal the last time it was checked, however it ' if not self.at_goal_long_term else ''}has \
@@ -250,7 +257,7 @@ Continued flare prophylaxis is recommended."
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Returns a list of tuples containing information to display explanations in the PpxDetail template."""
         return [
-            ("at_goal", "At Goal", not self.at_goal_long_term, self.at_goal_long_term_interp),
+            ("at_goal", "At Goal Six Months or Longer", self.at_goal_long_term, self.at_goal_long_term_interp),
             ("flaring", "Flaring", self.flaring, self.flaring_interp),
             ("gout", "Gout", self.gout, self.gout_interp),
             ("hyperuricemic", "Hyperuricemic", not self.at_goal, self.at_goal_interp),
@@ -276,7 +283,7 @@ Continued flare prophylaxis is recommended."
         return urates_dated_qs().filter(**kwargs)
 
     @cached_property
-    def goalurate(self) -> "GoalUrates":
+    def goal_urate(self) -> "GoalUrates":
         """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
         return goalurates_get_object_goal_urate(self)
@@ -306,7 +313,7 @@ This should be clarified prior to thinking about flare prophylaxis.</strong>"
 GoutHelper does use them in cases where a patient has been on urate-lowering therapy (ULT) long-term and \
 is hyperuricemic, putting him or her at risk of gout flares. In these cases, if the patient is having gout \
 flares, it suggests that he or she would benefit from flare prophylaxis while his or her ULT is being \
-adjusted. This is{' ' if self.on_ult and not self.starting_ult and self.flaring else 'not '} the case \
+adjusted. This is {'' if self.on_ult and not self.starting_ult and self.flaring else 'not '} the case \
 for {subject_the}."
         )
 
@@ -700,7 +707,7 @@ until {} has been at goal uric acid ({} or lower) for 6 months.""",
     def starting_ult_interp(self) -> str:
         """Returns HTML-formatted str explaining the starting_ult field for the Ppx."""
         Subject_the, tobe, tobe_neg = self.get_str_attrs("Subject_the", "tobe", "tobe_neg")
-        starting_ult_str = f"<strong>{Subject_the} {tobe if self.starting_ult else tobe_neg}\
+        starting_ult_str = f"<strong>{Subject_the} {tobe if self.starting_ult else tobe_neg} \
 starting urate-lowering therapy (ULT)</strong>. This {'is' if self.starting_ult else 'would be'} \
 the primary indication for flare prophylaxis per ACR guidelines. The risk of gout flares is \
 actually higher during the in initiation phase of ULT before the treatments have eliminated \
@@ -794,15 +801,15 @@ and providers. If the serum uric acid is elevated {gender_subject} will need ULT
         it has been some time (semi-recent = >3 <6 months since they had one and are undergoing gout treatment
         requiring periodic lab monitoring or they are having symptoms of gout."""
 
-        def create_prefix_str(Subject_the: str, tobe: str) -> str:
-            return f"{Subject_the} {' ' + tobe + ' also' if self.should_consider_other_causes_of_symptoms else ''}"
+        def create_prefix_str(Subject_the: str, tobe) -> str:
+            return f"{Subject_the} {' ' + tobe + ' also' if self.flaring else ''}"
 
-        subject_the_pos, subject_the, gender_pos, gender_subject, tobe, Subject_the = self.get_str_attrs(
-            "subject_the_pos",
+        subject_the, gender_pos, gender_subject, tobe, Subject_the = self.get_str_attrs(
             "subject_the",
             "gender_pos",
             "gender_subject",
-            "tobe" "Subject_the",
+            "tobe",
+            "Subject_the",
         )
         if self.flaring:
             urate_check_rec_str = f"Even though {subject_the} has had {gender_pos} \
@@ -852,7 +859,7 @@ generally continued until the uric acid has been at goal for six months or longe
             else:
                 urate_check_rec_str = next_urate_check_rec_str
         elif self.at_goal is None:
-            urate_check_rec_str = self.at_goal_detail
+            urate_check_rec_str = self.urate_status_unknown_detail
         return {"Check Uric Acid": mark_safe(urate_check_rec_str)}
 
     @cached_property
@@ -872,13 +879,13 @@ generally continued until the uric acid has been at goal for six months or longe
                     return ppxs_check_urate_at_goal_discrepant(
                         urate=self.urates_qs[0],
                         goutdetail=self.goutdetail,  # type: ignore
-                        goalurate=self.goalurate,
+                        goal_urate=self.goal_urate,
                     )
             elif self.urate_set.exists():
                 latest_urate = self.get_dated_urates().first()
                 return ppxs_check_urate_at_goal_discrepant(
                     urate=latest_urate,
                     goutdetail=self.goutdetail,  # type: ignore
-                    goalurate=self.goalurate,
+                    goal_urate=self.goal_urate,
                 )
         return False

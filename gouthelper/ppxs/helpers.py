@@ -21,7 +21,7 @@ def assign_ppx_attrs_from_user(ppx: "Ppx", user: "User") -> "Ppx":
 def ppxs_check_urate_at_goal_discrepant(
     urate: "Urate",
     goutdetail: "GoutDetail",
-    goalurate: "GoalUrates",
+    goal_urate: "GoalUrates",
 ) -> bool:
     """Check if the urate and goutdetail hyperuricemic fields are discrepant."""
-    return goutdetail.at_goal != (urate.value <= goalurate)
+    return goutdetail.at_goal != (urate.value <= goal_urate)

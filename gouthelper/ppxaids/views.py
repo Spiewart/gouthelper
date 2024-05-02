@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: 
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
 from django.views.generic import (  # pylint: disable=e0401 # type: ignore
     CreateView,
     DetailView,
@@ -60,6 +61,7 @@ from ..medhistorys.models import (
     Pvd,
     Stroke,
 )
+from ..ppxs.models import Ppx
 from ..treatments.choices import FlarePpxChoices
 from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidEditMixin
@@ -133,7 +135,14 @@ class PpxAidCreate(PpxAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
     permission_required = "ppxaids.can_add_ppxaid"
     success_message = "PpxAid successfully created."
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"ppx": self.ppx})
+        return context
+
     def get_permission_object(self):
+        if self.ppx and self.ppx.user:
+            raise PermissionError("Trying to create a PpxAid for a Ppx with a user with an anonymous view.")
         return None
 
     def post(self, request, *args, **kwargs):
@@ -159,6 +168,7 @@ class PpxAidCreate(PpxAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
         if errors:
             return errors
         else:
+            kwargs.update({"ppx": self.ppx})
             return self.form_valid(
                 form=form,
                 oto_2_save=oto_2_save,
@@ -171,7 +181,17 @@ class PpxAidCreate(PpxAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
                 ma_2_rem=ma_2_rem,
                 labs_2_save=None,
                 labs_2_rem=None,
+                **kwargs,
             )
+
+    @cached_property
+    def ppx(self) -> Ppx | None:
+        ppx_kwarg = self.kwargs.get("ppx", None)
+        return Ppx.related_objects.get(pk=ppx_kwarg) if ppx_kwarg else None
+
+    @cached_property
+    def related_object(self) -> Ppx:
+        return self.ppx
 
 
 class PpxAidDetailBase(AutoPermissionRequiredMixin, DetailView):

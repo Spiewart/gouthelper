@@ -66,6 +66,19 @@
            hx-trigger="click"
            role="button">Create</a>
       </form>
+    {% elif ppx %}
+      <form class="form-horizontal"
+            method="post"
+            action="{% url 'goalurates:ppx-create' ppx=ppx.pk %}">
+        {% csrf_token %}
+        {% crispy form %}
+        <a type="button"
+           class="btn btn-primary btn-lg mini-button"
+           hx-post="{% url 'goalurates:ppx-create' ppx=ppx.pk %}"
+           hx-target="#goalurate"
+           hx-trigger="click"
+           role="button">Create</a>
+      </form>
     {% else %}
       <form class="form-horizontal"
             method="post"

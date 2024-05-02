@@ -96,8 +96,8 @@ class GoalUrate(
     def erosions_interp(self) -> str:
         Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
         return mark_safe(
-            f"<strong>{Subject_the} {pos if self.erosions else pos_neg} erosions</strong>, which are destructive \
-changes due to gout and buildup of uric acid in and around joints. They are most commonly visualized on x-rays. \
+            f"<strong>{Subject_the} {pos if self.erosions else pos_neg} erosions</strong>: destructive \
+gouty changes due buildup of uric acid and inflammation in and around joints and most commonly visualized on x-rays. \
 Because erosions are permanent and can cause lasting disability, the goal uric acid is typically lower for \
 individuals who have erosions. This results in the treatment being slightly more aggressive."
         )

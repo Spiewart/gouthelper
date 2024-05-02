@@ -233,6 +233,22 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
         except AttributeError:
             return False
 
+    @property
+    def erosions_interp(self) -> str:
+        subject_the, pos, gender_subject = self.get_str_attrs("subject_the", "pos", "gender_subject")
+        erosions_interp_str = super().erosions_interp
+        erosions_interp_str += format_lazy(
+            """<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions \
+are a sign of advanced gout and more severe disease. While they don't influence choice of \
+ULT, they necessitate aggressive gout treatment by lowering the <a target='_next' \
+href={}>goal uric acid</a>.""",
+            reverse("goalurates:about"),
+        )
+        if self.erosions:
+            erosions_interp_str += f" <strong>Because {subject_the} {pos} gouty erosions, \
+{gender_subject} should be treated aggressively with ULT.</strong>"
+        return mark_safe(erosions_interp_str)
+
     @cached_property
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the UltAid to use in templates."""

@@ -1,1 +1,0 @@
-Prophylaxis was developed and scientifically validated in individuals who are starting urate-lowering therapy. ACR guidelines recommend all patients starting ULT also start prophylaxis for flares due to studies showing that the risk of gout flares is high in the first 6 months of ULT and that prophylaxis reduces the risk of having one.

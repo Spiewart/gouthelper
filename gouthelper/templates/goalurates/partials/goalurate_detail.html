@@ -36,13 +36,7 @@
         {% else %}
           ULT
         {% endif %}
-        dose until serum uric acid is
-        {% if patient %}
-          {{ object.goalurate.get_goal_urate_display }}
-        {% else %}
-          {{ object.get_goal_urate_display }}
-        {% endif %}
-        or less
+        dose until serum uric acid is {{ object.get_goal_urate_display }} or less
       </li>
       <li>Once "at goal", a maintenance dose is prescribed to keep the uric acid at this level</li>
     </ul>

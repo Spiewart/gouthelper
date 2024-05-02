@@ -147,7 +147,7 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
     def get_permission_object(self):
         if self.flare and self.flare.user:
             raise PermissionError("Trying to create a FlareAid for a Flare with a user with an anonymous view.")
-        return self.flare.user if self.flare else None
+        return None
 
     def post(self, request, *args, **kwargs):
         (

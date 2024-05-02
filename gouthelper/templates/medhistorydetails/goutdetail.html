@@ -15,7 +15,7 @@
       <li>
         Uric acid status:
         {% if object.at_goal %}
-          under {{ object.goalurate.get_goal_urate_display }}
+          under {{ object.goal_urate.get_goal_urate_display }}
         {% elif object.at_goal is None %}
           unknown
         {% else %}

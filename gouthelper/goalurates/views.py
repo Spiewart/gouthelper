@@ -5,6 +5,7 @@ from django.contrib import messages  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse  # type: ignore
+from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
 from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
@@ -13,6 +14,7 @@ from ..contents.choices import Contexts
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import ErosionsForm, TophiForm
 from ..medhistorys.models import Erosions, Tophi
+from ..ppxs.models import Ppx
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
@@ -94,6 +96,8 @@ class GoalUrateEditMixin:
         if errors:
             return errors
         else:
+            if self.create_view:
+                kwargs.update({"ppx": self.ppx})
             kwargs.update({"ultaid": self.ultaid})
             if request.htmx:
                 kwargs.update({"htmx": HttpResponseClientRefresh()})
@@ -112,6 +116,16 @@ class GoalUrateEditMixin:
                 **kwargs,
             )
 
+    @cached_property
+    def ppx(self) -> Ppx | None:
+        ppx_kwarg = self.kwargs.get("ppx", None)
+        return Ppx.related_objects.get(pk=ppx_kwarg) if ppx_kwarg else None
+
+    @cached_property
+    def ultaid(self) -> UltAid | None:
+        ultaid_kwarg = self.kwargs.get("ultaid", None)
+        return UltAid.related_objects.get(pk=ultaid_kwarg) if ultaid_kwarg else None
+
 
 class GoalUrateCreate(
     GoalUrateBase, GoalUrateEditMixin, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
@@ -124,17 +138,21 @@ class GoalUrateCreate(
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         """Add ultaid to context if it exists."""
         context = super().get_context_data(**kwargs)
+        context.update({"ppx": self.ppx})
         context.update({"ultaid": self.ultaid})
         return context
 
     def get_permission_object(self):
-        ultaid_kwarg = self.kwargs.get("ultaid", None)
-        self.ultaid = (  # pylint: disable=W0201
-            UltAid.objects.select_related("user").get(pk=ultaid_kwarg) if ultaid_kwarg else None
-        )
         if self.ultaid and self.ultaid.user:
             raise PermissionError("Trying to create a GoalUrate for a UltAid with a user with an anonymous view.")
-        return self.ultaid.user if self.ultaid else None
+        elif self.ppx and self.ppx.user:
+            raise PermissionError("Trying to create a GoalUrate for a Ppx with a user with an anonymous view.")
+        else:
+            return None
+
+    @cached_property
+    def related_object(self) -> Ppx:
+        return self.ppx
 
 
 class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):

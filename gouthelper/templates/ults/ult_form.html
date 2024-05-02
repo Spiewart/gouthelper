@@ -5,32 +5,17 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Update Ult
+    Edit Ult
   {% else %}
-    Create Ult
+    New Ult
   {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>Ult</h1>
 {% endblock heading %}
 {% block subheading %}
-  Does
-  {% if patient %}
-    {{ patient }}
-  {% else %}
-    a patient
-  {% endif %}
-  need <a href="{% url 'treatments:about-ult' %}" target="_blank">ULT</a>? Tell us about
-  {% if patient %}
-    {% if patient.gender.value %}
-      her
-    {% else %}
-      his
-    {% endif %}
-  {% else %}
-    his or her
-  {% endif %}
-  gout and related medical history to find out.
+  Does {{ str_attrs.subject_the }} need <a href="{% url 'treatments:about-ult' %}" target="_blank">ULT</a>?
+  Tell us about {{ str_attrs.gender_pos }} gout and related medical history to find out.
 {% endblock subheading %}
 {% block content %}
   <main class="container">

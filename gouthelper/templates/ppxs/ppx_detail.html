@@ -68,6 +68,34 @@
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">{{ recommendation }}</h4>
                 <p class="card-text">{{ explanation }}</p>
+                {% if recommendation == 'Start Prophylaxis' or recommendation == 'Consider Prophylaxis' %}
+                  <hr size="3" color="dark" />
+                  <div id="ppxaid">
+                    <div id="row">
+                      <div id="col flex-fill d-flex justify-content-center">
+                        {% if object.user %}
+                          {% if object.user.ppxaid %}
+                            {% include 'ppxaids/ppxaid_detail_card.html' with object=object.user.ppxaid %}
+                          {% else %}
+                            <a type="button"
+                               class="btn btn-primary btn-lg mini-button"
+                               href="{% url 'ppxaids:pseudopatient-create' username=object.user.username %}?next={{ request.path }}"
+                               role="button">Create PpxAid</a>
+                          {% endif %}
+                        {% else %}
+                          {% if object.ppxaid %}
+                            {% include 'ppxaids/ppxaid_detail_card.html' with object=object.ppxaid %}
+                          {% else %}
+                            <a type="button"
+                               class="btn btn-primary btn-lg mini-button"
+                               href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ request.path }}"
+                               role="button">Create PpxAid</a>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
               </div>
             </div>
           {% endfor %}
@@ -106,18 +134,46 @@
                     </li>
                   {% endif %}
                 </ul>
-                {% if object.user %}
-                  {% if not object.user.goalurate %}
-                    <a type="button"
-                       class="btn btn-primary btn-lg mini-button"
-                       hx-get="{% url 'goalurates:pseudopatient-create' username=object.user.username %}"
-                       hx-target="#goalurate"
-                       hx-trigger="click"
-                       role="button">Create GoalUrate</a>
-                  {% endif %}
-                {% else %}
-                  {% if not object.has_goalurate %}{% endif %}
-                {% endif %}
+                <hr size="3" color="dark" />
+                <div id="goalurate">
+                  <div class="row">
+                    <div class="col flex-fill d-flex justify-content-center">
+                      {% if object.user %}
+                        {% if not object.user.goalurate %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg mini-button"
+                             hx-get="{% url 'goalurates:pseudopatient-create' username=object.user.username %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Create GoalUrate</a>
+                        {% else %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg mini-button"
+                             hx-get="{% url 'goalurates:pseudopatient-update' object.user.username %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Update Goal Urate</a>
+                        {% endif %}
+                      {% else %}
+                        {% if not object.has_goalurate %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg mini-button"
+                             hx-get="{% url 'goalurates:ppx-create' ppx=object.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Create GoalUrate</a>
+                        {% else %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg mini-button"
+                             hx-get="{% url 'goalurates:update' object.goalurate.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Update Goal Urate</a>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -178,7 +234,7 @@
                         <td>{{ urate.value }}</td>
                         <td>{{ urate.date.date }}</td>
                         <td>
-                          {% if urate.value > object.goalurate %}
+                          {% if urate.value > object.goal_urate %}
                             No
                           {% else %}
                             Yes

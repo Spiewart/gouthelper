@@ -28,6 +28,7 @@ from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import MedHistoryFactory
+from ...ppxs.tests.factories import create_ppx
 from ...treatments.choices import ColchicineDoses, FlarePpxChoices, Freqs, NsaidChoices, Treatments
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
@@ -846,6 +847,16 @@ class TestPpxAidPseudopatientCreate(TestCase):
         assert response.status_code == 200
         assert "ckddetail_form" in response.context_data
         assert "dialysis" in response.context_data["ckddetail_form"].errors
+
+    def test__post_creates_ppxaid_with_ppx(self):
+        """Test that the view creates a PpxAid with a Ppx related object."""
+        ppx = create_ppx()
+        data = ppxaid_data_factory()
+        response = self.client.post(reverse("ppxaids:ppx-create", kwargs={"ppx": ppx.pk}), data=data)
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        self.assertTrue(PpxAid.objects.filter(ppx=ppx).exists())
+        self.assertTrue(hasattr(ppx, "ppxaid"))
 
     def test__rules(self):
         """Tests for whether the rules appropriately allow or restrict

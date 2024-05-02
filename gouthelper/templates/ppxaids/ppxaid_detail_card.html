@@ -1,0 +1,38 @@
+{% load project_tags %}
+
+<div id="ppxaid-card" class="card spacious-cards">
+  <div class="card-body">
+    {% if object.recommendation %}
+      <h2 class="card-title">{{ object.recommendation.0.lower.capitalize }}</h2>
+      {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
+      <ul>
+        {% for key, val in dosing_dict.items %}
+          <li>
+            <strong>{{ key }}</strong>: {{ val }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <h2 class="card-title">No Recommendation Available</h2>
+      <ul>
+        <li>{{ object.recommendation_is_none_str }}</li>
+      </ul>
+    {% endif %}
+    {% if object.user %}
+      <a href="{% url 'ppxaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% else %}
+      <a href="{% url 'ppxaids:update' object.pk %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% endif %}
+    {% if object.user %}
+      <a href="{% url 'ppxaids:pseudopatient-detail' object.user.username %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% else %}
+      <a href="{% url 'ppxaids:detail' object.pk %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% endif %}
+    <a href="{% url 'ppxaids:about' %}"
+       class="btn btn-primary spacious-buttons">About</a>
+  </div>
+</div>

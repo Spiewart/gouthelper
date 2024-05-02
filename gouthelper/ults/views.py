@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any  # pylint: disable=E0013, E0015 # type: ig
 from django.apps import apps  # pylint: disable=E0401 # type: ignore
 from django.contrib import messages  # pylint: disable=E0401  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401 # type: ignore
-from django.db.models import Q  # pylint: disable=E0401 # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=E0401 # type: ignore
 from django.urls import reverse  # pylint: disable=E0401  # type: ignore
 from django.views.generic import (  # pylint: disable=E0401 # type: ignore
@@ -27,6 +26,7 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
 from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
 from ..users.models import Pseudopatient
+from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
 from .forms import UltForm
 from .models import Ult
@@ -141,14 +141,9 @@ class UltDetailBase(AutoPermissionRequiredMixin, DetailView):
     model = Ult
     object: Ult
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULT)
-
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
+        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
         return context
 
     def get_permission_object(self):

@@ -6,17 +6,41 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1>ULT</h1>
+      <h1>Ult</h1>
     </div>
-    <div class="col align-items-center d-flex">
+    <div class="col align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ults:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'ults:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ults:pseudopatient-update' username=object.user.username %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ults:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">
+        {% if object.recommendations.keys|length > 1 %}
+          Recommendations
+        {% else %}
+          Recommendation
+        {% endif %}
+      </a> |
+      <a class="samepage-link" href="#details">Details</a> |
+      {% if object.urates_qs %}<a class="samepage-link" href="#urates">Urates</a> |{% endif %}
+      <a class="samepage-link" href="#explanations">Explanations</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
     </div>
   </div>
 {% endblock heading %}
@@ -25,6 +49,13 @@
     <div class="container bodytainer">
       <hr size="3" color="dark" />
       <div id="recommendation">
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>{{ object.get_indication_display }}</u>
+            </h3>
+          </div>
+        </div>
         <div class="row">
           <div class="col">
             <div class="card card-body">
@@ -112,51 +143,21 @@
         <hr size="3" color="dark" />
         <div class="row">
           <div class="col">
-            <h3>
+            <h2>
               <u>Explanations</u>
-            </h3>
+            </h2>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            <h4>
-              <b><u><a href="{% url 'ults:about' %}#strong">Strong Indications</a></u></b>
-            </h4>
-            {% include "_explanation.html" with aidtype="Ult" con_obj=frequentflares id="frequentflares" label="Frequent Flares" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=erosions id="erosions" label="Erosions" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=tophi id="tophi" label="Tophi" %}
-            <h4>
-              <b><u><a href="{% url 'ults:about' %}#conditional">Conditional Indications</a></u></b>
-            </h4>
-            {% include "_explanation.html" with aidtype="Ult" con_obj=multipleflares id="multipleflares" label="Multiple Flares" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=ckd id="ckd" label="CKD" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=hyperuricemia id="hyperuricemia" label="Hyperuricemia" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=uratestones id="uratestones" label="Urate Nephrolithiasis" %}
-            <h4>
-              <b><u><a href="{% url 'ults:about' %}#notindicated">Not Indicateds</a></u></b>
-            </h4>
-            {% include "_explanation.html" with aidtype="Ult" con_obj=noflares id="noflares" label="No Flares" %}
-            {% include "_explanation.html" with aidtype="Ult" con_obj=firstflare id="firstflare" label="First Flare" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

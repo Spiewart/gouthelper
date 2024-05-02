@@ -136,7 +136,7 @@ class GoutHelperBaseModel:
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
         if hasattr(self, "user"):
-            if not self.user and self.dateofbirth:
+            if not self.user and hasattr(self, "dateofbirth"):
                 return age_calc(date_of_birth=self.dateofbirth.value)
             elif self.user and self.user.dateofbirth:
                 return age_calc(date_of_birth=self.user.dateofbirth.value)
@@ -156,9 +156,9 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} ov
             tobe if self.age > 65 else tobe_neg,
         )
         if self.age > 65:
-            main_str += " , and as such, NSAIDs should be used cautiously in this setting."
+            main_str += ", and as such, NSAIDs should be used cautiously in this setting."
         else:
-            main_str += " , so this isn't a concern."
+            main_str += ", so this isn't a concern."
 
         main_str += "<br> <br> GoutHelper defaults to not contraindicating NSAIDs based on age alone."
         return mark_safe(main_str)
@@ -413,12 +413,11 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         of the impact of it on a patient's gout."""
 
         subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
-        main_str = f"In addition to being a significant risk factor for gout, chronic kidney disease (CKD) \
-affects the body's processing of many medications, including several used for gout treatment, \
-and can affect medication dosing and safety. \
+        main_str = f"Chronic kidney disease (CKD) is a risk factor for new and recurrent gout. \
+It also affects the body's medication processing and can affect medication dosing and safety. \
 <strong>{subject_the} {pos if self.ckd else pos_neg} \
 {self.ckddetail.explanation if self.ckddetail else 'CKD'}.</strong>"
-        return main_str
+        return mark_safe(main_str)
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
@@ -650,21 +649,13 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
     @cached_property
     def erosions_interp(self) -> str:
         """Method that interprets the erosions attribute and returns a str explanation."""
-        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
 
-        main_str = format_lazy(
-            """Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions are a sign of advanced \
-gout and are associated with more severe disease. While they do not influence the choice of ULT, they \
-help determine how aggressive to treat the patient's gout by determining what the <a target='_next' \
-href={}>goal uric acid</a> should be.""",
-            reverse("goalurates:about"),
+        return mark_safe(
+            f"<strong>{Subject_the} {pos if self.erosions else pos_neg} erosions</strong>: \
+destructive gouty changes due buildup of uric acid and inflammation in and around joints and most commonly \
+visualized on x-rays."
         )
-        if self.erosions:
-            main_str += f" <strong>{Subject_the} has gouty erosions, and {gender_subject} should be treated \
-aggressively with ULT.</strong>"
-        else:
-            main_str += f" <strong>{Subject_the} does not have erosions.</strong>"
-        return mark_safe(main_str)
 
     @cached_property
     def ethnicity_hlab5801_risk(self) -> bool:
@@ -856,9 +847,9 @@ contraindicated."
         attribute values if they exist. If the attribute doesn't exist, calls the set_str_attrs
         method and then attempts to return the attribute values again."""
 
-        try:
+        if hasattr(self, "str_attrs"):
             return tuple(self.str_attrs[arg] for arg in args)
-        except AttributeError:
+        else:
             self.set_str_attrs(patient=self.user)
             return tuple(self.str_attrs[arg] for arg in args)
 
@@ -868,7 +859,7 @@ contraindicated."
         return (
             self.goalurate.get_goal_urate_display()
             if self.has_goalurate
-            else self.GoalUrates(self.goalurate).label
+            else self.GoalUrates(self.goal_urate).label
             if has_goalurate_property
             else "6.0 mg/dL, GoutHelper's default"
         )
@@ -1008,18 +999,7 @@ greater than {} <a href={}>goal urate</a>: {}.
                     tobe if self.hyperuricemic else tobe_neg,
                     reverse("labs:about-urate"),
                     gender_pos,
-                    (
-                        reverse(
-                            "goalurates:pseudopatient-detail",
-                            kwargs={"username": (self.username if self.is_patient else self.user.username)},
-                        )
-                        if self.is_patient or self.belongs_to_patient
-                        else (
-                            reverse("goalurates:detail", kwargs={"pk": self.goalurate.pk})
-                            if self.has_goalurate
-                            else reverse("goalurates:create")
-                        )
-                    ),
+                    reverse("goalurates:about"),
                     self.goalurate_get_display,
                 )
             )
@@ -1680,6 +1660,12 @@ aggressively with ULT."
         """Returns True if the object's most recent Urate object is newer than the object's
         Gout MedHistory set_date."""
         return labs_urate_is_newer_than_goutdetail_set_date(self.most_recent_urate, self.goutdetail)
+
+    @property
+    def urate_status_unknown_detail(self) -> str:
+        """Returns a str explaining that the object's uric acid level is unknown."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(f"{Subject_the} uric acid level is not known. Serum uric acid should probably be checked.")
 
     @cached_property
     def urate_within_last_month(self) -> bool:
