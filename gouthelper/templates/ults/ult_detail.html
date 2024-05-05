@@ -51,9 +51,9 @@
       <div id="recommendation">
         <div class="row">
           <div class="col">
-            <h3>
-              <u>{{ object.get_indication_display }}</u>
-            </h3>
+            <h2>
+              <u>Recommendation</u>
+            </h2>
           </div>
         </div>
         <div class="row">
@@ -139,6 +139,56 @@
           </div>
         </div>
       </div>
+      <hr size="3" color="dark" />
+      <div id="details">
+        <div class="row">
+          <div class="col">
+            <h2>
+              <u>Details</u>
+            </h2>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
+          </div>
+        </div>
+        <div class="row">
+          <div id="indications" class="col">
+            <div class="card card-body" id="gout-card">
+              <h3 class="card-title">
+                <u>Strong Indications</u>
+              </h3>
+              <div class="card-text">
+                <ul>
+                  <li>{{ object.erosions_detail }}</li>
+                  <li>{{ object.frequentflares_detail }}</li>
+                  <li>{{ object.tophi_detail }}</li>
+                </ul>
+              </div>
+              <h3 class="card-title">
+                <u>Conditional Indications</u>
+              </h3>
+              <div class="card-text">
+                <ul>
+                  {% if object.has_conditional_indication_for_ckd3 %}<li>CKD: {{ object.ckd_detail }}</li>{% endif %}
+                  {% if object.has_conditional_indication_for_hyperuricemia %}
+                    <li>Hyperuricemia: {{ object.hyperuricemia_detail }}</li>
+                  {% endif %}
+                  {% if object.multipleflares %}<li>{{ object.multipleflares_detail }}</li>{% endif %}
+                  {% if object.has_conditional_indication_for_uratestones %}<li>{{ object.uratestones_detail }}</li>{% endif %}
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card card-body" id="gout-card">
+              <h3 class="card-title">
+                <u>Contraindications</u>
+              </h3>
+              <div class="card-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div id="explanations">
         <hr size="3" color="dark" />
         <div class="row">
@@ -157,7 +207,7 @@
           {% endfor %}
         </div>
       </div>
-      <a href="#top">Back to top</a>
+      <a href="#top"><small>Back to top</small></a>
     </div>
   </main>
 {% endblock content %}

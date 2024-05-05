@@ -408,6 +408,18 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         return medhistory_attr(MedHistoryTypes.CKD, self, ["ckddetail", "baselinecreatinine"])
 
     @property
+    def ckd_detail(self) -> str:
+        Subject_the, pos = self.get_str_attrs("Subject_the", "pos")
+        return mark_safe(
+            format_lazy(
+                """{} {} <a class='samepage-link' href='#ckd'>{}</a>.""",
+                Subject_the,
+                pos,
+                self.ckddetail.explanation if self.ckddetail else "CKD",
+            )
+        )
+
+    @property
     def ckd_interp(self) -> str:
         """Method that interprets the ckd attribute and returns a str explanation
         of the impact of it on a patient's gout."""
@@ -645,6 +657,17 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
         """Method that returns Erosions object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.EROSIONS, self)
+
+    @property
+    def erosions_detail(self) -> str:
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        return mark_safe(
+            format_lazy(
+                """{} {} gouty <a class='samepage-link' href='#erosions'>erosions</a>.""",
+                Subject_the,
+                pos if self.erosions else pos_neg,
+            )
+        )
 
     @cached_property
     def erosions_interp(self) -> str:
@@ -977,6 +1000,17 @@ starting allopurinol.""",
         """Property that returns Hyperuricemia object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.HYPERURICEMIA, self)
+
+    @property
+    def hyperuricemia_detail(self) -> str:
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        return mark_safe(
+            format_lazy(
+                """{} {} a history of <a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>.""",
+                Subject_the,
+                pos if self.hyperuricemia else pos_neg,
+            )
+        )
 
     @cached_property
     def hyperuricemic(self) -> bool | None:
@@ -1579,6 +1613,17 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.TOPHI, self)
 
+    @property
+    def tophi_detail(self) -> str:
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        return mark_safe(
+            format_lazy(
+                """{} {} <a class='samepage-link' href='#tophi'>tophi</a>.""",
+                Subject_the,
+                pos if self.tophi else pos_neg,
+            )
+        )
+
     @cached_property
     def tophi_interp(self) -> str:
         """Method that interprets the tophi attribute and returns a str explanation."""
@@ -1682,6 +1727,17 @@ aggressively with ULT."
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.URATESTONES, self)
+
+    @property
+    def uratestones_detail(self) -> str:
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        return mark_safe(
+            format_lazy(
+                """{} {} a history of <a class='samepage-link' href='#uratestones'>uric acid kidney stones</a>.""",
+                Subject_the,
+                pos if self.uratestones else pos_neg,
+            )
+        )
 
     @cached_property
     def uratestones_interp(self) -> str:

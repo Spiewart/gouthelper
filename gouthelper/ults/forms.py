@@ -50,7 +50,7 @@ class UltForm(
                     HTML(
                         f"""
                         <hr size="3" color="dark">
-                        <legend>About {self.str_attrs['Subject_the_pos']} Gout</legend>
+                        <legend>About {self.str_attrs['subject_the_pos']} gout</legend>
                         """
                     ),
                     Div(
