@@ -409,13 +409,11 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
 
     @property
     def ckd_detail(self) -> str:
-        Subject_the, pos = self.get_str_attrs("Subject_the", "pos")
         return mark_safe(
             format_lazy(
-                """{} {} <a class='samepage-link' href='#ckd'>{}</a>.""",
-                Subject_the,
-                pos,
+                """<a class='samepage-link' href='#ckd'>{}</a> {}""",
                 self.ckddetail.explanation if self.ckddetail else "CKD",
+                "(+)" if self.ckd else "(-)",
             )
         )
 
@@ -1615,12 +1613,10 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
 
     @property
     def tophi_detail(self) -> str:
-        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
         return mark_safe(
             format_lazy(
-                """{} {} <a class='samepage-link' href='#tophi'>tophi</a>.""",
-                Subject_the,
-                pos if self.tophi else pos_neg,
+                """<a class='samepage-link' href='#tophi'>Tophi</a> {}""",
+                "(+)" if self.tophi else "(-)",
             )
         )
 

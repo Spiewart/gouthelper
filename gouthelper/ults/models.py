@@ -165,6 +165,16 @@ for ULT ({self.strong_indications_str_with_links_with_links}), making CKD irrele
             mh_get=medhistorys_get_ckd_3_or_higher,
         )
 
+    @property
+    def ckd3_detail(self) -> str:
+        return mark_safe(
+            format_lazy(
+                """<a class='samepage-link' href='#ckd'>{}</a> {}""",
+                self.ckddetail.explanation if self.ckddetail else "CKD",
+                "(+)" if self.ckd3 else "(-)",
+            )
+        )
+
     @cached_property
     def conditional_indication(self) -> bool:
         return self.indication == Indications.CONDITIONAL
@@ -251,6 +261,10 @@ for it.{_get_contraindicated_interp_str()}"
         )
 
     @property
+    def erosions_detail(self) -> str:
+        return mark_safe(f"<a class='samepage-link' href='#erosions'>Erosions</a> {'(+)' if self.erosions else '(-)'}")
+
+    @property
     def erosions_interp(self) -> str:
         subject_the, pos, gender_pos = self.get_str_attrs("subject_the", "pos", "gender_pos")
         erosions_interp_str = super().erosions_interp
@@ -318,12 +332,10 @@ ULT is almost never indicated in patients with their first gout flare, though th
 
     @property
     def frequentflares_detail(self) -> str:
-        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
         return mark_safe(
             format_lazy(
-                """{} {} <a class='samepage-link' href='#frequentflares'>frequent gout flares</a>.""",
-                Subject_the,
-                pos if self.frequentflares else pos_neg,
+                """<a class='samepage-link' href='#frequentflares'>Frequent gout flares</a> {}""",
+                "(+)" if self.frequentflares else "(-)",
             )
         )
 
