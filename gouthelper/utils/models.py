@@ -27,6 +27,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
+from ..utils.helpers import html_attr_detail
 from .helpers import TrtDictStr, get_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
@@ -409,13 +410,7 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
 
     @property
     def ckd_detail(self) -> str:
-        return mark_safe(
-            format_lazy(
-                """<a class='samepage-link' href='#ckd'>{}</a> {}""",
-                self.ckddetail.explanation if self.ckddetail else "CKD",
-                "(+)" if self.ckd else "(-)",
-            )
-        )
+        return html_attr_detail(self, "ckd", self.ckddetail.explanation if self.ckddetail else "CKD")
 
     @property
     def ckd_interp(self) -> str:
@@ -658,14 +653,7 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
 
     @property
     def erosions_detail(self) -> str:
-        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
-        return mark_safe(
-            format_lazy(
-                """{} {} gouty <a class='samepage-link' href='#erosions'>erosions</a>.""",
-                Subject_the,
-                pos if self.erosions else pos_neg,
-            )
-        )
+        return html_attr_detail(self, "erosions")
 
     @cached_property
     def erosions_interp(self) -> str:
@@ -674,8 +662,8 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
 
         return mark_safe(
             f"<strong>{Subject_the} {pos if self.erosions else pos_neg} erosions</strong>: \
-destructive gouty changes due buildup of uric acid and inflammation in and around joints and most commonly \
-visualized on x-rays."
+destructive gouty changes due buildup of uric acid and inflammation in and around joints that are \
+most commonly visualized on x-rays."
         )
 
     @cached_property
@@ -1001,14 +989,7 @@ starting allopurinol.""",
 
     @property
     def hyperuricemia_detail(self) -> str:
-        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
-        return mark_safe(
-            format_lazy(
-                """{} {} a history of <a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>.""",
-                Subject_the,
-                pos if self.hyperuricemia else pos_neg,
-            )
-        )
+        return html_attr_detail(self, "hyperuricemia")
 
     @cached_property
     def hyperuricemic(self) -> bool | None:
@@ -1286,7 +1267,7 @@ rash, fluid retention, and decreased kidney function",
     @property
     def on_ppx_detail(self) -> str:
         """Returns a brief detail str explaining the object's current on_ppx status."""
-        Subject_the, Gender_subject = self.get_str_attrs("Subject_the", "Gender_subject")
+        (Subject_the,) = self.get_str_attrs("Subject_the")
         return mark_safe(
             format_lazy(
                 """{} is {} on flare <a href={}>prophylaxis</a>.""",
@@ -1613,12 +1594,7 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
 
     @property
     def tophi_detail(self) -> str:
-        return mark_safe(
-            format_lazy(
-                """<a class='samepage-link' href='#tophi'>Tophi</a> {}""",
-                "(+)" if self.tophi else "(-)",
-            )
-        )
+        return html_attr_detail(self, "tophi")
 
     @cached_property
     def tophi_interp(self) -> str:
@@ -1726,16 +1702,9 @@ aggressively with ULT."
 
     @property
     def uratestones_detail(self) -> str:
-        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
-        return mark_safe(
-            format_lazy(
-                """{} {} a history of <a class='samepage-link' href='#uratestones'>uric acid kidney stones</a>.""",
-                Subject_the,
-                pos if self.uratestones else pos_neg,
-            )
-        )
+        return html_attr_detail(self, "uratestones", "Uric acid kidney stones")
 
-    @cached_property
+    @property
     def uratestones_interp(self) -> str:
         """Method that interprets the uratestones attribute and returns a str explanation."""
         Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")

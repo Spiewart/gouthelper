@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Union
 
 from django.utils import timezone  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
 
 from ..genders.choices import Genders
 from ..treatments.choices import ColchicineDoses, Freqs, Treatments, TrtTypes
@@ -156,6 +157,13 @@ def get_qs_or_set(obj: Any, name: str) -> Union[list, "QuerySet"]:
     return getattr(obj, qs_name) if hasattr(obj, qs_name) else getattr(obj, f"{name}_set").all()
 
 
+def link_to_2020_ACR_guidelines() -> str:
+    return mark_safe(
+        '<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10563586/" \
+target="_blank">2020 ACR Guidelines</a>'
+    )
+
+
 def normalize_fraction(d):
     # https://stackoverflow.com/questions/11227620/drop-trailing-zeros-from-decimal
     normalized = d.normalize()
@@ -293,3 +301,18 @@ def shorten_date_for_str(date: datetime, abbrev_last_week: bool = False, show_ti
             return f"{date.strftime('%b %d-%Y-%I:%M%p')}"
         else:
             return f"{date.strftime('%b %d-%Y')}"
+
+
+def wrap_with_html_badge(text: str, badge_type: str) -> str:
+    return f'<span class="badge badge-pill bg-{badge_type} indicator-badge"><strong>{text}</strong></span>'
+
+
+def add_indicator_badge(indicator: bool) -> str:
+    return wrap_with_html_badge("(+)" if indicator else "(-)", "success" if indicator else "warning")
+
+
+def html_attr_detail(self: Any, attr: str, display_val: str | None = None) -> str:
+    return mark_safe(
+        f"<a class='samepage-link' href='#{attr}'>{display_val if display_val else attr.capitalize()}</a> \
+{add_indicator_badge(getattr(self, attr))}"
+    )

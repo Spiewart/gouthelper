@@ -1,12 +1,12 @@
 {% load project_tags %}
 
-<div id="ppxaid-card" class="card spacious-cards">
+<div id="ultaid-card" class="card spacious-cards">
   <div class="card-body">
     <div class="row">
       <div class="col">
         <h3 class="card-title">
           {% if object.recommendation %}
-            Recommended PPx: <u>{{ object.recommendation.0.lower.capitalize }}</u>
+            Recommended ULT: <u>{{ object.recommendation.0.lower.capitalize }}</u>
           {% else %}
             No Recommendation Available
           {% endif %}
@@ -14,15 +14,15 @@
       </div>
       <div class="col align-items-center d-flex justify-content-end">
         <button class="btn btn-secondary btn-sm"
-                id="ppxaid_card_collapse_control"
+                id="ultaid_card_collapse_control"
                 data-bs-toggle="collapse"
-                data-bs-target="#ppxaid_card_collapse"
+                data-bs-target="#ultaid_card_collapse"
                 type="button"
                 aria-expanded="true"
-                aria-controls="ppxaid_card_collapse">Hide</button>
+                aria-controls="ultaid_card_collapse">Hide</button>
       </div>
     </div>
-    <div class="collapse show" id="ppxaid_card_collapse">
+    <div class="collapse show" id="ultaid_card_collapse">
       {% if object.recommendation %}
         {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
         <ul>
@@ -38,20 +38,20 @@
         </ul>
       {% endif %}
       {% if object.user %}
-        <a href="{% url 'ppxaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
+        <a href="{% url 'ultaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
            class="btn btn-primary spacious-buttons">Update</a>
       {% else %}
-        <a href="{% url 'ppxaids:update' object.pk %}?next={{ request.path }}"
+        <a href="{% url 'ultaids:update' object.pk %}?next={{ request.path }}"
            class="btn btn-primary spacious-buttons">Update</a>
       {% endif %}
       {% if object.user %}
-        <a href="{% url 'ppxaids:pseudopatient-detail' object.user.username %}"
+        <a href="{% url 'ultaids:pseudopatient-detail' object.user.username %}"
            class="btn btn-primary spacious-buttons">Details</a>
       {% else %}
-        <a href="{% url 'ppxaids:detail' object.pk %}"
+        <a href="{% url 'ultaids:detail' object.pk %}"
            class="btn btn-primary spacious-buttons">Details</a>
       {% endif %}
-      <a href="{% url 'ppxaids:about' %}"
+      <a href="{% url 'ultaids:about' %}"
          class="btn btn-primary spacious-buttons">About</a>
     </div>
   </div>

@@ -68,7 +68,7 @@
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">{{ recommendation }}</h4>
                 <p class="card-text">{{ explanation }}</p>
-                {% if recommendation == 'Start Prophylaxis' or recommendation == 'Consider Prophylaxis' %}
+                {% if object.should_show_ultaid %}
                   <hr size="3" color="dark" />
                   <div id="ppxaid">
                     <div id="row">
@@ -271,3 +271,16 @@
     </div>
   </main>
 {% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $('.collapse').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

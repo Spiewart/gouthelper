@@ -550,6 +550,10 @@ during this stage of treatment are for individuals who are having gout flares or
 
         return rec_dict
 
+    @property
+    def should_show_ultaid(self) -> bool:
+        return self.should_start_ppx or self.should_continue_ppx or self.should_consider_starting_ppx
+
     @cached_property
     def semi_recent_urate(self) -> bool:
         """Method that returns True if the patient has had his or her uric acid checked

@@ -23,44 +23,20 @@ function check_medallergy(treatment) {
   }
 }
 
-function check_plusminus(id) {
-  // function that checks whether (+) or (-) is in the text of the element with id=id
-  // and toggles collapse to open if (+) and close if (-)
-  var text = $('#' + id).text();
-  var explanation = '#' + id.split('-')[0] + '-explanation';
-  if (text.includes('(+)')) {
-    // check if explanation is collapsed
-    if ($(explanation).is('.collapse:not(.show)') == true) {
-      $(explanation).collapse('show');
-    }
-  } else {
-    // check if explanation is expanded
-    if ($(explanation).is('.collapse:not(.show)') == false) {
-      $(explanation).collapse('hide');
-    }
-  }
-}
-
 function collapse_control() {
-  // function that toggles [expand/collapse] text of element with id=id
-  var toggle_id = '#' + $(this).attr('id').split('-')[0] + '-toggle';
-  var control = $(toggle_id).find('.collapse-control');
-  control
-    .html(function () {
-      return '<small><italic>[expand]</italic></small>';
-    })
-    .css('font-style', 'italic');
+  // Function that toggles [show/hide] text of the button calling the function
+  // Find the control for the collapse
+  control = $('#' + $(this).attr('id') + '_control');
+  // Change the control's text to show
+  $(control).text('Show');
 }
 
 function expand_control() {
-  // function that toggles [expand/collapse] text of element with id=id
-  var toggle_id = '#' + $(this).attr('id').split('-')[0] + '-toggle';
-  var control = $(toggle_id).find('.collapse-control');
-  control
-    .html(function () {
-      return '<small>[collapse]</small>';
-    })
-    .css('font-style', 'italic');
+  // Function that toggles [show/hide] text of the button calling the function
+  // Find the control for the collapse
+  control = $('#' + $(this).attr('id') + '_control');
+  // Change the control's text to show
+  $(control).text('Hide');
 }
 
 function remove_asterisk(input) {

@@ -3,8 +3,10 @@ from typing import TYPE_CHECKING, Any
 
 from django import template  # type: ignore
 from django.template.base import TemplateSyntaxError  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
 
 from .ethnicitys.helpers import ethnicitys_hlab5801_risk
+from .utils.helpers import add_indicator_badge
 
 if TYPE_CHECKING:
     from .ethnicitys.models import Ethnicity
@@ -13,6 +15,11 @@ register = template.Library()
 
 numeric_test = re.compile(r"^\d+$")
 register = template.Library()
+
+
+@register.filter(name="add_html_indicator_badge")
+def add_html_indicator_badge(indicator) -> str:
+    return mark_safe(add_indicator_badge(indicator))
 
 
 @register.simple_tag
