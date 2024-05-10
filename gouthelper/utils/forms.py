@@ -26,7 +26,30 @@ class OneToOneForm(ModelForm):
             raise EmptyRelatedModel
 
 
-def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, ethnicity: bool = False) -> "Layout":
+class RelatedObjectModelFormMixin:
+    def __init__(self, *args, **kwargs):
+        self.related_object = kwargs.pop("related_object", None)
+        super().__init__(*args, **kwargs)
+
+
+def forms_helper_insert_about_the_patient_legend(form: ModelForm) -> "Layout":
+    if form.patient:
+        return forms_helper_insert_about_the_patient(
+            form.helper.layout, htmx=getattr(form, "htmx", False), ethnicity=getattr(form, "ethnicity", False)
+        )
+    elif form.related_object:
+        return forms_helper_insert_about_the_related_object(form.helper.layout, htmx=getattr(form, "htmx", False))
+    else:
+        return forms_helper_insert_about_the_anon_patient(
+            form.helper.layout,
+            htmx=getattr(form, "htmx", False),
+            ethnicity=getattr(form, "ethnicity", False),
+        )
+
+
+def forms_helper_insert_about_the_anon_patient(
+    layout: "Layout", htmx: bool = False, ethnicity: bool = False
+) -> "Layout":
     """Method that inserts a Div with an id="about-the-patient" and a legend
     into a crispy_forms.layout.Layout object"""
     layout_len = len(layout)
@@ -36,10 +59,7 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                 HTML(
                     """
                         <hr size="3" color="dark">
-                        <legend>About {% if patient %}{{ patient }} \
-({{ patient.gender }}, age {{ patient.age }}, {{ patient.ethnicity }}) {% else %} {{ str_attrs.subject_the }} \
-{% endif %} {% if view.related_object %}({{ view.related_object.gender }}, age {{ view.related_object.age }}) \
-{% endif %}</legend>
+                        <legend>About {{ str_attrs.subject_the }}</legend>
                     """
                 ),
                 css_id="about-the-patient",
@@ -51,10 +71,70 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                 HTML(
                     """
                         <hr size="3" color="dark">
-                        <legend>About {% if patient %}{{ patient }} \
-({{ patient.gender }}, age {{ patient.age }}) {% else %} {{ str_attrs.subject_the }} {% endif %} \
-{% if view.related_object %}({{ view.related_object.gender }}, age {{ view.related_object.age }}) {% endif %}</legend>
+                        <legend>About {{ str_attrs.subject_the }}</legend>
                     """
+                ),
+                css_id="about-the-patient",
+            ),
+        )
+    else:
+        layout[layout_len - 1].append(
+            Div(),
+        )
+    return layout
+
+
+def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, ethnicity: bool = False) -> "Layout":
+    """Method that inserts a Div with an id="about-the-patient" and a legend
+    into a crispy_forms.layout.Layout object"""
+    layout_len = len(layout)
+    if ethnicity:
+        layout[layout_len - 1].append(
+            Div(
+                HTML(
+                    """
+                        <hr size="3" color="dark">
+                        <legend>About {{ patient }} ({{ patient.gender }}, age {{ patient.age }}, \
+{{ patient.ethnicity }}) {% else %} {{ str_attrs.subject_the }} {% endif %}</legend>
+                    """
+                ),
+                css_id="about-the-patient",
+            ),
+        )
+    elif not htmx:
+        layout[layout_len - 1].append(
+            Div(
+                HTML(
+                    """
+                        <hr size="3" color="dark">
+                        <legend>About {{ patient }} ({{ patient.gender }}, age {{ patient.age }})</legend>
+                    """
+                ),
+                css_id="about-the-patient",
+            ),
+        )
+    else:
+        layout[layout_len - 1].append(
+            Div(),
+        )
+    return layout
+
+
+def forms_helper_insert_about_the_related_object(layout: "Layout", htmx: bool = False) -> "Layout":
+    """Method that inserts a Div with an id="about-the-patient" and a legend
+    into a crispy_forms.layout.Layout object"""
+    layout_len = len(layout)
+    if not htmx:
+        layout[layout_len - 1].append(
+            Div(
+                HTML(
+                    """
+                        <hr size="3" color="dark">
+                        <legend>About {{ str_attrs.subject_the }} \
+{% if view.related_object.age or view.related_object.gender %}(\
+{% if view.related_object.age %}{{ view.related_object.age }} year old {% endif %} \
+{% if view.related_object.gender %}{{ view.related_object.gender }}{% endif %}\
+){% endif %}</legend>"""
                 ),
                 css_id="about-the-patient",
             ),

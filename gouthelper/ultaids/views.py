@@ -5,6 +5,7 @@ from django.contrib import messages  # pylint: disable=E0401  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
 from django.http import HttpResponseRedirect  # pylint: disable=E0401  # type: ignore
 from django.urls import reverse  # pylint: disable=E0401  # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=E0401  # type: ignore
 from django.views.generic import (  # pylint: disable=E0401  # type: ignore
     CreateView,
     DetailView,
@@ -54,6 +55,7 @@ from ..medhistorys.models import (
     Xoiinteraction,
 )
 from ..treatments.choices import UltChoices
+from ..ults.models import Ult
 from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidEditMixin
 from .forms import UltAidForm
@@ -117,6 +119,8 @@ class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
     success_message = "UltAid created successfully!"
 
     def get_permission_object(self):
+        if self.ult and self.ult.user:
+            raise PermissionError("Trying to create a UltAid for a Ult with a user with an anonymous view.")
         return None
 
     def post(self, request, *args, **kwargs):
@@ -142,6 +146,7 @@ class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
         if errors:
             return errors
         else:
+            kwargs.update({"ult": self.ult})
             return self.form_valid(
                 form=form,
                 oto_2_save=oto_2_save,
@@ -154,11 +159,24 @@ class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
                 ma_2_rem=ma_2_rem,
                 labs_2_save=None,
                 labs_2_rem=None,
+                **kwargs,
             )
+
+    @cached_property
+    def ult(self) -> Ult | None:
+        ult_kwarg = self.kwargs.get("ult", None)
+        return Ult.related_objects.get(pk=ult_kwarg) if ult_kwarg else None
+
+    @cached_property
+    def related_object(self) -> Ult:
+        return self.ult
 
 
 class UltAidDetailBase(AutoPermissionRequiredMixin, DetailView):
     """DetailView for UltAids."""
+
+    class Meta:
+        abstract = True
 
     model = UltAid
     object: UltAid

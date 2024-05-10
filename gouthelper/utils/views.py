@@ -816,7 +816,14 @@ class GoutHelperAidEditMixin(PatientSessionMixin):
         kwargs = super().get_form_kwargs()
         if self.medallergys:
             kwargs["medallergys"] = self.medallergys
-        kwargs.update({"patient": self.user, "request_user": self.request.user, "str_attrs": self.str_attrs})
+        kwargs.update(
+            {
+                "patient": self.user,
+                "request_user": self.request.user,
+                "str_attrs": self.str_attrs,
+                "related_object": self.related_object if self.related_object else None,
+            }
+        )
         if self.create_view:
             kwargs.update({"instance": self.object})
         return kwargs

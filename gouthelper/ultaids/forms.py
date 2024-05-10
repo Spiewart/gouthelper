@@ -4,7 +4,8 @@ from django import forms  # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
-    forms_helper_insert_about_the_patient,
+    RelatedObjectModelFormMixin,
+    forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_cvdiseases,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_ethnicity,
@@ -18,6 +19,7 @@ from .models import UltAid
 
 
 class UltAidForm(
+    RelatedObjectModelFormMixin,
     forms.ModelForm,
 ):
     """
@@ -37,6 +39,7 @@ class UltAidForm(
     def __init__(self, *args, **kwargs):
         self.medallergys = kwargs.pop("medallergys")
         self.patient = kwargs.pop("patient", None)
+        self.ethnicity = True
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
         if not self.str_attrs:
@@ -49,7 +52,7 @@ class UltAidForm(
                 "",
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout, ethnicity=True)
+        forms_helper_insert_about_the_patient_legend(form=self)
         if not self.patient:
             forms_helper_insert_ethnicity(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)

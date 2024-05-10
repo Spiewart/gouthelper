@@ -4,7 +4,8 @@ from django import forms  # pylint:disable=E0401 # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
-    forms_helper_insert_about_the_patient,
+    RelatedObjectModelFormMixin,
+    forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
@@ -14,6 +15,7 @@ from .models import Ult
 
 
 class UltForm(
+    RelatedObjectModelFormMixin,
     forms.ModelForm,
 ):
     """
@@ -73,7 +75,7 @@ class UltForm(
                 ),
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
+        forms_helper_insert_about_the_patient_legend(form=self)
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.CKD, layout=self.helper.layout)
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)

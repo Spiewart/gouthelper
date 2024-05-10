@@ -5,10 +5,11 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Edit UltAid
+    Edit
   {% else %}
-    New UltAid
+    New
   {% endif %}
+  UltAid
 {% endblock title %}
 {% block heading %}
   {% if form.instance.created %}
@@ -27,13 +28,12 @@
     {% endif %}
     UltAid for updated recommendations.
   {% else %}
-    Figure out what the best <a target="_next" href="{% url 'treatments:about-ult' %}">ULT</a> strategy is for
-    {% if patient %}
-      {{ patient }}
+    Get a ULT recommendation
+    {% if view.related_object %}
+      based on <a href={{ view.related_object.get_absolute_url }}>{{ view.related_object }}</a>.
     {% else %}
-      this patient
+      for {{ str_attrs.subject_the_pos }}.
     {% endif %}
-    .
   {% endif %}
 {% endblock subheading %}
 {% block content %}
@@ -69,14 +69,25 @@
           {% include '_submit_button.html' %}
         </form>
       {% else %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'ultaids:create' %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_next_inputs.html' %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if view.related_object %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ultaids:ult-create' view.related_object.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ultaids:create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% endif %}
     {% endif %}
   </main>

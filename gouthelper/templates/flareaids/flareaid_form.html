@@ -27,11 +27,11 @@
     {% endif %}
     FlareAid for updated recommendations.
   {% else %}
-    Create treatment recommendations <strong>for</strong>
+    Create treatment recommendations for
     {% if view.related_object %}
-      <strong>{{ view.related_object }}</strong>.
+      {{ view.related_object }}.
     {% else %}
-      <strong>{{ str_attrs.subject_the_pos }}</strong> gout flares.
+      {{ str_attrs.subject_the_pos }} gout flares.
     {% endif %}
   {% endif %}
 {% endblock subheading %}

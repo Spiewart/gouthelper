@@ -137,7 +137,7 @@ class GoutHelperBaseModel:
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
         if hasattr(self, "user"):
-            if not self.user and hasattr(self, "dateofbirth"):
+            if not self.user and getattr(self, "dateofbirth", False):
                 return age_calc(date_of_birth=self.dateofbirth.value)
             elif self.user and self.user.dateofbirth:
                 return age_calc(date_of_birth=self.user.dateofbirth.value)

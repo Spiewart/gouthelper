@@ -74,6 +74,7 @@ class Ult(
                         user__isnull=False,
                         dateofbirth__isnull=True,
                         gender__isnull=True,
+                        ultaid__isnull=True,
                     )
                     | models.Q(
                         user__isnull=True,
@@ -120,6 +121,12 @@ class Ult(
         choices=FlareNums.choices,
         validators=[MinValueValidator(0), MaxValueValidator(2)],
         help_text="How many gout flares have you had?",
+    )
+    ultaid = models.OneToOneField(
+        "ultaids.UltAid",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
