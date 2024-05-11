@@ -8,7 +8,7 @@
     <div class="col">
       <h1>{{ object }}</h1>
     </div>
-    <div class="col align-items-center d-flex justify-content-end">
+    <div class="col-auto align-items-center d-flex justify-content-end">
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
@@ -61,9 +61,9 @@
                     Explanation: {{ flare.likelihood_explanation }}
                     {% if flare.less_likelys %}
                       <ul>
-                        {% for less_likely, less_likely_link in flare.less_likelys_explanations %}
+                        {% for less_likely_explanation in flare.less_likelys_explanations %}
                           <li>
-                            <!-- djlint:off -->{{ less_likely }} - <a class="samepage-link" href=#{{ less_likely_link }}><em>explanation</em></a><!-- djlint:on -->
+                            <!-- djlint:off -->{{less_likely_explanation}}<!-- djlint:on -->
                           </li>
                         {% endfor %}
                       </ul>
@@ -96,36 +96,27 @@
           </div>
         </div>
       </div>
-      <div id="treatment">
-        <hr size="3" color="dark" />
-        <div class="row">
-          <div class="col">
-            <h3>
-              <u>Treatment / FlareAid</u>
-            </h3>
-          </div>
-        </div>
-        <div id="flareaid">
-          {% if object.user %}
-            {% if object.user.flareaid %}
-              {% include 'flareaids/flare_card.html' with object=object.user.flareaid flare=object %}
-            {% else %}
-              <a type="button"
-                 class="btn btn-primary btn-lg spacious-buttons"
-                 href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}"
-                 role="button">FlareAid</a>
-            {% endif %}
+      <hr size="3" color="dark" />
+      <div id="flareaid">
+        {% if object.user %}
+          {% if object.user.flareaid %}
+            {% include 'flareaids/flareaid_detail_card.html' with object=object.user.flareaid flare=object %}
           {% else %}
-            {% if object.flareaid %}
-              {% include 'flareaids/flare_card.html' with object=object.flareaid flare=object %}
-            {% else %}
-              <a type="button"
-                 class="btn btn-primary btn-lg spacious-buttons"
-                 href="{% url 'flareaids:flare-create' flare=object.pk %}"
-                 role="button">FlareAid</a>
-            {% endif %}
+            <a type="button"
+               class="btn btn-primary btn-lg spacious-buttons"
+               href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
+               role="button">FlareAid</a>
           {% endif %}
-        </div>
+        {% else %}
+          {% if object.flareaid %}
+            {% include 'flareaids/flareaid_detail_card.html' with object=object.flareaid flare=object %}
+          {% else %}
+            <a type="button"
+               class="btn btn-primary btn-lg spacious-buttons"
+               href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
+               role="button">FlareAid</a>
+          {% endif %}
+        {% endif %}
       </div>
       <div id="details">
         <hr size="3" color="dark" />
@@ -134,6 +125,9 @@
             <h3>
               <u>Details</u>
             </h3>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
           </div>
         </div>
         <div class="row">
@@ -279,6 +273,9 @@
             <h3>
               <u>Explanations</u>
             </h3>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
           </div>
         </div>
         <div class="accordion" id="accordionExplanations">

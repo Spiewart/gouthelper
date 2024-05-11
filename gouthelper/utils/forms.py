@@ -7,6 +7,7 @@ from django.forms import BaseModelFormSet, ModelForm  # type: ignore
 from ..medhistorys.choices import CVDiseases, MedHistoryTypes
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from .exceptions import EmptyRelatedModel  # type: ignore
+from .helpers import get_str_attrs
 
 if TYPE_CHECKING:
     from crispy_forms.layout import Layout  # type: ignore
@@ -26,9 +27,14 @@ class OneToOneForm(ModelForm):
             raise EmptyRelatedModel
 
 
-class RelatedObjectModelFormMixin:
+class ModelFormKwargMixin:
     def __init__(self, *args, **kwargs):
+        self.patient = kwargs.pop("patient", None)
         self.related_object = kwargs.pop("related_object", None)
+        self.request_user = kwargs.pop("request_user", None)
+        self.str_attrs = kwargs.pop("str_attrs", None)
+        if not self.str_attrs:
+            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
 
 

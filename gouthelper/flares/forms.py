@@ -10,18 +10,19 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
-    forms_helper_insert_about_the_patient,
+    ModelFormKwargMixin,
+    forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_cvdiseases,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
 )
-from ..utils.helpers import get_str_attrs
 from .choices import DIAGNOSED_CHOCIES
 from .models import Flare
 
 
 class FlareForm(
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     """
@@ -42,11 +43,6 @@ class FlareForm(
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["aki"].help_text = _(
             mark_safe(
@@ -336,7 +332,7 @@ for these symptoms?"
                 ),
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
+        forms_helper_insert_about_the_patient_legend(form=self)
         # Again check if there is a patient and if not, insert DateOfBirthForm, GenderForm, and MenopauseForm
         if not self.patient:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)

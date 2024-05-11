@@ -4,18 +4,17 @@ from django import forms  # pylint:disable=E0401 # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
-    RelatedObjectModelFormMixin,
+    ModelFormKwargMixin,
     forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
 )
-from ..utils.helpers import get_str_attrs
 from .models import Ult
 
 
 class UltForm(
-    RelatedObjectModelFormMixin,
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     """
@@ -30,11 +29,6 @@ class UltForm(
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields[
             "freq_flares"

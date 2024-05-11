@@ -79,7 +79,7 @@
                           {% else %}
                             <a type="button"
                                class="btn btn-primary btn-lg mini-button"
-                               href="{% url 'ppxaids:pseudopatient-create' username=object.user.username %}?next={{ request.path }}"
+                               href="{% url 'ppxaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
                                role="button">Create PpxAid</a>
                           {% endif %}
                         {% else %}
@@ -88,7 +88,7 @@
                           {% else %}
                             <a type="button"
                                class="btn btn-primary btn-lg mini-button"
-                               href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ request.path }}"
+                               href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ object.get_absolute_url }}"
                                role="button">Create PpxAid</a>
                           {% endif %}
                         {% endif %}

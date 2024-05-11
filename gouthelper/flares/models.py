@@ -727,27 +727,67 @@ score."
     @property
     def less_likelys_explanations(self) -> list[str]:
         """Method that returns a list of the LessLikelys explanations for a Flare."""
-        return [
-            (self.LessLikelys(less_likely).label, self.less_likely_get_explanation(less_likely))
-            for less_likely in self.less_likelys
-        ]
+        return [self.get_less_likely_html_explanation(less_likely) for less_likely in self.less_likelys]
 
-    def less_likely_get_explanation(self, less_likely: LessLikelys) -> str:
-        """Method that takes a less likely and gets a str to link to the correct explanation."""
-        if less_likely == self.LessLikelys.FEMALE:
+    @classmethod
+    def get_less_likely_html_id(cls, less_likely: LessLikelys) -> str:
+        """Gets the str for a less_likely to use in anchor tags and other HTML links."""
+        if less_likely == cls.LessLikelys.FEMALE:
             return "demographics"
-        elif less_likely == self.LessLikelys.JOINTS:
+        elif less_likely == cls.LessLikelys.JOINTS:
             return "joints"
-        elif less_likely == self.LessLikelys.NEGCRYSTALS:
+        elif less_likely == cls.LessLikelys.NEGCRYSTALS:
             return "crystal_analysis"
-        elif less_likely == self.LessLikelys.TOOLONG:
+        elif less_likely == cls.LessLikelys.TOOLONG:
             return "duration"
-        elif less_likely == self.LessLikelys.TOOSHORT:
+        elif less_likely == cls.LessLikelys.TOOSHORT:
             return "duration"
-        elif less_likely == self.LessLikelys.TOOYOUNG:
+        elif less_likely == cls.LessLikelys.TOOYOUNG:
             return "age"
         else:
             raise ValueError("Unsupported LessLikelys")
+
+    @classmethod
+    def get_less_likely_html_explanation(cls, less_likely: LessLikelys) -> str:
+        """Gets the str explanation for a less_likely to use in templates."""
+        if less_likely == cls.LessLikelys.FEMALE:
+            return cls.less_likely_demographics_explanation()
+        elif less_likely == cls.LessLikelys.JOINTS:
+            return cls.less_likely_joints_explanation()
+        elif less_likely == cls.LessLikelys.NEGCRYSTALS:
+            return cls.less_likely_negcrystals_explanation()
+        elif less_likely == cls.LessLikelys.TOOLONG:
+            return cls.less_likely_toolong_explanation()
+        elif less_likely == cls.LessLikelys.TOOSHORT:
+            return cls.less_likely_tooshort_explanation()
+        elif less_likely == cls.LessLikelys.TOOYOUNG:
+            return cls.less_likely_tooyoung_explanation()
+        else:
+            raise ValueError("Unsupported LessLikelys")
+
+    @staticmethod
+    def less_likely_demographics_explanation() -> str:
+        return mark_safe("<a href='demographics'>Pre-menopausal females</a> without CKD typically do not get gout")
+
+    @staticmethod
+    def less_likely_joints_explanation() -> str:
+        return mark_safe("The <a href'#joints'>joints</a> involved are atypical for gout")
+
+    @staticmethod
+    def less_likely_negcrystals_explanation() -> str:
+        return mark_safe("A <a href='crystal_analysis'>negative crystal analysis</a> is inconsistent with gout")
+
+    @staticmethod
+    def less_likely_toolong_explanation() -> str:
+        return mark_safe("The <a href='#duration'>duration</a> of the flare is atypically long for gout")
+
+    @staticmethod
+    def less_likely_tooshort_explanation() -> str:
+        return mark_safe("The <a href='#duration'>duration</a> of the flare is atypically short for gout")
+
+    @staticmethod
+    def less_likely_tooyoung_explanation() -> str:
+        return mark_safe("Almost no one gets gout before <a href='#age'>age</a> 18")
 
     @property
     def less_likelys_str(self) -> str:
@@ -768,6 +808,7 @@ score."
 
     def likelihood_likely_explanation(self) -> str:
         """Method that interprets an LIKELY likelihood for a Flare."""
+        # TODO - FIX THIS
         likelihood_exp_str = self.likelihood_base_explanation()
         if self.prevalence == self.Prevalences.HIGH:
             likelihood_exp_str += " that was not adjusted for any <em>less likely</em> factors."
