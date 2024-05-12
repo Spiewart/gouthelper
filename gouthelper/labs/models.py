@@ -23,6 +23,39 @@ if TYPE_CHECKING:
 class CreatinineBase:
     class Meta:
         abstract = True
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
+
+    LowerLimits = LowerLimits
+    Units = Units
+    UpperLimits = UpperLimits
+
+    lower_limit = models.DecimalField(max_digits=4, decimal_places=2, default=LowerLimits.CREATININEMGDL)
+    units = models.CharField(_("Units"), choices=Units.choices, max_length=10, default=Units.MGDL)
+    upper_limit = models.DecimalField(max_digits=4, decimal_places=2, default=UpperLimits.CREATININEMGDL)
+    value = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+    )
+
+    @classmethod
+    def medhistorytype(cls):
+        return MedHistoryTypes.CKD
+
+    @cached_property
+    def value_str(self) -> str:
+        return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+
+    def __str__(self):
+        return f"Creatinine: {self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
     def calculate_eGFR(
         self: "BaselineCreatinine",
@@ -75,12 +108,17 @@ class BaselineLab(LabBase):
         abstract = True
 
     medhistory = models.OneToOneField("medhistorys.MedHistory", on_delete=models.CASCADE)
+    history = HistoricalRecords(inherit=True)
 
 
 class Lab(LabBase):
     class Meta:
         abstract = True
         constraints = [
+            models.CheckConstraint(
+                check=models.Q(date_drawn__lte=models.functions.Now()),
+                name="%(app_label)s_%(class)s_date_drawn_not_in_future",
+            ),
             models.CheckConstraint(
                 check=models.Q(date_drawn__lte=models.functions.Now()),
                 name="%(app_label)s_%(class)s_date_drawn_not_in_future",
@@ -135,42 +173,20 @@ class Lab(LabBase):
 
 
 class BaselineCreatinine(CreatinineBase, BaselineLab):
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
-                    & models.Q(units=Units.MGDL)
-                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
-                ),
-                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
-            ),
-        ]
+    class Meta(CreatinineBase.Meta):
+        pass
 
-    LowerLimits = LowerLimits
-    Units = Units
-    UpperLimits = UpperLimits
 
-    lower_limit = models.DecimalField(max_digits=4, decimal_places=2, default=LowerLimits.CREATININEMGDL)
-    units = models.CharField(_("Units"), choices=Units.choices, max_length=10, default=Units.MGDL)
-    upper_limit = models.DecimalField(max_digits=4, decimal_places=2, default=UpperLimits.CREATININEMGDL)
-    value = models.DecimalField(
-        max_digits=4,
-        decimal_places=2,
+class Creatinine(CreatinineBase, Lab):
+    class Meta(CreatinineBase.Meta):
+        pass
+
+    aki = models.ForeignKey(
+        "akis.Aki",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
-
-    history = HistoricalRecords()
-
-    @classmethod
-    def medhistorytype(cls):
-        return MedHistoryTypes.CKD
-
-    @cached_property
-    def value_str(self) -> str:
-        return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
-
-    def __str__(self):
-        return f"Baseline Creatinine: {self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
 
 
 class Urate(Lab):

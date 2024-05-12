@@ -121,13 +121,12 @@ class Flare(
     Likelihoods = Likelihoods
     Prevalences = Prevalences
 
-    aki = models.BooleanField(
-        choices=BOOL_CHOICES,
-        verbose_name=_("Acute Kidney Injury"),
-        help_text=_("Did the patient have acute kidney injury during this flare?"),
-        default=None,
+    aki = models.OneToOneField(
+        "akis.Aki",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        default=None,
     )
     crystal_analysis = models.BooleanField(
         choices=BOOL_CHOICES,
