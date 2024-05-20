@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
+    ModelFormKwargMixin,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_demographics,
     forms_helper_insert_ethnicity,
@@ -16,13 +17,12 @@ from ..utils.forms import (
     forms_helper_insert_goutdetail,
     forms_helper_insert_medhistory,
 )
-from ..utils.helpers import get_str_attrs
 from .models import Pseudopatient
 
 User = get_user_model()
 
 
-class PseudopatientForm(forms.ModelForm):
+class PseudopatientForm(ModelFormKwargMixin, forms.ModelForm):
     """Model form for creating Pseudopatient objects."""
 
     class Meta:
@@ -36,11 +36,6 @@ class PseudopatientForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False

@@ -7,6 +7,7 @@ from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable
 from django.core.exceptions import ValidationError  # pylint: disable=e0401 # type: ignore
 from django.http import Http404, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
 from django.views.generic import (  # pylint: disable=e0401 # type: ignore
     CreateView,
     DeleteView,
@@ -20,13 +21,15 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
+from ..akis.forms import AkiForm
+from ..akis.models import Aki
 from ..contents.choices import Contexts
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
-from ..labs.forms import UrateFlareForm
-from ..labs.models import Urate
+from ..labs.forms import CreatinineFormHelper, FlareCreatinineFormSet, UrateFlareForm
+from ..labs.models import Creatinine, Urate
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import (
     AnginaForm,
@@ -40,7 +43,7 @@ from ..medhistorys.forms import (
     PvdForm,
     StrokeForm,
 )
-from ..medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
+from ..medhistorys.models import Angina, Cad, Chf, Ckd, Heartattack, Hypertension, Pvd, Stroke
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
@@ -77,48 +80,65 @@ class FlareBase:
     model = Flare
     success_message = "Flare created successfully!"
 
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "gender": {"form": GenderForm, "model": Gender},
-        "urate": {"form": UrateFlareForm, "model": Urate},
-    }
-    medhistorys = {
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm, "model": Hypertension},
-        MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm, "model": Menopause},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-    }
-    req_otos = {}
+    @cached_property
+    def creatinine_formset_qs(self):
+        return (
+            Creatinine.objects.filter(aki=self.object.aki)
+            if hasattr(self.object, "aki")
+            else Creatinine.objects.none()
+        )
 
-    def post_process_urate_check(
-        self,
-        form: "ModelForm",
-        oto_forms: dict[str, "ModelForm"],
-        errors_bool: bool = False,
-    ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
-        urate_val = oto_forms["urate_form"].cleaned_data.get("value", None)
-        urate_check = form.cleaned_data.get("urate_check", None)
+    def post_process_urate_check(self) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
+        urate_val = self.oto_forms["urate_form"].cleaned_data.get("value", None)
+        urate_check = self.form.cleaned_data.get("urate_check", None)
         if urate_check and not urate_val:
             urate_error = ValidationError(
                 message="If the serum uric acid was checked, please tell us the value! \
 If you don't know the value, please uncheck the Uric Acid Lab Check box."
             )
-            form.add_error("urate_check", urate_error)
-            oto_forms["urate_form"].add_error("value", urate_error)
-            errors_bool = True
-        return form, oto_forms, errors_bool
+            self.form.add_error("urate_check", urate_error)
+            self.oto_forms["urate_form"].add_error("value", urate_error)
+            if not self.errors_bool:
+                self.errors_bool = True
+        return self.form, self.oto_forms, self.errors_bool
+
+    def set_lab_formsets(self) -> None:
+        self.lab_formsets = {"creatinine": (FlareCreatinineFormSet, CreatinineFormHelper)}
+
+    def set_medhistory_forms(self) -> None:
+        self.medhistory_forms = {
+            MedHistoryTypes.ANGINA: {"form": AnginaForm},
+            MedHistoryTypes.CAD: {"form": CadForm},
+            MedHistoryTypes.CHF: {"form": ChfForm},
+            MedHistoryTypes.CKD: {"form": CkdForm},
+            MedHistoryTypes.GOUT: {"form": GoutForm},
+            MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm},
+            MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm},
+            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm},
+            MedHistoryTypes.PVD: {"form": PvdForm},
+            MedHistoryTypes.STROKE: {"form": StrokeForm},
+        }
+
+    def set_oto_forms(self) -> None:
+        self.oto_forms = {
+            "aki": {"form": AkiForm},
+            "dateofbirth": {"form": DateOfBirthForm},
+            "gender": {"form": GenderForm},
+            "urate": {"form": UrateFlareForm},
+        }
+
+    def set_req_otos(self) -> None:
+        self.req_otos = []
 
 
 class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
+
+    @cached_property
+    def creatinine_formset_qs(self):
+        return Creatinine.objects.none()
 
     def get_initial(self) -> dict[str, Any]:
         initial = super().get_initial()
@@ -127,70 +147,37 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
         return initial
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        mh_forms, errors_bool = self.post_process_menopause(
-            mh_forms=mh_forms,
+        super().post(request, *args, **kwargs)
+        self.mh_forms, self.errors_bool = self.post_process_menopause(
+            mh_forms=self.mh_forms,
             dateofbirth=(
-                oto_forms["dateofbirth_form"].cleaned_data.get("value")
-                if hasattr(oto_forms["dateofbirth_form"], "cleaned_data")
+                self.oto_forms["dateofbirth_form"].cleaned_data.get("value")
+                if hasattr(self.oto_forms["dateofbirth_form"], "cleaned_data")
                 else None
             ),
             gender=(
-                oto_forms["gender_form"].cleaned_data.get("value")
-                if hasattr(oto_forms["gender_form"], "cleaned_data")
+                self.oto_forms["gender_form"].cleaned_data.get("value")
+                if hasattr(self.oto_forms["gender_form"], "cleaned_data")
                 else None
             ),
         )
-        form, oto_forms, errors_bool = self.post_process_urate_check(
-            form=form, oto_forms=oto_forms, errors_bool=errors_bool
+        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
+            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors_bool
         )
-        if errors or errors_bool:
-            # TODO: figure out if it is necessary to re-render_errors() or whether
-            # TODO: we can just return the errors because they were modified in place
-            if errors_bool and not errors:
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
                 return super().render_errors(
-                    form=form,
-                    oto_forms=oto_forms,
-                    mh_forms=mh_forms,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=None,
-                    labs=None,
+                    form=self.form,
+                    oto_forms=self.oto_forms,
+                    mh_forms=self.mh_forms,
+                    mh_det_forms=self.mh_det_forms,
+                    ma_forms=self.ma_forms,
+                    lab_formsets=self.lab_formsets,
                 )
             else:
-                return errors
+                return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class FlareDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -245,7 +232,7 @@ class FlarePatientBase(FlareBase):
         MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
         MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
     }
-    onetoones = {"urate": {"form": UrateFlareForm, "model": Urate}}
+    onetoones = {"aki": {"form": AkiForm, "model": Aki}, "urate": {"form": UrateFlareForm, "model": Urate}}
     req_otos = ["dateofbirth", "gender"]
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
@@ -298,55 +285,24 @@ class FlarePseudopatientCreate(
         return initial
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        form, oto_forms, errors_bool = self.post_process_urate_check(
-            form=form, oto_forms=oto_forms, errors_bool=errors
+        super().post(request, *args, **kwargs)
+        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
+            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors
         )
-        if errors or errors_bool:
-            if errors_bool and not errors:
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
                 return super().render_errors(
-                    form=form,
-                    oto_forms=oto_forms,
-                    mh_forms=mh_forms,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=None,
-                    labs=None,
+                    form=self.form,
+                    oto_forms=self.oto_forms,
+                    mh_forms=self.mh_forms,
+                    mh_det_forms=self.mh_det_forms,
+                    ma_forms=self.ma_forms,
+                    lab_formsets=self.lab_formsets,
                 )
             else:
-                return errors
+                return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, username=self.user.username)
@@ -467,52 +423,23 @@ class FlarePseudopatientUpdate(
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            ma_forms,
-            lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        form, oto_forms, errors_bool = self.post_process_urate_check(form=form, oto_forms=oto_forms)
-        if errors or errors_bool:
-            if errors_bool and not errors:
+        super().post(request, *args, **kwargs)
+        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
+            form=self.form, oto_forms=self.oto_forms
+        )
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
                 return super().render_errors(
-                    form=form,
-                    oto_forms=oto_forms,
-                    mh_forms=mh_forms,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=ma_forms,
-                    lab_formsets=lab_formsets,
-                    labs=self.labs if hasattr(self, "labs") else None,
+                    form=self.form,
+                    oto_forms=self.oto_forms,
+                    mh_forms=self.mh_forms,
+                    mh_det_forms=self.mh_det_forms,
+                    ma_forms=self.ma_forms,
+                    lab_formsets=self.lab_formsets,
                 )
             else:
-                return errors
-        return self.form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=None,
-            ma_2_rem=None,
-            labs_2_save=None,
-            labs_2_rem=None,
-        )
+                return self.errors
+        return self.form_valid()
 
 
 class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
@@ -547,52 +474,23 @@ class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        mh_forms, errors_bool = self.post_process_menopause(mh_forms=mh_forms, post_object=form.instance)
-        form, oto_forms, errors_bool = self.post_process_urate_check(
-            form=form, oto_forms=oto_forms, errors_bool=errors_bool
+        super().post(request, *args, **kwargs)
+        self.mh_forms, self.errors_bool = self.post_process_menopause(
+            mh_forms=self.mh_forms, post_object=self.form.instance
         )
-        if errors or errors_bool:
-            if errors_bool and not errors:
+        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
+            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors_bool
+        )
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
                 return super().render_errors(
-                    form=form,
-                    oto_forms=oto_forms,
-                    mh_forms=mh_forms,
-                    mh_det_forms=mh_det_forms,
+                    form=self.form,
+                    oto_forms=self.oto_forms,
+                    mh_forms=self.mh_forms,
+                    mh_det_forms=self.mh_det_forms,
                     ma_forms=None,
-                    lab_formsets=None,
-                    labs=None,
+                    lab_formsets=self.lab_formsets,
                 )
             else:
-                return errors
-        return self.form_valid(
-            form=form,
-            oto_2_save=oto_2_save,
-            oto_2_rem=oto_2_rem,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=None,
-            ma_2_rem=None,
-            labs_2_save=None,
-            labs_2_rem=None,
-        )
+                return self.errors
+        return self.form_valid()

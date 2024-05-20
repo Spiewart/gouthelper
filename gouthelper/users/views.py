@@ -96,7 +96,6 @@ class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
                 mh_det_forms=mh_det_forms,
                 ma_forms=None,
                 lab_formsets=None,
-                labs=None,
             )
         else:
             return self.form_valid(
@@ -185,7 +184,6 @@ class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
                 mh_det_forms=mh_det_forms,
                 ma_forms=None,
                 lab_formsets=None,
-                labs=None,
             )
         else:
             return self.form_valid(

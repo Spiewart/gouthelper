@@ -5,7 +5,7 @@ from factory import Faker  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
 from ...medhistorys.tests.factories import CkdFactory
-from ..models import BaselineCreatinine, Hlab5801, Lab, Urate
+from ..models import BaselineCreatinine, Creatinine, Hlab5801, Lab, Urate
 
 pytestmark = pytest.mark.django_db
 
@@ -56,6 +56,20 @@ class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
         min_value=2,
         max_value=10,
     )
+
+
+class CreatinineFactory(CreatinineBase, LabFactory):
+    value = Faker(
+        "pydecimal",
+        left_digits=2,
+        right_digits=2,
+        positive=True,
+        min_value=1,
+        max_value=10,
+    )
+
+    class Meta:
+        model = Creatinine
 
 
 class Hlab5801Factory(DjangoModelFactory):

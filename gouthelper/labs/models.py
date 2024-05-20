@@ -20,19 +20,9 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
-class CreatinineBase:
+class CreatinineBase(models.Model):
     class Meta:
         abstract = True
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
-                    & models.Q(units=Units.MGDL)
-                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
-                ),
-                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
-            ),
-        ]
 
     LowerLimits = LowerLimits
     Units = Units
@@ -119,10 +109,6 @@ class Lab(LabBase):
                 check=models.Q(date_drawn__lte=models.functions.Now()),
                 name="%(app_label)s_%(class)s_date_drawn_not_in_future",
             ),
-            models.CheckConstraint(
-                check=models.Q(date_drawn__lte=models.functions.Now()),
-                name="%(app_label)s_%(class)s_date_drawn_not_in_future",
-            ),
         ]
 
     date_drawn = models.DateTimeField(help_text="What day was this lab drawn?", default=timezone.now, blank=True)
@@ -173,13 +159,34 @@ class Lab(LabBase):
 
 
 class BaselineCreatinine(CreatinineBase, BaselineLab):
-    class Meta(CreatinineBase.Meta):
-        pass
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Baseline {super().__str__()}"
 
 
 class Creatinine(CreatinineBase, Lab):
-    class Meta(CreatinineBase.Meta):
-        pass
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
 
     aki = models.ForeignKey(
         "akis.Aki",
@@ -187,6 +194,10 @@ class Creatinine(CreatinineBase, Lab):
         null=True,
         blank=True,
     )
+
+    @classmethod
+    def related_models(cls) -> list[Literal["aki"]]:
+        return ["aki"]
 
 
 class Urate(Lab):
@@ -231,6 +242,10 @@ class Urate(Lab):
 
     def __str__(self):
         return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+
+    @classmethod
+    def related_models(cls) -> list[Literal["ppx"]]:
+        return ["ppx"]
 
     @cached_property
     def value_str(self):

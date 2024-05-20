@@ -106,7 +106,7 @@ def create_ppx(
     **kwargs,
 ) -> Ppx:
     """Creates a Ppx with the given user, labs, and medhistorys."""
-    # Set the Labs
+    # Set the Urates to be created
     if labs is None:
         labs_kwarg = {UrateFactory: [UrateFactory.build() for _ in range(random.randint(0, 5))]}
     else:

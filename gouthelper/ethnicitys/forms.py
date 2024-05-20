@@ -4,11 +4,11 @@ from django.urls import reverse_lazy  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
 
 from ..utils.exceptions import EmptyRelatedModel  # type: ignore
-from ..utils.helpers import get_str_attrs  # type: ignore
+from ..utils.forms import ModelFormKwargMixin  # type: ignore
 from .models import Ethnicity
 
 
-class EthnicityForm(forms.ModelForm):
+class EthnicityForm(ModelFormKwargMixin, forms.ModelForm):
     class Meta:
         model = Ethnicity
         fields = ("value",)
@@ -16,11 +16,6 @@ class EthnicityForm(forms.ModelForm):
     prefix = "ethnicity"
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].help_text = format_lazy(
             """What is {} ethnicity or race? <a href="{}" target="_next">Why do we need to know?</a>""",

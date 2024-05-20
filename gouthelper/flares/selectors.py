@@ -11,8 +11,17 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
+def creatinines_prefetch() -> Prefetch:
+    return Prefetch(
+        "aki__creatinine_set",
+        queryset=apps.get_model("labs.Creatinine").objects.all(),
+        to_attr="creatinines_qs",
+    )
+
+
 def flares_prefetch(pk: Union["UUID", None] = None) -> Prefetch:
-    queryset = apps.get_model("flares.Flare").objects.select_related("urate")
+    queryset = apps.get_model("flares.Flare").objects.select_related("aki", "urate")
+    queryset = queryset.prefetch_related(creatinines_prefetch())
     qs_attr = "flare"
     if pk:
         queryset = queryset.filter(pk=pk)
@@ -52,10 +61,15 @@ def flare_relations(qs: "QuerySet") -> "QuerySet":
 
 def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
     """QuerySet to fetch all the related objects for a Flare without the User."""
-    return flare_relations(qs).select_related(
-        "flareaid",
-        "urate",
-        "user",
+    return (
+        flare_relations(qs)
+        .select_related(
+            "aki",
+            "flareaid",
+            "user",
+            "urate",
+        )
+        .prefetch_related(creatinines_prefetch())
     )
 
 

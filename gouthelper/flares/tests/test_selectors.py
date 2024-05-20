@@ -89,7 +89,11 @@ class TestFlareUserlessQuerySet(TestCase):
         self.assertEqual(queryset.first().gender, self.gender)
         with CaptureQueriesContext(connection) as queries:
             queryset = queryset.get()
-        self.assertEqual(len(queries.captured_queries), 2)
+        if queryset.aki:
+            self.assertTrue(hasattr(queryset.aki, "creatinines_qs"))
+            self.assertEqual(len(queries.captured_queries), 3)
+        else:
+            self.assertEqual(len(queries.captured_queries), 2)
         self.assertIn(self.angina, queryset.medhistorys_qs)
         self.assertIn(self.cad, queryset.medhistorys_qs)
         self.assertIn(self.chf, queryset.medhistorys_qs)
@@ -114,14 +118,18 @@ class TestFlareUserlessQuerySet(TestCase):
         queryset = flare_userless_qs(flare.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
-        self.assertEqual(queryset.first(), flare)
-        self.assertEqual(queryset.first().dateofbirth, self.dateofbirth)
-        self.assertEqual(queryset.first().gender, flare.gender)
         with CaptureQueriesContext(connection) as queries:
-            queryset = queryset.get()
-        self.assertEqual(len(queries.captured_queries), 2)
-        self.assertEqual(queryset.medhistorys_qs, [])
-        self.assertIsNone(queryset.urate)
+            queried_flare = queryset.get()
+        self.assertEqual(queried_flare, flare)
+        self.assertEqual(queried_flare.dateofbirth, self.dateofbirth)
+        self.assertEqual(queried_flare.gender, flare.gender)
+        self.assertEqual(queried_flare.medhistorys_qs, [])
+        self.assertIsNone(queried_flare.urate)
+        if queried_flare.aki:
+            self.assertTrue(hasattr(queried_flare.aki, "creatinines_qs"))
+            self.assertEqual(len(queries.captured_queries), 3)
+        else:
+            self.assertEqual(len(queries.captured_queries), 2)
 
 
 class TestFlaresUserQuerySet(TestCase):
@@ -136,7 +144,11 @@ class TestFlaresUserQuerySet(TestCase):
         for psp in self.psps:
             with CaptureQueriesContext(connection) as queries:
                 qs = flares_user_qs(psp.username, psp.flare_set.last().pk).get()
-            self.assertEqual(len(queries.captured_queries), 4)
+            if qs.flare_qs[0].aki:
+                self.assertEqual(len(queries.captured_queries), 5)
+                self.assertTrue(hasattr(qs.flare_qs[0].aki, "creatinines_qs"))
+            else:
+                self.assertEqual(len(queries.captured_queries), 4)
             self.assertEqual(qs.flare_set.get(), psp.flare_set.last())
             self.assertEqual(qs.dateofbirth, psp.dateofbirth)
             self.assertEqual(qs.gender, psp.gender)

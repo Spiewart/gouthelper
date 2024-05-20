@@ -7,7 +7,7 @@ from django.utils.text import format_lazy  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers import get_str_attrs
+from ..utils.forms import ModelFormKwargMixin
 from .models import (
     Angina,
     Anticoagulation,
@@ -37,7 +37,7 @@ from .models import (
 )
 
 
-class MedHistoryForm(forms.ModelForm):
+class MedHistoryForm(ModelFormKwargMixin, forms.ModelForm):
     class Meta:
         abstract = True
         model = MedHistory
@@ -57,11 +57,6 @@ class MedHistoryForm(forms.ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.value = f"{self._meta.model.__name__.upper()}-value"
         self.fields.update({self.value: forms.BooleanField(required=False)})

@@ -92,6 +92,63 @@
       urate_checker($('#id_urate_check'));
     });
   </script>
+  <script>
+    $(document).ready(function() {
+      $(function() {
+        $('#aki-form tbody tr').formset({
+          prefix: '{{ creatinine_formset.prefix}}',
+          added: function() {
+            $('input[id*="date_drawn"]').each(function() {
+              var css_class = $(this).attr('class');
+              // check if css_class is not undefined and if it has 'hasDatepicker' in the class
+              // https://stackoverflow.com/questions/44624656/js-jquery-how-to-dynamically-update-refresh-datepicker-value-after-changing-th
+              // datepicker class needs to be removed by the cloneUrate function
+              if (css_class !== undefined && css_class.includes('hasDatepicker')) {
+                css_class = css_class.replace('hasDatepicker', '');
+                $(this).attr('class', css_class)
+              }
+              $(this).datepicker({
+                changeYear: true,
+                minDate: "-2y",
+                maxDate: "0",
+              });
+            })
+          },
+          addCssClass: 'formset-add',
+          addText: "Add Creatinine",
+          deleteCssClass: 'formset-delete',
+          deleteText: "Remove",
+          // Giant patch of monkies to use the remove button from django-dynamic-formsets
+          // which was meant to be used with an inlineformset, not a regular formset,
+          // on a regular formset. The remove button would decrement the TOTAL_FORMS count
+          // and the view would delete extra forms because they wouldn't make it to cleaned_data.
+          removed: function(row) {
+            id_input = $(row).find("input[id$='-id']")
+            // Check if the input has a value
+            if (id_input.val()) {
+              // If it does, check if TOTAL_FORMS is less than INITIAL_FORMS
+              var initial_forms = '{{ creatinine_formset.prefix}}' + '-INITIAL_FORMS';
+              var initial_forms_input = $('#id_' + initial_forms);
+              // If it does, then add one back to formset TOTAL_FORMS
+              var total_forms = '{{ creatinine_formset.prefix}}' + '-TOTAL_FORMS';
+              var total_forms_input = $('#id_' + total_forms);
+              var total_initial_dif = (parseInt(initial_forms_input.val()) - parseInt(total_forms_input.val()) + 1);
+              if (total_initial_dif > 0) {
+                total_forms_input.val(parseInt(total_forms_input.val()) + total_initial_dif);
+              }
+            }
+          },
+        });
+      })
+    });
+    $('input[id*="date_drawn"]').each(function() {
+      $(this).datepicker({
+        changeYear: true,
+        minDate: "-2y",
+        maxDate: "0",
+      });
+    });
+  </script>
   {% with dob_optional=False gender_optional=False %}
     {% include 'medhistorydetails/_ckddetail_js.html' %}
   {% endwith %}

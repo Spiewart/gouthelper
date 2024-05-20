@@ -2,6 +2,7 @@ import pytest  # pylint: disable=E0401 # type: ignore
 from django.test import TestCase  # pylint: disable=E0401 # type: ignore
 from factory.faker import faker  # type: ignore
 
+from ...akis.models import Aki
 from ...defaults.tests.factories import FlareAidSettingsFactory, PpxAidSettingsFactory, UltAidSettingsFactory
 from ...flareaids.models import FlareAid
 from ...flareaids.tests.factories import create_flareaid
@@ -73,7 +74,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
     def test__flares_qs(self):
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(4):
             for psp in Pseudopatient.objects.flares_qs().all():
                 self.assertTrue(hasattr(psp, "flares_qs"))
                 self.assertTrue(psp.dateofbirth)
@@ -81,6 +82,8 @@ class TestPseudopatientManager(TestCase):
                 self.assertTrue(hasattr(psp, "medhistorys_qs"))
                 for flare in psp.flares_qs:
                     self.assertTrue(isinstance(flare, Flare))
+                    if flare.aki:
+                        self.assertTrue(isinstance(flare.aki, Aki))
                     if flare.urate:
                         self.assertTrue(isinstance(flare.urate, Urate))
         for psp in Pseudopatient.objects.flares_qs().all():

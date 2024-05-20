@@ -6,13 +6,16 @@ from django.contrib.auth import get_user_model  # type: ignore
 from django.contrib.auth.models import AnonymousUser  # type: ignore
 from django.contrib.sessions.middleware import SessionMiddleware  # type: ignore
 from django.core.exceptions import ObjectDoesNotExist  # type: ignore
+from django.db import connection  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
 from django.forms import model_to_dict  # type: ignore
 from django.http import Http404  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
+from django.test.utils import CaptureQueriesContext  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...akis.models import Aki
 from ...contents.models import Content
 from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import age_calc
@@ -174,6 +177,8 @@ class TestFlareCreate(TestCase):
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.GOUT}-value": False,
             f"{MedHistoryTypes.MENOPAUSE}-value": True,
+            "creatinine-TOTAL_FORMS": 0,
+            "creatinine-INITIAL_FORMS": 0,
         }
         self.angina_context = {
             "form": AnginaForm,
@@ -365,6 +370,8 @@ class TestFlareCreate(TestCase):
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.GOUT}-value": False,
             f"{MedHistoryTypes.MENOPAUSE}-value": True,
+            "creatinine-TOTAL_FORMS": 0,
+            "creatinine-INITIAL_FORMS": 0,
         }
         response = self.client.post(reverse("flares:create"), flare_data)
         forms_print_response_errors(response)
@@ -519,6 +526,27 @@ menopause status to evaluate their flare.",
             "If the serum uric acid was checked, please tell us the value! \
 If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
+
+    def test__aki_created(self):
+        """Test that the AKI MedHistory is created when the patient has CKD."""
+        # Create a Flare with CKD
+        flare_data = flare_data_factory(otos={"aki": True})
+        response = self.client.post(reverse("flares:create"), flare_data)
+        self.assertEqual(response.status_code, 302)
+
+        new_flare = Flare.objects.order_by("created").last()
+        self.assertTrue(new_flare.aki)
+
+    def test__creatinines_created(self):
+        # Create Flare data with creatinines
+        flare_data = flare_data_factory(creatinines=[Decimal("1.0"), Decimal("2.0")])
+        response = self.client.post(reverse("flares:create"), flare_data)
+        self.assertEqual(response.status_code, 302)
+
+        new_flare = Flare.objects.order_by("created").last()
+        self.assertTrue(new_flare.aki)
+        creatinines = new_flare.aki.creatinine_set.all()
+        self.assertEqual(creatinines.count(), 2)
 
 
 class TestFlareDetail(TestCase):
@@ -1071,6 +1099,37 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         response = self.client.get(anon_psp_url)
         assert response.status_code == 200
 
+    def test__aki_created(self):
+        """Test that the AKI MedHistory is created when the patient has CKD."""
+        # Create a Flare with CKD
+        flare_data = flare_data_factory(user=self.psp, otos={"aki": True})
+        print(flare_data)
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+        )
+        self.assertEqual(response.status_code, 302)
+
+        new_flare = Flare.objects.filter(user=self.psp).order_by("created").last()
+        self.assertTrue(new_flare.aki)
+        self.assertEqual(new_flare.aki.user, self.psp)
+
+    def test__creatinines_created(self):
+        # Create Flare data with creatinines
+        flare_data = flare_data_factory(user=self.psp, creatinines=[Decimal("1.0"), Decimal("2.0")])
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+        )
+        self.assertEqual(response.status_code, 302)
+
+        new_flare = Flare.objects.filter(user=self.psp).order_by("created").last()
+        self.assertTrue(new_flare.aki)
+        self.assertEqual(new_flare.aki.user, self.psp)
+        creatinines = new_flare.aki.creatinine_set.all()
+        self.assertEqual(creatinines.count(), 2)
+        for creatinine in creatinines:
+            self.assertEqual(creatinine.aki, new_flare.aki)
+            self.assertEqual(creatinine.user, self.psp)
+
 
 class TestFlarePseudopatientDelete(TestCase):
     """Tests for the FlarePseudopatientDelete view."""
@@ -1337,11 +1396,16 @@ class TestFlarePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, username=self.psp.username, pk=flare.pk)
-        with self.assertNumQueries(3):
+        with CaptureQueriesContext(connection) as queries:
             qs = view.get_queryset().get()
-            assert getattr(qs, "flare_qs") == [flare]
         assert qs == self.psp
-        assert hasattr(qs, "flare_qs") and qs.flare_qs[0] == flare
+        assert hasattr(qs, "flare_qs")
+        qs_flare = qs.flare_qs[0]
+        assert qs_flare == flare
+        if getattr(qs_flare, "aki", False):
+            assert len(queries.captured_queries) == 4
+        else:
+            assert len(queries.captured_queries) == 3
         assert hasattr(qs, "dateofbirth") and qs.dateofbirth == self.psp.dateofbirth
         assert hasattr(qs, "gender") and qs.gender == self.psp.gender
         assert hasattr(qs, "medhistorys_qs")
@@ -1680,7 +1744,6 @@ class TestFlarePseudopatientUpdate(TestCase):
             assert response.context_data["form"].instance == flare
             assert response.context_data["form"].instance._state.adding is False
             assert response.context_data["form"].initial == {
-                "aki": None,
                 "onset": flare.onset,
                 "redness": flare.redness,
                 "joints": flare.joints,
@@ -1730,6 +1793,14 @@ class TestFlarePseudopatientUpdate(TestCase):
             else:
                 assert response.context_data["urate_form"].instance._state.adding is True
                 assert response.context_data["urate_form"].initial == {"value": None}
+            if flare.aki:
+                assert "aki_form" in response.context_data
+                assert response.context_data["aki_form"].instance == flare.aki
+                assert response.context_data["aki_form"].instance._state.adding is False
+                assert response.context_data["aki_form"].initial == {"value": True, "resolved": flare.aki.resolved}
+            else:
+                assert response.context_data["aki_form"].instance._state.adding is True
+                assert response.context_data["aki_form"].initial == {"value": None, "resolved": False}
 
     def test__get_context_data_medhistorys(self):
         """Test that the context data includes the user's
@@ -1875,18 +1946,26 @@ class TestFlarePseudopatientUpdate(TestCase):
         view.setup(request, **kwargs)
         qs = view.get_user_queryset(view.kwargs["username"])
         self.assertTrue(isinstance(qs, QuerySet))
-        with self.assertNumQueries(3):
+        with CaptureQueriesContext(connection) as queries:
             qs = qs.get()
-            self.assertTrue(isinstance(qs, User))
-            self.assertTrue(hasattr(qs, "flare_qs"))
-            self.assertTrue(isinstance(qs.flare_qs, list))
-            self.assertEqual(qs.flare_qs[0], flare)
-            self.assertTrue(hasattr(qs.flare_qs[0], "urate"))
-            self.assertTrue(isinstance(qs.flare_qs[0].urate, Urate))
-            self.assertEqual(qs.flare_qs[0].urate, flare.urate)
-            self.assertTrue(hasattr(qs, "medhistorys_qs"))
-            self.assertTrue(hasattr(qs, "dateofbirth"))
-            self.assertTrue(hasattr(qs, "gender"))
+        self.assertTrue(isinstance(qs, User))
+        self.assertTrue(hasattr(qs, "flare_qs"))
+        self.assertTrue(isinstance(qs.flare_qs, list))
+        self.assertEqual(qs.flare_qs[0], flare)
+        flare = qs.flare_qs[0]
+        if flare.aki:
+            self.assertTrue(isinstance(flare.aki, Aki))
+            self.assertTrue(hasattr(flare.aki, "creatinines_qs"))
+            self.assertEqual(len(queries.captured_queries), 4)
+        else:
+            self.assertFalse(hasattr(flare, "aki"))
+            self.assertEqual(len(queries.captured_queries), 4)
+        self.assertTrue(hasattr(flare, "urate"))
+        self.assertTrue(isinstance(flare.urate, Urate))
+        self.assertEqual(flare.urate, flare.urate)
+        self.assertTrue(hasattr(qs, "medhistorys_qs"))
+        self.assertTrue(hasattr(qs, "dateofbirth"))
+        self.assertTrue(hasattr(qs, "gender"))
 
     def test__post_populate_oto_forms(self):
         """Test the post_populate_oto_forms() method for the view."""
@@ -1896,15 +1975,13 @@ class TestFlarePseudopatientUpdate(TestCase):
             flare = user.flare_set.first()
             # Create a fake POST request
             request = self.factory.post("/fake-url/")
+            request.user = user.profile.provider if user.profile.provider else self.anon_user
             # Call the view and get the object
             view = self.view()
             view.setup(request, **{"username": user.username, "pk": flare.pk})
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            onetoone_forms = view.post_populate_oto_forms(
-                onetoones=view.onetoones,
-                request=request,
-            )
+            onetoone_forms = view.post_populate_oto_forms()
             for onetoone, modelform_dict in view.onetoones.items():
                 # Assert that the onetoone_forms dict has the correct keys
                 self.assertIn(f"{onetoone}_form", onetoone_forms)
@@ -1912,13 +1989,13 @@ class TestFlarePseudopatientUpdate(TestCase):
                 self.assertTrue(isinstance(onetoone_forms[f"{onetoone}_form"], modelform_dict["form"]))
                 # Assert that the onetoone_forms dict has the correct initial data
                 self.assertEqual(
-                    onetoone_forms[f"{onetoone}_form"].initial,
-                    {
-                        "value": getattr(view.object, onetoone, None).value
-                        if getattr(view.object, onetoone, None)
-                        else None
-                    },
+                    onetoone_forms[f"{onetoone}_form"].initial["value"],
+                    (True if onetoone == "aki" else getattr(view.object, onetoone, None).value)
+                    if getattr(view.object, onetoone, False)
+                    else None,
                 )
+                if onetoone == "aki":
+                    self.assertIn("resolved", onetoone_forms[f"{onetoone}_form"].initial)
 
     def test__post_process_oto_forms(self):
         """Test the post_process_oto_forms() method for the view."""
@@ -1928,43 +2005,37 @@ class TestFlarePseudopatientUpdate(TestCase):
             flare = user.flare_set.first()
             # Create a fake POST request
             request = self.factory.post("/fake-url/")
+            request.data = flare_data_factory(user=user, flare=flare)
+            request.user = user.profile.provider if user.profile.provider else self.anon_user
             # Call the view and get the object
             view = self.view()
             view.setup(request, **{"username": user.username, "pk": flare.pk})
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            onetoone_forms = view.post_populate_oto_forms(
-                onetoones=view.onetoones,
-                request=request,
-            )
-            # Create some fake flare data
-            data = flare_data_factory(user=user, flare=flare)
-            # Iterate over the onetoone_forms and update the data with the fake data
-            for onetoone, form in onetoone_forms.items():
-                # Get the onetoone name str
-                onetoone = onetoone.split("_")[0]
-                form.data._mutable = True
-                form.data[f"{onetoone}-value"] = data.get(f"{onetoone}-value", "")
+            view.oto_forms = view.post_populate_oto_forms()
+
+            for form in view.oto_forms.values():
                 form.is_valid()
             # Call the post_process_oto_forms() method and assign to new lists
             # of onetoones to save and delete to test against
-            oto_2_save, oto_2_rem = view.post_process_oto_forms(
-                oto_forms=onetoone_forms,
-                req_otos=view.req_otos,
-            )
+            oto_2_save, oto_2_rem = view.post_process_oto_forms()
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
             for onetoone in view.onetoones:
-                form = onetoone_forms[f"{onetoone}_form"]
-                initial = onetoone_forms[f"{onetoone}_form"].initial.get("value", None)
+                form = view.oto_forms[f"{onetoone}_form"]
+                for form in view.oto_forms.values():
+                    print(form.initial)
+                initial = view.oto_forms[f"{onetoone}_form"].initial.get("value", None)
                 # If the form is adding a new object, assert that there's no initial data
                 if form.instance._state.adding:
                     assert not initial
-                data_val = data.get(f"{onetoone}-value", "")
+                data_val = request.data.get(f"{onetoone}-value", "")
                 # Check if there was no pre-existing onetoone and there is no data to create a new one
+                filtered_otos_to_save = [oto for oto in oto_2_save if oto.__class__.__name__.lower() == onetoone]
+                filtered_otos_to_rem = [oto for oto in oto_2_rem if oto.__class__.__name__.lower() == onetoone]
                 if not initial and data_val == (None or ""):
                     # Should not be marked for save or deletion
-                    assert not next(iter(onetoone for onetoone in oto_2_save), None) and not next(
-                        iter(onetoone for onetoone in oto_2_rem), None
+                    assert not next(iter(onetoone for onetoone in filtered_otos_to_save), None) and not next(
+                        iter(onetoone for onetoone in filtered_otos_to_rem), None
                     )
                 # If there was no pre-existing onetoone but there is data to create a new one
                 elif not initial and data_val != (None or ""):
@@ -1991,9 +2062,9 @@ class TestFlarePseudopatientUpdate(TestCase):
                         assert (
                             not next(iter(onetoone for onetoone in oto_2_save), None)
                             and not next(iter(onetoone for onetoone in oto_2_rem), None)
-                            and not onetoone_forms[f"{onetoone}_form"].changed_data
+                            and not view.oto_forms[f"{onetoone}_form"].changed_data
                         )
-                        assert onetoone_forms[f"{onetoone}_form"].changed_data == []
+                        assert view.oto_forms[f"{onetoone}_form"].changed_data == []
 
     def test__post(self):
         """Test the post() method for the view."""
@@ -2082,6 +2153,8 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "urate-value": Decimal("6.0"),
             }
         )
+        print("in test")
+        print(flare.aki)
         # Call the view
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
@@ -2612,3 +2685,51 @@ menopause status to evaluate their flare.",
             "If the serum uric acid was checked, please tell us the value! \
 If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
+
+    def test__aki_created(self):
+        flare = create_flare(aki=None)
+        self.assertIsNone(flare.aki)
+        data = flare_data_factory(flare=flare, otos={"aki": True})
+        response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        flare.refresh_from_db()
+        self.assertTrue(getattr(flare, "aki", False))
+
+    def test__aki_deleted(self):
+        flare = create_flare(aki=True)
+        self.assertTrue(flare.aki)
+        data = flare_data_factory(flare=flare, otos={"aki": False})
+        response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        flare.refresh_from_db()
+        self.assertFalse(getattr(flare, "aki", False))
+
+    def test__creatinines_created(self):
+        flare = create_flare(labs=[])
+        if getattr(flare, "aki", None):
+            self.assertFalse(flare.aki.creatinine_set.exists())
+        else:
+            self.assertFalse(getattr(flare, "aki", False))
+        data = flare_data_factory(flare=flare, creatinines=[Decimal("2.0")])
+        response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        flare.refresh_from_db()
+        self.assertTrue(flare.aki)
+        self.assertTrue(flare.aki.creatinine_set.exists())
+        self.assertEqual(flare.aki.creatinine_set.first().value, Decimal("2.0"))
+
+    def test__creatinines_deleted(self):
+        flare = create_flare(labs=[Decimal("2.0"), Decimal("3.0")])
+        self.assertTrue(flare.aki)
+        self.assertTrue(flare.aki.creatinine_set.exists())
+        self.assertEqual(flare.aki.creatinine_set.count(), 2)
+        data = flare_data_factory(flare=flare, creatinines=None)
+        response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        flare.refresh_from_db()
+        self.assertTrue(flare.aki)
+        self.assertFalse(flare.aki.creatinine_set.exists())

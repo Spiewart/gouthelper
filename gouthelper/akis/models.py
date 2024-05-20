@@ -2,12 +2,14 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
+from django.utils.functional import cached_property  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..rules import add_object, change_object, delete_object, view_object
+from ..utils.helpers import get_qs_or_set
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 
 if TYPE_CHECKING:
@@ -34,32 +36,20 @@ class Aki(
             # If there's a User, there can be no associated Ppx objects
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_ppx_exclusive",
-                check=(
-                    models.Q(user__isnull=False, ckd__isnull=True, dateofbirth__isnull=True, gender__isnull=True)
-                    | models.Q(user__isnull=True)
-                ),
+                check=(models.Q(user__isnull=False) | models.Q(user__isnull=True)),
             ),
         ]
 
-    ckd = models.ForeignKey(
-        "medhistorys.Ckd",
-        on_delete=models.CASCADE,
-        related_name="akis",
-        verbose_name=_("CKD"),
+    resolved = models.BooleanField(
+        default=False,
+        help_text=_("Has this AKI resolved? (i.e., has the creatinine level returned to normal?)"),
+        verbose_name=_("Resolved"),
     )
-    dateofbirth = models.OneToOneField(
-        "dateofbirths.DateOfBirth",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    gender = models.OneToOneField(
-        "genders.Gender",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     objects = models.Manager()
+
+    @cached_property
+    def creatinines(self):
+        return get_qs_or_set(self, "creatinine")

@@ -101,7 +101,7 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                     """
                         <hr size="3" color="dark">
                         <legend>About {{ patient }} ({{ patient.gender }}, age {{ patient.age }}, \
-{{ patient.ethnicity }}) {% else %} {{ str_attrs.subject_the }} {% endif %}</legend>
+{{ patient.ethnicity }})</legend>
                     """
                 ),
                 css_id="about-the-patient",
@@ -470,6 +470,32 @@ def forms_helper_insert_hlab5801(layout: "Layout") -> "Layout":
             ),
             css_class="row",
             css_id="hlab5801",
+        ),
+    )
+
+
+def forms_helper_insert_creatinines_formset(
+    form: ModelForm,
+) -> "Layout":
+    """Helper method that inserts a Creatinine Labs formset into a crispy_forms.layout.Layout object
+    as part of a multi-model form."""
+    subject_str = (
+        f"{form.str_attrs.get('subject_the')} {form.str_attrs.get('pos_past')} {form.str_attrs.get('gender_pos')}"
+    )
+    layout_len = len(form.helper.layout)
+    sub_len = len(form.helper.layout[layout_len - 1])
+    form.helper.layout[layout_len - 1][sub_len - 1].append(
+        Div(
+            Div(
+                Div(
+                    HTML(
+                        f"""<legend>Creatinines</legend><div class="form-text">Was {subject_str} creatinine checked during the AKI? Enter as many as you like, in any order.</div>{{% load crispy_forms_tags %}}{{% crispy creatinine_formset creatinine_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
+                    ),
+                    css_class="col",
+                ),
+            ),
+            css_class="row",
+            css_id="labs",
         ),
     )
 

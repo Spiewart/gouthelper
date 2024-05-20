@@ -126,21 +126,14 @@ class TestUlt(TestCase):
 
     def test__firstflare(self):
         for ult in self.ults:
-            if (
-                ult.num_flares == FlareNums.ONE
-                and not (ult.ckd3)
-                and not ult.hyperuricemia
-                and not ult.uratestones
-                and not ult.erosions
-                and not ult.tophi
-            ):
+            if ult.num_flares == FlareNums.ONE:
                 self.assertTrue(ult.firstflare)
             else:
                 self.assertFalse(ult.firstflare)
 
     def test__firstflare_plus(self):
         for ult in self.ults:
-            if ult.num_flares == FlareNums.ONE and ult.ckd3 or ult.hyperuricemia or ult.uratestones:
+            if ult.num_flares == FlareNums.ONE and (ult.ckd3 or ult.hyperuricemia or ult.uratestones):
                 self.assertTrue(ult.firstflare_plus)
             else:
                 self.assertFalse(ult.firstflare_plus)

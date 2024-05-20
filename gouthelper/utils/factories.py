@@ -9,6 +9,8 @@ from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
+from ..akis.models import Aki
+from ..akis.tests.factories import AkiFactory
 from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
 from ..dateofbirths.tests.factories import DateOfBirthFactory
@@ -94,13 +96,23 @@ def fake_date_drawn(years: int = 2) -> date:
     return fake.date_between(start_date=f"-{years}y", end_date="today")
 
 
+def fake_creatinine_decimal() -> Decimal:
+    return fake.pydecimal(
+        left_digits=2,
+        right_digits=2,
+        positive=True,
+        min_value=0.5,
+        max_value=30,
+    )
+
+
 def fake_urate_decimal() -> Decimal:
     return fake.pydecimal(
         left_digits=2,
         right_digits=1,
         positive=True,
-        min_value=1,
-        max_value=30,
+        min_value=0.3,
+        max_value=8,
     )
 
 
@@ -187,6 +199,8 @@ def set_oto_from_obj(
                     oto,
                     (age_calc(getattr(data_obj, oto).value)),
                 )
+            elif oto == "aki":
+                setattr(self_obj, oto, True)
             else:
                 setattr(self_obj, oto, oto_data if oto_data else getattr(data_obj, oto).value)
             return
@@ -447,14 +461,28 @@ class LabDataMixin(DataMixin):
     """Mixin for creating data for labs to populate forms for testing."""
 
     @staticmethod
+    def get_labtype_fake_decimal(labtype: Literal["creatinine"] | Literal["urate"]) -> Decimal:
+        if labtype == "creatinine":
+            return fake_creatinine_decimal()
+        elif labtype == "urate":
+            return fake_urate_decimal()
+        else:
+            raise ValueError(f"Invalid labtype: {labtype}")
+
+    @classmethod
     def create_labtype_data(
+        cls,
         index: int,
         lab: Literal["urate"],
         lab_obj: Urate | Decimal | None = None,
     ) -> dict[str, str | Decimal]:
         return {
             f"{lab}-{index}-value": (
-                fake_urate_decimal() if not lab_obj else lab_obj if isinstance(lab_obj, Decimal) else lab_obj.value
+                cls.get_labtype_fake_decimal(lab)
+                if not lab_obj
+                else lab_obj
+                if isinstance(lab_obj, Decimal)
+                else lab_obj.value
             ),
             f"{lab}-{index}-date_drawn": (
                 str(fake_date_drawn()) if not lab_obj or isinstance(lab_obj, Decimal) else lab_obj.date_drawn
@@ -489,7 +517,12 @@ class LabDataMixin(DataMixin):
             if self.user:
                 init_labs = get_qs_or_set(self.user, lab)
             elif self.aid_obj:
-                init_labs = get_qs_or_set(self.aid_obj, lab)
+                if hasattr(self.aid_obj, f"{lab}_set"):
+                    init_labs = get_qs_or_set(self.aid_obj, lab)
+                elif self.aid_obj._meta.model_name == "flare" and lab == "creatinine" and self.aid_obj.aki:
+                    init_labs = get_qs_or_set(self.aid_obj.aki, lab)
+                else:
+                    init_labs = None
             else:
                 init_labs = None
 
@@ -547,6 +580,8 @@ class LabDataMixin(DataMixin):
                     num_new_labs = 0
             elif self.labs is None:
                 num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
+            else:
+                num_new_labs = 0
 
             data.update(
                 {
@@ -751,20 +786,28 @@ class LabCreatorMixin(CreateAidMixin):
     def create_labs(
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+        related_obj: Any | None = None,
     ):
         if self.labs:
             aid_obj_attr = aid_obj.__class__.__name__.lower()
             for lab_factory, lab_list in self.labs.items():
                 lab_name = lab_factory._meta.model.__name__.lower()
-                qs_attr = get_or_create_qs_attr(aid_obj, lab_name)
+                qs_attr = get_or_create_qs_attr(related_obj if related_obj else aid_obj, lab_name)
                 for lab in lab_list:
                     if isinstance(lab, Lab):
                         if self.user:
                             get_or_create_attr(lab, "user", self.user, commit=True)
                         else:
                             get_or_create_attr(lab, aid_obj_attr, aid_obj, commit=True)
+                        if related_obj:
+                            related_obj_attr = related_obj.__class__.__name__.lower()
+                            get_or_create_attr(lab, related_obj_attr, related_obj, commit=True)
                     elif isinstance(lab, Decimal):
-                        lab = lab_factory(user=self.user, value=lab, **{aid_obj_attr: aid_obj}, dated=True)
+                        lab_factory_kwargs = {aid_obj_attr: aid_obj, "value": lab, "user": self.user, "dated": True}
+                        if related_obj:
+                            related_obj_attr = related_obj.__class__.__name__.lower()
+                            lab_factory_kwargs.update({related_obj_attr: related_obj})
+                        lab = lab_factory(lab_factory_kwargs)
                     qs_attr.append(lab)
                 if lab_name == "urate":
                     labs_urates_annotate_order_by_dates(qs_attr)
@@ -962,6 +1005,62 @@ class MedHistoryCreatorMixin(CreateAidMixin):
 class OneToOneCreatorMixin(CreateAidMixin):
     """Method that creates related OneToOne objects for an Aid object."""
 
+    @staticmethod
+    def _get_model_factory(factory: Any, onetoone: str):
+        return (
+            DateOfBirthFactory
+            if isinstance(factory, date)
+            else (
+                EthnicityFactory
+                if isinstance(factory, Ethnicitys)
+                else (
+                    UrateFactory
+                    if isinstance(factory, Decimal)
+                    else (
+                        GenderFactory
+                        if isinstance(factory, Genders)
+                        else Hlab5801Factory
+                        if onetoone == "hlab5801"
+                        else AkiFactory
+                        if factory is True
+                        else None
+                    )
+                )
+            )
+        )
+
+    @staticmethod
+    def _create_factory(model_factory: DjangoModelFactory | None, factory: Any, user: User | None = None):
+        return (
+            model_factory(value=factory, user=user)
+            if model_factory is not None
+            and "value" in [field.name for field in model_factory._meta.model._meta.fields]
+            else model_factory(user=user)
+            if model_factory
+            else None
+        )
+
+    @staticmethod
+    def _factory_is_model_datatype(factory: Any):
+        return isinstance(factory, (date, Genders, Ethnicitys, Decimal, bool))
+
+    @staticmethod
+    def _factory_is_model_object(factory: Any):
+        return isinstance(factory, (Aki, DateOfBirth, Ethnicity, Gender, Urate, Hlab5801))
+
+    @staticmethod
+    def _check_and_assign_onetoone_to_aid_obj(
+        onetoone: str,
+        aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
+        factory: Any,
+    ) -> None:
+        if onetoone == "urate" or onetoone == "aki":
+            aid_obj_oto = getattr(aid_obj, onetoone, None)
+            if aid_obj_oto and aid_obj_oto != factory:
+                raise IntegrityError(f"{factory} already exists for {aid_obj}.")
+            else:
+                setattr(aid_obj, onetoone, factory)
+
     def create_otos(
         self,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
@@ -971,113 +1070,57 @@ class OneToOneCreatorMixin(CreateAidMixin):
             # If there's a user, assign that user to the Aid object
             aid_obj.user = self.user
             for onetoone, factory in self.otos.items():
-                if isinstance(factory, (DateOfBirth, Ethnicity, Gender, Urate, Hlab5801)):
+                if self._factory_is_model_object(factory):
                     if factory.user != self.user:
                         try:
                             factory.user = self.user
                             factory.save()
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
-                    if onetoone == "urate":
-                        aid_obj_oto = getattr(aid_obj, onetoone, None)
-                        if aid_obj_oto and aid_obj_oto != factory:
-                            raise IntegrityError(f"{factory} already exists for {aid_obj}.")
-                        else:
-                            setattr(aid_obj, onetoone, factory)
-                elif isinstance(factory, (date, Genders, Ethnicitys, Decimal, bool)):
+                    self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory)
+                elif self._factory_is_model_datatype(factory):
                     if self.user.just_created:
-                        model_fact = (
-                            DateOfBirthFactory
-                            if isinstance(factory, date)
-                            else (
-                                EthnicityFactory
-                                if isinstance(factory, Ethnicitys)
-                                else (
-                                    UrateFactory
-                                    if isinstance(factory, Decimal)
-                                    else GenderFactory
-                                    if isinstance(factory, Genders)
-                                    else Hlab5801Factory
-                                )
-                            )
-                        )
+                        model_fact = self._get_model_factory(factory, onetoone)
                         try:
-                            model_fact(value=factory, user=self.user)
-                            if aid_obj_attr == "urate":
-                                aid_obj_oto = getattr(aid_obj, onetoone, None)
-                                if aid_obj_oto and aid_obj_oto != model_fact:
-                                    raise IntegrityError(f"{factory} already exists for {aid_obj}.")
-                                else:
-                                    setattr(aid_obj, onetoone, model_fact)
+                            factory_obj = self._create_factory(model_fact, factory, user=self.user)
+                            self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory_obj)
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
                     else:
                         oto = getattr(self.user, onetoone, None)
                         if not oto:
-                            model_fact = (
-                                DateOfBirthFactory
-                                if isinstance(factory, date)
-                                else (
-                                    EthnicityFactory
-                                    if isinstance(factory, Ethnicitys)
-                                    else (
-                                        UrateFactory
-                                        if isinstance(factory, Decimal)
-                                        else GenderFactory
-                                        if isinstance(factory, Genders)
-                                        else Hlab5801Factory
-                                    )
-                                )
-                            )
+                            model_fact = self._get_model_factory(factory, onetoone)
                             try:
-                                model_fact(value=factory, user=self.user)
+                                factory_obj = self._create_factory(model_fact, factory, user=self.user)
                             except IntegrityError as exc:
                                 raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
-                            if aid_obj_attr == "urate":
-                                aid_obj_oto = getattr(aid_obj, onetoone, None)
-                                if aid_obj_oto and aid_obj_oto != model_fact:
-                                    raise IntegrityError(f"{factory} already exists for {aid_obj}.")
-                                else:
-                                    setattr(aid_obj, onetoone, model_fact)
+                            self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory_obj)
                         else:
                             oto.value = factory
                             oto.save()
-                elif factory:
+                elif factory is not None and DjangoModelFactory in factory.__mro__:
                     if (self.req_otos and onetoone in self.req_otos) or fake.boolean():
-                        if onetoone == "urate":
+                        if onetoone == "urate" or onetoone == "aki":
                             oto = factory(user=self.user, **{aid_obj_attr: aid_obj})
                             setattr(self, onetoone, oto)
                         else:
                             oto = getattr(self.user, onetoone, None)
                             if not oto:
-                                # Will raise a TypeError if the object is not a Factory
                                 oto = factory(user=self.user)
                                 setattr(self.user, onetoone, oto)
+                elif factory is not None:
+                    raise ValueError(f"Invalid factory arg: {factory}.")
         else:
             for onetoone, factory in self.otos.items():
-                if isinstance(factory, (DateOfBirth, Ethnicity, Gender, Urate, Hlab5801)):
+                if self._factory_is_model_object(factory):
                     setattr(aid_obj, onetoone, factory)
                     setattr(self, onetoone, factory)
-                elif isinstance(factory, (date, Genders, Ethnicitys, Decimal, bool)):
-                    model_fact = (
-                        DateOfBirthFactory
-                        if isinstance(factory, date)
-                        else (
-                            EthnicityFactory
-                            if isinstance(factory, Ethnicitys)
-                            else (
-                                UrateFactory
-                                if isinstance(factory, Decimal)
-                                else GenderFactory
-                                if isinstance(factory, Genders)
-                                else Hlab5801Factory
-                            )
-                        )
-                    )
-                    factory_obj = model_fact(value=factory)
+                elif self._factory_is_model_datatype(factory):
+                    model_fact = self._get_model_factory(factory, onetoone)
+                    factory_obj = self._create_factory(model_fact, factory)
                     setattr(self, onetoone, factory_obj)
                     setattr(aid_obj, onetoone, factory_obj)
-                elif factory:
+                elif factory is not None and DjangoModelFactory in factory.__mro__:
                     if (self.req_otos and onetoone in self.req_otos) or fake.boolean():
                         oto = getattr(aid_obj, onetoone, None)
                         if not oto:
@@ -1085,6 +1128,8 @@ class OneToOneCreatorMixin(CreateAidMixin):
                             oto = factory(**{aid_obj_attr: aid_obj})
                             setattr(aid_obj, onetoone, oto)
                         setattr(self, onetoone, oto)
+                elif factory is not None:
+                    raise ValueError(f"Invalid factory arg: {factory}.")
 
 
 def form_data_colchicine_contra(data: dict, user: User) -> Contraindications | None:

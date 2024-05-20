@@ -1,4 +1,3 @@
-from braces.forms import UserKwargModelFormMixin  # type: ignore
 from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import Div, Field, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
@@ -11,14 +10,14 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
-from ..utils.forms import forms_make_custom_datetimefield
+from ..utils.forms import ModelFormKwargMixin, forms_make_custom_datetimefield
 from ..utils.helpers import get_str_attrs
 from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
-from .models import BaselineCreatinine, Hlab5801, Urate
+from .models import BaselineCreatinine, Creatinine, Hlab5801, Urate
 
 
 class BaseLabForm(
-    UserKwargModelFormMixin,
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     prefix: str = "lab"
@@ -126,6 +125,29 @@ Creatinine is typically reported in micrograms per deciliter (mg/dL)."
             pass
         else:
             raise EmptyRelatedModel
+
+
+class CreatinineForm(LabForm):
+    prefix = "creatinine"
+
+    class Meta:
+        model = Creatinine
+        fields = (
+            "value",
+            "date_drawn",
+        )
+        widgets = {
+            "value": forms.NumberInput(attrs={"step": 0.10}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["value"].label = "Creatinine (mg/dL)"
+        self.fields["value"].decimal_places = 2
+        self.fields["value"].required = False
+        self.fields["value"].validators.append(labs_baselinecreatinine_max_value)
+        self.fields["value"].help_text = mark_safe("Serum creatinine in micrograms per deciliter (mg/dL).")
+        self.fields["date_drawn"].help_text = mark_safe("When was this creatinine drawn?")
 
 
 class Hlab5801Form(BaseLabForm):
@@ -242,6 +264,14 @@ Uric acid is typically reported in micrograms per deciliter (mg/dL)."
             raise EmptyRelatedModel
 
 
+class CreatinineFormHelper(FormHelper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.form_tag = False
+        self.template = "bootstrap4/table_inline_formset.html"
+        self.form_id = "creatinine_formset"
+
+
 # https://stackoverflow.com/questions/42615357/cannot-pass-helper-to-django-crispy-formset-in-template
 class UrateFormHelper(FormHelper):
     def __init__(self, *args, **kwargs):
@@ -250,6 +280,15 @@ class UrateFormHelper(FormHelper):
         self.template = "bootstrap4/table_inline_formset.html"
         self.form_id = "urate_formset"
 
+
+FlareCreatinineFormSet = forms.modelformset_factory(
+    Creatinine,
+    CreatinineForm,
+    # Converts all the datetime fields to just date fields
+    formfield_callback=forms_make_custom_datetimefield,
+    can_delete=True,
+    extra=1,
+)
 
 # https://stackoverflow.com/questions/14328381/django-error-unexpected-keyword-argument-widget
 PpxUrateFormSet = forms.modelformset_factory(

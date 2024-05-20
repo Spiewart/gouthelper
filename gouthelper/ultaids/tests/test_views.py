@@ -192,6 +192,7 @@ class TestUltAidDetail(TestCase):
         self.assertTrue(hasattr(qs_obj, "goalurate"))
 
     def test__get_object_updates(self):
+        print(self.ultaid.recommendation[0])
         self.assertTrue(self.ultaid.recommendation[0] == Treatments.ALLOPURINOL)
         MedAllergyFactory(treatment=Treatments.ALLOPURINOL, ultaid=self.ultaid)
         response = self.client.get(reverse("ultaids:detail", kwargs={"pk": self.ultaid.pk}))

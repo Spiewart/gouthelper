@@ -5,13 +5,12 @@ from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ..utils.exceptions import EmptyRelatedModel
-from ..utils.forms import OneToOneForm
-from ..utils.helpers import get_str_attrs
+from ..utils.forms import ModelFormKwargMixin, OneToOneForm
 from .helpers import yearsago
 from .models import DateOfBirth
 
 
-class DateOfBirthForm(OneToOneForm):
+class DateOfBirthForm(ModelFormKwargMixin, OneToOneForm):
     class Meta:
         model = DateOfBirth
         fields = ("value",)
@@ -22,11 +21,6 @@ class DateOfBirthForm(OneToOneForm):
     prefix = "dateofbirth"
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"] = IntegerField(
             label=_("Age"),

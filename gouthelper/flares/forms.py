@@ -3,8 +3,6 @@ from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 from django.utils import timezone  # type: ignore
-from django.utils.html import mark_safe  # type: ignore
-from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
@@ -32,7 +30,6 @@ class FlareForm(
     class Meta:
         model = Flare
         fields = (
-            "aki",
             "crystal_analysis",
             "date_ended",
             "date_started",
@@ -44,21 +41,7 @@ class FlareForm(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["aki"].help_text = _(
-            mark_safe(
-                format_lazy(
-                    """{} {} have an acute kidney injury (<a target='_next' href='{}'>AKI</a>){}? \
-<strong>Leave blank if creatinine was not checked</strong>.""",
-                    "Did" if self.instance.date_ended else self.str_attrs.get("Query"),
-                    self.str_attrs.get("subject_the"),
-                    "https://www.aafp.org/pubs/afp/issues/2012/1001/p631/jcr:content/root/aafp-article-primary-content\
--container/aafp_article_main_par/aafp_tables_content0.enlarge.html",
-                    " during this flare",
-                )
-            )
-        )
-        self.fields["aki"].choices = YES_OR_NO_OR_NONE
-        self.fields["aki"].initial = None
+
         self.fields.update(
             {
                 "aspiration": forms.TypedChoiceField(
@@ -284,7 +267,12 @@ for these symptoms?"
                         ),
                         Div(
                             Div(
-                                "aki",
+                                HTML(
+                                    """
+                                    {% load crispy_forms_tags %}
+                                    {% crispy aki_form %}
+                                    """
+                                ),
                                 css_class="col",
                             ),
                             css_class="row",
@@ -348,7 +336,6 @@ for these symptoms?"
 
     def clean(self):
         cleaned_data = super().clean()
-        aki = cleaned_data.get("aki", None)
         aspiration = cleaned_data.get("aspiration", None)
         crystal_analysis = cleaned_data.get("crystal_analysis", None)
         date_started = cleaned_data.get("date_started", None)
@@ -377,8 +364,6 @@ medical examination.",
                     "urate_check", "Uric acid lab check must be selected if a clinician evaluated the flare."
                 )
         else:
-            if aki is not None:
-                cleaned_data["aki"] = ""
             if diagnosed is not None:
                 cleaned_data["diagnosed"] = ""
             if aspiration is not None:

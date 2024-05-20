@@ -1624,7 +1624,7 @@ aggressively with ULT."
     def most_recent_urate(self) -> "Urate":
         """Method that returns the most recent Urate object from self.urates_qs or
         or self.urates.all()."""
-        return self.all_urates.first() if isinstance(self.all_urates, QuerySet) else self.all_urates[0]
+        return self.all_urates.first() if isinstance(self.all_urates, models.QuerySet) else self.all_urates[0]
 
     def get_urates(self) -> list["Urate"]:
         """Method that returns a list of Urate objects from self.urates_qs or

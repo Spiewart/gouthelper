@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from django.test import TestCase  # type: ignore
 from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
@@ -233,6 +234,12 @@ def test__create_flare():
         else:
             assert not menopause
 
+        # Test Aki
+        if getattr(flare, "aki", None):
+            assert flare.aki.user == psp
+        else:
+            assert not psp.aki_set.exists()
+
         # Test Urate
         if getattr(flare, "urate", None):
             assert isinstance(flare.urate, Urate)
@@ -340,3 +347,20 @@ def test__create_flare_with_user():
     for mh in flare.medhistorys_qs:
         assert mh.user == flare.user
         assert mh in user_mhs
+
+
+class TestAki(TestCase):
+    def test__create_flare_with_aki(self):
+        flare = create_flare(aki=True)
+        assert hasattr(flare, "aki")
+        assert hasattr(flare.aki, "flare")
+        assert flare.aki.flare == flare
+        if flare.user:
+            assert hasattr(flare.aki, "user")
+            assert flare.aki.user == flare.user
+
+    def test__create_flare_without_aki(self):
+        flare = create_flare(aki=None)
+        assert not getattr(flare, "aki", False)
+        flare = create_flare(aki=False)
+        assert not getattr(flare, "aki", False)

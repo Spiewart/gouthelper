@@ -126,7 +126,6 @@ class Flare(
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        default=None,
     )
     crystal_analysis = models.BooleanField(
         choices=BOOL_CHOICES,

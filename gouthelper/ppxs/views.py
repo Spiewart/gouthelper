@@ -201,7 +201,6 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
                     mh_det_forms=mh_det_forms,
                     ma_forms=None,
                     lab_formsets=lab_formsets,
-                    labs=self.labs if hasattr(self, "labs") else None,
                 )
             else:
                 return errors
@@ -327,7 +326,6 @@ class PpxPseudopatientCreate(
                     mh_det_forms=mh_det_forms,
                     ma_forms=None,
                     lab_formsets=lab_formsets,
-                    labs=self.labs if hasattr(self, "labs") else None,
                 )
             else:
                 return errors
@@ -442,7 +440,6 @@ class PpxPseudopatientUpdate(
                     mh_det_forms=mh_det_forms,
                     ma_forms=None,
                     lab_formsets=lab_formsets,
-                    labs=self.labs if hasattr(self, "labs") else None,
                 )
             else:
                 return errors
@@ -511,7 +508,6 @@ class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
                     mh_det_forms=mh_det_forms,
                     ma_forms=None,
                     lab_formsets=lab_formsets,
-                    labs=self.labs if hasattr(self, "labs") else None,
                 )
             else:
                 return errors
