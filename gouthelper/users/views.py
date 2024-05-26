@@ -7,18 +7,11 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, RedirectView, UpdateView
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
-from ..dateofbirths.forms import DateOfBirthForm
-from ..dateofbirths.models import DateOfBirth
-from ..ethnicitys.forms import EthnicityForm
-from ..ethnicitys.models import Ethnicity
-from ..genders.forms import GenderForm
-from ..genders.models import Gender
 from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import GoutForm, MenopauseForm
-from ..medhistorys.models import Gout, Menopause
 from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin, remove_patient_from_session
 from .choices import Roles
+from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS
 from .forms import PseudopatientForm
 from .models import Pseudopatient
 from .selectors import pseudopatient_profile_qs, pseudopatient_qs
@@ -37,21 +30,10 @@ class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
     model = Pseudopatient
     form_class = PseudopatientForm
 
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-        "gender": {"form": GenderForm, "model": Gender},
-    }
-    medhistorys = {
-        MedHistoryTypes.GOUT: {
-            "form": GoutForm,
-            "model": Gout,
-        },
-        MedHistoryTypes.MENOPAUSE: {
-            "form": MenopauseForm,
-            "model": Menopause,
-        },
-    }
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    OTO_FORMS = OTO_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+
     medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
 
     def get_permission_required(self):
@@ -62,55 +44,14 @@ class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
         return perms
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        mh_forms, errors_bool = self.post_process_menopause(
-            mh_forms=mh_forms,
-            dateofbirth=oto_forms["dateofbirth_form"].cleaned_data.get("value"),
-            gender=oto_forms["gender_form"].cleaned_data.get("value"),
-        )
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=None,
-                lab_formsets=None,
-            )
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        self.post_process_menopause()
+        if self.errors_bool:
+            return super().render_errors()
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 pseudopatient_create_view = PseudopatientCreateView.as_view()
@@ -129,76 +70,22 @@ class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
     form_class = PseudopatientForm
     permission_required = "users.can_edit_pseudopatient"
 
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-        "gender": {"form": GenderForm, "model": Gender},
-    }
-    medhistorys = {
-        MedHistoryTypes.GOUT: {
-            "form": GoutForm,
-            "model": Gout,
-        },
-        MedHistoryTypes.MENOPAUSE: {
-            "form": MenopauseForm,
-            "model": Menopause,
-        },
-    }
-    medhistory_details = {MedHistoryTypes.GOUT: GoutDetailForm}
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    OTO_FORMS = OTO_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
 
     def get_queryset(self):
         return pseudopatient_profile_qs(self.kwargs.get("username"))
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            oto_forms,
-            mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        mh_forms, errors_bool = self.post_process_menopause(
-            mh_forms=mh_forms,
-            dateofbirth=oto_forms["dateofbirth_form"].cleaned_data.get("value"),
-            gender=oto_forms["gender_form"].cleaned_data.get("value"),
-        )
-        if errors_bool:
-            return super().render_errors(
-                form=form,
-                oto_forms=oto_forms,
-                mh_forms=mh_forms,
-                mh_det_forms=mh_det_forms,
-                ma_forms=None,
-                lab_formsets=None,
-            )
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        self.post_process_menopause()
+        if self.errors_bool:
+            return super().render_errors()
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
     def get_object(self, queryset=None):
         qs = super().get_object(queryset)

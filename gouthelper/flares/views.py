@@ -21,38 +21,27 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
-from ..akis.forms import AkiForm
-from ..akis.models import Aki
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.models import DateOfBirth
-from ..genders.forms import GenderForm
 from ..genders.models import Gender
-from ..labs.forms import CreatinineFormHelper, FlareCreatinineFormSet, UrateFlareForm
-from ..labs.models import Creatinine, Urate
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import (
-    AnginaForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    GoutForm,
-    HeartattackForm,
-    HypertensionForm,
-    MenopauseForm,
-    PvdForm,
-    StrokeForm,
-)
-from ..medhistorys.models import Angina, Cad, Chf, Ckd, Heartattack, Hypertension, Pvd, Stroke
+from ..labs.models import Creatinine
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
+from .dicts import (
+    LAB_FORMSETS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+    PATIENT_MEDHISTORY_FORMS,
+    PATIENT_OTO_FORMS,
+    PATIENT_REQ_OTOS,
+    REQ_OTOS,
+)
 from .forms import FlareForm
 from .models import Flare
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
-    from django.forms import ModelForm  # type: ignore
 
 User = get_user_model()
 
@@ -80,6 +69,11 @@ class FlareBase:
     model = Flare
     success_message = "Flare created successfully!"
 
+    LAB_FORMSETS = LAB_FORMSETS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    OTO_FORMS = OTO_FORMS
+    REQ_OTOS = REQ_OTOS
+
     @cached_property
     def creatinine_formset_qs(self):
         return (
@@ -88,8 +82,8 @@ class FlareBase:
             else Creatinine.objects.none()
         )
 
-    def post_process_urate_check(self) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
-        urate_val = self.oto_forms["urate_form"].cleaned_data.get("value", None)
+    def post_process_urate_check(self) -> None:
+        urate_val = self.oto_forms["urate"].cleaned_data.get("value", None)
         urate_check = self.form.cleaned_data.get("urate_check", None)
         if urate_check and not urate_val:
             urate_error = ValidationError(
@@ -97,38 +91,9 @@ class FlareBase:
 If you don't know the value, please uncheck the Uric Acid Lab Check box."
             )
             self.form.add_error("urate_check", urate_error)
-            self.oto_forms["urate_form"].add_error("value", urate_error)
+            self.oto_forms["urate"].add_error("value", urate_error)
             if not self.errors_bool:
                 self.errors_bool = True
-        return self.form, self.oto_forms, self.errors_bool
-
-    def set_lab_formsets(self) -> None:
-        self.lab_formsets = {"creatinine": (FlareCreatinineFormSet, CreatinineFormHelper)}
-
-    def set_medhistory_forms(self) -> None:
-        self.medhistory_forms = {
-            MedHistoryTypes.ANGINA: {"form": AnginaForm},
-            MedHistoryTypes.CAD: {"form": CadForm},
-            MedHistoryTypes.CHF: {"form": ChfForm},
-            MedHistoryTypes.CKD: {"form": CkdForm},
-            MedHistoryTypes.GOUT: {"form": GoutForm},
-            MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm},
-            MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm},
-            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm},
-            MedHistoryTypes.PVD: {"form": PvdForm},
-            MedHistoryTypes.STROKE: {"form": StrokeForm},
-        }
-
-    def set_oto_forms(self) -> None:
-        self.oto_forms = {
-            "aki": {"form": AkiForm},
-            "dateofbirth": {"form": DateOfBirthForm},
-            "gender": {"form": GenderForm},
-            "urate": {"form": UrateFlareForm},
-        }
-
-    def set_req_otos(self) -> None:
-        self.req_otos = []
 
 
 class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -148,32 +113,11 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
-        self.mh_forms, self.errors_bool = self.post_process_menopause(
-            mh_forms=self.mh_forms,
-            dateofbirth=(
-                self.oto_forms["dateofbirth_form"].cleaned_data.get("value")
-                if hasattr(self.oto_forms["dateofbirth_form"], "cleaned_data")
-                else None
-            ),
-            gender=(
-                self.oto_forms["gender_form"].cleaned_data.get("value")
-                if hasattr(self.oto_forms["gender_form"], "cleaned_data")
-                else None
-            ),
-        )
-        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
-            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors_bool
-        )
+        self.post_process_menopause()
+        self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
-                return super().render_errors(
-                    form=self.form,
-                    oto_forms=self.oto_forms,
-                    mh_forms=self.mh_forms,
-                    mh_det_forms=self.mh_det_forms,
-                    ma_forms=self.ma_forms,
-                    lab_formsets=self.lab_formsets,
-                )
+                return super().render_errors()
             else:
                 return self.errors
         else:
@@ -222,18 +166,9 @@ class FlareDetail(FlareDetailBase):
 
 
 class FlarePatientBase(FlareBase):
-    medhistorys = {
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm, "model": Hypertension},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-    }
-    onetoones = {"aki": {"form": AkiForm, "model": Aki}, "urate": {"form": UrateFlareForm, "model": Urate}}
-    req_otos = ["dateofbirth", "gender"]
+    MEDHISTORY_FORMS = PATIENT_MEDHISTORY_FORMS
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
@@ -241,6 +176,9 @@ class FlarePatientBase(FlareBase):
         return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
             username=username
         )
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, username=self.user.username)
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):
@@ -286,33 +224,21 @@ class FlarePseudopatientCreate(
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
-        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
-            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors
-        )
+        self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
-                return super().render_errors(
-                    form=self.form,
-                    oto_forms=self.oto_forms,
-                    mh_forms=self.mh_forms,
-                    mh_det_forms=self.mh_det_forms,
-                    ma_forms=self.ma_forms,
-                    lab_formsets=self.lab_formsets,
-                )
+                return super().render_errors()
             else:
                 return self.errors
         else:
             return self.form_valid()
 
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
 
-
-class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView):
+class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessMessageMixin):
     """View for deleting a Flare for a patient."""
 
     model = Flare
-    success_message = "Flare successfully deleted."
+    success_message = "%(username)s's Flare successfully deleted."
 
     def dispatch(self, request, *args, **kwargs):
         # Set the user and object with get_object()
@@ -390,12 +316,7 @@ class FlarePseudopatientDetail(FlareDetailBase):
         return flare
 
 
-class FlarePseudopatientUpdate(
-    FlarePatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
-    permission_required = "flares.can_change_flare"
-    success_message = "%(username)s's FlareAid successfully updated."
-
+class FlareUpdateMixin:
     def get_initial(self) -> dict[str, Any]:
         """Overwrite get_initial() to populate form non-field field inputs"""
         initial = super().get_initial()
@@ -419,78 +340,46 @@ class FlarePseudopatientUpdate(
             initial["urate_check"] = None
         return initial
 
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+
+class FlarePseudopatientUpdate(
+    FlareUpdateMixin,
+    FlarePatientBase,
+    GoutHelperAidEditMixin,
+    PermissionRequiredMixin,
+    UpdateView,
+    SuccessMessageMixin,
+):
+    permission_required = "flares.can_change_flare"
+    success_message = "%(username)s's FlareAid successfully updated."
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
-        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
-            form=self.form, oto_forms=self.oto_forms
-        )
+        self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
-                return super().render_errors(
-                    form=self.form,
-                    oto_forms=self.oto_forms,
-                    mh_forms=self.mh_forms,
-                    mh_det_forms=self.mh_det_forms,
-                    ma_forms=self.ma_forms,
-                    lab_formsets=self.lab_formsets,
-                )
+                return super().render_errors()
             else:
                 return self.errors
         return self.form_valid()
 
 
-class FlareUpdate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class FlareUpdate(
+    FlareUpdateMixin, FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+):
     """Updates a Flare"""
 
     success_message = "Flare updated successfully!"
-
-    def get_initial(self) -> dict[str, Any]:
-        """Overwrite get_initial() to populate form non-field field inputs"""
-        initial = super().get_initial()
-        crystal_analysis = getattr(self.object, "crystal_analysis")
-        diagnosed = getattr(self.object, "diagnosed")
-        urate = getattr(self.object, "urate")
-        if crystal_analysis is not None or diagnosed is not None or urate is not None:
-            initial["medical_evaluation"] = True
-            if crystal_analysis is not None:
-                initial["aspiration"] = True
-            else:
-                initial["aspiration"] = False
-            if urate is not None:
-                initial["urate_check"] = True
-            else:
-                initial["urate_check"] = False
-        else:
-            initial["medical_evaluation"] = False
-            initial["aspiration"] = None
-            initial["diagnosed"] = None
-            initial["urate_check"] = None
-        return initial
 
     def get_queryset(self):
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
-        self.mh_forms, self.errors_bool = self.post_process_menopause(
-            mh_forms=self.mh_forms, post_object=self.form.instance
-        )
-        self.form, self.oto_forms, self.errors_bool = self.post_process_urate_check(
-            form=self.form, oto_forms=self.oto_forms, errors_bool=self.errors_bool
-        )
+        self.post_process_menopause()
+        self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
-                return super().render_errors(
-                    form=self.form,
-                    oto_forms=self.oto_forms,
-                    mh_forms=self.mh_forms,
-                    mh_det_forms=self.mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=self.lab_formsets,
-                )
+                return super().render_errors()
             else:
                 return self.errors
         return self.form_valid()

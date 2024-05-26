@@ -6,13 +6,13 @@ from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.helpers import age_calc
+from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderForm
+from ..genders.models import Gender
 from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
-    from ..dateofbirths.models import DateOfBirth
-    from ..genders.models import Gender
     from ..labs.forms import BaselineCreatinineForm
     from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.forms import CkdDetailForm
@@ -61,8 +61,8 @@ class CkdDetailFormProcessor:
             self.dateofbirth = self.dateofbirth_form.cleaned_data["value"]
             self.gender = self.gender_form.cleaned_data["value"]
         else:
-            self.dateofbirth = dateofbirth.value
-            self.gender = gender.value
+            self.dateofbirth = dateofbirth.value if isinstance(dateofbirth, DateOfBirth) else dateofbirth
+            self.gender = gender.value if isinstance(gender, Gender) else gender
 
     @cached_property
     def age(self) -> int | None:

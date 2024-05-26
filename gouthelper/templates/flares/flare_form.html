@@ -103,6 +103,7 @@
               // check if css_class is not undefined and if it has 'hasDatepicker' in the class
               // https://stackoverflow.com/questions/44624656/js-jquery-how-to-dynamically-update-refresh-datepicker-value-after-changing-th
               // datepicker class needs to be removed by the cloneUrate function
+              console.log(this)
               if (css_class !== undefined && css_class.includes('hasDatepicker')) {
                 css_class = css_class.replace('hasDatepicker', '');
                 $(this).attr('class', css_class)

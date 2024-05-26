@@ -8,7 +8,6 @@ from django.contrib.sessions.middleware import SessionMiddleware  # type: ignore
 from django.core.exceptions import ObjectDoesNotExist  # type: ignore
 from django.db import connection  # type: ignore
 from django.db.models import Q, QuerySet  # type: ignore
-from django.forms import model_to_dict  # type: ignore
 from django.http import Http404  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
@@ -20,7 +19,6 @@ from ...contents.models import Content
 from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
-from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.choices import Genders
 from ...genders.forms import GenderForm
 from ...genders.models import Gender
@@ -30,31 +28,19 @@ from ...labs.models import Urate
 from ...labs.tests.factories import UrateFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
-from ...medhistorys.forms import (
-    AnginaForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    GoutForm,
-    HeartattackForm,
-    MenopauseForm,
-    PvdForm,
-    StrokeForm,
-)
+from ...medhistorys.forms import AnginaForm, CadForm, ChfForm, CkdForm, GoutForm, HeartattackForm, PvdForm, StrokeForm
 from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...medhistorys.models import Angina, Cad, Chf, Ckd, Gout, Heartattack, MedHistory, Menopause, Pvd, Stroke
+from ...medhistorys.models import Angina, MedHistory, Menopause
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.factories import medhistory_diff_obj_data, oto_random_age, oto_random_gender, oto_random_urate_or_None
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
-from ..forms import FlareForm
 from ..models import Flare
 from ..selectors import flares_user_qs
 from ..views import (
     FlareAbout,
-    FlareBase,
     FlareCreate,
     FlareDetail,
     FlarePseudopatientCreate,
@@ -93,71 +79,11 @@ class TestFlareAbout(TestCase):
         )
 
 
-class TestFlareBase(TestCase):
-    def setUp(self):
-        self.factory = RequestFactory()
-        self.view: FlareBase = FlareBase()
-        self.flare = create_flare(
-            dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
-            gender=GenderFactory(value=Genders.FEMALE),
-            urate=UrateFactory(value=Decimal("5.0")),
-        )
-        self.flare_data = model_to_dict(self.flare)
-        self.flare_data.update({"medical_evaluation": True, "aspiration": True, "urate_check": True})
-        self.form = FlareForm(data=self.flare_data)
-        self.form.is_valid()
-        self.form.clean()
-        self.menopause_data = {
-            f"{MedHistoryTypes.MENOPAUSE}-value": True,
-        }
-        self.menopause_form = MenopauseForm(data=self.menopause_data)
-        self.menopause_form.is_valid()
-        self.menopause_form.clean()
-        self.medhistorys_forms = {
-            f"{MedHistoryTypes.MENOPAUSE}_form": self.menopause_form,
-        }
-        # NOTE: MUST BE "urate-value" because of the UrateFlareForm prefix
-        self.urate_data = {"urate-value": self.flare.urate.value}
-        self.urate_form = UrateFlareForm(instance=self.flare.urate, data=self.urate_data)
-        self.urate_form.is_valid()
-        self.urate_form.clean()
-        self.onetoone_forms = {
-            "urate_form": self.urate_form,
-        }
-
-    def test__post_process_urate_check(self):
-        _, _, errors_bool = self.view.post_process_urate_check(
-            self.form,
-            self.onetoone_forms,
-        )
-        # Assert there are no errors on the urate form
-        self.assertFalse(self.onetoone_forms["urate_form"].errors)
-        self.assertFalse(errors_bool)
-        # Change the urate data to make it invalid (no value)
-        self.urate_data.update({"urate-value": None})
-        # Create new urate form and swap into onetoone_forms
-        new_urate_form = UrateFlareForm(data=self.urate_data)
-        new_urate_form.is_valid()
-        new_urate_form.clean()
-        self.onetoone_forms.update({"urate_form": new_urate_form})
-        _, _, errors_bool = self.view.post_process_urate_check(
-            self.form,
-            self.onetoone_forms,
-        )
-        # Assert there are errors on the urate form
-        self.assertTrue(errors_bool)
-        self.assertTrue(self.onetoone_forms["urate_form"].errors)
-        self.assertEqual(
-            self.onetoone_forms["urate_form"].errors["value"][0],
-            "If the serum uric acid was checked, please tell us the value! \
-If you don't know the value, please uncheck the Uric Acid Lab Check box.",
-        )
-
-
 class TestFlareCreate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view: FlareCreate = FlareCreate()
+        self.view: FlareCreate = FlareCreate
+        self.request = self.factory.get("/fake-url/")
         self.flare_data = {
             "crystal_analysis": "",
             "date_ended": "",
@@ -180,74 +106,30 @@ class TestFlareCreate(TestCase):
             "creatinine-TOTAL_FORMS": 0,
             "creatinine-INITIAL_FORMS": 0,
         }
-        self.angina_context = {
-            "form": AnginaForm,
-            "model": Angina,
-        }
-        self.cad_context = {
-            "form": CadForm,
-            "model": Cad,
-        }
-        self.chf_context = {
-            "form": ChfForm,
-            "model": Chf,
-        }
-        self.ckd_context = {
-            "form": CkdForm,
-            "model": Ckd,
-        }
-        self.gout_context = {
-            "form": GoutForm,
-            "model": Gout,
-        }
-        self.heartattack_context = {
-            "form": HeartattackForm,
-            "model": Heartattack,
-        }
-        self.stroke_context = {
-            "form": StrokeForm,
-            "model": Stroke,
-        }
-        self.pvd_context = {
-            "form": PvdForm,
-            "model": Pvd,
-        }
-        self.dateofbirth_context = {
-            "form": DateOfBirthForm,
-            "model": DateOfBirth,
-        }
-        self.gender_context = {
-            "form": GenderForm,
-            "model": Gender,
-        }
-        self.urate_context = {
-            "form": UrateFlareForm,
-            "model": Urate,
-        }
 
     def test__attrs(self):
-        self.assertIn("dateofbirth", self.view.onetoones)
-        self.assertEqual(self.dateofbirth_context, self.view.onetoones["dateofbirth"])
-        self.assertIn("gender", self.view.onetoones)
-        self.assertEqual(self.gender_context, self.view.onetoones["gender"])
-        self.assertIn("urate", self.view.onetoones)
-        self.assertEqual(self.urate_context, self.view.onetoones["urate"])
-        self.assertIn(MedHistoryTypes.ANGINA, self.view.medhistorys)
-        self.assertEqual(self.angina_context, self.view.medhistorys[MedHistoryTypes.ANGINA])
-        self.assertIn(MedHistoryTypes.CAD, self.view.medhistorys)
-        self.assertEqual(self.cad_context, self.view.medhistorys[MedHistoryTypes.CAD])
-        self.assertIn(MedHistoryTypes.CHF, self.view.medhistorys)
-        self.assertEqual(self.chf_context, self.view.medhistorys[MedHistoryTypes.CHF])
-        self.assertIn(MedHistoryTypes.CKD, self.view.medhistorys)
-        self.assertEqual(self.ckd_context, self.view.medhistorys[MedHistoryTypes.CKD])
-        self.assertIn(MedHistoryTypes.GOUT, self.view.medhistorys)
-        self.assertEqual(self.gout_context, self.view.medhistorys[MedHistoryTypes.GOUT])
-        self.assertIn(MedHistoryTypes.HEARTATTACK, self.view.medhistorys)
-        self.assertEqual(self.heartattack_context, self.view.medhistorys[MedHistoryTypes.HEARTATTACK])
-        self.assertIn(MedHistoryTypes.STROKE, self.view.medhistorys)
-        self.assertEqual(self.stroke_context, self.view.medhistorys[MedHistoryTypes.STROKE])
-        self.assertIn(MedHistoryTypes.PVD, self.view.medhistorys)
-        self.assertEqual(self.pvd_context, self.view.medhistorys[MedHistoryTypes.PVD])
+        self.assertIn("dateofbirth", self.view.OTO_FORMS)
+        self.assertEqual(DateOfBirthForm, self.view.OTO_FORMS["dateofbirth"])
+        self.assertIn("gender", self.view.OTO_FORMS)
+        self.assertEqual(GenderForm, self.view.OTO_FORMS["gender"])
+        self.assertIn("urate", self.view.OTO_FORMS)
+        self.assertEqual(UrateFlareForm, self.view.OTO_FORMS["urate"])
+        self.assertIn(MedHistoryTypes.ANGINA, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(AnginaForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.ANGINA])
+        self.assertIn(MedHistoryTypes.CAD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(CadForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.CAD])
+        self.assertIn(MedHistoryTypes.CHF, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(ChfForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.CHF])
+        self.assertIn(MedHistoryTypes.CKD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(CkdForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.CKD])
+        self.assertIn(MedHistoryTypes.GOUT, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(GoutForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.GOUT])
+        self.assertIn(MedHistoryTypes.HEARTATTACK, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(HeartattackForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.HEARTATTACK])
+        self.assertIn(MedHistoryTypes.STROKE, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(StrokeForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.STROKE])
+        self.assertIn(MedHistoryTypes.PVD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(PvdForm, self.view.MEDHISTORY_FORMS[MedHistoryTypes.PVD])
 
     def test__get_context_data(self):
         request = self.factory.get("/flares/create")
@@ -258,31 +140,27 @@ class TestFlareCreate(TestCase):
         for medhistory in FLARE_MEDHISTORYS:
             self.assertIn(f"{medhistory}_form", response.context_data)  # type: ignore
             self.assertIsInstance(
-                response.context_data[f"{medhistory}_form"], self.view.medhistorys[medhistory]["form"]  # type: ignore
+                response.context_data[f"{medhistory}_form"], self.view.MEDHISTORY_FORMS[medhistory]  # type: ignore
             )
             self.assertIsInstance(
                 response.context_data[f"{medhistory}_form"].instance,  # type: ignore
-                self.view.medhistorys[medhistory]["model"],
+                self.view.MEDHISTORY_FORMS[medhistory]._meta.model,
             )
         self.assertIn("dateofbirth_form", response.context_data)  # type: ignore
         self.assertIsInstance(
-            response.context_data["dateofbirth_form"], self.view.onetoones["dateofbirth"]["form"]  # type: ignore
+            response.context_data["dateofbirth_form"], self.view.OTO_FORMS["dateofbirth"]  # type: ignore
         )
         self.assertIsInstance(
             response.context_data["dateofbirth_form"].instance,  # type: ignore
-            self.view.onetoones["dateofbirth"]["model"],
+            self.view.OTO_FORMS["dateofbirth"]._meta.model,
         )
+        self.assertIsInstance(response.context_data["gender_form"], self.view.OTO_FORMS["gender"])  # type: ignore
         self.assertIsInstance(
-            response.context_data["gender_form"], self.view.onetoones["gender"]["form"]  # type: ignore
+            response.context_data["gender_form"].instance, self.view.OTO_FORMS["gender"]._meta.model  # type: ignore
         )
+        self.assertIsInstance(response.context_data["urate_form"], self.view.OTO_FORMS["urate"])  # type: ignore
         self.assertIsInstance(
-            response.context_data["gender_form"].instance, self.view.onetoones["gender"]["model"]  # type: ignore
-        )
-        self.assertIsInstance(
-            response.context_data["urate_form"], self.view.onetoones["urate"]["form"]  # type: ignore
-        )
-        self.assertIsInstance(
-            response.context_data["urate_form"].instance, self.view.onetoones["urate"]["model"]  # type: ignore
+            response.context_data["urate_form"].instance, self.view.OTO_FORMS["urate"]._meta.model  # type: ignore
         )
 
     def test__post_no_medhistorys(self):
@@ -430,84 +308,29 @@ class TestFlareCreate(TestCase):
 menopause status to evaluate their flare.",
         )
 
-    def test__post_process_menopause(self):
-        flare = create_flare(
-            dateofbirth=DateOfBirthFactory(value=timezone.now().date() - timedelta(days=365 * 50)),
-            gender=GenderFactory(value=Genders.FEMALE),
-            urate=UrateFactory(value=Decimal("5.0")),
+    def test__post_menopause_valid_too_young(self):
+        """Test that the MenopauseForm is valid when the patient
+        is too young for menopause."""
+        self.flare_data.update(
+            {
+                "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 39)),
+                f"{MedHistoryTypes.MENOPAUSE}-value": "None",
+            }
         )
-        menopause_data = {
-            f"{MedHistoryTypes.MENOPAUSE}-value": True,
-        }
-        menopause_form = MenopauseForm(data=menopause_data)
-        menopause_form.is_valid()
-        menopause_form.clean()
-        medhistorys_forms = {
-            f"{MedHistoryTypes.MENOPAUSE}_form": menopause_form,
-        }
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
+        response = self.client.post(reverse("flares:create"), self.flare_data)
+        self.assertEqual(response.status_code, 302)
+
+    def test__post_menopause_valid_too_old(self):
+        """Test that the MenopauseForm is valid when the patient
+        is too old for menopause."""
+        self.flare_data.update(
+            {
+                "dateofbirth-value": age_calc(timezone.now() - timedelta(days=365 * 61)),
+                f"{MedHistoryTypes.MENOPAUSE}-value": "None",
+            }
         )
-        # Assert there are no errors on the menopause form
-        self.assertFalse(menopause_form.errors)
-        self.assertFalse(errors_bool)
-        # Change the menopause data to make it invalid (no value)
-        menopause_data.update({f"{MedHistoryTypes.MENOPAUSE}-value": None})
-        # Need to create new form instance to re-run is_valid and clean
-        # NOTE: This is because the form is already bound to the data ???
-        new_menopause_form = MenopauseForm(data=menopause_data)
-        # Re-run is_valid and clean
-        new_menopause_form.data = menopause_data
-        new_menopause_form.is_valid()
-        new_menopause_form.clean()
-        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
-        )
-        # Assert there are errors on the menopause form
-        self.assertTrue(new_menopause_form.errors)
-        self.assertTrue(errors_bool)
-        # Change the flare.dateofbirth to make it too young for menopause
-        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 39)
-        flare.dateofbirth.save()
-        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
-        )
-        # Assert the errors_bool is False
-        # Form not tested because we didn't create a new one and the errors are the same
-        self.assertFalse(errors_bool)
-        # Change the flare.dateofbirth to make it too old for menopause
-        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 61)
-        flare.dateofbirth.save()
-        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
-        )
-        # Assert the errors_bool is False
-        # Form not tested because we didn't create a new one and the errors are the same
-        self.assertFalse(errors_bool)
-        flare.dateofbirth.value = timezone.now().date() - timedelta(days=365 * 45)
-        flare.dateofbirth.save()
-        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
-        )
-        self.assertTrue(errors_bool)
-        # Test male gender doesn't need menopause
-        flare.gender.value = Genders.MALE
-        flare.gender.save()
-        medhistorys_forms.update({f"{MedHistoryTypes.MENOPAUSE}_form": new_menopause_form})
-        _, errors_bool = self.view.post_process_menopause(
-            medhistorys_forms,
-            flare,
-        )
-        self.assertFalse(errors_bool)
+        response = self.client.post(reverse("flares:create"), self.flare_data)
+        self.assertEqual(response.status_code, 302)
 
     def test__urate_check_not_valid(self):
         self.flare_data.update(
@@ -633,6 +456,7 @@ class TestFlarePseudopatientCreate(TestCase):
         request.user = self.anon_user
         kwargs = {"username": self.user.username}
         view = self.view(request=request, kwargs=kwargs)
+        view.set_forms()
 
         # Set the object on the view, which is required for the get_form_kwargs method
         view.object = view.get_object()
@@ -1860,6 +1684,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         kwargs = {"username": self.user.username, "pk": self.user.flare_set.first().pk}
         # Setup the view
         view.setup(request, **kwargs)
+        view.set_forms()
         # Set the object on the view
         view.object = view.get_object()
         # Delete the user attr on the view because it will be set by the get_object() method
@@ -1979,23 +1804,24 @@ class TestFlarePseudopatientUpdate(TestCase):
             # Call the view and get the object
             view = self.view()
             view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.set_forms()
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            onetoone_forms = view.post_populate_oto_forms()
-            for onetoone, modelform_dict in view.onetoones.items():
+            view.post_populate_oto_forms()
+            for onetoone, oto_form in view.oto_forms.items():
                 # Assert that the onetoone_forms dict has the correct keys
-                self.assertIn(f"{onetoone}_form", onetoone_forms)
+                self.assertIn(f"{onetoone}", view.OTO_FORMS.keys())
                 # Assert that the onetoone_forms dict has the correct values
-                self.assertTrue(isinstance(onetoone_forms[f"{onetoone}_form"], modelform_dict["form"]))
+                self.assertTrue(isinstance(oto_form, view.OTO_FORMS[onetoone]))
                 # Assert that the onetoone_forms dict has the correct initial data
                 self.assertEqual(
-                    onetoone_forms[f"{onetoone}_form"].initial["value"],
+                    oto_form.initial["value"],
                     (True if onetoone == "aki" else getattr(view.object, onetoone, None).value)
                     if getattr(view.object, onetoone, False)
                     else None,
                 )
                 if onetoone == "aki":
-                    self.assertIn("resolved", onetoone_forms[f"{onetoone}_form"].initial)
+                    self.assertIn("resolved", oto_form.initial)
 
     def test__post_process_oto_forms(self):
         """Test the post_process_oto_forms() method for the view."""
@@ -2010,28 +1836,26 @@ class TestFlarePseudopatientUpdate(TestCase):
             # Call the view and get the object
             view = self.view()
             view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.set_forms()
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
-            view.oto_forms = view.post_populate_oto_forms()
+            view.post_populate_oto_forms()
 
             for form in view.oto_forms.values():
                 form.is_valid()
             # Call the post_process_oto_forms() method and assign to new lists
             # of onetoones to save and delete to test against
-            oto_2_save, oto_2_rem = view.post_process_oto_forms()
+            view.post_process_oto_forms()
             # Iterate over all the onetoones to check if they are marked as to be saved or deleted correctly
-            for onetoone in view.onetoones:
-                form = view.oto_forms[f"{onetoone}_form"]
-                for form in view.oto_forms.values():
-                    print(form.initial)
-                initial = view.oto_forms[f"{onetoone}_form"].initial.get("value", None)
+            for onetoone, oto_form in view.oto_forms.items():
+                initial = oto_form.initial.get("value", None)
                 # If the form is adding a new object, assert that there's no initial data
-                if form.instance._state.adding:
+                if oto_form.instance._state.adding:
                     assert not initial
                 data_val = request.data.get(f"{onetoone}-value", "")
                 # Check if there was no pre-existing onetoone and there is no data to create a new one
-                filtered_otos_to_save = [oto for oto in oto_2_save if oto.__class__.__name__.lower() == onetoone]
-                filtered_otos_to_rem = [oto for oto in oto_2_rem if oto.__class__.__name__.lower() == onetoone]
+                filtered_otos_to_save = [oto for oto in view.oto_2_save if oto.__class__.__name__.lower() == onetoone]
+                filtered_otos_to_rem = [oto for oto in view.oto_2_rem if oto.__class__.__name__.lower() == onetoone]
                 if not initial and data_val == (None or ""):
                     # Should not be marked for save or deletion
                     assert not next(iter(onetoone for onetoone in filtered_otos_to_save), None) and not next(
@@ -2040,28 +1864,28 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # If there was no pre-existing onetoone but there is data to create a new one
                 elif not initial and data_val != (None or ""):
                     # Should be marked for save and not deletion
-                    assert next(iter(onetoone for onetoone in oto_2_save)) and not next(
-                        iter(onetoone for onetoone in oto_2_rem), None
+                    assert next(iter(onetoone for onetoone in view.oto_2_save)) and not next(
+                        iter(onetoone for onetoone in view.oto_2_rem), None
                     )
                 # If there was a pre-existing onetoone but the data is not present in the POST data
                 elif initial and data_val == (None or ""):
                     # Should be marked for deletion and not save
-                    assert not next(iter(onetoone for onetoone in oto_2_save), None) and next(
-                        iter(onetoone for onetoone in oto_2_rem)
+                    assert not next(iter(onetoone for onetoone in view.oto_2_save), None) and next(
+                        iter(onetoone for onetoone in view.oto_2_rem)
                     )
                 # If there is a pre-existing object and there is data in the POST request
                 elif initial and data_val != (None or ""):
                     # If the data changed, the object should be marked for saving
                     if initial != data_val:
-                        assert next(iter(onetoone for onetoone in oto_2_save)) and not next(
-                            iter(onetoone for onetoone in oto_2_rem), None
+                        assert next(iter(onetoone for onetoone in view.oto_2_save)) and not next(
+                            iter(onetoone for onetoone in view.oto_2_rem), None
                         )
                     # Otherwise it should not be marked for saving or
                     # deletion and the form's changed_data dict should be empty
                     else:
                         assert (
-                            not next(iter(onetoone for onetoone in oto_2_save), None)
-                            and not next(iter(onetoone for onetoone in oto_2_rem), None)
+                            not next(iter(onetoone for onetoone in view.oto_2_save), None)
+                            and not next(iter(onetoone for onetoone in view.oto_2_rem), None)
                             and not view.oto_forms[f"{onetoone}_form"].changed_data
                         )
                         assert view.oto_forms[f"{onetoone}_form"].changed_data == []
@@ -2153,8 +1977,6 @@ class TestFlarePseudopatientUpdate(TestCase):
                 "urate-value": Decimal("6.0"),
             }
         )
-        print("in test")
-        print(flare.aki)
         # Call the view
         response = self.client.post(
             reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
@@ -2440,74 +2262,30 @@ class TestFlareUpdate(TestCase):
             "diagnosed": True,
             "aspiration": True,
         }
-        self.angina_context = {
-            "form": AnginaForm,
-            "model": Angina,
-        }
-        self.cad_context = {
-            "form": CadForm,
-            "model": Cad,
-        }
-        self.chf_context = {
-            "form": ChfForm,
-            "model": Chf,
-        }
-        self.ckd_context = {
-            "form": CkdForm,
-            "model": Ckd,
-        }
-        self.gout_context = {
-            "form": GoutForm,
-            "model": Gout,
-        }
-        self.heartattack_context = {
-            "form": HeartattackForm,
-            "model": Heartattack,
-        }
-        self.stroke_context = {
-            "form": StrokeForm,
-            "model": Stroke,
-        }
-        self.pvd_context = {
-            "form": PvdForm,
-            "model": Pvd,
-        }
-        self.dateofbirth_context = {
-            "form": DateOfBirthForm,
-            "model": DateOfBirth,
-        }
-        self.gender_context = {
-            "form": GenderForm,
-            "model": Gender,
-        }
-        self.urate_context = {
-            "form": UrateFlareForm,
-            "model": Urate,
-        }
 
     def test__attrs(self):
-        self.assertIn("dateofbirth", self.view.onetoones)
-        self.assertEqual(self.dateofbirth_context, self.view.onetoones["dateofbirth"])
-        self.assertIn("gender", self.view.onetoones)
-        self.assertEqual(self.gender_context, self.view.onetoones["gender"])
-        self.assertIn("urate", self.view.onetoones)
-        self.assertEqual(self.urate_context, self.view.onetoones["urate"])
-        self.assertIn(MedHistoryTypes.ANGINA, self.view.medhistorys)
-        self.assertEqual(self.angina_context, self.view.medhistorys[MedHistoryTypes.ANGINA])
-        self.assertIn(MedHistoryTypes.CAD, self.view.medhistorys)
-        self.assertEqual(self.cad_context, self.view.medhistorys[MedHistoryTypes.CAD])
-        self.assertIn(MedHistoryTypes.CHF, self.view.medhistorys)
-        self.assertEqual(self.chf_context, self.view.medhistorys[MedHistoryTypes.CHF])
-        self.assertIn(MedHistoryTypes.CKD, self.view.medhistorys)
-        self.assertEqual(self.ckd_context, self.view.medhistorys[MedHistoryTypes.CKD])
-        self.assertIn(MedHistoryTypes.GOUT, self.view.medhistorys)
-        self.assertEqual(self.gout_context, self.view.medhistorys[MedHistoryTypes.GOUT])
-        self.assertIn(MedHistoryTypes.HEARTATTACK, self.view.medhistorys)
-        self.assertEqual(self.heartattack_context, self.view.medhistorys[MedHistoryTypes.HEARTATTACK])
-        self.assertIn(MedHistoryTypes.STROKE, self.view.medhistorys)
-        self.assertEqual(self.stroke_context, self.view.medhistorys[MedHistoryTypes.STROKE])
-        self.assertIn(MedHistoryTypes.PVD, self.view.medhistorys)
-        self.assertEqual(self.pvd_context, self.view.medhistorys[MedHistoryTypes.PVD])
+        self.assertIn("dateofbirth", self.view.OTO_FORMS)
+        self.assertEqual(self.view.OTO_FORMS["dateofbirth"], DateOfBirthForm)
+        self.assertIn("gender", self.view.OTO_FORMS)
+        self.assertEqual(self.view.OTO_FORMS["gender"], GenderForm)
+        self.assertIn("urate", self.view.OTO_FORMS)
+        self.assertEqual(self.view.OTO_FORMS["urate"], UrateFlareForm)
+        self.assertIn(MedHistoryTypes.ANGINA, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.ANGINA], AnginaForm)
+        self.assertIn(MedHistoryTypes.CAD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.CAD], CadForm)
+        self.assertIn(MedHistoryTypes.CHF, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.CHF], ChfForm)
+        self.assertIn(MedHistoryTypes.CKD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.CKD], CkdForm)
+        self.assertIn(MedHistoryTypes.GOUT, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.GOUT], GoutForm)
+        self.assertIn(MedHistoryTypes.HEARTATTACK, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.HEARTATTACK], HeartattackForm)
+        self.assertIn(MedHistoryTypes.STROKE, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.STROKE], StrokeForm)
+        self.assertIn(MedHistoryTypes.PVD, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.PVD], PvdForm)
 
     def test__dispatch_redirects_if_flare_user(self):
         """Test that the dispatch() method redirects to the Pseudopatient DetailView if the
@@ -2533,14 +2311,14 @@ class TestFlareUpdate(TestCase):
         for medhistory in FLARE_MEDHISTORYS:
             self.assertIn(f"{medhistory}_form", response.context_data)  # type: ignore
             self.assertIsInstance(
-                response.context_data[f"{medhistory}_form"], self.view.medhistorys[medhistory]["form"]  # type: ignore
+                response.context_data[f"{medhistory}_form"], self.view.MEDHISTORY_FORMS[medhistory]  # type: ignore
             )
             if response.context_data[
                 f"{medhistory}_form"
             ].instance._state.adding:  # pylint: disable=w0212, line-too-long # noqa: E501
                 self.assertIsInstance(
                     response.context_data[f"{medhistory}_form"].instance,  # type: ignore
-                    self.view.medhistorys[medhistory]["model"],
+                    self.view.MEDHISTORY_FORMS[medhistory]._meta.model,
                 )
             else:
                 self.assertIn(
@@ -2548,25 +2326,18 @@ class TestFlareUpdate(TestCase):
                 )
         self.assertIn("dateofbirth_form", response.context_data)  # type: ignore
         self.assertIsInstance(
-            response.context_data["dateofbirth_form"], self.view.onetoones["dateofbirth"]["form"]  # type: ignore
+            response.context_data["dateofbirth_form"], self.view.OTO_FORMS["dateofbirth"]  # type: ignore
         )
-        self.assertIsInstance(
-            response.context_data["dateofbirth_form"].instance,  # type: ignore
-            self.view.onetoones["dateofbirth"]["model"],
-        )
+
         self.assertEqual(response.context_data["dateofbirth_form"].instance, self.flare.dateofbirth)  # type: ignore
+        self.assertIsInstance(response.context_data["gender_form"], self.view.OTO_FORMS["gender"])  # type: ignore
         self.assertIsInstance(
-            response.context_data["gender_form"], self.view.onetoones["gender"]["form"]  # type: ignore
-        )
-        self.assertIsInstance(
-            response.context_data["gender_form"].instance, self.view.onetoones["gender"]["model"]  # type: ignore
+            response.context_data["gender_form"].instance, self.view.OTO_FORMS["gender"]._meta.model  # type: ignore
         )
         self.assertEqual(response.context_data["gender_form"].instance, self.flare.gender)  # type: ignore
+        self.assertIsInstance(response.context_data["urate_form"], self.view.OTO_FORMS["urate"])  # type: ignore
         self.assertIsInstance(
-            response.context_data["urate_form"], self.view.onetoones["urate"]["form"]  # type: ignore
-        )
-        self.assertIsInstance(
-            response.context_data["urate_form"].instance, self.view.onetoones["urate"]["model"]  # type: ignore
+            response.context_data["urate_form"].instance, self.view.OTO_FORMS["urate"]._meta.model  # type: ignore
         )
         if getattr(self.flare, "urate", None):
             self.assertEqual(response.context_data["urate_form"].instance, self.flare.urate)
@@ -2700,6 +2471,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         flare = create_flare(aki=True)
         self.assertTrue(flare.aki)
         data = flare_data_factory(flare=flare, otos={"aki": False})
+        print(data)
         response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
