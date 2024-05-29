@@ -13,7 +13,6 @@ from django.views.generic import CreateView  # type: ignore
 
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
-from ..labs.forms import BaselineCreatinineForm
 from ..labs.models import BaselineCreatinine
 from ..medallergys.models import MedAllergy
 from ..medhistorydetails.models import CkdDetail, GoutDetail
@@ -31,7 +30,9 @@ if TYPE_CHECKING:
     from django.forms import BaseModelFormSet  # type: ignore
     from django.http import HttpRequest, HttpResponse  # type: ignore
 
+    from ..dateofbirths.forms import DateOfBirthForm
     from ..dateofbirths.models import DateOfBirth
+    from ..genders.forms import GenderForm
     from ..genders.models import Gender
     from ..labs.models import Lab
     from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
@@ -139,7 +140,7 @@ class GoutHelperEditMixin:
     @cached_property
     def ckddetail(self) -> bool:
         """Method that returns True if CKD is in the medhistory_details dict."""
-        return hasattr(self, "medhistory_detail_forms") and MedHistoryTypes.CKD in self.medhistory_detail_forms.keys()
+        return hasattr(self, "medhistory_detail_forms") and "ckddetail" in self.medhistory_detail_forms.keys()
 
     @cached_property
     def create_view(self):
@@ -174,8 +175,8 @@ class GoutHelperEditMixin:
         if self.oto_forms:
             self.form_valid_save_otos()
             self.form_valid_delete_otos()
-            if self.related_object:
-                self.form_valid_related_object_otos()
+        if self.req_otos and self.related_object:
+            self.form_valid_related_object_otos()
         if kwargs:
             self.form_valid_set_aid_obj_relations(kwargs=kwargs)
         if self.save_object:
@@ -375,7 +376,7 @@ class GoutHelperEditMixin:
     @cached_property
     def goutdetail(self) -> bool:
         """Method that returns True if GOUT is in the medhistorys dict."""
-        return hasattr(self, "medhistory_detail_forms") and MedHistoryTypes.GOUT in self.medhistory_detail_forms.keys()
+        return hasattr(self, "medhistory_detail_forms") and "goutdetail" in self.medhistory_detail_forms.keys()
 
     @cached_property
     def model_name(self) -> str:
@@ -457,14 +458,16 @@ class GoutHelperEditMixin:
                 self.query_object.ckd.value if self.query_object and getattr(self.query_object, "ckd", False) else None
             )
 
-    def post_get_dateofbirth(self) -> Union["DateOfBirth", None]:
-        dateofbirth_form = self.oto_forms["dateofbirth"] if self.oto_forms else None
+    def post_get_dateofbirth_form(self) -> Union["DateOfBirthForm", None]:
+        return self.oto_forms["dateofbirth"] if self.oto_forms and not self.user else None
 
-        if (
-            dateofbirth_form
-            and hasattr(dateofbirth_form, "cleaned_data")
-            and "value" in self.oto_forms["dateofbirth"].cleaned_data
-        ):
+    def post_get_gender_form(self) -> Union["GenderForm", None]:
+        return self.oto_forms["gender"] if self.oto_forms and not self.user else None
+
+    def post_get_dateofbirth(self) -> Union["DateOfBirth", None]:
+        dateofbirth_form = self.post_get_dateofbirth_form()
+
+        if dateofbirth_form and hasattr(dateofbirth_form, "cleaned_data") and "value" in dateofbirth_form.cleaned_data:
             return dateofbirth_form.cleaned_data["value"]
         else:
             return (
@@ -474,8 +477,8 @@ class GoutHelperEditMixin:
             )
 
     def post_get_gender(self) -> Union["Gender", None]:
-        gender_form = self.oto_forms["gender"] if self.oto_forms else None
-        if gender_form and hasattr(gender_form, "cleaned_data") and "value" in self.oto_forms["gender"].cleaned_data:
+        gender_form = self.post_get_gender_form()
+        if gender_form and hasattr(gender_form, "cleaned_data") and "value" in gender_form.cleaned_data:
             return gender_form.cleaned_data["value"]
         else:
             return (
@@ -552,11 +555,20 @@ class GoutHelperEditMixin:
         )
 
     def set_oto_forms(self) -> None:
-        self.oto_forms = self.OTO_FORMS.copy() if hasattr(self, "OTO_FORMS") else {}
+        oto_forms_without_related_objects = (
+            {key: val for key, val in self.OTO_FORMS.items() if self.onetoone_not_attr_of_related_object(key)}
+            if hasattr(self, "OTO_FORMS")
+            else {}
+        )
+        self.oto_forms = oto_forms_without_related_objects
 
     def set_req_otos(self) -> None:
         if not hasattr(self, "req_otos"):
             self.req_otos = self.REQ_OTOS.copy() if hasattr(self, "REQ_OTOS") else []
+            if self.related_object and hasattr(self, "OTO_FORMS"):
+                for key in self.OTO_FORMS.keys():
+                    if not self.onetoone_not_attr_of_related_object(key):
+                        self.req_otos.append(key)
 
     @cached_property
     def str_attrs(self) -> dict[str, str]:
@@ -811,16 +823,20 @@ class MedAllergyFormMixin(GoutHelperEditMixin):
                     if self.query_object
                     else None
                 )
-                kwargs[form_str] = medallergy_form(
-                    treatment=treatment,
-                    instance=ma_obj,
-                    initial={
-                        f"medallergy_{treatment}": True if ma_obj else None,
-                        f"{treatment}_matype": ma_obj.matype if ma_obj else None,
-                    },
-                    patient=self.user,
-                    request_user=self.request_user,
-                    str_attrs=self.str_attrs,
+                kwargs[form_str] = (
+                    medallergy_form
+                    if isinstance(medallergy_form, ModelForm)
+                    else medallergy_form(
+                        treatment=treatment,
+                        instance=ma_obj,
+                        initial={
+                            f"medallergy_{treatment}": True if ma_obj else None,
+                            f"{treatment}_matype": ma_obj.matype if ma_obj else None,
+                        },
+                        patient=self.user,
+                        request_user=self.request_user,
+                        str_attrs=self.str_attrs,
+                    )
                 )
 
     def post_populate_ma_forms(self) -> None:
@@ -988,19 +1004,29 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         if self.ckddetail:
             if "ckddetail_form" not in kwargs:
                 ckddetail_i = getattr(mh_obj, "ckddetail", None) if mh_obj else None
-                kwargs["ckddetail_form"] = self.medhistory_detail_forms[MedHistoryTypes.CKD](
-                    instance=ckddetail_i,
-                    patient=self.user,
-                    request_user=self.request_user,
-                    str_attrs=self.str_attrs,
+                ckddetail_form = self.medhistory_detail_forms["ckddetail"]
+                kwargs["ckddetail_form"] = (
+                    ckddetail_form
+                    if isinstance(ckddetail_form, ModelForm)
+                    else ckddetail_form(
+                        instance=ckddetail_i,
+                        patient=self.user,
+                        request_user=self.request_user,
+                        str_attrs=self.str_attrs,
+                    )
                 )
             if "baselinecreatinine_form" not in kwargs:
                 bc_i = getattr(mh_obj, "baselinecreatinine", None) if mh_obj else None
-                kwargs["baselinecreatinine_form"] = self.medhistory_detail_forms["baselinecreatinine"](
-                    instance=bc_i,
-                    patient=self.user,
-                    request_user=self.request_user,
-                    str_attrs=self.str_attrs,
+                bc_form = self.medhistory_detail_forms["baselinecreatinine"]
+                kwargs["baselinecreatinine_form"] = (
+                    bc_form
+                    if isinstance(bc_form, ModelForm)
+                    else bc_form(
+                        instance=bc_i,
+                        patient=self.user,
+                        request_user=self.request_user,
+                        str_attrs=self.str_attrs,
+                    )
                 )
 
     def goutdetail_mh_context(
@@ -1011,11 +1037,16 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         """Method that adds the GoutDetailForm to the context."""
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            kwargs["goutdetail_form"] = self.medhistory_detail_forms[MedHistoryTypes.GOUT](
-                instance=goutdetail_i,
-                patient=self.user,
-                request_user=self.request_user,
-                str_attrs=self.str_attrs,
+            goutdetail_form = self.medhistory_detail_forms["goutdetail"]
+            kwargs["goutdetail_form"] = (
+                goutdetail_form
+                if isinstance(goutdetail_form, ModelForm)
+                else goutdetail_form["goutdetail"](
+                    instance=goutdetail_i,
+                    patient=self.user,
+                    request_user=self.request_user,
+                    str_attrs=self.str_attrs,
+                )
             )
             if hasattr(mh_obj, "user") and mh_obj.user:
                 raise Continue
@@ -1093,7 +1124,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         }
         self.medhistory_detail_forms.update(
             {
-                MedHistoryTypes.CKD: self.medhistory_detail_forms[MedHistoryTypes.CKD](
+                "ckddetail": self.medhistory_detail_forms["ckddetail"](
                     self.request.POST,
                     instance=ckddetail,
                     **form_kwargs,
@@ -1101,7 +1132,11 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             }
         )
         self.medhistory_detail_forms.update(
-            {"baselinecreatinine": BaselineCreatinineForm(self.request.POST, instance=bc, **form_kwargs)}
+            {
+                "baselinecreatinine": self.medhistory_detail_forms["baselinecreatinine"](
+                    self.request.POST, instance=bc, **form_kwargs
+                )
+            }
         )
 
     def goutdetail_mh_post_pop(
@@ -1115,7 +1150,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             gd = GoutDetail()
         self.medhistory_detail_forms.update(
             {
-                MedHistoryTypes.GOUT: self.medhistory_detail_forms[MedHistoryTypes.GOUT](
+                "goutdetail": self.medhistory_detail_forms["goutdetail"](
                     self.request.POST,
                     instance=gd,
                     patient=self.user,
@@ -1191,8 +1226,8 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     ckddetail_errors = self.ckddetail_mh_post_process(
                         ckd=mh_to_include,
                     )
-                    if ckddetail_errors and not hasattr(self, "errors") or not self.errors:
-                        self.errors = True
+                    if ckddetail_errors and not self.errors_bool:
+                        self.errors_bool = True
                 elif mhtype == MedHistoryTypes.GOUT and self.goutdetail:
                     self.goutdetail_mh_post_process(
                         gout=mh_to_include,
@@ -1205,7 +1240,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         # then it still needs to be processed
         for mh_det_form in self.medhistory_detail_forms.values():
             mhtype = mh_det_form._meta.model.medhistorytype()  # pylint: disable=W0212
-            if f"{mhtype}_form" not in self.medhistory_forms:
+            if mhtype not in self.medhistory_forms:
                 if mhtype == MedHistoryTypes.GOUT and self.goutdetail:
                     self.goutdetail_mh_post_process(
                         gout=getattr(self.query_object, "gout", None),
@@ -1214,8 +1249,8 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     ckddetail_errors = self.ckddetail_mh_post_process(
                         ckd=getattr(self.query_object, "ckd", None),
                     )
-                    if ckddetail_errors and not hasattr(self, "errors") or not self.errors:
-                        self.errors = True
+                    if ckddetail_errors and not self.errors_bool:
+                        self.errors_bool = True
 
     def post_process_menopause(self) -> None:
         gender = self.post_get_gender()
@@ -1263,12 +1298,14 @@ menopause status to evaluate their flare."
     ) -> tuple["CkdDetailForm", BaselineCreatinine, bool]:
         """Method to process the CkdDetailForm and BaselineCreatinineForm
         as part of the post() method."""
+        dateofbirth_form = self.post_get_dateofbirth_form()
+        gender_form = self.post_get_gender_form()
         ckddet_form, bc_form, errors = CkdDetailFormProcessor(
             ckd=ckd,
-            ckddetail_form=self.medhistory_detail_forms[MedHistoryTypes.CKD],
+            ckddetail_form=self.medhistory_detail_forms["ckddetail"],
             baselinecreatinine_form=self.medhistory_detail_forms["baselinecreatinine"],
-            dateofbirth=self.post_get_dateofbirth(),
-            gender=self.post_get_gender(),
+            dateofbirth=dateofbirth_form if dateofbirth_form else self.post_get_dateofbirth(),
+            gender=gender_form if gender_form is not None else self.post_get_gender(),
         ).process()
         if bc_form:
             self.baselinecreatinine_form_post_process()
@@ -1284,7 +1321,7 @@ menopause status to evaluate their flare."
             self.mhdets_2_remove.append(baselinecreatinine_form)
 
     def ckddetail_form_post_process(self) -> None:
-        ckddetail_form = self.medhistory_detail_forms[MedHistoryTypes.CKD]
+        ckddetail_form = self.medhistory_detail_forms["ckddetail"]
         if hasattr(ckddetail_form.instance, "to_save"):
             self.mhdets_2_save.append(ckddetail_form)
         elif hasattr(ckddetail_form.instance, "to_delete"):
@@ -1296,7 +1333,7 @@ menopause status to evaluate their flare."
     ) -> None:
         """Method that processes the GoutDetailForm as part of the post() method."""
 
-        gd_form = self.medhistory_detail_forms[MedHistoryTypes.GOUT]
+        gd_form = self.medhistory_detail_forms["goutdetail"]
         gd_mh = getattr(gd_form.instance, "medhistory", None)
         if gd_form.has_changed or not gd_mh:
             self.mhdets_2_save.append(gd_form.save(commit=False))
@@ -1374,8 +1411,6 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         self,
         kwargs: dict,
     ) -> None:
-        print(self.oto_forms.keys)
-        print(self.req_otos)
         for onetoone, oto_form in self.oto_forms.items():
             if self.related_object and getattr(self.related_object, onetoone, None) and onetoone not in kwargs:
                 self.context_update_onetoone(onetoone, kwargs)
@@ -1383,16 +1418,17 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                 form_str = f"{onetoone}_form"
                 oto_obj = self.get_oto_obj(onetoone) if self.query_object else None
                 if form_str not in kwargs:
-                    onetoone_form_kwargs = {
-                        "instance": oto_obj if oto_obj else oto_form._meta.model(),
-                        "patient": self.user,
-                        "request_user": self.request_user,
-                        "str_attrs": self.str_attrs,
-                    }
-                    onetoone_form_kwargs.update({"initial": {"value": self.get_onetoone_value(onetoone)}})
-                    kwargs[form_str] = (
-                        oto_form if isinstance(oto_form, ModelForm) else oto_form(**onetoone_form_kwargs)
-                    )
+                    if isinstance(oto_form, ModelForm):
+                        kwargs[form_str] = oto_form
+                    else:
+                        onetoone_form_kwargs = {
+                            "instance": oto_obj if oto_obj else oto_form._meta.model(),
+                            "patient": self.user,
+                            "request_user": self.request_user,
+                            "str_attrs": self.str_attrs,
+                        }
+                        onetoone_form_kwargs.update({"initial": {"value": self.get_onetoone_value(onetoone)}})
+                        kwargs[form_str] = oto_form(**onetoone_form_kwargs)
         for onetoone in self.req_otos:
             if onetoone not in kwargs:
                 self.context_update_onetoone(onetoone, kwargs)
@@ -1423,7 +1459,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         def check_if_oto_attr_in_related_object_fields(oto_attr: str) -> bool:
             return oto_attr in [field.name for field in self.related_object._meta.fields]
 
-        for oto_attr in self.oto_forms.keys():
+        for oto_attr in self.req_otos:
             related_object_oto = getattr(self.related_object, oto_attr, None)
             if (
                 related_object_oto
@@ -1467,7 +1503,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
 
     def post_populate_oto_forms(self) -> None:
         for onetoone, oto_form in self.oto_forms.items():
-            if not self.related_object or (self.related_object and not getattr(self.related_object, onetoone, None)):
+            if self.onetoone_not_attr_of_related_object(onetoone):
                 oto_obj = self.get_oto_obj(onetoone) if self.query_object else None
                 oto_form_kwargs = {
                     "instance": oto_obj if oto_obj else oto_form._meta.model(),
@@ -1489,36 +1525,34 @@ class OneToOneFormMixin(GoutHelperEditMixin):
             oto_obj = getattr(self.object, onetoone, None) if self.object else None
         return oto_obj
 
+    def onetoone_not_attr_of_related_object(self, onetoone: str) -> bool:
+        return not self.related_object or (self.related_object and not getattr(self.related_object, onetoone, None))
+
     def post_process_oto_forms(
         self,
     ) -> tuple[list[Model], list[Model]]:
         self.oto_2_save: list[Model] = []
         self.oto_2_rem: list[Model] = []
         for onetoone, oto_form in self.oto_forms.items():
-            object_attr = onetoone.lower()
-            if object_attr not in self.req_otos and (
-                not self.related_object
-                or (self.related_object and not getattr(self.related_object, object_attr, None))
-            ):
-                try:
-                    oto_form.check_for_value()
-                    # Check if the onetoone changed
-                    if oto_form.has_changed():
-                        onetoone = oto_form.save(commit=False)
-                        self.oto_2_save.append(onetoone)
-                    else:
-                        onetoone = oto_form.instance
-                # If EmptyRelatedModel exception is raised by the related model's form save() method,
-                # Check if the related model exists and delete it if it does
-                except EmptyRelatedModel:
-                    # Check if the related model has already been saved to the DB and mark for deletion if so
-                    if oto_form.instance and not oto_form.instance._state.adding:
-                        # Set the related model's fields to their initial values to prevent
-                        # IntegrityError from Django-Simple-History historical model on delete().
-                        if hasattr(oto_form, "required_fields"):
-                            for field in oto_form.required_fields:
-                                setattr(oto_form.instance, field, oto_form.initial[field])
-                        self.oto_2_rem.append(oto_form.instance)
+            try:
+                oto_form.check_for_value()
+                # Check if the onetoone changed
+                if oto_form.has_changed():
+                    onetoone = oto_form.save(commit=False)
+                    self.oto_2_save.append(onetoone)
+                else:
+                    onetoone = oto_form.instance
+            # If EmptyRelatedModel exception is raised by the related model's form save() method,
+            # Check if the related model exists and delete it if it does
+            except EmptyRelatedModel:
+                # Check if the related model has already been saved to the DB and mark for deletion if so
+                if oto_form.instance and not oto_form.instance._state.adding:
+                    # Set the related model's fields to their initial values to prevent
+                    # IntegrityError from Django-Simple-History historical model on delete().
+                    if hasattr(oto_form, "required_fields"):
+                        for field in oto_form.required_fields:
+                            setattr(oto_form.instance, field, oto_form.initial[field])
+                    self.oto_2_rem.append(oto_form.instance)
 
 
 class GoutHelperAidEditMixin(
@@ -1618,7 +1652,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            kwargs["goutdetail_form"] = self.medhistory_detail_forms[MedHistoryTypes.GOUT](
+            kwargs["goutdetail_form"] = self.medhistory_detail_forms["goutdetail"](
                 instance=goutdetail_i,
                 patient=self.user,
                 request_user=self.request_user,
@@ -1637,7 +1671,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             gd = GoutDetail()
         self.medhistory_detail_forms.update(
             {
-                MedHistoryTypes.GOUT: self.medhistory_forms[MedHistoryTypes.GOUT](
+                "goutdetail": self.medhistory_forms[MedHistoryTypes.GOUT](
                     self.request.POST,
                     instance=gd,
                     str_attrs=self.str_attrs,

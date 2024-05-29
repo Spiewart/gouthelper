@@ -162,7 +162,7 @@ class TestFlaresUserQuerySet(TestCase):
         """Test that the queryset returns the correct objects and
         number of queries."""
         for psp in Pseudopatient.objects.flares_qs().all():
-            with self.assertNumQueries(3):
+            with self.assertNumQueries(4):
                 qs = flares_user_qs(psp.username).get()
                 self.assertTrue(isinstance(qs, Pseudopatient))
                 self.assertTrue(getattr(qs, "dateofbirth", None))

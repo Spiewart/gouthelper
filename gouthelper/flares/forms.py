@@ -75,6 +75,8 @@ class FlareForm(
             "date_ended"
         ].help_text = f"When did {self.str_attrs.get('subject_the_pos')} symptoms resolve? \
 <strong>Leave blank if symptoms are ongoing</strong>."
+        self.fields["date_started"].widget.attrs.update({"class": "datepick"})
+        self.fields["date_ended"].widget.attrs.update({"class": "datepick"})
         self.fields["joints"].label = "Joint(s)"
         self.fields["joints"].help_text = f"Which of {self.str_attrs.get('subject_the_pos')} joints were affected?"
         self.fields.update(

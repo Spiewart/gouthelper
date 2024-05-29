@@ -19,52 +19,19 @@ from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignor
 )
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.models import DateOfBirth
 from ..flares.models import Flare
-from ..genders.forms import GenderFormOptional
 from ..genders.models import Gender
-from ..medhistorydetails.forms import CkdDetailForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import (
-    AnginaForm,
-    AnticoagulationForm,
-    BleedForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    ColchicineinteractionForm,
-    DiabetesForm,
-    GastricbypassForm,
-    HeartattackForm,
-    HypertensionForm,
-    IbdForm,
-    OrgantransplantForm,
-    PudForm,
-    PvdForm,
-    StrokeForm,
-)
-from ..medhistorys.models import (
-    Angina,
-    Anticoagulation,
-    Bleed,
-    Cad,
-    Chf,
-    Ckd,
-    Colchicineinteraction,
-    Diabetes,
-    Gastricbypass,
-    Heartattack,
-    Hypertension,
-    Ibd,
-    Organtransplant,
-    Pud,
-    Pvd,
-    Stroke,
-)
-from ..treatments.choices import FlarePpxChoices
 from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidEditMixin
+from .dicts import (
+    MEDALLERGY_FORMS,
+    MEDHISTORY_DETAIL_FORMS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+    PATIENT_OTO_FORMS,
+    PATIENT_REQ_OTOS,
+)
 from .forms import FlareAidForm
 from .models import FlareAid
 
@@ -95,30 +62,10 @@ class FlareAidBase:
 
     form_class = FlareAidForm
     model = FlareAid
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-    }
-    medallergys = FlarePpxChoices
-    medhistorys = {
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.ANTICOAGULATION: {"form": AnticoagulationForm, "model": Anticoagulation},
-        MedHistoryTypes.BLEED: {"form": BleedForm, "model": Bleed},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.COLCHICINEINTERACTION: {"form": ColchicineinteractionForm, "model": Colchicineinteraction},
-        MedHistoryTypes.DIABETES: {"form": DiabetesForm, "model": Diabetes},
-        MedHistoryTypes.GASTRICBYPASS: {"form": GastricbypassForm, "model": Gastricbypass},
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm, "model": Hypertension},
-        MedHistoryTypes.IBD: {"form": IbdForm, "model": Ibd},
-        MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
-        MedHistoryTypes.PUD: {"form": PudForm, "model": Pud},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
+    MEDALLERGY_FORMS = MEDALLERGY_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
 class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -150,43 +97,12 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
         return None
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
             kwargs.update({"flare": self.flare})
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )
+            return self.form_valid(**kwargs)
 
     @cached_property
     def related_object(self) -> Flare:
@@ -234,8 +150,8 @@ class FlareAidPatientBase(FlareAidBase):
     class Meta:
         abstract = True
 
-    onetoones = {}
-    req_otos = ["dateofbirth", "gender"]
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
@@ -261,41 +177,11 @@ class FlareAidPseudopatientCreate(
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class FlareAidPseudopatientDetail(FlareAidDetailBase):
@@ -370,41 +256,11 @@ class FlareAidPseudopatientUpdate(
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.
         For FlareAid, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class FlareAidUpdate(
@@ -437,41 +293,11 @@ class FlareAidUpdate(
         return self.object
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_rem=oto_2_rem,
-                oto_2_save=oto_2_save,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
     @cached_property
     def related_object(self) -> Flare:

@@ -22,7 +22,7 @@ class TestFlareManager(TestCase):
 
     def test__related_objects(self):
         self.assertEqual(Flare.objects.count(), 10)
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):
             for flare in Flare.related_objects.all():
                 if flare.user:
                     self.assertIsNone(flare.dateofbirth)

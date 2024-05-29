@@ -67,7 +67,7 @@ class TestFlareMethods(TestCase):
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
             decisionaid = FlareDecisionAid(qs=flare_userless_qs(pk=self.flare_userless.pk))
-        self.assertEqual(len(context.captured_queries), 2)
+        self.assertEqual(len(context.captured_queries), 3)
         self.assertEqual(decisionaid.flare, self.flare_userless)
         self.assertEqual(decisionaid.dateofbirth, self.flare_userless.dateofbirth)
         self.assertEqual(age_calc(self.flare_userless.dateofbirth.value), decisionaid.age)

@@ -71,17 +71,6 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      // For Flare datepicker
-      $('input[id*="date_started"]').each(function() {
-        $(this).datepicker({
-          changeYear: true
-        });
-      });
-      $('input[id*="date_ended"]').each(function() {
-        $(this).datepicker({
-          changeYear: true
-        });
-      });
       $('#id_date_ended').change(aki_checker);
       aki_checker($('#id_date_ended'));
       $('#id_medical_evaluation').change(medical_evaluation_checker);
@@ -90,10 +79,6 @@
       aspiration_checker($('#id_aspiration'));
       $('#id_urate_check').change(urate_checker);
       urate_checker($('#id_urate_check'));
-    });
-  </script>
-  <script>
-    $(document).ready(function() {
       $(function() {
         $('#aki-form tbody tr').formset({
           prefix: '{{ creatinine_formset.prefix}}',
@@ -103,7 +88,6 @@
               // check if css_class is not undefined and if it has 'hasDatepicker' in the class
               // https://stackoverflow.com/questions/44624656/js-jquery-how-to-dynamically-update-refresh-datepicker-value-after-changing-th
               // datepicker class needs to be removed by the cloneUrate function
-              console.log(this)
               if (css_class !== undefined && css_class.includes('hasDatepicker')) {
                 css_class = css_class.replace('hasDatepicker', '');
                 $(this).attr('class', css_class)
@@ -141,13 +125,7 @@
           },
         });
       })
-    });
-    $('input[id*="date_drawn"]').each(function() {
-      $(this).datepicker({
-        changeYear: true,
-        minDate: "-2y",
-        maxDate: "0",
-      });
+      datepickers();
     });
   </script>
   {% with dob_optional=False gender_optional=False %}

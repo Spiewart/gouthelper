@@ -31,6 +31,16 @@ function collapse_control() {
   $(control).text('Show');
 }
 
+function datepickers() {
+  $('.datepick').each(function () {
+    $(this).datepicker({
+      changeYear: true,
+      minDate: '-2y',
+      maxDate: '0',
+    });
+  });
+}
+
 function expand_control() {
   // Function that toggles [show/hide] text of the button calling the function
   // Find the control for the collapse
@@ -164,35 +174,6 @@ function CKD_optional_checker(dob_optional, gender_optional, patient = false) {
       $('#id_gender').prop('required', false);
     }
   }
-}
-
-// function that duplicates a Lab ModelForm and adds it to a formset
-function cloneLab(selector, type) {
-  var newElement = $(selector).clone(true);
-  var total = $('#id_' + type + '-TOTAL_FORMS').val();
-  newElement.find(':input').each(function () {
-    var name = $(this)
-      .attr('name')
-      .replace('-' + (total - 1) + '-', '-' + total + '-');
-    var id = 'id_' + name;
-    // remove hasDatepicker class, required in order to refresh datepicker
-    var css_class = $(this).attr('class');
-    // check if css_class is not undefined and if it has 'hasDatepicker' in the class
-    if (css_class !== undefined && css_class.includes('hasDatepicker')) {
-      css_class = css_class.replace('hasDatepicker', '');
-    }
-    $(this).attr('class', css_class);
-    $(this).attr({ name: name, id: id }).val('').removeAttr('checked');
-  });
-  newElement.find('label').each(function () {
-    var newFor = $(this)
-      .attr('for')
-      .replace('-' + (total - 1) + '-', '-' + total + '-');
-    $(this).attr('for', newFor);
-  });
-  total++;
-  $('#id_' + type + '-TOTAL_FORMS').val(total);
-  $(selector).after(newElement);
 }
 
 // Method that removes a UrateForm from the formset

@@ -113,13 +113,7 @@
         });
       })
     });
-    $('input[id*="date_drawn"]').each(function() {
-      $(this).datepicker({
-        changeYear: true,
-        minDate: "-2y",
-        maxDate: "0",
-      });
-    });
+    datepickers();
   </script>
   {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

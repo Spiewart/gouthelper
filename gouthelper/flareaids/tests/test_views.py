@@ -391,7 +391,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__get_form_kwargs(self):
         # Create a fake request
@@ -399,6 +401,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         request.user = self.anon_user
         view = self.view()
         view.setup(request=request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
@@ -721,9 +724,6 @@ class TestFlareAidPseudopatientCreate(TestCase):
         """Test that the view creates the User's MedHistoryDetails objects."""
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
         data = {
-            # Steal some data from self.psp to create gender and dateofbirth
-            "dateofbirth-value": age_calc(self.psp.dateofbirth.value),
-            "gender-value": self.psp.gender.value,
             f"{MedHistoryTypes.CKD}-value": True,
             # Create data for CKD
             "dialysis": False,
@@ -1125,8 +1125,10 @@ class TestFlareAidPseudopatientUpdate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False)
+        view = self.view()
+        view.set_forms()
         with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
+            view.check_user_onetoones(empty_user)
         self.assertEqual(
             exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
         )
@@ -1134,7 +1136,9 @@ class TestFlareAidPseudopatientUpdate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__get_form_kwargs(self):
         # Create a fake request
@@ -1142,6 +1146,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         request.user = AnonymousUser()
         view = self.view()
         view.setup(request=request, username=self.user.username)
+        view.set_forms()
         view.object = None
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
@@ -1160,6 +1165,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
+        view.set_forms()
         response = view.dispatch(request, **kwargs)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(hasattr(view, "user"))
@@ -1529,6 +1535,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
+        forms_print_response_errors(response)
         assert response.status_code == 200
         assert "form" in response.context_data
         assert "ckddetail_form" in response.context_data

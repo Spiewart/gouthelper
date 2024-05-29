@@ -48,6 +48,7 @@ class LabForm(BaseLabForm):
         self.fields["date_drawn"].initial = None
         self.fields["date_drawn"].label = mark_safe("Date Drawn")
         self.fields["date_drawn"].help_text = mark_safe(f"What day was this {self.prefix} drawn?")
+        self.fields["date_drawn"].widget.attrs["class"] = "datepick"
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Fieldset(

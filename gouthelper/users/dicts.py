@@ -16,4 +16,4 @@ OTO_FORMS = {
     "gender": GenderForm,
 }
 
-MEDHISTORY_DETAIL_FORMS = {MedHistoryTypes.GOUT: GoutDetailForm}
+MEDHISTORY_DETAIL_FORMS = {"goutdetail": GoutDetailForm}
