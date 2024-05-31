@@ -202,7 +202,9 @@ class TestUltPseudopatientCreate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to detailview when
@@ -255,6 +257,7 @@ class TestUltPseudopatientCreate(TestCase):
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.user
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
@@ -778,7 +781,9 @@ class TestUltPseudopatientUpdate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to detailview when
@@ -832,6 +837,7 @@ class TestUltPseudopatientUpdate(TestCase):
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.user
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned

@@ -107,6 +107,7 @@ class TestPpxCreate(TestCase):
 
         # Set the user on the view, as this would be done by dispatch()
         view.setup(request)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
@@ -126,7 +127,9 @@ class TestPpxCreate(TestCase):
 
     def test__goutdetail(self):
         """Tests the goutdetail cached_property."""
-        self.assertTrue(self.view().goutdetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.goutdetail)
 
     def test__post_creates_ppx(self):
         """Tests that a POST request creates a Ppx object."""
@@ -341,6 +344,7 @@ class TestPpxPseudopatientCreate(TestCase):
 
         # Set the user on the view, as this would be done by dispatch()
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
@@ -351,7 +355,9 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__goutdetail(self):
         """Tests the goutdetail cached_property."""
-        self.assertTrue(self.view().goutdetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.goutdetail)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to detailview when
@@ -538,7 +544,7 @@ class TestPpxPseudopatientCreate(TestCase):
                 "on_ppx": not goutdetail.on_ppx,
             }
         )
-
+        print(goutdetail.flaring)
         # POST the data
         response = self.client.post(
             reverse("ppxs:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
@@ -548,7 +554,6 @@ class TestPpxPseudopatientCreate(TestCase):
 
         # Refresh the goutdetail from the db
         goutdetail.refresh_from_db()
-
         # Assert that the goutdetail fields are the same as in the data dict
         self.assertEqual(goutdetail.flaring, data["flaring"])
         self.assertEqual(goutdetail.on_ppx, data["on_ppx"])
@@ -940,6 +945,7 @@ class TestPpxPseudopatientUpdate(TestCase):
 
         # Set the user on the view, as this would be done by dispatch()
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
@@ -950,7 +956,9 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__goutdetail(self):
         """Tests the goutdetail cached_property."""
-        self.assertTrue(self.view().goutdetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.goutdetail)
 
     def test__dispatch_redirects_to_create(self):
         """Test that the dispatch() method redirects to the Pseudopatient create view when the view

@@ -362,7 +362,9 @@ class TestPpxAidPseudopatientCreate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__get_form_kwargs(self):
         # Create a fake request
@@ -373,12 +375,13 @@ class TestPpxAidPseudopatientCreate(TestCase):
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.psp
         view.setup(request, username=self.psp.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
-        self.assertEqual(form_kwargs["medallergys"], view.medallergys)
+        self.assertEqual(form_kwargs["medallergys"], view.MEDALLERGY_FORMS.keys())
         self.assertIn("patient", form_kwargs)
         self.assertTrue(form_kwargs["patient"])
 
@@ -1124,7 +1127,9 @@ class TestPpxAidPseudopatientUpdate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__get_form_kwargs(self):
         # Create a fake request
@@ -1132,6 +1137,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
         request.user = self.anon_user
         view = self.view(request=request)
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = None
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)

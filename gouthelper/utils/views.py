@@ -409,9 +409,7 @@ class GoutHelperEditMixin:
         ma_forms_is_valid = (
             validate_form_list(form_list=self.medallergy_forms.values()) if self.medallergy_forms else True
         )
-        mh_forms_is_valid = (
-            validate_form_list(form_list=self.medhistory_forms.values()) if self.medhistory_forms else True
-        )
+        mh_forms_is_valid = self.validate_medhistory_form_list() if self.medhistory_forms else True
         mh_det_forms_is_valid = (
             validate_form_list(form_list=self.medhistory_detail_forms.values())
             if self.medhistory_detail_forms
@@ -447,7 +445,7 @@ class GoutHelperEditMixin:
         return self.query_object if isinstance(self.query_object, User) else post_object
 
     def post_get_ckd(self) -> Union["MedHistory", None]:
-        ckd_form = self.medhistory_forms[MedHistoryTypes.CKD] if self.medhistory_forms else None
+        ckd_form = self.medhistory_forms.get(MedHistoryTypes.CKD, None) if self.medhistory_forms else None
         if ckd_form:
             if hasattr(ckd_form, "cleaned_data") and "value" in ckd_form.cleaned_data:
                 return ckd_form.cleaned_data["value"]
@@ -652,7 +650,7 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                 lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab.__class__.__name__.lower())
                 if lab_related_onetoone_attr and getattr(lab, lab_related_onetoone_attr, None) is None:
                     setattr(lab, lab_related_onetoone_attr, getattr(self.object, lab_related_onetoone_attr))
-                elif should_abort_save(lab, lab_related_onetoone_attr):
+                elif lab_related_onetoone_attr and (lab, lab_related_onetoone_attr):
                     continue
                 lab.save()
         if self.labs_2_rem:
@@ -967,10 +965,14 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                             self.goutdetail_mh_context(kwargs=kwargs, mh_obj=mh_obj)
                         except Continue:
                             continue
-                        kwargs[form_str] = mh_form(
-                            instance=mh_obj,
-                            initial={f"{mhtype}-value": True},
-                            **form_kwargs,
+                        kwargs[form_str] = (
+                            mh_form
+                            if isinstance(mh_form, ModelForm)
+                            else mh_form(
+                                instance=mh_obj,
+                                initial={f"{mhtype}-value": True},
+                                **form_kwargs,
+                            )
                         )
                         continue
                 kwargs[form_str] = (
@@ -1041,7 +1043,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             kwargs["goutdetail_form"] = (
                 goutdetail_form
                 if isinstance(goutdetail_form, ModelForm)
-                else goutdetail_form["goutdetail"](
+                else goutdetail_form(
                     instance=goutdetail_i,
                     patient=self.user,
                     request_user=self.request_user,
@@ -1070,7 +1072,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                             continue
                         self.medhistory_forms.update(
                             {
-                                f"{mhtype}_form": mh_form(
+                                mhtype: mh_form(
                                     self.request.POST,
                                     instance=(
                                         mh_obj if mh_obj else self.get_modelform_model(self.medhistory_forms[mhtype])()
@@ -1214,6 +1216,12 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         # Create medhistory_qs attribute on the form instance if it doesn't exist
         get_or_create_qs_attr(post_qs_target, "medhistory")
         for mhtype, mh_form in self.medhistory_forms.items():
+            if not isinstance(mh_form, ModelForm):
+                self.post_process_medhistory_detail(
+                    mhtype=mhtype,
+                    medhistory=getattr(self.query_object, mhtype.lower(), None),
+                )
+                continue
             mh_obj = self.get_mh_obj(mhtype)
             if self.get_mh_cleaned_value(mhtype, mh_form.cleaned_data):
                 if mh_obj:
@@ -1222,35 +1230,20 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     mh_to_include = mh_form.save(commit=False)
                     self.add_mh_to_qs(mh=mh_to_include, qs=self.mhs_2_save)
                 self.add_mh_to_qs(mh=mh_to_include, qs=post_qs_target.medhistorys_qs)
-                if mhtype == MedHistoryTypes.CKD and self.ckddetail:
-                    ckddetail_errors = self.ckddetail_mh_post_process(
-                        ckd=mh_to_include,
-                    )
-                    if ckddetail_errors and not self.errors_bool:
-                        self.errors_bool = True
-                elif mhtype == MedHistoryTypes.GOUT and self.goutdetail:
-                    self.goutdetail_mh_post_process(
-                        gout=mh_to_include,
-                    )
+                self.post_process_medhistory_detail(mhtype, mh_to_include)
             elif mh_obj:
                 self.mhs_2_remove.append(mh_obj)
                 self.post_remove_mh_from_medhistorys_qs(post_qs_target, mh_obj)
-        # Iterate over the forms in the MedHistoryDetail form dict and,
-        # if their associated MedHistory is not present in the MedHistory form dict
-        # then it still needs to be processed
-        for mh_det_form in self.medhistory_detail_forms.values():
-            mhtype = mh_det_form._meta.model.medhistorytype()  # pylint: disable=W0212
-            if mhtype not in self.medhistory_forms:
-                if mhtype == MedHistoryTypes.GOUT and self.goutdetail:
-                    self.goutdetail_mh_post_process(
-                        gout=getattr(self.query_object, "gout", None),
-                    )
-                elif mhtype == MedHistoryTypes.CKD and self.ckddetail:
-                    ckddetail_errors = self.ckddetail_mh_post_process(
-                        ckd=getattr(self.query_object, "ckd", None),
-                    )
-                    if ckddetail_errors and not self.errors_bool:
-                        self.errors_bool = True
+
+    def post_process_medhistory_detail(self, mhtype: MedHistoryTypes, medhistory: Union["MedHistory", None]) -> None:
+        if mhtype == MedHistoryTypes.GOUT and self.goutdetail:
+            self.goutdetail_mh_post_process(
+                gout=medhistory,
+            )
+        elif mhtype == MedHistoryTypes.CKD and self.ckddetail:
+            self.ckddetail_mh_post_process(
+                ckd=medhistory,
+            )
 
     def post_process_menopause(self) -> None:
         gender = self.post_get_gender()
@@ -1295,7 +1288,7 @@ menopause status to evaluate their flare."
     def ckddetail_mh_post_process(
         self,
         ckd: "MedHistory",
-    ) -> tuple["CkdDetailForm", BaselineCreatinine, bool]:
+    ) -> None:
         """Method to process the CkdDetailForm and BaselineCreatinineForm
         as part of the post() method."""
         dateofbirth_form = self.post_get_dateofbirth_form()
@@ -1311,7 +1304,8 @@ menopause status to evaluate their flare."
             self.baselinecreatinine_form_post_process()
         if ckddet_form:
             self.ckddetail_form_post_process()
-        return errors
+        if errors and not self.errors_bool:
+            self.errors_bool = errors
 
     def baselinecreatinine_form_post_process(self) -> None:
         baselinecreatinine_form = self.medhistory_detail_forms["baselinecreatinine"]
@@ -1397,6 +1391,15 @@ menopause status to evaluate their flare."
                 self.form_valid_update_mh_det_mh(
                     mh_det.instance.medhistory if isinstance(mh_det, ModelForm) else mh_det.medhistory,
                 )
+
+    def validate_medhistory_form_list(self) -> bool:
+        forms_valid = True
+        for form in self.medhistory_forms.values():
+            if not isinstance(form, ModelForm):
+                continue
+            elif not form.is_valid():
+                forms_valid = False
+        return forms_valid
 
 
 class OneToOneFormMixin(GoutHelperEditMixin):
@@ -1652,11 +1655,16 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         """Overwritten to always raise Continue, which will skip adding the GoutForm to the context."""
         if "goutdetail_form" not in kwargs:
             goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            kwargs["goutdetail_form"] = self.medhistory_detail_forms["goutdetail"](
-                instance=goutdetail_i,
-                patient=self.user,
-                request_user=self.request_user,
-                str_attrs=self.str_attrs,
+            goutdetail_form = self.medhistory_detail_forms["goutdetail"]
+            kwargs["goutdetail_form"] = (
+                goutdetail_form
+                if isinstance(goutdetail_form, ModelForm)
+                else goutdetail_form(
+                    instance=goutdetail_i,
+                    patient=self.user,
+                    request_user=self.request_user,
+                    str_attrs=self.str_attrs,
+                )
             )
             raise Continue
 
@@ -1671,7 +1679,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             gd = GoutDetail()
         self.medhistory_detail_forms.update(
             {
-                "goutdetail": self.medhistory_forms[MedHistoryTypes.GOUT](
+                "goutdetail": self.medhistory_detail_forms["goutdetail"](
                     self.request.POST,
                     instance=gd,
                     str_attrs=self.str_attrs,

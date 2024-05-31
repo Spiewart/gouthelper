@@ -17,17 +17,12 @@ from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignor
 )
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthFormOptional
 from ..dateofbirths.models import DateOfBirth
-from ..genders.forms import GenderFormOptional
 from ..genders.models import Gender
-from ..medhistorydetails.forms import CkdDetailForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
-from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
+from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS, PATIENT_OTO_FORMS, PATIENT_REQ_OTOS
 from .forms import UltForm
 from .models import Ult
 
@@ -59,33 +54,10 @@ class UltBase:
 
     form_class = UltForm
     model = Ult
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthFormOptional, "model": DateOfBirth},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-    }
-    medhistorys = {
-        MedHistoryTypes.CKD: {
-            "form": CkdForm,
-            "model": Ckd,
-        },
-        MedHistoryTypes.EROSIONS: {
-            "form": ErosionsForm,
-            "model": Erosions,
-        },
-        MedHistoryTypes.HYPERURICEMIA: {
-            "form": HyperuricemiaForm,
-            "model": Hyperuricemia,
-        },
-        MedHistoryTypes.TOPHI: {
-            "form": TophiForm,
-            "model": Tophi,
-        },
-        MedHistoryTypes.URATESTONES: {
-            "form": UratestonesForm,
-            "model": Uratestones,
-        },
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
+
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
 class UltCreate(UltBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -95,41 +67,11 @@ class UltCreate(UltBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
     success_message = "ULT successfully created."
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class UltDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -180,8 +122,8 @@ class UltPatientBase(UltBase):
     class Meta:
         abstract = True
 
-    onetoones = {}
-    req_otos = ["dateofbirth", "gender"]
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
@@ -207,41 +149,11 @@ class UltPseudopatientCreate(
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
@@ -314,41 +226,11 @@ class UltPseudopatientUpdate(
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.
         For Ult, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class UltUpdate(UltBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
@@ -363,38 +245,8 @@ class UltUpdate(UltBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
         return self.object
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_rem=oto_2_rem,
-                oto_2_save=oto_2_save,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()

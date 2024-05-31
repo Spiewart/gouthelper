@@ -18,46 +18,20 @@ from rules.contrib.views import (  # pylint: disable=e0401, E0611  # type: ignor
 )
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthFormOptional
 from ..dateofbirths.models import DateOfBirth
-from ..ethnicitys.forms import EthnicityForm
 from ..ethnicitys.models import Ethnicity
-from ..genders.forms import GenderFormOptional
 from ..genders.models import Gender
-from ..labs.forms import Hlab5801Form
-from ..labs.models import Hlab5801
-from ..medhistorydetails.forms import CkdDetailOptionalForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import (
-    AnginaForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    HeartattackForm,
-    HepatitisForm,
-    OrgantransplantForm,
-    PvdForm,
-    StrokeForm,
-    UratestonesForm,
-    XoiinteractionForm,
-)
-from ..medhistorys.models import (
-    Angina,
-    Cad,
-    Chf,
-    Ckd,
-    Heartattack,
-    Hepatitis,
-    Organtransplant,
-    Pvd,
-    Stroke,
-    Uratestones,
-    Xoiinteraction,
-)
-from ..treatments.choices import UltChoices
 from ..ults.models import Ult
 from ..users.models import Pseudopatient
 from ..utils.views import GoutHelperAidEditMixin
+from .dicts import (
+    MEDALLERGY_FORMS,
+    MEDHISTORY_DETAIL_FORMS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+    PATIENT_OTO_FORMS,
+    PATIENT_REQ_OTOS,
+)
 from .forms import UltAidForm
 from .models import UltAid
 
@@ -89,27 +63,11 @@ class UltAidBase:
 
     form_class = UltAidForm
     model = UltAid
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthFormOptional, "model": DateOfBirth},
-        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-        "hlab5801": {"form": Hlab5801Form, "model": Hlab5801},
-    }
-    medallergys = UltChoices
-    medhistorys = {
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.HEPATITIS: {"form": HepatitisForm, "model": Hepatitis},
-        MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-        MedHistoryTypes.URATESTONES: {"form": UratestonesForm, "model": Uratestones},
-        MedHistoryTypes.XOIINTERACTION: {"form": XoiinteractionForm, "model": Xoiinteraction},
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
+
+    MEDALLERGY_FORMS = MEDALLERGY_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
 class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -124,43 +82,12 @@ class UltAidCreate(UltAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, 
         return None
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
             kwargs.update({"ult": self.ult})
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )
+            return self.form_valid(**kwargs)
 
     @cached_property
     def ult(self) -> Ult | None:
@@ -225,8 +152,8 @@ class UltAidPatientBase(UltAidBase):
     class Meta:
         abstract = True
 
-    onetoones = {"hlab5801": {"form": Hlab5801Form, "model": Hlab5801}}
-    req_otos = ["dateofbirth", "gender", "ethnicity"]
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
@@ -252,41 +179,11 @@ class UltAidPseudopatientCreate(
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class UltAidPseudopatientDetail(UltAidDetailBase):
@@ -370,41 +267,11 @@ class UltAidPseudopatientUpdate(
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.
         For UltAid, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_save=oto_2_save,
-                oto_2_rem=oto_2_rem,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()
 
 
 class UltAidUpdate(UltAidBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
@@ -419,38 +286,8 @@ class UltAidUpdate(UltAidBase, GoutHelperAidEditMixin, AutoPermissionRequiredMix
         return self.object
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            oto_2_save,
-            oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            ma_2_save,
-            ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,
-                oto_2_rem=oto_2_rem,
-                oto_2_save=oto_2_save,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=ma_2_save,
-                ma_2_rem=ma_2_rem,
-                labs_2_save=None,
-                labs_2_rem=None,
-            )
+            return self.form_valid()

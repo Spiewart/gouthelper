@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Literal  # pylint: disable=E0401, E0015, E0013 # type: ignore
+from typing import TYPE_CHECKING, Any  # pylint: disable=E0401, E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
 from django.contrib import messages  # pylint: disable=e0401 # pylint: disable=e0401 # type: ignore
@@ -31,13 +31,10 @@ from ..labs.helpers import (
 )
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates
-from ..medhistorydetails.forms import GoutDetailPpxForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import GoutForm
-from ..medhistorys.models import Gout
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
+from .dicts import LAB_FORMSETS, MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS
 from .forms import PpxForm
 from .helpers import assign_ppx_attrs_from_user
 from .models import Ppx
@@ -45,7 +42,6 @@ from .models import Ppx
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
     from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
-    from django.forms import ModelForm  # pylint: disable=e0401 # type: ignore
 
     User = get_user_model()
 
@@ -72,29 +68,24 @@ class PpxBase:
     model = Ppx
     form_class = PpxForm
 
-    medhistorys = {
-        MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
-    }
-    medhistory_details = {MedHistoryTypes.GOUT: GoutDetailPpxForm}
-    labs: dict[Literal["urate"], tuple[PpxUrateFormSet, UrateFormHelper]] = {
-        "urate": (PpxUrateFormSet, UrateFormHelper)
-    }
+    LAB_FORMSETS = LAB_FORMSETS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
 
-    def post_compare_urates_and_at_goal(
-        self,
-        urates_formset: PpxUrateFormSet,
-        goutdetail_form: GoutDetailPpxForm,
-        goal_urate: GoalUrates = GoalUrates.SIX,
-        errors_bool: bool = False,
-    ) -> tuple["ModelForm", dict[str, "ModelForm"], bool]:
-        """Method that compares the POST data for the urates, the at_goal field, and
-        the at_goal_long_term field. If the urates indicate that the patient is at goal and/or
-        at goal long term, returns an error message on the form and sets errors_bool to True."""
-        # Get at_goal and at_goal_long_term from the form
+    def post_compare_urates_and_at_goal(self, goal_urate: GoalUrates = GoalUrates.SIX) -> None:
+        """Compares POST data for urates, at_goal field, and at_goal_long_term.
+        If the urates indicate that the patient is at goal and/or
+        at goal long term, sets error message on the form and errors_bool to True
+        if the provided values contradict the urates."""
+
+        goutdetail_form = self.medhistory_detail_forms["goutdetail"]
         at_goal = goutdetail_form.cleaned_data.get("at_goal", None)
         at_goal_long_term = goutdetail_form.cleaned_data.get("at_goal_long_term", None)
-        if labs_urate_formset_has_one_or_more_valid_urates(urates_formset):
-            ordered_urate_formset = labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(urates_formset)
+        urate_formsets = self.lab_formsets["urate"][0]
+        if labs_urate_formset_has_one_or_more_valid_urates(urate_formset=urate_formsets):
+            ordered_urate_formset = labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(
+                urate_formset=urate_formsets
+            )
             most_recent_urate_form = labs_urate_formset_get_most_recent_ordered_urate_form(ordered_urate_formset)
             at_goal_within_last_month = labs_urate_form_at_goal_within_last_month(
                 urate_form=most_recent_urate_form, goal_urate=goal_urate
@@ -114,7 +105,8 @@ month. If {gender_subject} has had {gender_pos} uric acid checked since, please 
 goal status."
                 )
                 goutdetail_form.add_error("at_goal", urate_error)
-                errors_bool = True
+                if not self.errors_bool:
+                    self.errors_bool = True
             elif at_goal and not at_goal_within_last_month:
                 (subject_the, gender_subject, gender_pos) = (
                     self.str_attrs.get("subject_the"),
@@ -127,7 +119,8 @@ month. If {gender_subject} has had {gender_pos} uric acid checked since, please 
 at goal status."
                 )
                 goutdetail_form.add_error("at_goal", urate_error)
-                errors_bool = True
+                if not self.errors_bool:
+                    self.errors_bool = True
             if at_goal_long_term and not at_goal_six_months:
                 (subject_the, gender_pos) = (
                     self.str_attrs.get("subject_the"),
@@ -138,7 +131,8 @@ at goal status."
 Please check {gender_pos} uric acid levels and long term goal urate status."  # noqa
                 )
                 goutdetail_form.add_error("at_goal_long_term", urate_error)
-                errors_bool = True
+                if not self.errors_bool:
+                    self.errors_bool = True
             elif at_goal and not at_goal_long_term and at_goal_six_months:
                 (subject_the, gender_pos) = (
                     self.str_attrs.get("subject_the"),
@@ -149,8 +143,8 @@ Please check {gender_pos} uric acid levels and long term goal urate status."  # 
 Please check {gender_pos} uric acid levels and long term goal urate status."
                 )
                 goutdetail_form.add_error("at_goal_long_term", urate_error)
-                errors_bool = True
-        return urates_formset, goutdetail_form, errors_bool
+                if not self.errors_bool:
+                    self.errors_bool = True
 
 
 class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -169,56 +163,19 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
         return dated_urates(Urate.objects.none())
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            labs_2_save,
-            labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        goal_urate_kwarg = {"goal_urate": form.instance.goalurate.goal_urate} if form.instance.goalurate else {}
-        lab_formsets["urate"], mh_det_forms["goutdetail_form"], errors_bool = self.post_compare_urates_and_at_goal(
-            urates_formset=lab_formsets["urate"], goutdetail_form=mh_det_forms["goutdetail_form"], **goal_urate_kwarg
+        super().post(request, *args, **kwargs)
+        goal_urate_kwarg = (
+            {"goal_urate": self.form.instance.goalurate.goal_urate} if self.form.instance.goalurate else {}
         )
-        if errors or errors_bool:
-            if errors_bool and not errors:
-                return super().render_errors(
-                    form=form,
-                    oto_forms=None,
-                    mh_forms=None,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=lab_formsets,
-                )
+        self.post_compare_urates_and_at_goal(**goal_urate_kwarg)
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
             else:
-                return errors
+                return self.errors
         else:
-            labs_urates_annotate_order_by_dates(form.instance.urates_qs)
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
-            )
+            labs_urates_annotate_order_by_dates(self.form.instance.urates_qs)
+            return self.form_valid()
 
 
 class PpxDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -293,57 +250,16 @@ class PpxPseudopatientCreate(
         return self.success_message % dict(cleaned_data, username=self.user.username)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            labs_2_save,
-            labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        lab_formsets["urate"], mh_det_forms["goutdetail_form"], errors_bool = self.post_compare_urates_and_at_goal(
-            urates_formset=lab_formsets["urate"],
-            goutdetail_form=mh_det_forms["goutdetail_form"],
-            goal_urate=self.user.goal_urate,
-        )
-        if errors or errors_bool:
-            if errors_bool and not errors:
-                return super().render_errors(
-                    form=form,
-                    oto_forms=None,
-                    mh_forms=None,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=lab_formsets,
-                )
+        super().post(request, *args, **kwargs)
+        self.post_compare_urates_and_at_goal(goal_urate=self.user.goal_urate)
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
             else:
-                return errors
+                return self.errors
         else:
             labs_urates_annotate_order_by_dates(self.user.urates_qs)
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
-            )
+            return self.form_valid()
 
 
 class PpxPseudopatientDetail(PpxDetailBase):
@@ -407,57 +323,16 @@ class PpxPseudopatientUpdate(
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.
         For Ppx, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            labs_2_save,
-            labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        lab_formsets["urate"], mh_det_forms["goutdetail_form"], errors_bool = self.post_compare_urates_and_at_goal(
-            urates_formset=lab_formsets["urate"],
-            goutdetail_form=mh_det_forms["goutdetail_form"],
-            goal_urate=self.user.goal_urate,
-        )
-        if errors or errors_bool:
-            if errors_bool and not errors:
-                return super().render_errors(
-                    form=form,
-                    oto_forms=None,
-                    mh_forms=None,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=lab_formsets,
-                )
+        super().post(request, *args, **kwargs)
+        self.post_compare_urates_and_at_goal(goal_urate=self.user.goal_urate)
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
             else:
-                return errors
+                return self.errors
         else:
             labs_urates_annotate_order_by_dates(self.user.urates_qs)
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=mh_det_2_save,
-                mh_det_2_rem=mh_det_2_rem,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=labs_2_save,
-                labs_2_rem=labs_2_rem,
-            )
+            return self.form_valid()
 
 
 class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
@@ -476,52 +351,15 @@ class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
         return Ppx.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            mh_det_forms,
-            _,  # ma_forms,
-            lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            mh_det_2_save,
-            mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            labs_2_save,
-            labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        goal_urate_kwarg = {"goal_urate": form.instance.goalurate.goal_urate} if form.instance.goalurate else {}
-        lab_formsets["urate"], mh_det_forms["goutdetail_form"], errors_bool = self.post_compare_urates_and_at_goal(
-            urates_formset=lab_formsets["urate"], goutdetail_form=mh_det_forms["goutdetail_form"], **goal_urate_kwarg
+        super().post(request, *args, **kwargs)
+        goal_urate_kwarg = (
+            {"goal_urate": self.form.instance.goalurate.goal_urate} if self.form.instance.goalurate else {}
         )
-        if errors or errors_bool:
-            if errors_bool and not errors:
-                return super().render_errors(
-                    form=form,
-                    oto_forms=None,
-                    mh_forms=None,
-                    mh_det_forms=mh_det_forms,
-                    ma_forms=None,
-                    lab_formsets=lab_formsets,
-                )
+        self.post_compare_urates_and_at_goal(**goal_urate_kwarg)
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
             else:
-                return errors
-        labs_urates_annotate_order_by_dates(form.instance.urates_qs)
-        return self.form_valid(
-            form=form,
-            oto_2_rem=None,
-            oto_2_save=None,
-            mh_2_save=mh_2_save,
-            mh_2_rem=mh_2_rem,
-            mh_det_2_save=mh_det_2_save,
-            mh_det_2_rem=mh_det_2_rem,
-            ma_2_save=None,
-            ma_2_rem=None,
-            labs_2_save=labs_2_save,
-            labs_2_rem=labs_2_rem,
-        )
+                return self.errors
+        labs_urates_annotate_order_by_dates(self.form.instance.urates_qs)
+        return self.form_valid()

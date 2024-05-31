@@ -74,23 +74,21 @@ class TestGoalUrateCreate(TestCase):
     def test__view_attrs(self):
         self.assertEqual(self.view.model, GoalUrate)
         self.assertEqual(self.view.form_class, GoalUrateCreate.form_class)
-        self.assertIn(MedHistoryTypes.EROSIONS, self.view.medhistorys)
-        self.assertEqual(self.view.medhistorys[MedHistoryTypes.EROSIONS]["form"], ErosionsForm)
-        self.assertEqual(self.view.medhistorys[MedHistoryTypes.EROSIONS]["model"], Erosions)
-        self.assertIn(MedHistoryTypes.TOPHI, self.view.medhistorys)
-        self.assertEqual(self.view.medhistorys[MedHistoryTypes.TOPHI]["form"], TophiForm)
-        self.assertEqual(self.view.medhistorys[MedHistoryTypes.TOPHI]["model"], Tophi)
+        self.assertIn(MedHistoryTypes.EROSIONS, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.EROSIONS], ErosionsForm)
+        self.assertIn(MedHistoryTypes.TOPHI, self.view.MEDHISTORY_FORMS)
+        self.assertEqual(self.view.MEDHISTORY_FORMS[MedHistoryTypes.TOPHI], TophiForm)
 
     def test__get_context_data(self):
         for medhistory in GOALURATE_MEDHISTORYS:
             self.assertIn(f"{medhistory}_form", self.response.context_data)  # type: ignore
             self.assertIsInstance(
                 self.response.context_data[f"{medhistory}_form"],
-                self.view.medhistorys[medhistory]["form"],  # type: ignore
+                self.view.MEDHISTORY_FORMS[medhistory],  # type: ignore
             )
             self.assertIsInstance(
                 self.response.context_data[f"{medhistory}_form"].instance,  # type: ignore
-                self.view.medhistorys[medhistory]["model"],
+                self.view.MEDHISTORY_FORMS[medhistory]._meta.model,
             )
         # Test that the ultaid is None
         self.assertFalse(self.response.context_data.get("ultaid"))
@@ -106,6 +104,7 @@ class TestGoalUrateCreate(TestCase):
     def test__get_form_kwargs(self):
         view = self.view()
         view.setup(self.request)
+        view.set_forms()
         view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertFalse(kwargs.get("htmx"))
@@ -114,6 +113,7 @@ class TestGoalUrateCreate(TestCase):
         self.request.htmx = True
         view = self.view()
         view.setup(self.request)
+        view.set_forms()
         view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertTrue(kwargs.get("htmx"))
@@ -243,7 +243,7 @@ class TestGoalUrateUpdate(TestCase):
             self.assertIn(f"{medhistory}_form", self.response.context_data)  # type: ignore
             self.assertIsInstance(
                 self.response.context_data[f"{medhistory}_form"],
-                self.view.medhistorys[medhistory]["form"],  # type: ignore
+                self.view.MEDHISTORY_FORMS[medhistory],  # type: ignore
             )
             gu_mh = next(iter([mh for mh in gu_medhistorys if mh.medhistorytype == medhistory]), None)
             if gu_mh:
@@ -267,6 +267,7 @@ class TestGoalUrateUpdate(TestCase):
     def test__get_form_kwargs(self):
         view = self.view()
         view.setup(self.request, pk=self.goalurate.id)
+        view.set_forms()
         view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertFalse(kwargs.get("htmx"))
@@ -275,6 +276,7 @@ class TestGoalUrateUpdate(TestCase):
         self.request.htmx = True
         view = self.view()
         view.setup(self.request, pk=self.goalurate.id)
+        view.set_forms()
         view.object = view.get_object()
         kwargs = view.get_form_kwargs()
         self.assertTrue(kwargs.get("htmx"))

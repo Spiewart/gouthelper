@@ -11,14 +11,12 @@ from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
 from ..contents.choices import Contexts
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import ErosionsForm, TophiForm
-from ..medhistorys.models import Erosions, Tophi
 from ..ppxs.models import Ppx
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
+from .dicts import MEDHISTORY_FORMS
 from .forms import GoalUrateForm
 from .models import GoalUrate
 
@@ -51,10 +49,7 @@ class GoalUrateBase:
     form_class = GoalUrateForm
     model = GoalUrate
 
-    medhistorys = {
-        MedHistoryTypes.EROSIONS: {"form": ErosionsForm, "model": Erosions},
-        MedHistoryTypes.TOPHI: {"form": TophiForm, "model": Tophi},
-    }
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
 
 
 class GoalUrateEditMixin:
@@ -74,47 +69,16 @@ class GoalUrateEditMixin:
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.
         For GoalUrate, no additional processing is needed."""
-        (
-            errors,
-            form,
-            _,  # oto_forms,
-            _,  # mh_forms,
-            _,  # mh_det_forms,
-            _,  # ma_forms,
-            _,  # lab_formsets,
-            _,  # oto_2_save,
-            _,  # oto_2_rem,
-            mh_2_save,
-            mh_2_rem,
-            _,  # mh_det_2_save,
-            _,  # mh_det_2_rem,
-            _,  # ma_2_save,
-            _,  # ma_2_rem,
-            _,  # labs_2_save,
-            _,  # labs_2_rem,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
             if self.create_view:
                 kwargs.update({"ppx": self.ppx})
             kwargs.update({"ultaid": self.ultaid})
             if request.htmx:
                 kwargs.update({"htmx": HttpResponseClientRefresh()})
-            return self.form_valid(
-                form=form,
-                oto_2_save=None,
-                oto_2_rem=None,
-                mh_2_save=mh_2_save,
-                mh_2_rem=mh_2_rem,
-                mh_det_2_save=None,
-                mh_det_2_rem=None,
-                ma_2_save=None,
-                ma_2_rem=None,
-                labs_2_save=None,
-                labs_2_rem=None,
-                **kwargs,
-            )
+            return self.form_valid(**kwargs)
 
     @cached_property
     def ppx(self) -> Ppx | None:
@@ -203,9 +167,6 @@ class GoalUratePatientBase(GoalUrateBase):
 
     class Meta:
         abstract = True
-
-    onetoones = {}
-    req_otos = []
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         return Pseudopatient.objects.goalurate_qs().filter(username=username)

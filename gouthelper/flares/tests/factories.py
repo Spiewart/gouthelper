@@ -91,7 +91,7 @@ def flare_data_factory(
             data["date_ended"] = str(
                 fake.date_between_dates(
                     date_start=date_started,
-                    date_end=date_started + date_diff if date_diff < timedelta(days=30) else timedelta(days=30),
+                    date_end=date_started + timedelta(days=30) if date_diff > timedelta(days=30) else date_diff,
                 )
             )
         else:
@@ -101,7 +101,7 @@ def flare_data_factory(
         data["date_ended"] = str(
             fake.date_between_dates(
                 date_start=date_started,
-                date_end=date_started + date_diff if date_diff < timedelta(days=30) else timedelta(days=30),
+                date_end=date_started + timedelta(days=30) if date_diff > timedelta(days=30) else date_diff,
             )
         )
     data["onset"] = fake.boolean()

@@ -225,7 +225,9 @@ class TestUltAidPseudopatientCreate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to detailview when
@@ -280,12 +282,13 @@ class TestUltAidPseudopatientCreate(TestCase):
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.user
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
-        self.assertEqual(form_kwargs["medallergys"], view.medallergys)
+        self.assertEqual(form_kwargs["medallergys"], view.MEDALLERGY_FORMS.keys())
         self.assertIn("patient", form_kwargs)
         self.assertTrue(form_kwargs["patient"])
 
@@ -995,7 +998,9 @@ class TestUltAidPseudopatientUpdate(TestCase):
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
-        self.assertTrue(self.view().ckddetail)
+        view = self.view()
+        view.set_forms()
+        self.assertTrue(view.ckddetail)
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to detailview when
@@ -1049,12 +1054,13 @@ class TestUltAidPseudopatientUpdate(TestCase):
         # Set the user on the view, as this would be done by dispatch()
         view.user = self.user
         view.setup(request, username=self.user.username)
+        view.set_forms()
         view.object = view.get_object()
 
         # Call the get_form_kwargs() method and assert that the correct kwargs are returned
         form_kwargs = view.get_form_kwargs()
         self.assertIn("medallergys", form_kwargs)
-        self.assertEqual(form_kwargs["medallergys"], view.medallergys)
+        self.assertEqual(form_kwargs["medallergys"], view.MEDALLERGY_FORMS.keys())
         self.assertIn("patient", form_kwargs)
         self.assertTrue(form_kwargs["patient"])
 
@@ -1616,6 +1622,7 @@ class TestUltAidUpdate(TestCase):
         self.assertFalse(ultaid.ckddetail)
         ultaid_data = ultaid_data_factory(ultaid=ultaid, mhs=[MedHistoryTypes.CKD])
         response = self.client.post(reverse("ultaids:update", kwargs={"pk": ultaid.pk}), ultaid_data)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
         ultaid = UltAid.objects.get(pk=ultaid.pk)
         self.assertTrue(ultaid.ckd)

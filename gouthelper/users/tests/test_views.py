@@ -15,17 +15,14 @@ from django.utils.translation import gettext_lazy as _
 
 from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import yearsago
-from ...dateofbirths.models import DateOfBirth
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
-from ...ethnicitys.models import Ethnicity
 from ...genders.choices import Genders
 from ...genders.forms import GenderForm
-from ...genders.models import Gender
 from ...medhistorydetails.forms import GoutDetailForm
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import GoutForm, MenopauseForm
-from ...medhistorys.models import Gout, Menopause
+from ...medhistorys.models import Menopause
 from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.models import PseudopatientProfile
 from ...utils.test_helpers import dummy_get_response
@@ -61,18 +58,29 @@ class TestPseudoPatientCreateView(TestCase):
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
         view = PseudopatientCreateView()
+        view.set_forms()
         assert view.model == Pseudopatient
         assert view.form_class == PseudopatientForm
-        assert view.medhistorys == {
-            MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
-            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm, "model": Menopause},
+        assert view.MEDHISTORY_FORMS == {
+            MedHistoryTypes.GOUT: GoutForm,
+            MedHistoryTypes.MENOPAUSE: MenopauseForm,
         }
-        assert view.onetoones == {
-            "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-            "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-            "gender": {"form": GenderForm, "model": Gender},
+        assert view.medhistory_forms == {
+            MedHistoryTypes.GOUT: GoutForm,
+            MedHistoryTypes.MENOPAUSE: MenopauseForm,
         }
-        assert view.medhistory_details == {MedHistoryTypes.GOUT: GoutDetailForm}
+        assert view.OTO_FORMS == {
+            "dateofbirth": DateOfBirthForm,
+            "ethnicity": EthnicityForm,
+            "gender": GenderForm,
+        }
+        assert view.oto_forms == {
+            "dateofbirth": DateOfBirthForm,
+            "ethnicity": EthnicityForm,
+            "gender": GenderForm,
+        }
+        assert view.MEDHISTORY_DETAIL_FORMS == {"goutdetail": GoutDetailForm}
+        assert view.medhistory_detail_forms == {"goutdetail": GoutDetailForm}
 
     def test__get_context_data(self):
         """Tests that the required context data is passed to the template."""
@@ -594,17 +602,28 @@ class TestPseudopatientUpdateView(TestCase):
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
         view = PseudopatientUpdateView()
+        view.set_forms()
         assert view.form_class == PseudopatientForm
-        assert view.medhistorys == {
-            MedHistoryTypes.GOUT: {"form": GoutForm, "model": Gout},
-            MedHistoryTypes.MENOPAUSE: {"form": MenopauseForm, "model": Menopause},
+        assert view.MEDHISTORY_FORMS == {
+            MedHistoryTypes.GOUT: GoutForm,
+            MedHistoryTypes.MENOPAUSE: MenopauseForm,
         }
-        assert view.onetoones == {
-            "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-            "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-            "gender": {"form": GenderForm, "model": Gender},
+        assert view.medhistory_forms == {
+            MedHistoryTypes.GOUT: GoutForm,
+            MedHistoryTypes.MENOPAUSE: MenopauseForm,
         }
-        assert view.medhistory_details == {MedHistoryTypes.GOUT: GoutDetailForm}
+        assert view.OTO_FORMS == {
+            "dateofbirth": DateOfBirthForm,
+            "ethnicity": EthnicityForm,
+            "gender": GenderForm,
+        }
+        assert view.oto_forms == {
+            "dateofbirth": DateOfBirthForm,
+            "ethnicity": EthnicityForm,
+            "gender": GenderForm,
+        }
+        assert view.MEDHISTORY_DETAIL_FORMS == {"goutdetail": GoutDetailForm}
+        assert view.medhistory_detail_forms == {"goutdetail": GoutDetailForm}
 
     def test__get_context_data(self):
         """Tests that the required context data is passed to the template."""

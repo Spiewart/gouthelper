@@ -265,6 +265,7 @@ def labs_check_date_drawn_within_a_day(
 
 def labs_forms_get_date_drawn_value(form) -> tuple[str, Decimal]:
     """Method that returns the value of the date_drawn and value fields on a form."""
+    print(type(form))
     return form.cleaned_data.get("date_drawn"), form.cleaned_data.get("value")
 
 
