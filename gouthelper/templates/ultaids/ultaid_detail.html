@@ -53,18 +53,18 @@
           <u>Recommendation</u>
         </h2>
         <div class="row">
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_link=True %}
           <div class="col">
             {% if object.recommendation %}
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">Universal ULT Instructions</h4>
                 <ul>
                   <li>
-                    Requires dose adjustment until uric acid is <a target='_next' href="{% url 'goalurates:about' %}">at goal</a>
+                    Requires dose adjustment until <a target='_next' href="{% url 'goalurates:about' %}">goal uric acid</a> is reached.
                   </li>
-                  <li>Take as prescribed and do not skip doses</li>
-                  <li>Does not work if taken only during gout flares</li>
-                  <li>Does not treat gout flares, ULT is for prevention</li>
+                  <li>Take as prescribed and do not skip doses.</li>
+                  <li>Does not work if taken only during gout flares.</li>
+                  <li>Does not treat gout flares, ULT is for prevention.</li>
                 </ul>
               </div>
             {% endif %}

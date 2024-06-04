@@ -33,8 +33,10 @@ class ModelFormKwargMixin:
         self.related_object = kwargs.pop("related_object", None)
         self.request_user = kwargs.pop("request_user", None)
         self.str_attrs = kwargs.pop("str_attrs", None)
+        self.sub_form = kwargs.pop("sub_form", False)
         if not self.str_attrs:
             self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
+        self.fieldset_div_kwargs = {"css_class": "sub-form"} if self.sub_form else {}
         super().__init__(*args, **kwargs)
 
 
@@ -495,7 +497,7 @@ def forms_helper_insert_creatinines_formset(
                 ),
             ),
             css_class="row",
-            css_id="labs",
+            css_id="creatinines",
         ),
     )
 

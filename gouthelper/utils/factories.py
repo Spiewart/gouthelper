@@ -20,7 +20,11 @@ from ..ethnicitys.tests.factories import EthnicityFactory
 from ..genders.choices import Genders
 from ..genders.models import Gender
 from ..genders.tests.factories import GenderFactory
-from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator, labs_urates_annotate_order_by_dates
+from ..labs.helpers import (
+    labs_eGFR_calculator,
+    labs_stage_calculator,
+    labs_urates_annotate_order_by_date_drawn_or_flare_date,
+)
 from ..labs.models import Hlab5801, Lab, Urate
 from ..labs.tests.factories import Hlab5801Factory, UrateFactory
 from ..medallergys.models import MedAllergy
@@ -810,7 +814,7 @@ class LabCreatorMixin(CreateAidMixin):
                         lab = lab_factory(lab_factory_kwargs)
                     qs_attr.append(lab)
                 if lab_name == "urate":
-                    labs_urates_annotate_order_by_dates(qs_attr)
+                    labs_urates_annotate_order_by_date_drawn_or_flare_date(qs_attr)
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):

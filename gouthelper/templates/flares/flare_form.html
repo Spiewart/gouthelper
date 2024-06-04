@@ -71,8 +71,8 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      $('#id_date_ended').change(aki_checker);
-      aki_checker($('#id_date_ended'));
+      $('#id_date_ended').change(flare_aki_date_ended);
+      flare_aki_date_ended($('#id_date_ended'));
       $('#id_medical_evaluation').change(medical_evaluation_checker);
       medical_evaluation_checker($('#id_medical_evaluation'));
       $('#id_aspiration').change(aspiration_checker);

@@ -310,7 +310,10 @@ def wrap_with_html_badge(text: str, badge_type: str) -> str:
 
 
 def add_indicator_badge(indicator: bool) -> str:
-    return wrap_with_html_badge("(+)" if indicator else "(-)", "success" if indicator else "warning")
+    return wrap_with_html_badge(
+        "(+)" if indicator else "(-)" if indicator is not None else "(?)",
+        "success" if indicator else "warning" if indicator is not None else "info",
+    )
 
 
 def html_attr_detail(self: Any, attr: str, display_val: str | None = None) -> str:

@@ -434,5 +434,4 @@ def update_or_create_goutdetail_data(
             else:
                 data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))
         else:
-            print(f"update_or_create_goutdetail_data mh_dets = {mh_dets}")
             data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))

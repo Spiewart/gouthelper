@@ -5,7 +5,7 @@ from django.utils.html import mark_safe  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
-from ..choices import YES_OR_NO_OR_NONE
+from ..choices import BOOL_CHOICES, YES_OR_NO_OR_NONE
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import ModelFormKwargMixin, forms_helper_insert_creatinines_formset
 from .models import Aki
@@ -26,12 +26,22 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields.update({"value": forms.BooleanField(required=False)})
+        self.fields.update(
+            {
+                "value": forms.TypedChoiceField(
+                    widget=forms.Select,
+                    choices=BOOL_CHOICES,
+                    required=True,
+                    initial=False,
+                    coerce=lambda x: x == "True",
+                )
+            }
+        )
         self.fields["value"].help_text = _(
             mark_safe(
                 format_lazy(
                     """Did {} have an acute kidney injury (<a target='_next' href='{}'>AKI</a>){}? \
-<strong>Leave blank if creatinine was not checked</strong>.""",
+<strong>Leave as "No" if creatinine was not checked</strong>.""",
                     self.str_attrs.get("subject_the"),
                     "https://www.aafp.org/pubs/afp/issues/2012/1001/p631/jcr:content/root/aafp-article-primary-content\
 -container/aafp_article_main_par/aafp_tables_content0.enlarge.html",
@@ -39,19 +49,20 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
                 )
             )
         )
-        self.fields["value"].choices = YES_OR_NO_OR_NONE
-        self.fields["value"].initial = None
         self.fields["value"].label = "Acute Kidney Injury"
-        self.fields["value"].required = False
+        self.fields["resolved"].widget = forms.Select(choices=YES_OR_NO_OR_NONE)
+        self.fields["resolved"].label = "AKI Resolved"
+        self.fields["resolved"].help_text = _(
+            "Has this AKI resolved? (i.e., has the creatinine level returned to normal?)"
+        )
+        self.fields["resolved"].required = False
+        self.fields["resolved"].initial = None
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Fieldset(
                 "",
-                Div(
-                    "value",
-                    css_id="aki-form",
-                ),
+                Div("value", "resolved", css_id="aki-form", **self.fieldset_div_kwargs),
             ),
         )
         forms_helper_insert_creatinines_formset(self)

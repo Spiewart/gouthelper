@@ -256,7 +256,7 @@ class GoalUratePseudopatientUpdate(
     UpdateView,
     SuccessMessageMixin,
 ):
-    success_message = "%(username)s's GoalUrate successfully created."
+    success_message = "%(username)s's GoalUrate successfully updated."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,

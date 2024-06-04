@@ -1,19 +1,17 @@
 {% load project_tags %}
 
-<div class="col">
-  {% if recommendation %}
-    <div class="card card-body spacious-cards">
-      <h4 class="card-title">{{ recommendation.0.lower.capitalize }}</h4>
-      {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
-      <ul>
-        {% for key, val in dosing_dict.items %}
-          <li>
-            <strong>{{ key }}</strong>: {{ val }}
-          </li>
-        {% endfor %}
-      </ul>
-    </div>
-  {% else %}
-    <p>{{ object.recommendation_is_none_str }}</p>
-  {% endif %}
-</div>
+{% if recommendation %}
+  <div class="card card-body spacious-cards">
+    <h4 class="card-title">{{ recommendation.0.lower.capitalize }}</h4>
+    {% call_method object 'treatment_dosing_dict' object.recommendation.0 samepage_link as dosing_dict %}
+    <ul>
+      {% for key, val in dosing_dict.items %}
+        <li>
+          <strong>{{ key }}</strong>: {{ val }}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% else %}
+  <p>{{ object.recommendation_is_none_str }}</p>
+{% endif %}

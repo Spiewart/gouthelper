@@ -467,7 +467,7 @@ function urate_checker() {
   }
 }
 
-function aki_checker() {
+function flare_aki_date_ended() {
   // method that checks if the date_ended field is blank and adjusts the
   // first word of the aki help_text to "Does" if it is blank and "Did" if it is not
   if ($('#id_date_ended').val() == '') {
@@ -487,6 +487,20 @@ function aki_checker() {
   }
 }
 
+function aki_show_subform() {
+  // method that shows the aki subform if the aki field is True
+  if ($('#id_aki_value').val() == 'True') {
+    $('#div_id_aki_resolved').show();
+    $('#div_id_aki_resolved').prop('required', true);
+    add_asterisk($('#div_id_aki_resolved'));
+    $('#creatinines').show();
+  } else {
+    $('#div_id_aki_resolved').hide();
+    $('#div_id_aki_resolved').prop('required', false);
+    remove_asterisk($('#div_id_aki_resolved'));
+    $('#creatinines').hide();
+  }
+}
 function aspiration_checker() {
   if ($('#id_aspiration').val() == 'True') {
     $('#crystal_analysis').show();

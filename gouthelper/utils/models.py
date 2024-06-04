@@ -519,11 +519,14 @@ verapamil, quinidine)"
     def cvdiseases(self) -> list["MedHistory"]:
         """Method that returns a list of cardiovascular disease MedHistory objects
         from self.medhistorys_qs or or self.medhistorys.all()."""
-        return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
+        if hasattr(self, "medhistorys_qs"):
+            return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
+        else:
+            return medhistorys_get(self.user.medhistorys_qs, CVDiseases.values)
 
     @cached_property
     def cvdiseases_febuxostat_interp(self) -> str | None:
-        (subject_the_pos,) = self.get_str_attrs("subject_the_pos")
+        (subject_the_pos, gender_pos) = self.get_str_attrs("subject_the_pos", "gender_pos")
         if self.cvdiseases:
             if self.febuxostat_cvdiseases_contra:
                 return mark_safe(
@@ -534,8 +537,8 @@ febuxostat in this scenario."
             else:
                 return mark_safe(
                     f"Because of {subject_the_pos} <a class='samepage-link' target'_next' href='#cvdiseases'>\
-cardiovascular disease</a>, febuxostat should be used cautiously and {subject_the_pos} treatment for \
-prevention should be optimized."
+cardiovascular disease</a>, febuxostat should be used cautiously and {gender_pos} treatment for \
+cardiovascular disease prevention should be optimized."
                 )
 
     @cached_property
@@ -911,8 +914,8 @@ such as hepatitis or cirrhosis, are not a contraindication to gout treatment, \
 they can make LFT interpretation more complicated and often require a patient get more frequent lab monitoring. \
 <br> <br> "
         if self.hepatitis:
-            main_str += f" <strong>{Subject_the} {pos} hepatitis</strong> and as a result, \
-{gender_pos} liver function tests should be monitored closely."
+            main_str += f" <strong>{Subject_the} {pos} hepatitis and as a result, \
+{gender_pos} liver function tests should be monitored closely.</strong>"
         else:
             main_str += f" <strong>{Subject_the} {pos_neg} hepatitis</strong>, so routine \
 monitoring of {gender_pos} LFTs is appropriate."
@@ -931,7 +934,7 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
         allopurinol."""
         return aids_hlab5801_contra(
             hlab5801=self.hlab5801,
-            ethnicity=self.ethnicity,
+            ethnicity=self.user.ethnicity if hasattr(self, "user") else self.ethnicity,
             ultaidsettings=(
                 self.defaulttrtsettings if not self.is_patient else self.defaulttrtsettings(trttype=TrtTypes.ULT)
             ),
@@ -951,8 +954,8 @@ and as a result, allopurinol should not be the first line ULT treatment for {gen
             else:
                 return mark_safe(
                     f" <strong>{Subject_the} is of a descent at high risk for the HLA-B*5801 \
-gene</strong>, but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting \
-allopurinol."
+gene, but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting \
+allopurinol.</strong>"
                 )
         elif hlab5801 and not hlab5801.value:
             return mark_safe(f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>.")
@@ -1788,15 +1791,10 @@ See a rheumatologist for further evaluation."
     def treatment_dose_adjustment(self, trt: Treatments) -> "Decimal":
         return self.options[trt]["dose_adj"]
 
-    def treatment_dosing_dict(self, trt: Treatments) -> dict[str, str]:
+    def treatment_dosing_dict(self, trt: Treatments, samepage_link: bool = False) -> dict[str, str]:
         """Returns a dictionary of the dosing for a given treatment."""
         dosing_dict = {}
         dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
-        # Flare and Ppx TrtTypes are 1 and 2 and will evaluate to positive
-        if not self.trttype():
-            dosing_dict.update(
-                {"Dose Adjustment": self.treatment_dose_adjustment_str(trt, self.treatment_dose_adjustment(trt))}
-            )
         info_dict = getattr(self, f"{trt.lower()}_info_dict")
         for key, val in info_dict.items():
             dosing_dict.update({key: val})

@@ -52,7 +52,7 @@ def ppxaid_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ppxaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ppxaid_relations(qs).select_related("user")
+    return ppxaid_relations(qs).select_related("ppx", "user")
 
 
 def ppxaid_user_relations(qs: "QuerySet") -> "QuerySet":

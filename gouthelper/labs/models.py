@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -12,12 +12,15 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
 from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
 from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import labs_eGFR_calculator, labs_stage_calculator
 
 if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
+    from ..medhistorydetails.models import CkdDetail
+    from ..medhistorys.models import Ckd
 
 
 class CreatinineBase(models.Model):
@@ -195,6 +198,33 @@ class Creatinine(CreatinineBase, Lab):
         blank=True,
     )
 
+    @cached_property
+    def ckd(self) -> Union["Ckd", None]:
+        if self.user:
+            return medhistory_attr(
+                MedHistoryTypes.CKD, self.user, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
+            )
+        elif self.aki and hasattr(self.aki, "flare"):
+            return medhistory_attr(
+                MedHistoryTypes.CKD, self.aki.flare, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
+            )
+        else:
+            return None
+
+    @cached_property
+    def ckddetail(self) -> Union["CkdDetail", None]:
+        if self.ckd:
+            return getattr(self.ckd, "ckddetail", None)
+        else:
+            return None
+
+    @cached_property
+    def baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
+        if self.ckd:
+            return getattr(self.ckd, "baselinecreatinine", None)
+        else:
+            return None
+
     @classmethod
     def related_models(cls) -> list[Literal["aki"]]:
         return ["aki"]
@@ -242,6 +272,15 @@ class Urate(Lab):
 
     def __str__(self):
         return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+
+    @cached_property
+    def date_drawn_or_flare_date(self):
+        if self.date_drawn:
+            return self.date_drawn
+        elif hasattr(self, "flare"):
+            return self.flare.date_started
+        else:
+            raise ValueError(f"Urate ({self}) has no date_drawn or associated flare.")
 
     @classmethod
     def related_models(cls) -> list[Literal["ppx"]]:

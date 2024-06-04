@@ -349,13 +349,31 @@ not recommended for {subject_the}."
         except AttributeError:
             return False
 
-    def treatment_dose_adjustment_str(self, trt: Treatments, dose_adjustment: "Decimal") -> str:
+    def treatment_dose_adjustment_str(self, dose_adjustment: "Decimal", samepage_link: bool = False) -> str:
         """Return a string explaining a trt_dict's recommendations."""
+        hyperlink = "#goalurate" if samepage_link else reverse("goalurates:about")
         return mark_safe(
-            f"increase the dose {dose_adjustment} mg every \
-{int(self.defaulttrtsettings.dose_adj_interval.days / 7)} weeks until uric acid is at \
-<a class='samepage-link' href='#goalurate'>goal</a>"
+            format_lazy(
+                """increase the dose {} mg every {} weeks until uric acid is \
+<a class='samepage-link' href={}>at goal</a>
+                """,
+                dose_adjustment,
+                int(self.defaulttrtsettings.dose_adj_interval.days / 7),
+                hyperlink,
+            )
         )
+
+    def treatment_dosing_dict(self, trt: Treatments, samepage_link: bool = False) -> dict[str, str]:
+        """Returns a dictionary of the dosing for a given treatment."""
+        dosing_dict = {}
+        dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
+        dosing_dict.update(
+            {"Dose Adjustment": self.treatment_dose_adjustment_str(self.treatment_dose_adjustment(trt), samepage_link)}
+        )
+        info_dict = getattr(self, f"{trt.lower()}_info_dict")
+        for key, val in info_dict.items():
+            dosing_dict.update({key: val})
+        return dosing_dict
 
     @classmethod
     def trttype(cls) -> str:

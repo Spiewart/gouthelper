@@ -5,9 +5,14 @@ from django.db.utils import IntegrityError  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...akis.tests.factories import AkiFactory
+from ...flares.tests.factories import create_flare
+from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.tests.factories import CkdFactory
+from ...users.tests.factories import create_psp
 from ..choices import Abnormalitys, Units
 from ..models import Urate
-from .factories import BaselineCreatinineFactory, Hlab5801Factory, UrateFactory
+from .factories import BaselineCreatinineFactory, CreatinineFactory, Hlab5801Factory, UrateFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -161,3 +166,32 @@ class TestHlab5801(TestCase):
         with self.assertRaises(IntegrityError) as context:
             self.hlab5801.save()
         self.assertTrue("date_drawn_not_in_future" in str(context.exception))
+
+
+class TestCreatinine(TestCase):
+    def setUp(self) -> None:
+        self.patient = create_psp()
+
+    def test__ckd_is_None_with_user(self):
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertIsNone(creatinine.ckd)
+
+    def test__ckd_is_None_without_user(self):
+        creatinine = CreatinineFactory()
+        self.assertIsNone(creatinine.ckd)
+
+    def test__ckd_with_user(self):
+        ckd = CkdFactory(user=self.patient)
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertEqual(creatinine.ckd, ckd)
+
+    def test__ckd_with_aki_flare_without_user(self):
+        flare = create_flare(mhs=[MedHistoryTypes.CKD])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertEqual(creatinine.ckd, flare.ckd)
+
+    def test__ckd_with_aki_without_user(self):
+        aki = AkiFactory()
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertIsNone(creatinine.ckd)

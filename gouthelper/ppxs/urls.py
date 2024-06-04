@@ -20,4 +20,5 @@ urlpatterns = [
     path("<str:username>/create/", PpxPseudopatientCreate.as_view(), name="pseudopatient-create"),
     path("<str:username>/", view=PpxPseudopatientDetail.as_view(), name="pseudopatient-detail"),
     path("<str:username>/update/", PpxPseudopatientUpdate.as_view(), name="pseudopatient-update"),
+    path("ppxaid/<uuid:ppxaid>/create", PpxCreate.as_view(), name="ppxaid-create"),
 ]

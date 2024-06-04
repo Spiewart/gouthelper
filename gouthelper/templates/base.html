@@ -63,48 +63,35 @@
           <a class="navbar-brand" href="{% url 'contents:home' %}">GoutHelper</a>
           <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'flares:create' %}">Flare</a>
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="navbarSupportedContentDropDown"
+                   data-bs-toggle="dropdown"
+                   aria-haspopup="true"
+                   aria-expanded="false">Decision Aids</a>
+                <div class="dropdown-menu"
+                     aria-labelledby="navbarSupportedContentDropDown">
+                  <a class="dropdown-item" href="{% url 'flares:create' %}">Flare</a>
+                  <a class="dropdown-item" href="{% url 'goalurates:create' %}">GoalUrate</a>
+                  <a class="dropdown-item" href="{% url 'ppxs:create' %}">Ppx</a>
+                  <a class="dropdown-item" href="{% url 'ults:create' %}">Ult</a>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'flareaids:create' %}">FlareAid</a>
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="navbarSupportedContentDropDown"
+                   data-bs-toggle="dropdown"
+                   aria-haspopup="true"
+                   aria-expanded="false">Treatment Aids</a>
+                <div class="dropdown-menu"
+                     aria-labelledby="navbarSupportedContentDropDown">
+                  <a class="dropdown-item" href="{% url 'flareaids:create' %}">FlareAid</a>
+                  <a class="dropdown-item" href="{% url 'ppxaids:create' %}">PpxAid</a>
+                  <a class="dropdown-item" href="{% url 'ultaids:create' %}">UltAid</a>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'goalurates:create' %}">GoalUrate</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ppxaids:create' %}">PpxAid</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ppxs:create' %}">Ppx</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ultaids:create' %}">UltAid</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ults:create' %}">Ult</a>
-              </li>
-              {% if request.user.is_authenticated %}
-                <li class="nav-item">
-                  <a class="nav-link"
-                     href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
-                </li>
-                <li class="nav-item">
-                  {# URL provided by django-allauth/account/urls.py #}
-                  <a class="nav-link" href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
-                </li>
-              {% else %}
-                {% if ACCOUNT_ALLOW_REGISTRATION %}
-                  <li class="nav-item">
-                    {# URL provided by django-allauth/account/urls.py #}
-                    <a id="sign-up-link" class="nav-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
-                  </li>
-                  <li class="nav-item">
-                    {# URL provided by django-allauth/account/urls.py #}
-                    <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
-                  </li>
-                {% endif %}
-              {% endif %}
               {% if request.session.patient %}
                 <li class="nav-item dropdown">
                   <a class="nav-link dropdown-toggle"
@@ -152,6 +139,27 @@
                     {% endfor %}
                   </div>
                 </li>
+              {% endif %}
+              {% if request.user.is_authenticated %}
+                <li class="nav-item">
+                  <a class="nav-link"
+                     href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
+                </li>
+                <li class="nav-item">
+                  {# URL provided by django-allauth/account/urls.py #}
+                  <a class="nav-link" href="{% url 'account_logout' %}">{% translate "Sign Out" %}</a>
+                </li>
+              {% else %}
+                {% if ACCOUNT_ALLOW_REGISTRATION %}
+                  <li class="nav-item">
+                    {# URL provided by django-allauth/account/urls.py #}
+                    <a id="sign-up-link" class="nav-link" href="{% url 'account_signup' %}">{% translate "Sign Up" %}</a>
+                  </li>
+                  <li class="nav-item">
+                    {# URL provided by django-allauth/account/urls.py #}
+                    <a id="log-in-link" class="nav-link" href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
+                  </li>
+                {% endif %}
               {% endif %}
             </ul>
           </div>

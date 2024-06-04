@@ -80,6 +80,13 @@ $red: #b94a48;
   margin-bottom: 0 !important;
 }
 
+.minified-list-group {
+  margin-bottom: 5px;
+  .list-group-item {
+    padding: 4px;
+  }
+}
+
 .spacious-buttons {
   margin: 5px;
 }
@@ -87,6 +94,10 @@ $red: #b94a48;
 .spacious-cards {
   margin-bottom: 5px;
   margin-top: 5px;
+}
+
+.sub-form {
+  border: 1px solid #ccc;
 }
 
 .then {

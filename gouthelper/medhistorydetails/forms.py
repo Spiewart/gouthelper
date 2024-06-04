@@ -283,7 +283,6 @@ class GoutDetailForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        print(cleaned_data)
         at_goal = cleaned_data["at_goal"]
         at_goal_long_term = cleaned_data["at_goal_long_term"]
         if at_goal_long_term is True and at_goal is False:

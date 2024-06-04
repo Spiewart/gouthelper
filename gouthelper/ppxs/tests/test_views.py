@@ -23,6 +23,7 @@ from ...medhistorys.helpers import medhistory_attr
 from ...medhistorys.lists import PPX_MEDHISTORYS
 from ...medhistorys.models import Gout
 from ...medhistorys.tests.factories import GoutFactory
+from ...ppxaids.tests.factories import create_ppxaid
 from ...ults.choices import Indications
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
@@ -170,6 +171,21 @@ class TestPpxCreate(TestCase):
                 # Assert that the urate value and date_drawn are present in the ppx_data
                 self.assertIn(urate.value, ppx_data.values())
 
+    def test__post_creates_ppx_with_related_ppxaid(self):
+        """Tests that a POST request creates a Ppx object with a related PpxAid object."""
+        # Create a PpxAid object
+        ppxaid = create_ppxaid()
+        # Create fake post() data and POST it
+        ppx_data = ppx_data_factory()
+        response = self.client.post(reverse("ppxs:ppxaid-create", kwargs={"ppxaid": ppxaid.pk}), ppx_data)
+        # NOTE: Will print errors for all forms in the context_data.
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+
+        # Test that the created Ppx object has the correct related PpxAid object
+        ppx = ppx_userless_qs(pk=Ppx.objects.order_by("created").last().pk).get()
+        self.assertEqual(ppx.ppxaid, ppxaid)
+
     def test__post_creates_urate(self):
         """Test that post() method creates a single Urate object"""
         # Create some fake data that indicates new urates are to be created
@@ -177,7 +193,6 @@ class TestPpxCreate(TestCase):
             mh_dets={MedHistoryTypes.GOUT: {"at_goal": False, "at_goal_long_term": False}},
             urates=[Decimal("9.1"), Decimal("14.5")],
         )
-        print(data)
         # POST the data
         response = self.client.post(reverse("ppxs:create"), data)
         # NOTE: Will print errors for all forms in the context_data.
@@ -544,7 +559,6 @@ class TestPpxPseudopatientCreate(TestCase):
                 "on_ppx": not goutdetail.on_ppx,
             }
         )
-        print(goutdetail.flaring)
         # POST the data
         response = self.client.post(
             reverse("ppxs:pseudopatient-create", kwargs={"username": self.psp.username}), data=data

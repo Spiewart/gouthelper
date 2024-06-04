@@ -39,7 +39,7 @@
       {% if object.options_without_rec %}| <a class="samepage-link" href="#options">Options</a>{% endif %}
       | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
-    <div class="col align-items-center d-flex justify-content-end">
+    <div class="col-auto align-items-center d-flex justify-content-end">
       {% if object.user %}<span>{{ object.user }}</span>{% endif %}
     </div>
   </div>
@@ -53,7 +53,28 @@
           <h2>
             <u>Recommendation</u>
           </h2>
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+          <div class="col">
+            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+            {% if object.user and object.user.ppx %}
+              {% include "ppxs/ppx_detail_card.html" with object=object.user.ppx %}
+            {% elif object.ppx %}
+              {% include "ppxs/ppx_detail_card.html" with object=object.ppx %}
+            {% else %}
+              <div id="ppx-card" class="card spacious-cards">
+                <div class="card-body">
+                  <h3 class="card-title">Ppx</h3>
+                  <p>Is prophylaxis indicated for {{ str_attrs.subject_the }}?</p>
+                  {% if object.user %}
+                    <a href="{% url 'ppxs:pseudopatient-create' object.user.username %}?next={{ request.path }}"
+                       class="btn btn-primary spacious-buttons">Create Ppx</a>
+                  {% else %}
+                    <a href="{% url 'ppxs:ppxaid-create' object.pk %}?next={{ request.path }}"
+                       class="btn btn-primary spacious-buttons">Create Ppx</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+          </div>
           {% if object.recommendation %}
             <div class="col">
               <div class="card card-body spacious-cards">

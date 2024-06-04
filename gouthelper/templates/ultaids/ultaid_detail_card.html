@@ -39,10 +39,10 @@
       {% endif %}
       {% if object.user %}
         <a href="{% url 'ultaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
+           class="btn btn-primary btn-lg mini-button">Update</a>
       {% else %}
         <a href="{% url 'ultaids:update' object.pk %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
+           class="btn btn-primary btn-lg mini-button">Update</a>
       {% endif %}
       {% if object.user %}
         <a href="{% url 'ultaids:pseudopatient-detail' object.user.username %}"

@@ -14,9 +14,26 @@ from ..medhistorydetails.choices import Stages
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
 
-    from ..labs.forms import PpxUrateFormSet
-    from .forms import UrateForm
-    from .models import Creatinine, Urate
+    from .forms import PpxUrateFormSet, UrateForm
+    from .models import BaselineCreatinine, Creatinine, Lab, Urate
+
+
+def labs_creatinine_is_at_baseline_creatinine(
+    creatinine: "Creatinine",
+    baselinecreatinine: "BaselineCreatinine",
+) -> bool:
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=).-,Table%202.,-AKI%20definition%20and
+    return not (
+        creatinine.value >= baselinecreatinine.value + 0.3 or creatinine.value >= baselinecreatinine.value * 1.5
+    )
+
+
+def labs_creatinine_is_at_baseline_eGFR(
+    creatinine_eGFR: Decimal,
+    baseline_eGFR: Decimal,
+) -> bool:
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=51%2C52-,Table%201.,-RIFLE%20criteria%20for
+    return not creatinine_eGFR < baseline_eGFR * 0.75
 
 
 def labs_baselinecreatinine_max_value(value: Decimal):
@@ -158,11 +175,29 @@ def labs_urate_is_newer_than_goutdetail_set_date(urate, goutdetail):
     return labs_urate_date_drawn_newer_than_set_date(urate.date, goutdetail.medhistory.set_date)
 
 
+def labs_check_chronological_order_by_date_drawn(
+    labs: Union["QuerySet[Lab]", list["Lab"]],
+) -> ValueError | None:
+    for lab_i, lab in enumerate(labs):
+        labs_compare_chronological_order_by_date_drawn(
+            current_lab=lab, previous_lab=labs[lab_i - 1] if lab_i > 0 else None, first_lab=labs[0]
+        )
+
+
+def labs_compare_chronological_order_by_date_drawn(
+    current_lab: "Lab", previous_lab: Union["Lab", None], first_lab: "Lab"
+) -> ValueError | None:
+    if (
+        current_lab.date_drawn > first_lab.date_drawn
+        or previous_lab
+        and current_lab.date_drawn > previous_lab.date_drawn
+    ):
+        raise ValueError("The Labs are not in chronological order. QuerySet must be ordered by date.")
+
+
 def labs_urates_check_chronological_order_by_date(
     urates: Union["QuerySet[Urate]", list["Urate"]],
 ) -> ValueError | None:
-    """Raises a ValueError if a list or QuerySet of urates is not in chronological order
-    from the newest urate by a date attr annotated by a QuerySet."""
     for urate_i, urate in enumerate(urates):
         labs_urates_compare_chronological_order_by_date(
             current_urate=urate, previous_urate=urates[urate_i - 1] if urate_i > 0 else None, first_urate=urates[0]
@@ -172,47 +207,18 @@ def labs_urates_check_chronological_order_by_date(
 def labs_urates_compare_chronological_order_by_date(
     current_urate: "Urate", previous_urate: Union["Urate", None], first_urate: "Urate"
 ) -> ValueError | None:
-    """Helper function to determine if a list or QuerySet of urates is in chronological order
-    from the newest urate by a date attr annotated by a QuerySet.
-
-    args:
-        current_urate (Urate): current Urate object
-        previous_urate (Urate, None): optional previous Urate object
-        first_urate (Urate): first Urate object in the list or QuerySet
-
-    returns:
-        None
-
-    raises:
-        ValueError: if the current Urate has a date attr or does but is None
-        ValueError: if the current Urate is newer than the first Urate or the last Urate that was
-            iterated over
-    """
-    # Check if the current Urate has a date attr or does but is None
-    if hasattr(current_urate, "date") is False or current_urate.date is None:
-        # If so, raise a ValueError
-        raise ValueError(f"Urate {current_urate} has no date_drawn, Flare, or annotated date.")
-    # Check to make sure the current Urate isn't newer than the first Urate or the last Urate that was
-    # iterated over, raise a ValueError if it is
-    if current_urate.date > first_urate.date or previous_urate and current_urate.date > previous_urate.date:
+    if (
+        current_urate.date_drawn_or_flare_date > first_urate.date_drawn_or_flare_date
+        or previous_urate
+        and current_urate.date_drawn_or_flare_date > previous_urate.date_drawn_or_flare_date
+    ):
         raise ValueError("The Urates are not in chronological order. QuerySet must be ordered by date.")
 
 
-def labs_urates_annotate_order_by_dates(
+def labs_urates_annotate_order_by_date_drawn_or_flare_date(
     urates: list["Urate"],
 ) -> None:
-    """Method that takes a list of Urate objects and annotates each Urate with a date attr
-    that is derived from the date_drawn field on the Urate if it exists and, if not,
-    the date_started field on the Urate's Flare object. Raises a ValueError if neither
-    field exists. Orders the list by date in descending order."""
-    for urate in urates:
-        if urate.date_drawn:
-            urate.date = urate.date_drawn
-        elif hasattr(urate, "flare") and urate.flare.date_started:
-            urate.date = urate.flare.date_started
-        else:
-            raise ValueError(f"Urate {urate} has no date_drawn, Flare, or annotated date.")
-    urates.sort(key=lambda x: x.date, reverse=True)
+    urates.sort(key=lambda x: x.date_drawn_or_flare_date, reverse=True)
 
 
 def labs_urates_last_at_goal(
@@ -265,7 +271,6 @@ def labs_check_date_drawn_within_a_day(
 
 def labs_forms_get_date_drawn_value(form) -> tuple[str, Decimal]:
     """Method that returns the value of the date_drawn and value fields on a form."""
-    print(type(form))
     return form.cleaned_data.get("date_drawn"), form.cleaned_data.get("value")
 
 

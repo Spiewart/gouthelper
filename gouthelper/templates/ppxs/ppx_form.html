@@ -47,6 +47,17 @@
               action="{% url 'ppxs:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% elif view.kwargs.ppxaid %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:ppxaid-create' view.kwargs.ppxaid %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -56,6 +67,7 @@
               action="{% url 'ppxs:create' %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
@@ -112,8 +124,8 @@
           },
         });
       })
+      datepickers();
     });
-    datepickers();
   </script>
   {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

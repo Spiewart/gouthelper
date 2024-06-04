@@ -27,6 +27,13 @@ def medhistorys_get(
         return null_return
 
 
+def medhistorys_get_or_none(
+    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
+    medhistorytype: MedHistoryTypes | list[MedHistoryTypes],
+) -> Union[None, "MedHistory"] | list["MedHistory"]:
+    return medhistorys_get(medhistorys, medhistorytype, null_return=None)
+
+
 def medhistory_attr(
     medhistory: MedHistoryTypes | list[MedHistoryTypes],
     obj: "GoutHelperAidModel",

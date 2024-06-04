@@ -223,6 +223,7 @@ class UrateForm(LabForm):
         self.fields["value"].validators.append(labs_urates_max_value)
         self.fields["value"].help_text = mark_safe("Serum uric acid in micrograms per deciliter (mg/dL).")
         self.fields["date_drawn"].help_text = mark_safe("When was this uric acid drawn?")
+        self.fields["date_drawn"].widget.attrs["class"] = "datepick"
 
 
 class UrateFlareForm(BaseLabForm):

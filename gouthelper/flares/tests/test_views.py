@@ -927,7 +927,6 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         """Test that the AKI MedHistory is created when the patient has CKD."""
         # Create a Flare with CKD
         flare_data = flare_data_factory(user=self.psp, otos={"aki": True})
-        print(flare_data)
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
         )
@@ -2471,7 +2470,6 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         flare = create_flare(aki=True)
         self.assertTrue(flare.aki)
         data = flare_data_factory(flare=flare, otos={"aki": False})
-        print(data)
         response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)

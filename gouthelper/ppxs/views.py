@@ -27,10 +27,11 @@ from ..labs.helpers import (
     labs_urate_formset_get_most_recent_ordered_urate_form,
     labs_urate_formset_has_one_or_more_valid_urates,
     labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms,
-    labs_urates_annotate_order_by_dates,
+    labs_urates_annotate_order_by_date_drawn_or_flare_date,
 )
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates
+from ..ppxaids.models import PpxAid
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
@@ -155,7 +156,14 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
     permission_required = "ppxs.can_add_ppx"
     success_message = "Ppx successfully created."
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"ppxaid": self.ppxaid})
+        return context
+
     def get_permission_object(self):
+        if self.ppxaid and self.ppxaid.user:
+            raise PermissionError("Trying to create a Ppx for a PpxAid with a user with an anonymous view.")
         return None
 
     @cached_property
@@ -174,8 +182,18 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
             else:
                 return self.errors
         else:
-            labs_urates_annotate_order_by_dates(self.form.instance.urates_qs)
+            kwargs.update({"ppxaid": self.ppxaid})
+            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.form.instance.urates_qs)
             return self.form_valid()
+
+    @cached_property
+    def ppxaid(self) -> PpxAid | None:
+        ppxaid_kwarg = self.kwargs.get("ppxaid", None)
+        return PpxAid.related_objects.get(pk=ppxaid_kwarg) if ppxaid_kwarg else None
+
+    @cached_property
+    def related_object(self) -> PpxAid:
+        return self.ppxaid
 
 
 class PpxDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -258,7 +276,7 @@ class PpxPseudopatientCreate(
             else:
                 return self.errors
         else:
-            labs_urates_annotate_order_by_dates(self.user.urates_qs)
+            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.user.urates_qs)
             return self.form_valid()
 
 
@@ -331,7 +349,7 @@ class PpxPseudopatientUpdate(
             else:
                 return self.errors
         else:
-            labs_urates_annotate_order_by_dates(self.user.urates_qs)
+            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.user.urates_qs)
             return self.form_valid()
 
 
@@ -361,5 +379,5 @@ class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
                 return super().render_errors()
             else:
                 return self.errors
-        labs_urates_annotate_order_by_dates(self.form.instance.urates_qs)
+        labs_urates_annotate_order_by_date_drawn_or_flare_date(self.form.instance.urates_qs)
         return self.form_valid()

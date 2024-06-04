@@ -4,23 +4,9 @@
   {% else %}
     <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
   {% endif %}
-  <ul class="list-group list-group-horizontal">
-    <li class="list-group-item flex-fill d-flex justify-content-center">
-      <a class="samepage-link" href="#erosions">Erosions</a>
-      {% if object.erosions %}
-        (+)
-      {% else %}
-        (-)
-      {% endif %}
-    </li>
-    <li class="list-group-item flex-fill d-flex justify-content-center">
-      <a class="samepage-link" href="#tophi">Tophi</a>
-      {% if object.tophi %}
-        (+)
-      {% else %}
-        (-)
-      {% endif %}
-    </li>
+  <ul class="list-group list-group-horizontal minified-list-group">
+    <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.erosions_detail }}</li>
+    <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.tophi_detail }}</li>
   </ul>
   {% if ult %}
     <ul>
@@ -36,7 +22,13 @@
         {% else %}
           ULT
         {% endif %}
-        dose until serum uric acid is {{ object.get_goal_urate_display }} or less
+        dose until serum uric acid is
+        {% if object.goalurate %}
+          {{ object.goalurate.get_goal_urate_display }}
+        {% else %}
+          {{ object.get_goal_urate_display }}
+        {% endif %}
+        or less
       </li>
       <li>Once "at goal", a maintenance dose is prescribed to keep the uric acid at this level</li>
     </ul>

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from django.forms import BaseModelFormSet  # type: ignore
     from django.http import HttpRequest, HttpResponse  # type: ignore
 
+    from ..akis.models import Aki
     from ..dateofbirths.forms import DateOfBirthForm
     from ..dateofbirths.models import DateOfBirth
     from ..genders.forms import GenderForm
@@ -179,10 +180,11 @@ class GoutHelperEditMixin:
             self.form_valid_related_object_otos()
         if kwargs:
             self.form_valid_set_aid_obj_relations(kwargs=kwargs)
+        self.form_valid_set_object_related_object_attr()
         if self.save_object:
             self.object.save()
         if kwargs:
-            self.form_valid_set_related_object_object_attr(self.object_attr, kwargs)
+            self.form_valid_set_related_object_object_attr(kwargs)
         if self.medallergy_forms:
             self.form_valid_save_medallergys()
             self.form_valid_delete_medallergys()
@@ -219,7 +221,6 @@ class GoutHelperEditMixin:
 
     def form_valid_set_related_object_object_attr(
         self,
-        aid_obj_attr: str,
         kwargs: dict[str, Any],
     ) -> None:
         """Sets the related object's aid_obj_attr attr to the aid_obj and saves the model
@@ -228,12 +229,23 @@ class GoutHelperEditMixin:
         for val in kwargs.values():
             if (
                 isinstance(val, Model)
-                and aid_obj_attr in [field.name for field in val._meta.fields]
-                and getattr(val, aid_obj_attr, None) is None
+                and self.object_attr in [field.name for field in val._meta.fields]
+                and getattr(val, self.object_attr, None) is None
             ):
-                setattr(val, aid_obj_attr, self.object)
+                setattr(val, self.object_attr, self.object)
                 val.full_clean()
                 val.save()
+
+    def form_valid_set_object_related_object_attr(self) -> None:
+        if (
+            self.related_object
+            and self.related_object_attr in [field.name for field in self.object._meta.fields]
+            and getattr(self.object, self.related_object_attr, None) is None
+        ):
+            setattr(self.object, self.related_object_attr, self.related_object)
+            self.object.full_clean()
+            if self.save_object is not True:
+                self.save_object = True
 
     def get(self, request, *args, **kwargs):
         """Overwritten to not call get_object()."""
@@ -431,9 +443,9 @@ class GoutHelperEditMixin:
             self.errors_bool = False
             self.form.save(commit=False)
             self.post_process_oto_forms()
-            self.post_process_ma_forms(post_object=self.form.instance)
-            self.post_process_mh_forms(post_object=self.form.instance)
-            self.post_process_lab_formsets(post_object=self.form.instance)
+            self.post_process_ma_forms()
+            self.post_process_mh_forms()
+            self.post_process_lab_formsets()
             self.errors = self.render_errors() if self.errors_bool else None
         else:
             self.errors_bool = False
@@ -503,6 +515,10 @@ class GoutHelperEditMixin:
     def related_object(self) -> Any:
         """Meant to defualt to None, but can be overwritten in child views."""
         return None
+
+    @cached_property
+    def related_object_attr(self) -> str:
+        return self.related_object.__class__.__name__.lower() if self.related_object else None
 
     @cached_property
     def request_user(self):
@@ -629,14 +645,6 @@ class LabFormSetsMixin(GoutHelperEditMixin):
         )
 
     def form_valid_save_and_delete_labs(self) -> None:
-        def should_abort_save(lab: "Lab", lab_related_onetoone_attr: str) -> bool:
-            """Checks to make sure that a lab slated for saving does not have a FK relation that has
-            already been deleted but is still in the formset data."""
-            if hasattr(self, "oto_2_rem"):
-                oto_related_names = [oto.__class__.__name__.lower() for oto in self.oto_2_rem]
-                return getattr(lab, lab_related_onetoone_attr) and lab_related_onetoone_attr in oto_related_names
-            return False
-
         if self.labs_2_save:
             # Modify and remove labs from the object
             for lab in self.labs_2_save:
@@ -686,7 +694,7 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             else:
                 self.lab_formsets.update({lab: (self.populate_a_lab_formset(lab, None), lab_tup[1])})
 
-    def post_process_lab_formsets(self, post_object: Union["MedAllergyAidHistoryModel", User, None]) -> None:
+    def post_process_lab_formsets(self) -> None:
         """Method to process the forms in a Lab formset for the post() method.
         Requires a list of existing labs (can be empty) to iterate over and compare to the forms in the
         formset to identify labs that need to be removed.
@@ -715,7 +723,7 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                 return False
 
         # Assign lists to return
-        post_qs_target = self.post_get_qs_target(post_object)
+        post_qs_target = self.post_get_qs_target(self.form.instance)
         self.labs_2_save: list["Lab"] = []
         self.labs_2_rem: list["Lab"] = []
 
@@ -723,7 +731,9 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             for lab_name, lab_tup in self.lab_formsets.items():
                 qs_target_method = getattr(self, f"post_get_{lab_name}_qs_target", None)
                 qs_attr = get_or_create_qs_attr(
-                    qs_target_method(post_object) if qs_target_method else post_qs_target, lab_name, self.query_object
+                    qs_target_method(post_qs_target) if qs_target_method else post_qs_target,
+                    lab_name,
+                    self.query_object,
                 )
                 # Check for and iterate over the existing queryset of labs to catch objects that
                 # are not changed in the formset but NEED to be saved for the view (i.e. to add relations)
@@ -872,11 +882,8 @@ class MedAllergyFormMixin(GoutHelperEditMixin):
                     }
                 )
 
-    def post_process_ma_forms(
-        self,
-        post_object: Union["MedAllergyAidHistoryModel", User, None],
-    ) -> None:
-        post_qs_target = self.post_get_qs_target(post_object)
+    def post_process_ma_forms(self) -> None:
+        post_qs_target = self.post_get_qs_target(self.form.instance)
         self.ma_2_save: list["MedAllergy"] = []
         self.ma_2_rem: list["MedAllergy"] = []
         get_or_create_qs_attr(post_qs_target, "medallergy")
@@ -1201,14 +1208,13 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
 
     def post_process_mh_forms(
         self,
-        post_object: Union["MedAllergyAidHistoryModel", User],
     ) -> tuple[
         list["MedHistory"],
         list["MedHistory"],
         list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"],
         list[CkdDetail, BaselineCreatinine, None],
     ]:
-        post_qs_target = self.post_get_qs_target(post_object)
+        post_qs_target = self.post_get_qs_target(self.form.instance)
         self.mhs_2_save: list["MedHistory"] = []
         self.mhs_2_remove: list["MedHistory"] = []
         self.mhdets_2_save: list["CkdDetailForm" | BaselineCreatinine] = []
@@ -1430,7 +1436,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                             "request_user": self.request_user,
                             "str_attrs": self.str_attrs,
                         }
-                        onetoone_form_kwargs.update({"initial": {"value": self.get_onetoone_value(onetoone)}})
+                        onetoone_form_kwargs.update({"initial": self.get_onetoone_initial(onetoone)})
                         kwargs[form_str] = oto_form(**onetoone_form_kwargs)
         for onetoone in self.req_otos:
             if onetoone not in kwargs:
@@ -1471,6 +1477,12 @@ class OneToOneFormMixin(GoutHelperEditMixin):
             ):
                 setattr(self.form.instance, oto_attr, related_object_oto)
 
+    def get_onetoone_initial(self, onetoone: str) -> dict[str, Any]:
+        if hasattr(self, f"get_{onetoone}_initial"):
+            return getattr(self, f"get_{onetoone}_initial")()
+        else:
+            return {"value": self.get_onetoone_value(onetoone)}
+
     def get_onetoone_value(
         self,
         onetoone: str,
@@ -1492,9 +1504,17 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         aki = getattr(self.query_object, "aki", None)
         return aki if aki else (getattr(self.object, "aki", None) if self.object else None)
 
-    def get_aki_value(self) -> True | None:
+    @staticmethod
+    def get_aki_value(aki: Union["Aki", None]) -> True | None:
+        return True if aki else False
+
+    @staticmethod
+    def get_aki_resolved(aki: Union["Aki", None]) -> True | None:
+        return aki.resolved if aki else None
+
+    def get_aki_initial(self) -> dict[str, Any]:
         aki = self.get_aki()
-        return True if aki else None
+        return {"value": self.get_aki_value(aki=aki), "resolved": self.get_aki_resolved(aki=aki)}
 
     def get_urate(self) -> Union["Lab", None]:
         urate = getattr(self.query_object, "urate", None)
