@@ -934,7 +934,7 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
         allopurinol."""
         return aids_hlab5801_contra(
             hlab5801=self.hlab5801,
-            ethnicity=self.user.ethnicity if hasattr(self, "user") else self.ethnicity,
+            ethnicity=getattr(self.user, "ethnicity", None) if hasattr(self, "user") else self.ethnicity,
             ultaidsettings=(
                 self.defaulttrtsettings if not self.is_patient else self.defaulttrtsettings(trttype=TrtTypes.ULT)
             ),

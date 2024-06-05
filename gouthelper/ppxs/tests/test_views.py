@@ -129,6 +129,7 @@ class TestPpxCreate(TestCase):
     def test__goutdetail(self):
         """Tests the goutdetail cached_property."""
         view = self.view()
+        view.kwargs = {}
         view.set_forms()
         self.assertTrue(view.goutdetail)
 

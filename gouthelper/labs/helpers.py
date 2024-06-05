@@ -18,6 +18,45 @@ if TYPE_CHECKING:
     from .models import BaselineCreatinine, Creatinine, Lab, Urate
 
 
+def labs_calculate_baseline_creatinine_range_from_ckd_stage(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> tuple[Decimal | None, Decimal | None]:
+    eGFR_min, eGFR_max = labs_eGFR_range_for_stage(stage)
+    return (
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(eGFR=eGFR_min, age=age, gender=gender),
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(eGFR=eGFR_max, age=age, gender=gender),
+    )
+
+
+def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+    eGFR: Decimal,
+    age: int,
+    gender: Genders,
+    value: Decimal = Decimal(2.50),
+) -> Decimal:
+    eGFR_calc = labs_eGFR_calculator(value, age, gender)
+    if abs(eGFR_calc - eGFR) >= 1:
+        if eGFR_calc < eGFR:
+            return labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                eGFR=eGFR,
+                age=age,
+                gender=gender,
+                value=value - value / 2,
+            )
+        else:
+            return labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                eGFR=eGFR, age=age, gender=gender, value=value + value / 2
+            )
+    return value
+
+
+def labs_calculate_baseline_creatinine_from_stage_age_gender(stage: Stages, age: int, gender: Genders) -> Decimal:
+    min_baseline, max_baseline = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+    return (min_baseline + max_baseline) / 2
+
+
 def labs_creatinine_is_at_baseline_creatinine(
     creatinine: "Creatinine",
     baselinecreatinine: "BaselineCreatinine",
@@ -26,6 +65,20 @@ def labs_creatinine_is_at_baseline_creatinine(
     return not (
         creatinine.value >= baselinecreatinine.value + 0.3 or creatinine.value >= baselinecreatinine.value * 1.5
     )
+
+
+def labs_creatinine_is_at_baseline_via_stage(
+    creatinine: "Creatinine",
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> bool:
+    baseline = labs_calculate_baseline_creatinine_from_stage_age_gender(
+        stage=stage,
+        age=age,
+        gender=gender,
+    )
+    return labs_creatinine_is_at_baseline_creatinine(creatinine, baseline)
 
 
 def labs_creatinine_is_at_baseline_eGFR(
@@ -60,7 +113,7 @@ def labs_eGFR_range_for_stage(
 ) -> tuple[int, int]:
     """Method that takes a CKD stage and returns the eGFR range for that stage."""
     if stage == Stages.ONE:
-        return 90, 100
+        return 90, 120
     elif stage == Stages.TWO:
         return 60, 89
     elif stage == Stages.THREE:
@@ -101,14 +154,7 @@ def labs_eGFR_calculator(
                 f"labs_eGFR_calculator() was called on a non-lab, non-Decimal object: {creatinine}"
             ) from exc
     # Set gender-based variables for CKD-EPI Creatinine Equation
-    if gender == Genders.MALE:
-        sex_modifier = Decimal(1.000)
-        alpha = Decimal(-0.302)
-        kappa = Decimal(0.9)
-    else:
-        sex_modifier = Decimal(1.012)
-        alpha = Decimal(-0.241)
-        kappa = Decimal(0.7)
+    sex_modifier, alpha, kappa = get_sex_modifier_alpha_kappa(gender)
     # Calculate eGFR
     eGFR = (
         Decimal(142)
@@ -119,6 +165,13 @@ def labs_eGFR_calculator(
     )
     # Return eGFR rounded to 0 decimal points
     return labs_round_decimal(eGFR, 0)
+
+
+def get_sex_modifier_alpha_kappa(gender: Genders) -> tuple[Decimal, Decimal, Decimal]:
+    if gender == Genders.MALE:
+        return Decimal(1.000), Decimal(-0.302), Decimal(0.9)
+    else:
+        return Decimal(1.012), Decimal(-0.241), Decimal(0.7)
 
 
 def labs_baselinecreatinine_calculator(
@@ -531,28 +584,13 @@ def labs_urate_within_x_days(
     x: int,
     sorted_by_date: bool = False,
 ) -> bool:
-    """Method that takes a list or QuerySet of Urates in chronological
-    order by a "date" attr with the most recent "date" being index 0
-    and returns True if the most recent Urate is less than x days old,
-    False if not.
-
-    Checks that list is chronologically sorted if sorted is False.
-
-    urates (QuerySet[Urate] or list[Urate]): QuerySet or list of Urates,
-        require using a QuerySet that annotates each Urate with a date, derived
-        either from the Urate.date_drawn or the Urate.flare.date_started.
-    x (int): number of days to check for
-    sorted_by_date (bool): defaults to False, if False, will check that the list is
-        sorted by date, if True, will not check.
-
-    Returns:
-        bool: True if the most recent Urate is less than x days old,
-        False if not."""
-    # Check if the list is sorted
     if not sorted_by_date:
-        # Check that the urates are in chronological order
         labs_urates_check_chronological_order_by_date(urates)
-    return urates[0].date and urates[0].date > timezone.now() - timedelta(days=x) if urates else False
+    return (
+        urates[0].date_drawn_or_flare_date and urates[0].date_drawn_or_flare_date > timezone.now() - timedelta(days=x)
+        if urates
+        else False
+    )
 
 
 def labs_urate_within_last_month(

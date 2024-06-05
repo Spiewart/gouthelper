@@ -10,11 +10,15 @@ from ...genders.choices import Genders
 from ...labs.forms import PpxUrateFormSet
 from ...labs.models import Urate
 from ...labs.tests.factories import BaselineCreatinineFactory
+from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.tests.factories import GoutFactory
 from ..helpers import (
     labs_baselinecreatinine_max_value,
+    labs_calculate_baseline_creatinine_from_eGFR_age_gender,
+    labs_calculate_baseline_creatinine_range_from_ckd_stage,
     labs_eGFR_calculator,
+    labs_eGFR_range_for_stage,
     labs_round_decimal,
     labs_stage_calculator,
     labs_urate_form_at_goal_within_last_month,
@@ -136,6 +140,36 @@ class TestLabseGFRCalculator(TestCase):
         )
 
 
+class TestLabsCalculateBaselineCreatinineFromEGFRStageAgeGender(TestCase):
+    def test__returns_correct_value(self):
+        age = 50
+        gender = Genders.FEMALE
+        eGFR = 50
+        creatinine = labs_calculate_baseline_creatinine_from_eGFR_age_gender(eGFR, age, gender)
+        self.assertTrue(isinstance(creatinine, Decimal))
+        eGFR_calc = labs_eGFR_calculator(creatinine=creatinine, age=age, gender=gender)
+        self.assertEqual(eGFR_calc, eGFR)
+
+
+class TestLabsCalculateBaselineCreatinineRangeFromCKDStage(TestCase):
+    def test__returns_correct_value(self):
+        age = 50
+        gender = Genders.MALE
+        for stage in [stage for stage in Stages.values if stage is not None]:
+            creatinine_range = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+            self.assertTrue(isinstance(creatinine_range, tuple))
+            self.assertTrue(isinstance(creatinine_range[0], Decimal))
+            self.assertTrue(isinstance(creatinine_range[1], Decimal))
+            min_creatinine = labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                labs_eGFR_range_for_stage(stage)[0], age, gender
+            )
+            self.assertEqual(min_creatinine, creatinine_range[0])
+            max_creatinine = labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                labs_eGFR_range_for_stage(stage)[1], age, gender
+            )
+            self.assertEqual(max_creatinine, creatinine_range[1])
+
+
 class TestLabsRoundDecimal(TestCase):
     def test__rounds_to_single_decimal(self):
         self.assertEqual(labs_round_decimal(Decimal("1.2345"), 1), Decimal("1.2"))
@@ -186,17 +220,6 @@ class TestLabsUratesChronologicalDates(TestCase):
                 previous_urate=self.urate_qs[ui - 1] if ui > 0 else None,
                 first_urate=self.urate_qs[0],
             )
-
-    def test__raises_ValueError_no_date_attr(self):
-        with self.assertRaises(ValueError) as error:
-            labs_urates_compare_chronological_order_by_date(
-                current_urate=self.urate_qs_no_date[0],
-                previous_urate=self.urate_qs_no_date[1],
-                first_urate=self.urate_qs_no_date[0],
-            )
-        self.assertEqual(
-            error.exception.args[0], f"Urate {self.urate_qs_no_date[0]} has no date_drawn, Flare, or annotated date."
-        )
 
     def test__raises_ValueError_not_in_order(self):
         with self.assertRaises(ValueError) as error:

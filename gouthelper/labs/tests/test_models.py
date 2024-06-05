@@ -195,3 +195,31 @@ class TestCreatinine(TestCase):
         aki = AkiFactory()
         creatinine = CreatinineFactory(aki=aki)
         self.assertIsNone(creatinine.ckd)
+
+    def test__dateofbirth_without_user_or_flare(self):
+        creatinine = CreatinineFactory()
+        self.assertIsNone(creatinine.dateofbirth)
+
+    def test__dateofbirth_with_user(self):
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertEqual(creatinine.dateofbirth, self.patient.dateofbirth)
+
+    def test__dateofbirth_with_flare(self):
+        flare = create_flare()
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertEqual(creatinine.dateofbirth, flare.dateofbirth)
+
+    def test__gender_without_user_or_flare(self):
+        creatinine = CreatinineFactory()
+        self.assertIsNone(creatinine.gender)
+
+    def test__gender_with_user(self):
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertEqual(creatinine.gender, self.patient.gender)
+
+    def test__gender_with_flare(self):
+        flare = create_flare()
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertEqual(creatinine.gender, flare.gender)

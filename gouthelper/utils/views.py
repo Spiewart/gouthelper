@@ -1500,21 +1500,22 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         dateofbirth = self.get_dateofbirth()
         return age_calc(dateofbirth.value) if dateofbirth else None
 
+    @cached_property
+    def aki(self) -> Union["Aki", None]:
+        return self.get_aki()
+
     def get_aki(self) -> bool | None:
         aki = getattr(self.query_object, "aki", None)
         return aki if aki else (getattr(self.object, "aki", None) if self.object else None)
 
-    @staticmethod
-    def get_aki_value(aki: Union["Aki", None]) -> True | None:
-        return True if aki else False
+    def get_aki_value(self) -> True | None:
+        return True if self.aki else False
 
-    @staticmethod
-    def get_aki_resolved(aki: Union["Aki", None]) -> True | None:
-        return aki.resolved if aki else None
+    def get_aki_resolved(self) -> True | None:
+        return self.aki.resolved if self.aki else None
 
     def get_aki_initial(self) -> dict[str, Any]:
-        aki = self.get_aki()
-        return {"value": self.get_aki_value(aki=aki), "resolved": self.get_aki_resolved(aki=aki)}
+        return {"value": self.get_aki_value(), "resolved": self.get_aki_resolved()}
 
     def get_urate(self) -> Union["Lab", None]:
         urate = getattr(self.query_object, "urate", None)

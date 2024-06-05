@@ -15,9 +15,16 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
 from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
-from .helpers import labs_eGFR_calculator, labs_stage_calculator
+from .helpers import (
+    labs_creatinine_is_at_baseline_creatinine,
+    labs_creatinine_is_at_baseline_via_stage,
+    labs_eGFR_calculator,
+    labs_stage_calculator,
+)
 
 if TYPE_CHECKING:
+    from ..dateofbirths.models import DateOfBirth
+    from ..genders.models import Gender
     from ..medhistorydetails.choices import Stages
     from ..medhistorydetails.models import CkdDetail
     from ..medhistorys.models import Ckd
@@ -224,6 +231,40 @@ class Creatinine(CreatinineBase, Lab):
             return getattr(self.ckd, "baselinecreatinine", None)
         else:
             return None
+
+    @cached_property
+    def dateofbirth(self) -> Union["DateOfBirth", None]:
+        if self.user:
+            return self.user.dateofbirth
+        elif self.aki and hasattr(self.aki, "flare"):
+            return self.aki.flare.dateofbirth
+        else:
+            return None
+
+    @cached_property
+    def gender(self) -> Union["Gender", None]:
+        if self.user:
+            return self.user.gender
+        elif self.aki and hasattr(self.aki, "flare"):
+            return self.aki.flare.gender
+        else:
+            return None
+
+    @cached_property
+    def is_at_baseline(self) -> bool:
+        if not (self.baselinecreatinine or self.ckddetail):
+            raise ValueError("Creatinine has no BaselineCreatinine or CkdDetail to compare for baseline equivalence.")
+        elif self.baselinecreatinine:
+            return labs_creatinine_is_at_baseline_creatinine(self, self.baselinecreatinine)
+        else:
+            if self.ckddetail.dialysis:
+                raise ValueError(f"Comparing creatinine to {self.ckddetail}.")
+            if not self.age or not self.gender:
+                raise ValueError(f"Need age and gender to assess baseline status of {self} with {self.ckddetail}.")
+            return labs_creatinine_is_at_baseline_via_stage(
+                self,
+                self.ckddetail.stage,
+            )
 
     @classmethod
     def related_models(cls) -> list[Literal["aki"]]:

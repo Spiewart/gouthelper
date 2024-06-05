@@ -133,6 +133,7 @@ def flare_data_factory(
             data.update(data_constructor.create_lab_data())
     else:
         data["medical_evaluation"] = False
+        data["aki-value"] = False
         data["aspiration"] = ""
         data["crystal_analysis"] = ""
         data["diagnosed"] = ""
