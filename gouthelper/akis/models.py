@@ -11,6 +11,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers import get_qs_or_set
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from .choices import Statuses
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -38,12 +39,20 @@ class Aki(
                 name="%(app_label)s_%(class)s_user_ppx_exclusive",
                 check=(models.Q(user__isnull=False) | models.Q(user__isnull=True)),
             ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_status_is_valid",
+                check=models.Q(status__in=Statuses.values),
+            ),
         ]
 
-    resolved = models.BooleanField(
-        default=False,
-        help_text=_("Has this AKI resolved? (i.e., has the creatinine level returned to normal?)"),
-        verbose_name=_("Resolved"),
+    Statuses = Statuses
+
+    status = models.CharField(
+        choices=Statuses.choices,
+        default=Statuses.ONGOING,
+        help_text=_("The status of this AKI."),
+        max_length=20,
+        verbose_name=_("Status"),
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
@@ -53,3 +62,7 @@ class Aki(
     @cached_property
     def creatinines(self):
         return get_qs_or_set(self, "creatinine")
+
+    @cached_property
+    def resolved(self) -> bool:
+        return self.status == Statuses.RESOLVED

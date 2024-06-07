@@ -5,7 +5,7 @@ from django.utils.html import mark_safe  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
-from ..choices import BOOL_CHOICES, YES_OR_NO_OR_NONE
+from ..choices import BOOL_CHOICES
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import ModelFormKwargMixin, forms_helper_insert_creatinines_formset
 from .models import Aki
@@ -14,13 +14,7 @@ from .models import Aki
 class AkiForm(ModelFormKwargMixin, forms.ModelForm):
     class Meta:
         model = Aki
-        exclude = [
-            "dateofbirth",
-            "gender",
-            "flare",
-            "user",
-            "ckd",
-        ]
+        fields = ["status"]
 
     prefix = "aki"
 
@@ -50,19 +44,15 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
             )
         )
         self.fields["value"].label = "Acute Kidney Injury"
-        self.fields["resolved"].widget = forms.Select(choices=YES_OR_NO_OR_NONE)
-        self.fields["resolved"].label = "AKI Resolved"
-        self.fields["resolved"].help_text = _(
-            "Has this AKI resolved? (i.e., has the creatinine level returned to normal?)"
-        )
-        self.fields["resolved"].required = False
-        self.fields["resolved"].initial = None
+        self.fields["status"].label = "AKI Status"
+        self.fields["status"].help_text = _("What is the status of this AKI?")
+        self.fields["status"].required = False
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Fieldset(
                 "",
-                Div("value", "resolved", css_id="aki-form", **self.fieldset_div_kwargs),
+                Div("value", "status", css_id="aki-form", **self.fieldset_div_kwargs),
             ),
         )
         forms_helper_insert_creatinines_formset(self)

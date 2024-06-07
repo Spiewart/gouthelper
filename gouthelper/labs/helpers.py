@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
 
     from .forms import PpxUrateFormSet, UrateForm
-    from .models import BaselineCreatinine, Creatinine, Lab, Urate
+    from .models import Creatinine, Lab, Urate
 
 
 def labs_calculate_baseline_creatinine_range_from_ckd_stage(
@@ -52,33 +52,41 @@ def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
     return value
 
 
-def labs_calculate_baseline_creatinine_from_stage_age_gender(stage: Stages, age: int, gender: Genders) -> Decimal:
-    min_baseline, max_baseline = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
-    return (min_baseline + max_baseline) / 2
-
-
 def labs_creatinine_is_at_baseline_creatinine(
     creatinine: "Creatinine",
-    baselinecreatinine: "BaselineCreatinine",
+    baseline_creatinine: Decimal,
 ) -> bool:
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=).-,Table%202.,-AKI%20definition%20and
     return not (
-        creatinine.value >= baselinecreatinine.value + 0.3 or creatinine.value >= baselinecreatinine.value * 1.5
+        creatinine.value >= baseline_creatinine + Decimal(0.3)
+        or creatinine.value >= baseline_creatinine * Decimal(1.5)
     )
 
 
-def labs_creatinine_is_at_baseline_via_stage(
+def labs_creatinine_within_range_for_stage(
     creatinine: "Creatinine",
     stage: Stages,
     age: int,
     gender: Genders,
 ) -> bool:
-    baseline = labs_calculate_baseline_creatinine_from_stage_age_gender(
-        stage=stage,
-        age=age,
-        gender=gender,
+    min_creatinine, max_creatinine = labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender(
+        stage,
+        age,
+        gender,
     )
-    return labs_creatinine_is_at_baseline_creatinine(creatinine, baseline)
+    return min_creatinine <= creatinine.value <= max_creatinine
+
+
+def labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> tuple[Decimal, Decimal]:
+    min_eGFR, max_eGFR = labs_eGFR_range_for_stage(stage)
+    return (
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(max_eGFR, age, gender),
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(min_eGFR, age, gender),
+    )
 
 
 def labs_creatinine_is_at_baseline_eGFR(
@@ -87,6 +95,47 @@ def labs_creatinine_is_at_baseline_eGFR(
 ) -> bool:
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=51%2C52-,Table%201.,-RIFLE%20criteria%20for
     return not creatinine_eGFR < baseline_eGFR * 0.75
+
+
+def labs_creatinines_improved(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    """Method that checks if a list or QuerySet of creatinines are improving."""
+    return current_creatinine.value - prior_creatinine.value >= Decimal(0.3)
+
+
+def labs_creatinines_are_improving(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+) -> bool:
+    """Method that checks if a list or QuerySet of creatinines are improving."""
+    for creatinine_i, creatinine in enumerate(creatinines):
+        if creatinine_i > 0 and labs_creatinines_improved(creatinine, creatinines[creatinine_i - 1]):
+            return True
+    return False
+
+
+def labs_creatinines_are_drawn_more_than_x_days_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+    days: int,
+) -> bool:
+    labs_compare_chronological_order_by_date_drawn(current_creatinine, prior_creatinine, prior_creatinine)
+    return prior_creatinine.date_drawn - current_creatinine.date_drawn >= timedelta(days=days)
+
+
+def labs_creatinines_are_drawn_more_than_1_day_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    return labs_creatinines_are_drawn_more_than_x_days_apart(current_creatinine, prior_creatinine, 1)
+
+
+def labs_creatinines_are_drawn_more_than_2_days_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    return labs_creatinines_are_drawn_more_than_x_days_apart(current_creatinine, prior_creatinine, 2)
 
 
 def labs_baselinecreatinine_max_value(value: Decimal):

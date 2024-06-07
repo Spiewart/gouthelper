@@ -6,13 +6,14 @@ from factory.fuzzy import FuzzyChoice  # type: ignore
 
 from ...labs.models import Creatinine
 from ...labs.tests.factories import CreatinineFactory
+from ..choices import Statuses
 
 
 class AkiFactory(DjangoModelFactory):
     class Meta:
         model = "akis.Aki"
 
-    resolved = FuzzyChoice([True, False])
+    status = FuzzyChoice(choices=Statuses.values)
     user = None
 
     @post_generation

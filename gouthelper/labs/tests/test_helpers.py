@@ -9,14 +9,17 @@ from django.utils import timezone  # type: ignore
 from ...genders.choices import Genders
 from ...labs.forms import PpxUrateFormSet
 from ...labs.models import Urate
-from ...labs.tests.factories import BaselineCreatinineFactory
+from ...labs.tests.factories import BaselineCreatinineFactory, CreatinineFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.tests.factories import GoutFactory
 from ..helpers import (
     labs_baselinecreatinine_max_value,
     labs_calculate_baseline_creatinine_from_eGFR_age_gender,
-    labs_calculate_baseline_creatinine_range_from_ckd_stage,
+    labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender,
+    labs_creatinine_within_range_for_stage,
+    labs_creatinines_are_drawn_more_than_1_day_apart,
+    labs_creatinines_are_improving,
     labs_eGFR_calculator,
     labs_eGFR_range_for_stage,
     labs_round_decimal,
@@ -49,6 +52,58 @@ This would typically mean the patient is on dialysis.",
 
     def test__doesnt_raise_ValidationError(self):
         labs_baselinecreatinine_max_value(Decimal("4.0"))
+
+
+class TestLabsCreatinineWithinRangeForStage(TestCase):
+    def test__returns_correct_value(self):
+        self.assertTrue(
+            labs_creatinine_within_range_for_stage(
+                CreatinineFactory(value=Decimal("1.0")), stage=Stages.ONE, age=40, gender=Genders.MALE
+            )
+        )
+        self.assertTrue(
+            labs_creatinine_within_range_for_stage(
+                CreatinineFactory(value=Decimal("2.0")), stage=Stages.THREE, age=40, gender=Genders.MALE
+            )
+        )
+
+
+class TestLabsCreatininesAreImproving(TestCase):
+    def test__returns_True(self):
+        creatinines = [
+            CreatinineFactory(value=Decimal("1.0")),
+            CreatinineFactory(value=Decimal("2.0")),
+            CreatinineFactory(value=Decimal("3.0")),
+        ]
+        self.assertTrue(labs_creatinines_are_improving(creatinines))
+
+    def test__returns_False(self):
+        creatinines = [
+            CreatinineFactory(value=Decimal("3.0")),
+            CreatinineFactory(value=Decimal("2.0")),
+            CreatinineFactory(value=Decimal("1.0")),
+        ]
+        self.assertFalse(labs_creatinines_are_improving(creatinines))
+
+
+class TestLabsCreatininesAreDrawnMoreThan24HoursApart(TestCase):
+    def test__returns_True(self):
+        current_creatinine = CreatinineFactory(date_drawn=timezone.now() - timedelta(days=1))
+        previous_creatinine = CreatinineFactory(date_drawn=timezone.now())
+        self.assertTrue(
+            labs_creatinines_are_drawn_more_than_1_day_apart(
+                current_creatinine=current_creatinine, prior_creatinine=previous_creatinine
+            )
+        )
+
+    def test__returns_False(self):
+        current_creatinine = CreatinineFactory(date_drawn=timezone.now() - timedelta(hours=23))
+        previous_creatinine = CreatinineFactory(date_drawn=timezone.now())
+        self.assertFalse(
+            labs_creatinines_are_drawn_more_than_1_day_apart(
+                current_creatinine=current_creatinine, prior_creatinine=previous_creatinine
+            )
+        )
 
 
 class TestLabseGFRCalculator(TestCase):
@@ -151,21 +206,21 @@ class TestLabsCalculateBaselineCreatinineFromEGFRStageAgeGender(TestCase):
         self.assertEqual(eGFR_calc, eGFR)
 
 
-class TestLabsCalculateBaselineCreatinineRangeFromCKDStage(TestCase):
+class TestLabsCreatinineCalculateMinMaxCreatinineFromStageAgeGender(TestCase):
     def test__returns_correct_value(self):
         age = 50
         gender = Genders.MALE
         for stage in [stage for stage in Stages.values if stage is not None]:
-            creatinine_range = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+            creatinine_range = labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender(stage, age, gender)
             self.assertTrue(isinstance(creatinine_range, tuple))
             self.assertTrue(isinstance(creatinine_range[0], Decimal))
             self.assertTrue(isinstance(creatinine_range[1], Decimal))
             min_creatinine = labs_calculate_baseline_creatinine_from_eGFR_age_gender(
-                labs_eGFR_range_for_stage(stage)[0], age, gender
+                labs_eGFR_range_for_stage(stage)[1], age, gender
             )
             self.assertEqual(min_creatinine, creatinine_range[0])
             max_creatinine = labs_calculate_baseline_creatinine_from_eGFR_age_gender(
-                labs_eGFR_range_for_stage(stage)[1], age, gender
+                labs_eGFR_range_for_stage(stage)[0], age, gender
             )
             self.assertEqual(max_creatinine, creatinine_range[1])
 

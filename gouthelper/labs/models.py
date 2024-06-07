@@ -11,13 +11,14 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
+from ..dateofbirths.helpers import age_calc
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
 from ..utils.models import GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import (
     labs_creatinine_is_at_baseline_creatinine,
-    labs_creatinine_is_at_baseline_via_stage,
+    labs_creatinine_within_range_for_stage,
     labs_eGFR_calculator,
     labs_stage_calculator,
 )
@@ -206,6 +207,10 @@ class Creatinine(CreatinineBase, Lab):
     )
 
     @cached_property
+    def age(self):
+        return age_calc(date_of_birth=self.dateofbirth.value) if self.dateofbirth else None
+
+    @cached_property
     def ckd(self) -> Union["Ckd", None]:
         if self.user:
             return medhistory_attr(
@@ -232,6 +237,15 @@ class Creatinine(CreatinineBase, Lab):
         else:
             return None
 
+    def check_for_age_and_gender(self) -> None:
+        if not self.age or not self.gender:
+            if not self.age and not self.gender:
+                raise ValueError(f"{self} has no associated age or gender")
+            elif not self.age:
+                raise ValueError(f"{self} has no associated age.")
+            else:
+                raise ValueError(f"{self} has no associated gender.")
+
     @cached_property
     def dateofbirth(self) -> Union["DateOfBirth", None]:
         if self.user:
@@ -252,19 +266,24 @@ class Creatinine(CreatinineBase, Lab):
 
     @cached_property
     def is_at_baseline(self) -> bool:
-        if not (self.baselinecreatinine or self.ckddetail):
-            raise ValueError("Creatinine has no BaselineCreatinine or CkdDetail to compare for baseline equivalence.")
-        elif self.baselinecreatinine:
-            return labs_creatinine_is_at_baseline_creatinine(self, self.baselinecreatinine)
-        else:
-            if self.ckddetail.dialysis:
-                raise ValueError(f"Comparing creatinine to {self.ckddetail}.")
-            if not self.age or not self.gender:
-                raise ValueError(f"Need age and gender to assess baseline status of {self} with {self.ckddetail}.")
-            return labs_creatinine_is_at_baseline_via_stage(
-                self,
-                self.ckddetail.stage,
-            )
+        if not self.baselinecreatinine:
+            raise ValueError(f"{self} has no BaselineCreatinine to compare for baseline equivalence.")
+        elif self.ckddetail and self.ckddetail.dialysis:
+            raise ValueError(f"Comparing {self} to {self.ckddetail.explanation}.")
+        return labs_creatinine_is_at_baseline_creatinine(self, self.baselinecreatinine.value)
+
+    @cached_property
+    def is_within_normal_limits(self) -> bool:
+        return self.value <= self.upper_limit
+
+    @cached_property
+    def is_within_range_for_stage(self) -> bool:
+        if not self.ckddetail:
+            raise ValueError(f"{self} has no associated CkdDetail.")
+        elif self.ckddetail.dialysis:
+            raise ValueError(f"Comparing {self} to {self.ckddetail.explanation}.")
+        self.check_for_age_and_gender()
+        return labs_creatinine_within_range_for_stage(self, self.ckddetail.stage, self.age, self.gender.value)
 
     @classmethod
     def related_models(cls) -> list[Literal["aki"]]:

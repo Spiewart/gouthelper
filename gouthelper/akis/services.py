@@ -1,13 +1,14 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from django.core.exceptions import ValidationError
 
-if TYPE_CHECKING:
-    from datetime import date
+from ..labs.helpers import labs_creatinines_are_improving
+from .choices import Statuses
+from .helpers import labs_check_chronological_order_by_date_drawn
 
-    from ..genders.choices import Genders
-    from ..medhistorydetails.models import CkdDetail
+if TYPE_CHECKING:
+    from ..labs.models import Creatinine
 
 
 class AkiProcessor:
@@ -16,57 +17,65 @@ class AkiProcessor:
     def __init__(
         self,
         aki_value: bool,
-        resolved: bool,
-        creatinines: list,
+        status: Statuses,
+        creatinines: list["Creatinine"],
         baselinecreatinine: Decimal | None,
-        ckddetail: Union["CkdDetail", None],
-        dateofbirth: Union["date", None],
-        gender: Union["Genders", None],
     ):
         self.aki_value = aki_value
-        self.resolved = resolved
+        self.status = status
         self.creatinines = creatinines
+        labs_check_chronological_order_by_date_drawn(self.creatinines)
         self.baselinecreatinine = baselinecreatinine
-        self.ckddetail = ckddetail
-        self.dateofbirth = dateofbirth
-        self.gender = gender
         self.aki_errors = {}
         self.creatinines_errors = {}
-        self.ckddetail_errors = {}
         self.baselinecreatinine_errors = {}
-        self.dateofbirth_errors = {}
-        self.gender_errors = {}
         self.errors: dict = {}
 
-    def process(self) -> bool | None:
+    def get_errors(self) -> dict:
         # Check if AKI value is True
         if self.aki_value:
-            if self.resolved:
-                if self.aki_is_not_resolved_via_creatinines():
-                    message = "The AKI is marked as resolved, but the creatinines suggest otherwise."
-                    self.check_for_and_add_aki_to_errors()
-                    self.aki_errors["resolved"] = ValidationError(message=message)
-                    self.creatinines_errors_get_or_create_and_append_to_non_field_errors(
-                        ValidationError(message=message)
-                    )
+            if self.status == Statuses.RESOLVED:
+                if not self.aki_is_resolved_via_creatinines():
+                    if self.aki_is_improving_via_creatinines() and self.baselinecreatinine:
+                        message = "AKI marked as resolved, but the creatinines suggest it is still improving."
+                        self.add_errors_for_aki_and_creatinines(message)
+                    else:
+                        message = "AKI marked as resolved, but the creatinines suggest it is not."
+                        self.add_errors_for_aki_and_creatinines(message)
+            elif self.status == Statuses.IMPROVING:
+                if self.aki_is_resolved_via_creatinines():
+                    message = "AKI marked as improving, but the creatinines suggest it is resolved."
+                    self.add_errors_for_aki_and_creatinines(message)
+                elif not self.aki_is_improving_via_creatinines() and self.baselinecreatinine:
+                    message = "AKI marked as improving, but the creatinines suggest it is not."
+                    self.add_errors_for_aki_and_creatinines(message)
             else:
                 if self.aki_is_resolved_via_creatinines():
                     message = "The AKI is marked as not resolved, but the creatinines suggest it is."
-                    self.check_for_and_add_aki_to_errors()
-                    self.aki_errors["resolved"] = ValidationError(message=message)
-                    self.creatinines_errors_get_or_create_and_append_to_non_field_errors(
-                        ValidationError(message=message)
-                    )
+                    self.add_errors_for_aki_and_creatinines(message)
+                elif self.aki_is_improving_via_creatinines():
+                    message = "The AKI is marked as ongoing, but the creatinines suggest it is improving."
+                    self.add_errors_for_aki_and_creatinines(message)
         else:
             if self.creatinines:
                 self.add_errors_for_creatinines_without_aki()
         return self.errors
 
     def aki_is_resolved_via_creatinines(self) -> bool:
-        pass
+        return (
+            self.baselinecreatinine
+            and self.creatinines[0].is_at_baseline
+            or self.creatinines[0].is_within_normal_limits
+        )
 
-    def aki_is_not_resolved_via_creatinines(self) -> bool:
-        pass
+    def aki_is_improving_via_creatinines(self) -> bool:
+        return labs_creatinines_are_improving(self.creatinines)
+
+    def add_errors_for_aki_and_creatinines(self, message: str) -> None:
+        self.check_for_and_add_aki_to_errors()
+        self.aki_errors["status"] = ValidationError(message=message)
+        self.check_for_and_add_creatinines_to_errors()
+        self.creatinines_errors_get_or_create_and_append_to_non_field_errors(ValidationError(message=message))
 
     def add_errors_for_creatinines_without_aki(self) -> None:
         message = "AKI value must be True if creatinines are present."

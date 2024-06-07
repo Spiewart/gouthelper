@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
@@ -7,6 +8,9 @@ from django.utils import timezone  # type: ignore
 
 from ...akis.tests.factories import AkiFactory
 from ...flares.tests.factories import create_flare
+from ...genders.choices import Genders
+from ...medhistorydetails.choices import Stages
+from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
 from ...users.tests.factories import create_psp
@@ -196,6 +200,62 @@ class TestCreatinine(TestCase):
         creatinine = CreatinineFactory(aki=aki)
         self.assertIsNone(creatinine.ckd)
 
+    def test__ckddetail_without_user_or_flare(self):
+        creatinine = CreatinineFactory()
+        self.assertIsNone(creatinine.ckddetail)
+
+    def test__ckddetail_with_user_without_ckddetail(self):
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertIsNone(creatinine.ckddetail)
+
+    def test__ckddetail_with_user_with_ckddetail(self):
+        ckd = CkdFactory(user=self.patient)
+        ckddetail = CkdDetailFactory(medhistory=ckd)
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertEqual(creatinine.ckddetail, ckddetail)
+
+    def test__ckddetail_with_aki_flare_without_ckddetail(self):
+        flare = create_flare(mhs=[MedHistoryTypes.CKD])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertIsNone(creatinine.ckddetail)
+
+    def test__ckddetail_with_aki_flare_with_ckddetail(self):
+        ckd = CkdFactory()
+        ckddetail = CkdDetailFactory(medhistory=ckd)
+        flare = create_flare(mhs=[ckd])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertEqual(creatinine.ckddetail, ckddetail)
+
+    def test__baselinecreatinine_without_user_or_flare(self):
+        creatinine = CreatinineFactory()
+        self.assertIsNone(creatinine.baselinecreatinine)
+
+    def test__baselinecreatinine_with_user_without_baselinecreatinine(self):
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertIsNone(creatinine.baselinecreatinine)
+
+    def test__baselinecreatinine_with_user_with_baselinecreatinine(self):
+        ckd = CkdFactory(user=self.patient)
+        baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd)
+        creatinine = CreatinineFactory(user=self.patient)
+        self.assertEqual(creatinine.baselinecreatinine, baselinecreatinine)
+
+    def test__baselinecreatinine_with_aki_flare_without_baselinecreatinine(self):
+        flare = create_flare(mhs=None)
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertIsNone(creatinine.baselinecreatinine)
+
+    def test__baselinecreatinine_with_aki_flare_with_baselinecreatinine(self):
+        ckd = CkdFactory()
+        baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd)
+        flare = create_flare(mhs=[ckd])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(aki=aki)
+        self.assertEqual(creatinine.baselinecreatinine, baselinecreatinine)
+
     def test__dateofbirth_without_user_or_flare(self):
         creatinine = CreatinineFactory()
         self.assertIsNone(creatinine.dateofbirth)
@@ -223,3 +283,27 @@ class TestCreatinine(TestCase):
         aki = AkiFactory(flare=flare)
         creatinine = CreatinineFactory(aki=aki)
         self.assertEqual(creatinine.gender, flare.gender)
+
+    def test__is_at_baseline_with_baselinecreatinine(self):
+        ckd = CkdFactory()
+        BaselineCreatinineFactory(value=Decimal("2.20"), medhistory=ckd)
+        flare = create_flare(mhs=[ckd])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(value=Decimal("2.0"), aki=aki)
+        self.assertTrue(creatinine.is_at_baseline)
+
+    def test__not_is_at_baseline_with_baselinecreatinine(self):
+        ckd = CkdFactory()
+        BaselineCreatinineFactory(value=Decimal("1.20"), medhistory=ckd)
+        flare = create_flare(mhs=[ckd])
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(value=Decimal("2.21"), aki=aki)
+        self.assertFalse(creatinine.is_at_baseline)
+
+    def test__is_within_range_for_stage(self):
+        ckd = CkdFactory()
+        CkdDetailFactory(stage=Stages.THREE, medhistory=ckd)
+        flare = create_flare(mhs=[ckd], dateofbirth=timezone.now() - timedelta(days=365 * 50), gender=Genders.MALE)
+        aki = AkiFactory(flare=flare)
+        creatinine = CreatinineFactory(value=Decimal("2.0"), aki=aki)
+        self.assertTrue(creatinine.is_within_range_for_stage)

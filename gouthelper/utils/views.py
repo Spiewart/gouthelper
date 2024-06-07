@@ -1504,24 +1504,24 @@ class OneToOneFormMixin(GoutHelperEditMixin):
     def aki(self) -> Union["Aki", None]:
         return self.get_aki()
 
-    def get_aki(self) -> bool | None:
+    def get_aki(self):
         aki = getattr(self.query_object, "aki", None)
         return aki if aki else (getattr(self.object, "aki", None) if self.object else None)
 
-    def get_aki_value(self) -> True | None:
+    def get_aki_value(self):
         return True if self.aki else False
 
-    def get_aki_resolved(self) -> True | None:
-        return self.aki.resolved if self.aki else None
+    def get_aki_status(self):
+        return self.aki.status if self.aki else Aki.Statuses.ONGOING
 
     def get_aki_initial(self) -> dict[str, Any]:
-        return {"value": self.get_aki_value(), "resolved": self.get_aki_resolved()}
+        return {"value": self.get_aki_value(), "status": self.get_aki_status()}
 
     def get_urate(self) -> Union["Lab", None]:
         urate = getattr(self.query_object, "urate", None)
         return urate if urate else (getattr(self.object, "urate", None) if self.object else None)
 
-    def get_urate_value(self) -> str | None:
+    def get_urate_value(self):
         urate = self.get_urate()
         return urate.value if urate else None
 
