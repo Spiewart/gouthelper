@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView  # type: ignore
 
+from ..akis.choices import Statuses
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
 from ..labs.models import BaselineCreatinine
@@ -19,7 +20,7 @@ from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.dicts import MedHistoryTypesAids
-from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.helpers import medhistorys_get, medhistorys_get_default_medhistorytype
 from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
 from ..users.models import Pseudopatient
@@ -515,6 +516,26 @@ class GoutHelperEditMixin:
     def related_object(self) -> Any:
         """Meant to defualt to None, but can be overwritten in child views."""
         return None
+
+    @cached_property
+    def related_objects(self) -> list[Model]:
+        rel_obj_list = []
+        if self.user:
+            return rel_obj_list
+        elif self.create_view and self.related_object:
+            rel_obj_list.append(self.related_object)
+            return rel_obj_list
+        else:
+            for aid_type in self.get_related_objects_attrs():
+                if hasattr(self.object, aid_type):
+                    rel_obj = getattr(self.object, aid_type)
+                    if rel_obj:
+                        rel_obj_list.append(rel_obj)
+            return rel_obj_list
+
+    @classmethod
+    def get_related_objects_attrs(cls) -> list[str]:
+        return ["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"]
 
     @cached_property
     def related_object_attr(self) -> str:
@@ -1363,18 +1384,38 @@ menopause status to evaluate their flare."
             )
 
         if need_to_save_mh(mh):
-            mh.update_set_date(commit=commit)
+            mh.update_set_date_and_save(commit=commit)
 
     def form_valid_save_medhistorys(self) -> None:
         if self.mhs_2_save:
-            for mh in self.mhs_2_save:
-                if self.user:
-                    if mh.user is None:
-                        mh.user = self.user
-                else:
+            if self.user:
+                for mh in self.mhs_2_save:
+                    if self.user:
+                        if mh.user is None:
+                            mh.user = self.user
+                        mh.update_set_date_and_save()
+            else:
+                for mh in self.mhs_2_save:
                     if getattr(mh, self.object_attr, None) is None:
                         setattr(mh, self.object_attr, self.object)
-                mh.update_set_date()
+                    self.form_valid_update_medhistory_related_objects(mh)
+                    mh.update_set_date_and_save()
+
+    def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
+        for related_object in self.related_objects:
+            related_object_attr = related_object.__class__.__name__.lower()
+            if self.form_valid_medhistory_needs_related_object_attr_update(mh, related_object_attr, related_object):
+                setattr(mh, related_object_attr, related_object)
+
+    @staticmethod
+    def form_valid_medhistory_needs_related_object_attr_update(
+        mh: "MedHistory", related_object_attr: str, related_object: "MedAllergyAidHistoryModel"
+    ) -> bool:
+        return (
+            mh.medhistorytype in related_object.aid_medhistorys()
+            or mh._state.adding
+            and medhistorys_get_default_medhistorytype(mh) in related_object.aid_medhistorys()
+        ) and not getattr(mh, related_object_attr, None)
 
     def form_valid_save_medhistory_details(self) -> None:
         if self.mhdets_2_save:
@@ -1387,7 +1428,7 @@ menopause status to evaluate their flare."
     def form_valid_delete_medhistorys(self) -> None:
         if self.mhs_2_remove:
             for mh in self.mhs_2_remove:
-                mh.update_set_date(commit=False)
+                mh.update_set_date_and_save(commit=False)
                 mh.delete()
 
     def form_valid_delete_medhistory_details(self) -> None:
@@ -1512,7 +1553,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         return True if self.aki else False
 
     def get_aki_status(self):
-        return self.aki.status if self.aki else Aki.Statuses.ONGOING
+        return self.aki.status if self.aki else Statuses.ONGOING
 
     def get_aki_initial(self) -> dict[str, Any]:
         return {"value": self.get_aki_value(), "status": self.get_aki_status()}

@@ -216,6 +216,7 @@ function egfr_calc(creatinine, age, gender) {
     Math.max(creatinine / kappa, 1.0) ** -1.2 *
     0.9938 ** age *
     sex_modifier;
+  console.log(egfr);
   return egfr;
 }
 

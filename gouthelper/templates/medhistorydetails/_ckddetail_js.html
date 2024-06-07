@@ -1,4 +1,4 @@
-{% if not view.kwargs.username %}
+{% if not view.req_otos %}
   <script>
     $(document).ready(function() {
       CKD_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = false);
@@ -27,7 +27,7 @@
     });
   </script>
 {% endif %}
-{% if not view.kwargs.username %}
+{% if not view.req_otos %}
   <script>
     // this is executed if there is no username in the url
     $(document).ready(function() {

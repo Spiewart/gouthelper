@@ -292,7 +292,7 @@ class MedHistory(
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
 
-    def update_set_date(self, commit: bool = True) -> None:
+    def update_set_date_and_save(self, commit: bool = True) -> None:
         """Update the set_date field to the current date and time."""
         self.set_date = timezone.now()
         if commit:
