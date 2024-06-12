@@ -180,10 +180,11 @@ class TestCkdForm(TestCase):
         self.assertIn("ckddetail-form", response.rendered_content)
 
     def test___init__without_ckddetail_kwarg(self):
-        CkdForm(ckddetail=False)
+        form = CkdForm(ckddetail=False)
+        # render the form
+        rendered_form = form.as_p()
         # Test that CkdDetailForm is not inserted
-        response = self.client.get(reverse("flares:create"))
-        self.assertNotIn("ckddetail-form", response.rendered_content)
+        self.assertNotIn("ckddetail-form", rendered_form)
 
 
 class TestColchicineinteractionForm(TestCase):

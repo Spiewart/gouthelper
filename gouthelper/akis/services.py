@@ -1,14 +1,14 @@
-from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from django.core.exceptions import ValidationError
+from django.utils.functional import cached_property
 
 from ..labs.helpers import labs_creatinines_are_improving
 from .choices import Statuses
 from .helpers import labs_check_chronological_order_by_date_drawn
 
 if TYPE_CHECKING:
-    from ..labs.models import Creatinine
+    from ..labs.models import BaselineCreatinine, Creatinine
 
 
 class AkiProcessor:
@@ -19,13 +19,14 @@ class AkiProcessor:
         aki_value: bool,
         status: Statuses,
         creatinines: list["Creatinine"],
-        baselinecreatinine: Decimal | None,
+        baselinecreatinine: Union["BaselineCreatinine", None],
     ):
         self.aki_value = aki_value
         self.status = status
         self.creatinines = creatinines
         labs_check_chronological_order_by_date_drawn(self.creatinines)
         self.baselinecreatinine = baselinecreatinine
+        self.add_baselinecreatinine_to_new_creatinines()
         self.aki_errors = {}
         self.creatinines_errors = {}
         self.baselinecreatinine_errors = {}
@@ -35,25 +36,25 @@ class AkiProcessor:
         # Check if AKI value is True
         if self.aki_value:
             if self.status == Statuses.RESOLVED:
-                if not self.aki_is_resolved_via_creatinines():
-                    if self.aki_is_improving_via_creatinines() and self.baselinecreatinine:
+                if not self.aki_is_resolved_via_creatinines:
+                    if self.aki_is_improving_via_creatinines and self.baselinecreatinine:
                         message = "AKI marked as resolved, but the creatinines suggest it is still improving."
                         self.add_errors_for_aki_and_creatinines(message)
                     else:
                         message = "AKI marked as resolved, but the creatinines suggest it is not."
                         self.add_errors_for_aki_and_creatinines(message)
             elif self.status == Statuses.IMPROVING:
-                if self.aki_is_resolved_via_creatinines():
+                if self.aki_is_resolved_via_creatinines:
                     message = "AKI marked as improving, but the creatinines suggest it is resolved."
                     self.add_errors_for_aki_and_creatinines(message)
-                elif not self.aki_is_improving_via_creatinines() and self.baselinecreatinine:
+                elif not self.aki_is_improving_via_creatinines and self.baselinecreatinine:
                     message = "AKI marked as improving, but the creatinines suggest it is not."
                     self.add_errors_for_aki_and_creatinines(message)
             else:
-                if self.aki_is_resolved_via_creatinines():
+                if self.aki_is_resolved_via_creatinines:
                     message = "The AKI is marked as not resolved, but the creatinines suggest it is."
                     self.add_errors_for_aki_and_creatinines(message)
-                elif self.aki_is_improving_via_creatinines():
+                elif self.aki_is_improving_via_creatinines:
                     message = "The AKI is marked as ongoing, but the creatinines suggest it is improving."
                     self.add_errors_for_aki_and_creatinines(message)
         else:
@@ -61,13 +62,16 @@ class AkiProcessor:
                 self.add_errors_for_creatinines_without_aki()
         return self.errors
 
+    @cached_property
     def aki_is_resolved_via_creatinines(self) -> bool:
         return (
             self.baselinecreatinine
+            and self.baselinecreatinine.value
             and self.creatinines[0].is_at_baseline
             or self.creatinines[0].is_within_normal_limits
         )
 
+    @cached_property
     def aki_is_improving_via_creatinines(self) -> bool:
         return labs_creatinines_are_improving(self.creatinines)
 
@@ -96,3 +100,8 @@ class AkiProcessor:
         if "non_field_errors" not in self.creatinines_errors:
             self.creatinines_errors["non_field_errors"] = []
         self.creatinines_errors["non_field_errors"].append(error)
+
+    def add_baselinecreatinine_to_new_creatinines(self) -> None:
+        for creatinine in self.creatinines:
+            if creatinine._state.adding:
+                creatinine.baselinecreatinine = self.baselinecreatinine

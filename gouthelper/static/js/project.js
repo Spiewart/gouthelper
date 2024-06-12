@@ -216,7 +216,6 @@ function egfr_calc(creatinine, age, gender) {
     Math.max(creatinine / kappa, 1.0) ** -1.2 *
     0.9938 ** age *
     sex_modifier;
-  console.log(egfr);
   return egfr;
 }
 
@@ -412,6 +411,44 @@ function dialysis_checker() {
 }
 
 // Flare JS
+function flare_aki_checker() {
+  // checks if aki is checked and shows/hides the aki sub-form fields
+  // and removes the creatinines if aki is not checked
+  if ($('#id_aki-value').val() == 'True') {
+    $('#div_id_aki-status').show();
+    $('#div_id_aki-status').prop('required', true);
+    add_asterisk($('#div_id_aki-status'));
+    $('#creatinines').show();
+  } else {
+    $('#div_id_aki-status').hide();
+    $('#div_id_aki-status').prop('required', false);
+    remove_asterisk($('#div_id_aki-status'));
+    $('#creatinines').hide();
+    creatinines_remove();
+  }
+}
+function creatinines_remove() {
+  // method that removes all creatinine forms from the formset
+  var total = $('#id_creatinine-TOTAL_FORMS').val();
+  // get all the non-empty-form dynamic forms in the creatinines div
+  creatinine_forms = $('#creatinines').find('.dynamic-form').not('.empty-form');
+  non_empty_forms = creatinine_forms.filter(function () {
+    return $(this).find('input[id*="-value"]').val() != '';
+  });
+  for (var i = 0, formCount = non_empty_forms.length; i < formCount; i++) {
+    // get the first id in any of it's children
+    var id = $(non_empty_forms.get(i)).find(':input').first().attr('id');
+    // Find the first element in the form div that has -DELETE in the id
+    var delete_element = $(non_empty_forms.get(i))
+      .find('[id*="-DELETE"]')
+      .first();
+    console.log(delete_element);
+    // Get the anchor tag element from the delete_element
+    var delete_input = $(delete_element).find('.formset-delete');
+    console.log(delete_input);
+    delete_input.click();
+  }
+}
 
 function getAge(dateString) {
   var today = new Date();
@@ -581,7 +618,6 @@ function at_goal_checker() {
   } else {
     $('#at_goal_long_term').hide();
     $('#id_at_goal_long_term').prop('value', 'False');
-    console.log($('#id_at_goal_long_term').val());
   }
 }
 function starting_ult_help_text(subject_the, Tobe) {

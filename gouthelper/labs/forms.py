@@ -44,6 +44,10 @@ class LabForm(BaseLabForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        updated_css_class = (
+            self.fieldset_div_kwargs.get("css_class", "") + f" {self._meta.__class__.__name__.lower()}-form"
+        )
+        self.fieldset_div_kwargs.update({"css_class": updated_css_class})
         self.helper = FormHelper(self)
         self.fields["date_drawn"].initial = None
         self.fields["date_drawn"].label = mark_safe("Date Drawn")
@@ -55,14 +59,17 @@ class LabForm(BaseLabForm):
                 "",
                 Div(
                     Div(
-                        "value",
-                        css_class="col",
+                        Div(
+                            "value",
+                            css_class="col",
+                        ),
+                        Div(
+                            Field("date_drawn", css_class="date_drawn"),
+                            css_class="col",
+                        ),
+                        css_class="row",
                     ),
-                    Div(
-                        Field("date_drawn", css_class="date_drawn"),
-                        css_class="col",
-                    ),
-                    css_class="row",
+                    **self.fieldset_div_kwargs,
                 ),
             ),
         )

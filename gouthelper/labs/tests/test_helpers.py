@@ -22,12 +22,12 @@ from ..helpers import (
     labs_creatinines_are_improving,
     labs_eGFR_calculator,
     labs_eGFR_range_for_stage,
+    labs_formset_get_most_recent_form,
+    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
     labs_round_decimal,
     labs_stage_calculator,
     labs_urate_form_at_goal_within_last_month,
     labs_urate_formset_at_goal_for_six_months,
-    labs_urate_formset_get_most_recent_ordered_urate_form,
-    labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms,
     labs_urate_within_90_days,
     labs_urates_compare_chronological_order_by_date,
     labs_urates_last_at_goal,
@@ -311,8 +311,8 @@ class TestLabsUrateFormAtGoalWithinLastMonth(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertTrue(
             labs_urate_form_at_goal_within_last_month(
-                labs_urate_formset_get_most_recent_ordered_urate_form(
-                    labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_get_most_recent_form(
+                    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
                 )
             )
         )
@@ -336,8 +336,8 @@ class TestLabsUrateFormAtGoalWithinLastMonth(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertFalse(
             labs_urate_form_at_goal_within_last_month(
-                labs_urate_formset_get_most_recent_ordered_urate_form(
-                    labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_get_most_recent_form(
+                    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
                 )
             )
         )
@@ -361,8 +361,8 @@ class TestLabsUrateFormAtGoalWithinLastMonth(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertFalse(
             labs_urate_form_at_goal_within_last_month(
-                labs_urate_formset_get_most_recent_ordered_urate_form(
-                    labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_get_most_recent_form(
+                    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
                 )
             )
         )
@@ -391,7 +391,7 @@ class TestLabsUratesFormsetAtGoalSixMonths(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertTrue(
             labs_urate_formset_at_goal_for_six_months(
-                labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
             )
         )
 
@@ -415,7 +415,7 @@ class TestLabsUratesFormsetAtGoalSixMonths(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertFalse(
             labs_urate_formset_at_goal_for_six_months(
-                labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
             )
         )
 
@@ -429,7 +429,7 @@ class TestLabsUratesFormsetAtGoalSixMonths(TestCase):
         self.assertTrue(formset.is_valid())
         self.assertFalse(
             labs_urate_formset_at_goal_for_six_months(
-                labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(formset)
+                labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(formset)
             )
         )
 

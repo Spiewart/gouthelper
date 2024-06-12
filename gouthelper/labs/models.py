@@ -266,7 +266,7 @@ class Creatinine(CreatinineBase, Lab):
 
     @cached_property
     def is_at_baseline(self) -> bool:
-        if not self.baselinecreatinine:
+        if not self.baselinecreatinine or not self.baselinecreatinine.value:
             raise ValueError(f"{self} has no BaselineCreatinine to compare for baseline equivalence.")
         elif self.ckddetail and self.ckddetail.dialysis:
             raise ValueError(f"Comparing {self} to {self.ckddetail.explanation}.")
@@ -331,7 +331,10 @@ class Urate(Lab):
     )
 
     def __str__(self):
-        return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+        if self.value:
+            return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+        else:
+            return "Urate: No value"
 
     @cached_property
     def date_drawn_or_flare_date(self):

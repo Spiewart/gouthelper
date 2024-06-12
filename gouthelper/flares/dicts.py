@@ -1,7 +1,8 @@
 from ..akis.forms import AkiForm
 from ..dateofbirths.forms import DateOfBirthForm
 from ..genders.forms import GenderForm
-from ..labs.forms import CreatinineFormHelper, FlareCreatinineFormSet, UrateFlareForm
+from ..labs.forms import BaselineCreatinineForm, CreatinineFormHelper, FlareCreatinineFormSet, UrateFlareForm
+from ..medhistorydetails.forms import CkdDetailOptionalForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.forms import (
     AnginaForm,
@@ -30,6 +31,8 @@ MEDHISTORY_FORMS = {
     MedHistoryTypes.PVD: PvdForm,
     MedHistoryTypes.STROKE: StrokeForm,
 }
+
+MEDHISTORY_DETAIL_FORMS = {"ckddetail": CkdDetailOptionalForm, "baselinecreatinine": BaselineCreatinineForm}
 
 OTO_FORMS = {
     "aki": AkiForm,

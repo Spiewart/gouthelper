@@ -141,7 +141,7 @@ class TestPpxCreate(TestCase):
         goutdetail_count = GoutDetail.objects.count()
 
         # Create fake post() data and POST it
-        ppx_data = ppx_data_factory()
+        ppx_data = ppx_data_factory(urates=None)
         response = self.client.post(reverse("ppxs:create"), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
         forms_print_response_errors(response)
@@ -177,7 +177,7 @@ class TestPpxCreate(TestCase):
         # Create a PpxAid object
         ppxaid = create_ppxaid()
         # Create fake post() data and POST it
-        ppx_data = ppx_data_factory()
+        ppx_data = ppx_data_factory(urates=None)
         response = self.client.post(reverse("ppxs:ppxaid-create", kwargs={"ppxaid": ppxaid.pk}), ppx_data)
         # NOTE: Will print errors for all forms in the context_data.
         forms_print_response_errors(response)
@@ -514,7 +514,7 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__post(self):
         """Test the post() method for the view."""
-        data = ppx_data_factory(user=self.user)
+        data = ppx_data_factory(user=self.user, urates=None)
         request = self.factory.post("/fake-url/", data=data)
         request.htmx = False
         if self.user.profile.provider:  # type: ignore
@@ -534,7 +534,7 @@ class TestPpxPseudopatientCreate(TestCase):
     def test__post_sets_object_user(self):
         """Test that the post() method for the view sets the user on the object."""
         # Create some fake data for a User's Ppx
-        data = ppx_data_factory(user=self.user)
+        data = ppx_data_factory(user=self.user, urates=None)
 
         # POST the data
         response = self.client.post(
@@ -551,7 +551,7 @@ class TestPpxPseudopatientCreate(TestCase):
     def test__post_updates_goutdetail(self):
         """Test that the view updates the User's GoutDetail."""
         goutdetail = self.psp.goutdetail
-        data = ppx_data_factory(user=self.psp)
+        data = ppx_data_factory(user=self.psp, urates=None)
 
         # Modify the data to ensure changes to the GoutDetail are being made
         data.update(
@@ -575,7 +575,7 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__post_creates_ppx(self):
         """Test that the view creates the User's Ppx."""
-        data = ppx_data_factory(user=self.psp)
+        data = ppx_data_factory(user=self.psp, urates=None)
 
         # POST the data
         response = self.client.post(
@@ -639,7 +639,7 @@ class TestPpxPseudopatientCreate(TestCase):
     def test__post_creates_ppxs_with_correct_indication(self):
         """Test that the view creates the User's Ppx object with the correct indication."""
         for user in Pseudopatient.objects.all():
-            data = ppx_data_factory(user)
+            data = ppx_data_factory(user, urates=None)
 
             if user.profile.provider:
                 self.client.force_login(user.profile.provider)
@@ -1127,7 +1127,7 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__post(self):
         """Test the post() method for the view."""
-        data = ppx_data_factory(user=self.user)
+        data = ppx_data_factory(user=self.user, urates=None)
         request = self.factory.post(
             "/fake-url/",
             data=data,
@@ -1150,7 +1150,7 @@ class TestPpxPseudopatientUpdate(TestCase):
     def test__post_updates_goutdetail(self):
         """Test that the view updates the User's GoutDetail."""
         goutdetail = self.psp.goutdetail
-        data = ppx_data_factory(user=self.psp)
+        data = ppx_data_factory(user=self.psp, urates=None)
 
         # Modify the data to ensure changes to the GoutDetail are being made
         data.update(
@@ -1178,7 +1178,7 @@ class TestPpxPseudopatientUpdate(TestCase):
     def test__post_updates_ppx(self):
         """Test that the view updates the User's Ppx."""
         # Create fake form data for the User's Ppx
-        data = ppx_data_factory(ppx=self.psp.ppx)
+        data = ppx_data_factory(ppx=self.psp.ppx, urates=None)
 
         # Update the data to change the ppx
         data.update(
@@ -1192,6 +1192,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ppxs:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
+        print(forms_print_response_errors(response))
         assert response.status_code == 302
 
         # Get the Ppx
@@ -1229,6 +1230,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             reverse("ppxs:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
         forms_print_response_errors(response)
+        print(data)
         assert response.status_code == 302
 
         # Get the urates
@@ -1260,7 +1262,7 @@ class TestPpxPseudopatientUpdate(TestCase):
     def test__post_creates_ppxs_with_correct_indication(self):
         """Test that the view creates the User's Ppx object with the correct indication."""
         for ppx in Ppx.objects.select_related("user__pseudopatientprofile").filter(user__isnull=False).all():
-            data = ppx_data_factory(ppx=ppx)
+            data = ppx_data_factory(ppx=ppx, urates=None)
 
             if ppx.user.profile.provider:
                 self.client.force_login(ppx.user.profile.provider)
@@ -1453,8 +1455,10 @@ class TestPpxUpdate(TestCase):
         data = ppx_data_factory(ppx=self.ppx, urates=[])
 
         # Modify the first urate date_drawn to be an invalid value
+        print(data)
         data.update(
             {
+                "urate-0-value": "5.9",
                 "urate-0-date_drawn": "",
             }
         )

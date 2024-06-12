@@ -39,7 +39,7 @@ class TestAkiProcessor(TestCase):
             aki_value=False,
             status=Statuses.ONGOING,
             creatinines=self.creatinines,
-            baselinecreatinine=self.baselinecreatinine.value,
+            baselinecreatinine=self.baselinecreatinine,
         )
         errors = processor.get_errors()
         self.assertIn("creatinines", errors)
@@ -91,7 +91,7 @@ class TestAkiProcessor(TestCase):
             aki_value=True,
             status=Statuses.IMPROVING,
             creatinines=self.creatinines,
-            baselinecreatinine=self.baselinecreatinine.value,
+            baselinecreatinine=self.baselinecreatinine,
         )
         errors = processor.get_errors()
         self.assertFalse(errors)
@@ -107,7 +107,7 @@ class TestAkiProcessor(TestCase):
             aki_value=True,
             status=Statuses.IMPROVING,
             creatinines=self.creatinines,
-            baselinecreatinine=self.baselinecreatinine.value,
+            baselinecreatinine=self.baselinecreatinine,
         )
         errors = processor.get_errors()
         self.assertIn("aki", errors)

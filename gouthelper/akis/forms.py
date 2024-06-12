@@ -20,6 +20,7 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fieldset_div_kwargs.update({"css_class": "sub-form"})
         self.fields.update(
             {
                 "value": forms.TypedChoiceField(
@@ -56,6 +57,12 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
             ),
         )
         forms_helper_insert_creatinines_formset(self)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("value", False) and "status" not in cleaned_data:
+            cleaned_data["status"] = Aki.Statuses.ONGOING
+        return cleaned_data
 
     def check_for_value(self):
         value = self.cleaned_data["value"]

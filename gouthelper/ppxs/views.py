@@ -22,11 +22,11 @@ from ..contents.choices import Contexts
 from ..goalurates.choices import GoalUrates
 from ..labs.forms import PpxUrateFormSet, UrateFormHelper
 from ..labs.helpers import (
+    labs_formset_get_most_recent_form,
+    labs_formset_has_one_or_more_valid_labs,
+    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
     labs_urate_form_at_goal_within_last_month,
     labs_urate_formset_at_goal_for_six_months,
-    labs_urate_formset_get_most_recent_ordered_urate_form,
-    labs_urate_formset_has_one_or_more_valid_urates,
-    labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms,
     labs_urates_annotate_order_by_date_drawn_or_flare_date,
 )
 from ..labs.models import Urate
@@ -82,12 +82,12 @@ class PpxBase:
         goutdetail_form = self.medhistory_detail_forms["goutdetail"]
         at_goal = goutdetail_form.cleaned_data.get("at_goal", None)
         at_goal_long_term = goutdetail_form.cleaned_data.get("at_goal_long_term", None)
-        urate_formsets = self.lab_formsets["urate"][0]
-        if labs_urate_formset_has_one_or_more_valid_urates(urate_formset=urate_formsets):
-            ordered_urate_formset = labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(
-                urate_formset=urate_formsets
+        urate_formset = self.lab_formsets["urate"][0]
+        if labs_formset_has_one_or_more_valid_labs(formset=urate_formset):
+            ordered_urate_formset = labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
+                formset=urate_formset
             )
-            most_recent_urate_form = labs_urate_formset_get_most_recent_ordered_urate_form(ordered_urate_formset)
+            most_recent_urate_form = labs_formset_get_most_recent_form(ordered_urate_formset)
             at_goal_within_last_month = labs_urate_form_at_goal_within_last_month(
                 urate_form=most_recent_urate_form, goal_urate=goal_urate
             )

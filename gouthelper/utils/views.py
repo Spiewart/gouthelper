@@ -632,26 +632,27 @@ class LabFormSetsMixin(GoutHelperEditMixin):
     ) -> None:
         """Method adds a formset of labs to the context. Uses a QuerySet that takes a query_object
         as an arg to populate existing Lab objects."""
-
         for lab, lab_tup in self.lab_formsets.items():
             if f"{lab}_formset" not in kwargs:
-                if self.query_object and self.lab_belong_to_query_object(lab):
-                    kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(
-                        lab, {self.query_obj_attr: self.query_object}
-                    )
+                if self.query_object and self.lab_belongs_to_query_object(lab):
+                    queryset_kwargs = {self.query_obj_attr: self.query_object}
                 else:
                     lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
-                    if lab_related_onetoone_attr and self.query_object:
-                        kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(
-                            lab, {lab_related_onetoone_attr: getattr(self.query_object, lab_related_onetoone_attr)}
-                        )
+                    if lab_related_onetoone_attr and self.lab_belongs_to_object(lab):
+                        queryset_kwargs = {lab_related_onetoone_attr: getattr(self.object, lab_related_onetoone_attr)}
+                    elif self.user:
+                        queryset_kwargs = {"user": self.user}
                     else:
-                        kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(lab, None)
+                        queryset_kwargs = None
+                kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(lab, queryset_kwargs)
             if f"{lab}_formset_helper" not in kwargs:
                 kwargs[f"{lab}_formset_helper"] = lab_tup[1]
 
-    def lab_belong_to_query_object(self, lab: str) -> bool:
-        return self.query_obj_attr in self.lab_formsets[lab][0].model.related_models() or self.user
+    def lab_belongs_to_query_object(self, lab: str) -> bool:
+        return not self.user and self.query_obj_attr in self.lab_formsets[lab][0].model.related_models()
+
+    def lab_belongs_to_object(self, lab: str) -> bool:
+        return self.object_attr in self.lab_formsets[lab][0].model.related_models()
 
     def lab_belongs_to_onetoone(self, lab: str) -> str | None:
         return next(
@@ -664,6 +665,9 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             ),
             None,
         )
+
+    def lab_oto_belongs_to_query_object(self, oto_attr: str) -> bool:
+        return self.query_obj_attr in self.oto_forms[oto_attr].model.related_models()
 
     def form_valid_save_and_delete_labs(self) -> None:
         if self.labs_2_save:
@@ -679,8 +683,6 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                 lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab.__class__.__name__.lower())
                 if lab_related_onetoone_attr and getattr(lab, lab_related_onetoone_attr, None) is None:
                     setattr(lab, lab_related_onetoone_attr, getattr(self.object, lab_related_onetoone_attr))
-                elif lab_related_onetoone_attr and (lab, lab_related_onetoone_attr):
-                    continue
                 lab.save()
         if self.labs_2_rem:
             for lab in self.labs_2_rem:
@@ -689,31 +691,28 @@ class LabFormSetsMixin(GoutHelperEditMixin):
     def post_populate_lab_formsets(self) -> None:
         """Method to populate a dict of lab forms with POST data in the post() method."""
         for lab, lab_tup in self.lab_formsets.items():
-            if self.query_obj_attr:
-                if self.query_obj_attr in lab_tup[0].model.related_models():
-                    self.lab_formsets.update(
-                        {lab: (self.populate_a_lab_formset(lab, {self.query_obj_attr: self.query_object}), lab_tup[1])}
-                    )
-                else:
-                    related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
-                    if related_onetoone_attr:
-                        queryset_kwargs = (
-                            {related_onetoone_attr: getattr(self.query_object, related_onetoone_attr)}
-                            if getattr(self.query_object, related_onetoone_attr, None)
-                            else None
-                        )
-                        self.lab_formsets.update(
-                            {
-                                lab: (
-                                    self.populate_a_lab_formset(lab, queryset_kwargs if queryset_kwargs else None),
-                                    lab_tup[1],
-                                )
-                            }
-                        )
-                    else:
-                        self.lab_formsets.update({lab: (self.populate_a_lab_formset(lab, None), lab_tup[1])})
+            if self.query_obj_attr and self.lab_belongs_to_query_object(lab):
+                queryset_kwargs = {self.query_obj_attr: self.query_object}
             else:
-                self.lab_formsets.update({lab: (self.populate_a_lab_formset(lab, None), lab_tup[1])})
+                lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
+                if lab_related_onetoone_attr and self.lab_belongs_to_object(lab):
+                    queryset_kwargs = (
+                        {lab_related_onetoone_attr: getattr(self.object, lab_related_onetoone_attr)}
+                        if getattr(self.object, lab_related_onetoone_attr, None)
+                        else None
+                    )
+                elif self.user:
+                    queryset_kwargs = {"user": self.user}
+                else:
+                    queryset_kwargs = None
+            self.lab_formsets.update(
+                {
+                    lab: (
+                        self.populate_a_lab_formset(lab, queryset_kwargs),
+                        lab_tup[1],
+                    )
+                }
+            )
 
     def post_process_lab_formsets(self) -> None:
         """Method to process the forms in a Lab formset for the post() method.
@@ -781,9 +780,9 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                         "value" in form.cleaned_data
                         and not form.cleaned_data["DELETE"]
                         and (
-                            _lab_needs_relation_set(form.instance)
-                            or (form.instance and form.has_changed())
+                            (form.instance and form.has_changed())
                             or form.instance is None
+                            or _lab_needs_relation_set(form.instance)
                         )
                     ):
                         self.labs_2_save.append(form.instance)
@@ -981,13 +980,13 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 mh_obj = self.get_mh_obj(mhtype)
                 form_kwargs = {"str_attrs": self.str_attrs, "patient": self.user, "request_user": self.request_user}
                 if mhtype == MedHistoryTypes.CKD:
-                    form_kwargs.update({"ckddetail": self.ckddetail})
+                    form_kwargs.update({"ckddetail": self.ckddetail, "sub-form": True})
                     self.ckddetail_mh_context(
                         kwargs=kwargs,
                         mh_obj=mh_obj,
                     )
                 elif mhtype == MedHistoryTypes.GOUT:
-                    form_kwargs.update({"goutdetail": self.goutdetail})
+                    form_kwargs.update({"goutdetail": self.goutdetail, "sub-form": True})
                     if self.goutdetail:
                         try:
                             self.goutdetail_mh_context(kwargs=kwargs, mh_obj=mh_obj)
@@ -1550,10 +1549,10 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         return aki if aki else (getattr(self.object, "aki", None) if self.object else None)
 
     def get_aki_value(self):
-        return True if self.aki else False
+        return "True" if self.aki else "False"
 
     def get_aki_status(self):
-        return self.aki.status if self.aki else Statuses.ONGOING
+        return self.aki.Statuses(self.aki.status) if self.aki else Statuses.ONGOING
 
     def get_aki_initial(self) -> dict[str, Any]:
         return {"value": self.get_aki_value(), "status": self.get_aki_status()}
@@ -1576,7 +1575,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                     "request_user": self.request_user,
                     "str_attrs": self.str_attrs,
                 }
-                oto_form_kwargs.update({"initial": {"value": self.get_onetoone_value(onetoone)}})
+                oto_form_kwargs.update({"initial": self.get_onetoone_initial(onetoone=onetoone)})
                 self.oto_forms.update({onetoone: oto_form(self.request.POST, **oto_form_kwargs)})
 
     def get_oto_obj(

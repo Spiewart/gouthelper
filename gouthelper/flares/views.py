@@ -21,15 +21,22 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
+from ..akis.services import AkiProcessor
 from ..contents.choices import Contexts
 from ..dateofbirths.models import DateOfBirth
 from ..genders.models import Gender
+from ..labs.helpers import (
+    labs_formset_has_one_or_more_valid_labs,
+    labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
+    labs_get_list_of_instances_from_list_of_forms_cleaned_data,
+)
 from ..labs.models import Creatinine
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
 from .dicts import (
     LAB_FORMSETS,
+    MEDHISTORY_DETAIL_FORMS,
     MEDHISTORY_FORMS,
     OTO_FORMS,
     PATIENT_MEDHISTORY_FORMS,
@@ -71,6 +78,7 @@ class FlareBase:
 
     LAB_FORMSETS = LAB_FORMSETS
     MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
     OTO_FORMS = OTO_FORMS
     REQ_OTOS = REQ_OTOS
 
@@ -81,6 +89,38 @@ class FlareBase:
             if hasattr(self.object, "aki")
             else Creatinine.objects.none()
         )
+
+    def post_process_aki(self) -> None:
+        creatinine_formsets = self.lab_formsets["creatinine"][0]
+        if labs_formset_has_one_or_more_valid_labs(creatinine_formsets):
+            aki_form = self.oto_forms["aki"]
+            aki = aki_form.cleaned_data.get("value", None)
+            status = aki_form.cleaned_data.get("status", None)
+            baselinecreatinine_form = self.medhistory_detail_forms["baselinecreatinine"]
+            baselinecreatinine = baselinecreatinine_form.instance
+            ordered_creatinine_formset = labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
+                creatinine_formsets
+            )
+            ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
+                ordered_creatinine_formset
+            )
+            processor = AkiProcessor(
+                aki_value=aki,
+                status=status,
+                creatinines=ordered_list_of_creatinines,
+                baselinecreatinine=baselinecreatinine,
+            )
+            aki_creatinine_errors = processor.get_errors()
+            if aki_creatinine_errors:
+                for form_key, error_dict in aki_creatinine_errors.items():
+                    if form_key in self.oto_forms:
+                        for error_key, error in error_dict.items():
+                            self.oto_forms[form_key].add_error(error_key, error)
+                    elif form_key in self.lab_formsets:
+                        for error_key, error in error_dict.items():
+                            self.lab_formsets[form_key][0][0].add_error(error_key, error)
+                if not self.errors_bool:
+                    self.errors_bool = True
 
     def post_process_urate_check(self) -> None:
         urate_val = self.oto_forms["urate"].cleaned_data.get("value", None)
@@ -113,6 +153,7 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
+        self.post_process_aki()
         self.post_process_menopause()
         self.post_process_urate_check()
         if self.errors or self.errors_bool:
@@ -224,6 +265,7 @@ class FlarePseudopatientCreate(
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
+        self.post_process_aki()
         self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
@@ -352,8 +394,17 @@ class FlarePseudopatientUpdate(
     permission_required = "flares.can_change_flare"
     success_message = "%(username)s's FlareAid successfully updated."
 
+    @cached_property
+    def creatinine_formset_qs(self):
+        return (
+            Creatinine.objects.filter(aki=self.object.aki).order_by("date_drawn")
+            if hasattr(self.object, "aki")
+            else Creatinine.objects
+        )
+
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
+        self.post_process_aki()
         self.post_process_urate_check()
         if self.errors or self.errors_bool:
             if self.errors_bool and not self.errors:
@@ -370,11 +421,20 @@ class FlareUpdate(
 
     success_message = "Flare updated successfully!"
 
+    @cached_property
+    def creatinine_formset_qs(self):
+        return (
+            Creatinine.objects.filter(aki=self.object.aki).order_by("date_drawn")
+            if hasattr(self.object, "aki")
+            else Creatinine.objects
+        )
+
     def get_queryset(self):
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
+        self.post_process_aki()
         self.post_process_menopause()
         self.post_process_urate_check()
         if self.errors or self.errors_bool:

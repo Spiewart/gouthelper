@@ -74,7 +74,7 @@ def flare_data_factory(
         labs={"creatinine": creatinines if creatinines or creatinines is None else []},
         aid_otos=["aki", "dateofbirth", "gender", "urate"],
         otos=otos,
-        req_otos=["dateofbirth", "gender"],
+        req_otos=["aki", "dateofbirth", "gender"],
         user_otos=["dateofbirth", "gender"],
         user=user,
         aid_obj=flare,
@@ -129,7 +129,7 @@ def flare_data_factory(
         if data.get("aki-value", None):
             data.update(data_constructor.create_lab_data())
         else:
-            data_constructor.labs = []
+            data_constructor.labs = None
             data.update(data_constructor.create_lab_data())
     else:
         data["medical_evaluation"] = False
@@ -138,7 +138,7 @@ def flare_data_factory(
         data["crystal_analysis"] = ""
         data["diagnosed"] = ""
         data["urate_check"] = ""
-        data_constructor.labs = []
+        data_constructor.labs = None
         data.update(data_constructor.create_lab_data())
     return data
 

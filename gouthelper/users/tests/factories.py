@@ -372,6 +372,8 @@ def create_psp(
         # If plus is True, create a random number of MedAllergy objects
         if plus:
             for _ in range(0, random.randint(0, 2)):
-                MedAllergyFactory(user=psp, treatment=treatments.pop(random.randint(0, len(treatments) - 1)))
-
+                try:
+                    MedAllergyFactory(user=psp, treatment=treatments.pop(random.randint(0, len(treatments) - 1)))
+                except IntegrityError:
+                    pass
     return psp

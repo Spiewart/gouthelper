@@ -9,6 +9,7 @@ from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
+from ..akis.choices import Statuses
 from ..akis.models import Aki
 from ..akis.tests.factories import AkiFactory
 from ..dateofbirths.helpers import age_calc
@@ -106,7 +107,7 @@ def fake_creatinine_decimal() -> Decimal:
         right_digits=2,
         positive=True,
         min_value=0.5,
-        max_value=30,
+        max_value=10,
     )
 
 
@@ -254,6 +255,8 @@ def set_oto(
             self_obj.hlab5801 = fake.boolean() if fake.boolean() else None
         elif onetoone == "urate":
             self_obj.urate = oto_random_urate_or_None()
+        elif onetoone == "aki":
+            self_obj.aki = str(fake.boolean())
     else:
         setattr(self_obj, onetoone, None)
 
@@ -518,7 +521,9 @@ class LabDataMixin(DataMixin):
     def create_lab_data(self) -> dict:
         data = {}
         for lab in self.aid_labs:
-            if self.user:
+            if self.labs is None or self.labs.get(lab, None) is None:
+                init_labs = None
+            elif self.user:
                 init_labs = get_qs_or_set(self.user, lab)
             elif self.aid_obj:
                 if hasattr(self.aid_obj, f"{lab}_set"):
@@ -582,7 +587,7 @@ class LabDataMixin(DataMixin):
                     num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
                 else:
                     num_new_labs = 0
-            elif self.labs is None:
+            elif not self.labs and self.labs is not None:
                 num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
             else:
                 num_new_labs = 0
@@ -714,6 +719,8 @@ class OneToOneDataMixin(DataMixin):
                 continue
             elif getattr(self, onetoone, None) is not None:
                 data[f"{onetoone}-value"] = getattr(self, onetoone)
+            if onetoone == "aki":
+                data[f"{onetoone}-status"] = Statuses.ONGOING
         return data
 
     def create(self):

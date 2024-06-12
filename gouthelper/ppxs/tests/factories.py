@@ -38,7 +38,7 @@ def ppx_data_factory(
     user: Union["User", None] = None,
     ppx: Ppx | None = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
-    urates: list[Urate, Decimal, tuple[Urate, Any]] | None = None,
+    urates: list[Urate, Decimal, tuple[Urate, Any]] | None = [],
     **kwargs,
 ) -> dict[str, str]:
     """Create data for related MedHistory and Urate objects for the Ppx.
@@ -62,7 +62,7 @@ def ppx_data_factory(
         bool_mhs=[MedHistoryTypes.GOUT],
         req_mhs=[MedHistoryTypes.GOUT],
         aid_mh_dets=[MedHistoryTypes.GOUT],
-        labs={"urate": urates if urates or urates is None else []},
+        labs={"urate": urates if urates is not None else None},
         mh_dets=mh_dets,
         req_mh_dets=[MedHistoryTypes.GOUT],
         user=user,

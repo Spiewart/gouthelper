@@ -178,11 +178,13 @@ kidney disease (CKD)?"
                         ),
                         div_class="row",
                     ),
+                    css_id="ckd-form",
+                    **self.fieldset_div_kwargs,
                 ),
             ),
         )
         if ckddetail:
-            self.helper.layout[0].append(
+            self.helper.layout[0][0].append(
                 Div(
                     Div(
                         Div(

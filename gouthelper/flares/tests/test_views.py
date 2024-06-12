@@ -364,8 +364,9 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
     def test__creatinines_created(self):
         # Create Flare data with creatinines
-        flare_data = flare_data_factory(creatinines=[Decimal("1.0"), Decimal("2.0")])
+        flare_data = flare_data_factory(creatinines=[Decimal("3.0"), Decimal("3.0")])
         response = self.client.post(reverse("flares:create"), flare_data)
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         new_flare = Flare.objects.order_by("created").last()
@@ -563,7 +564,8 @@ class TestFlarePseudopatientCreate(TestCase):
                                     }
                                 else:
                                     assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
-            assert "ckddetail_form" not in response.context_data
+            assert "ckddetail_form" in response.context_data
+            assert "baselinecreatinine_form" in response.context_data
             assert "goutdetail_form" not in response.context_data
 
     def test__get_permission_object(self):
@@ -940,10 +942,11 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
     def test__creatinines_created(self):
         # Create Flare data with creatinines
-        flare_data = flare_data_factory(user=self.psp, creatinines=[Decimal("1.0"), Decimal("2.0")])
+        flare_data = flare_data_factory(user=self.psp, creatinines=[Decimal("2.0"), Decimal("2.0")])
         response = self.client.post(
             reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
         )
+        forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
 
         new_flare = Flare.objects.filter(user=self.psp).order_by("created").last()
@@ -1622,10 +1625,10 @@ class TestFlarePseudopatientUpdate(TestCase):
                 assert "aki_form" in response.context_data
                 assert response.context_data["aki_form"].instance == flare.aki
                 assert response.context_data["aki_form"].instance._state.adding is False
-                assert response.context_data["aki_form"].initial == {"value": True, "resolved": flare.aki.resolved}
+                assert response.context_data["aki_form"].initial == {"value": "True", "status": flare.aki.status}
             else:
                 assert response.context_data["aki_form"].instance._state.adding is True
-                assert response.context_data["aki_form"].initial == {"value": None, "resolved": False}
+                assert response.context_data["aki_form"].initial == {"value": None, "status": Aki.Statuses.ONGOING}
 
     def test__get_context_data_medhistorys(self):
         """Test that the context data includes the user's
@@ -1673,7 +1676,8 @@ class TestFlarePseudopatientUpdate(TestCase):
                                     }
                                 else:
                                     assert response.context_data[f"{mhtype}_form"].initial == {f"{mhtype}-value": None}
-            assert "ckddetail_form" not in response.context_data
+            assert "ckddetail_form" in response.context_data
+            assert "baselinecreatinine_form" in response.context_data
             assert "goutdetail_form" not in response.context_data
 
     def test__get_form_kwargs(self):
@@ -1817,22 +1821,26 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # Assert that the onetoone_forms dict has the correct initial data
                 self.assertEqual(
                     oto_form.initial["value"],
-                    (True if onetoone == "aki" else getattr(view.object, onetoone, None).value)
+                    ("True" if onetoone == "aki" else getattr(view.object, onetoone, None).value)
                     if getattr(view.object, onetoone, False)
                     else None,
                 )
                 if onetoone == "aki":
-                    self.assertIn("resolved", oto_form.initial)
+                    self.assertIn("status", oto_form.initial)
 
     def test__post_process_oto_forms(self):
         """Test the post_process_oto_forms() method for the view."""
+
+        def convert_str_bool_to_bool(val: str) -> bool:
+            return True if val == "True" else False if val == "False" else val
+
         # Iterate over the Pseudopatients
         for user in Pseudopatient.objects.all():
             # Fetch the Flare, each User will only have 1
             flare = user.flare_set.first()
+            data = flare_data_factory(user=user, flare=flare)
             # Create a fake POST request
-            request = self.factory.post("/fake-url/")
-            request.data = flare_data_factory(user=user, flare=flare)
+            request = self.factory.post("/fake-url/", data)
             request.user = user.profile.provider if user.profile.provider else self.anon_user
             # Call the view and get the object
             view = self.view()
@@ -1841,9 +1849,9 @@ class TestFlarePseudopatientUpdate(TestCase):
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
             view.post_populate_oto_forms()
-
             for form in view.oto_forms.values():
-                form.is_valid()
+                assert form.is_valid()
+
             # Call the post_process_oto_forms() method and assign to new lists
             # of onetoones to save and delete to test against
             view.post_process_oto_forms()
@@ -1853,43 +1861,45 @@ class TestFlarePseudopatientUpdate(TestCase):
                 # If the form is adding a new object, assert that there's no initial data
                 if oto_form.instance._state.adding:
                     assert not initial
-                data_val = request.data.get(f"{onetoone}-value", "")
+                data_val = data.get(f"{onetoone}-value", "")
                 # Check if there was no pre-existing onetoone and there is no data to create a new one
                 filtered_otos_to_save = [oto for oto in view.oto_2_save if oto.__class__.__name__.lower() == onetoone]
                 filtered_otos_to_rem = [oto for oto in view.oto_2_rem if oto.__class__.__name__.lower() == onetoone]
-                if not initial and data_val == (None or ""):
+                if not initial and (not convert_str_bool_to_bool(data_val) or data_val == ""):
                     # Should not be marked for save or deletion
                     assert not next(iter(onetoone for onetoone in filtered_otos_to_save), None) and not next(
                         iter(onetoone for onetoone in filtered_otos_to_rem), None
                     )
                 # If there was no pre-existing onetoone but there is data to create a new one
-                elif not initial and data_val != (None or ""):
+                elif not initial and (convert_str_bool_to_bool(data_val) and data_val != ""):
                     # Should be marked for save and not deletion
-                    assert next(iter(onetoone for onetoone in view.oto_2_save)) and not next(
-                        iter(onetoone for onetoone in view.oto_2_rem), None
+                    assert next(iter(onetoone for onetoone in filtered_otos_to_save)) and not next(
+                        iter(onetoone for onetoone in filtered_otos_to_rem), None
                     )
                 # If there was a pre-existing onetoone but the data is not present in the POST data
-                elif initial and data_val == (None or ""):
+                elif initial and (not convert_str_bool_to_bool(data_val) or data_val == ""):
                     # Should be marked for deletion and not save
-                    assert not next(iter(onetoone for onetoone in view.oto_2_save), None) and next(
-                        iter(onetoone for onetoone in view.oto_2_rem)
+                    assert not next(iter(onetoone for onetoone in filtered_otos_to_save), None) and next(
+                        iter(onetoone for onetoone in filtered_otos_to_rem)
                     )
                 # If there is a pre-existing object and there is data in the POST request
-                elif initial and data_val != (None or ""):
+                elif initial and (convert_str_bool_to_bool(data_val) and data_val != ""):
+                    initial_status = oto_form.initial.get("status", None)
+                    data_status = data.get(f"{onetoone}-status", None)
                     # If the data changed, the object should be marked for saving
-                    if initial != data_val:
-                        assert next(iter(onetoone for onetoone in view.oto_2_save)) and not next(
-                            iter(onetoone for onetoone in view.oto_2_rem), None
+                    if initial != data_val or initial_status != data_status:
+                        assert next(iter(onetoone for onetoone in filtered_otos_to_save), None) and not next(
+                            iter(onetoone for onetoone in filtered_otos_to_rem), None
                         )
                     # Otherwise it should not be marked for saving or
                     # deletion and the form's changed_data dict should be empty
                     else:
                         assert (
-                            not next(iter(onetoone for onetoone in view.oto_2_save), None)
-                            and not next(iter(onetoone for onetoone in view.oto_2_rem), None)
-                            and not view.oto_forms[f"{onetoone}_form"].changed_data
+                            not next(iter(onetoone for onetoone in filtered_otos_to_save), None)
+                            and not next(iter(onetoone for onetoone in filtered_otos_to_rem), None)
+                            and not view.oto_forms[f"{onetoone}"].changed_data
                         )
-                        assert view.oto_forms[f"{onetoone}_form"].changed_data == []
+                        assert view.oto_forms[f"{onetoone}"].changed_data == []
 
     def test__post(self):
         """Test the post() method for the view."""

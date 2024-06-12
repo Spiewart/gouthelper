@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.core.exceptions import ValidationError  # type: ignore
+from django.forms.models import BaseModelFormSet  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
@@ -13,6 +14,7 @@ from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
+    from django.forms import ModelForm  # type: ignore
 
     from .forms import PpxUrateFormSet, UrateForm
     from .models import Creatinine, Lab, Urate
@@ -110,7 +112,11 @@ def labs_creatinines_are_improving(
 ) -> bool:
     """Method that checks if a list or QuerySet of creatinines are improving."""
     for creatinine_i, creatinine in enumerate(creatinines):
-        if creatinine_i > 0 and labs_creatinines_improved(creatinine, creatinines[creatinine_i - 1]):
+        if (
+            creatinine_i > 0
+            and labs_creatinines_improved(creatinine, creatinines[creatinine_i - 1])
+            and creatinines[0].value <= creatinine.value
+        ):
             return True
     return False
 
@@ -410,16 +416,16 @@ def labs_urate_form_not_at_goal_within_last_month(
     return False
 
 
-def labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(
-    urate_formset: "PpxUrateFormSet",
-) -> list["Urate"]:
-    """Method that orders a urates formset by date_drawn, removes blank forms and forms that have been deleted,
-    and returns a list of Urate objects."""
+def labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
+    formset: "BaseModelFormSet",
+) -> list["ModelForm"]:
+    """Method that orders a labs formset by date_drawn, removes blank forms and forms that have been deleted,
+    and returns a list of Lab objects."""
 
     # Eliminate blank forms and forms that have been deleted
     ordered_formset = [
         form
-        for form in urate_formset
+        for form in formset
         if form.cleaned_data.get("date_drawn")
         and form.cleaned_data.get("value")
         and not form.cleaned_data.get("DELETE")
@@ -431,20 +437,27 @@ def labs_urate_formset_order_by_dates_remove_deleted_and_blank_forms(
     return ordered_formset
 
 
-def labs_urate_formset_get_most_recent_ordered_urate_form(
-    ordered_urate_formset: "PpxUrateFormSet",
-) -> Union["UrateForm", None]:
-    """Method that returns the most recent UrateForm object in an ordered urates formset.
+def labs_get_list_of_instances_from_list_of_forms_cleaned_data(
+    list_of_forms: list["ModelForm"],
+) -> list["Lab"]:
+    """Method that returns a list of urate values from a labs formset."""
+    return [form.instance for form in list_of_forms]
+
+
+def labs_formset_get_most_recent_form(
+    ordered_formset: "BaseModelFormSet",
+) -> Union["ModelForm", None]:
+    """Method that returns the most recent LabForm object in an ordered labs formset.
     Ordered: sorted by date_drawn in descending order, forms marked for deletion removed."""
-    return ordered_urate_formset[0] if ordered_urate_formset else None
+    return ordered_formset[0] if ordered_formset else None
 
 
-def labs_urate_formset_has_one_or_more_valid_urates(
-    urate_formset: "PpxUrateFormSet",
+def labs_formset_has_one_or_more_valid_labs(
+    formset: "BaseModelFormSet",
 ) -> bool:
     """Method that checks if a urates formset has at least one valid Urate object."""
-    for urate_form in urate_formset:
-        date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(urate_form)
+    for form in formset:
+        date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(form)
         if date_drawn and value and not delete:
             return True
     return False

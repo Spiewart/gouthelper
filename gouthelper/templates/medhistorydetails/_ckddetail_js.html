@@ -62,7 +62,7 @@
   </script>
 {% endif %}
 {% if optional %}
-  {% if view.kwargs.username %}
+  {% if view.req_otos %}
     <script>
       $(document).ready(function() {
         CKD_optional_checker(dob_optional = '{{dob_optional}}', gender_optional = '{{gender_optional}}', patient = true);
