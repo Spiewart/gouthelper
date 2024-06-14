@@ -11,7 +11,6 @@ from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
 from django.views.generic import CreateView  # type: ignore
 
-from ..akis.choices import Statuses
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
 from ..labs.models import BaselineCreatinine
@@ -1552,7 +1551,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
         return "True" if self.aki else "False"
 
     def get_aki_status(self):
-        return self.aki.Statuses(self.aki.status) if self.aki else Statuses.ONGOING
+        return self.aki.Statuses(self.aki.status) if self.aki else None
 
     def get_aki_initial(self) -> dict[str, Any]:
         return {"value": self.get_aki_value(), "status": self.get_aki_status()}

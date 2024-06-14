@@ -204,11 +204,14 @@ for these symptoms?"
                     Div(
                         Div(
                             Div(
-                                InlineCheckboxes("joints"),
-                                css_class="col",
+                                Div(
+                                    InlineCheckboxes("joints"),
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="joints",
                             ),
-                            css_class="row",
-                            css_id="joints",
+                            css_class="sub-form",
                         ),
                         Div(
                             Div(
@@ -282,40 +285,46 @@ for these symptoms?"
                         ),
                         Div(
                             Div(
-                                "aspiration",
-                                css_class="col",
-                            ),
-                            css_class="row",
-                            css_id="aspiration",
-                        ),
-                        Div(
-                            Div(
-                                "crystal_analysis",
-                                css_class="col",
-                            ),
-                            css_class="row",
-                            css_id="crystal_analysis",
-                        ),
-                        Div(
-                            Div(
-                                "urate_check",
-                                css_class="col",
-                            ),
-                            css_class="row",
-                            css_id="urate_check",
-                        ),
-                        Div(
-                            Div(
-                                HTML(
-                                    """
-                                    {% load crispy_forms_tags %}
-                                    {% crispy urate_form %}
-                                    """
+                                Div(
+                                    "aspiration",
+                                    css_class="col",
                                 ),
-                                css_class="col",
+                                css_class="row",
+                                css_id="aspiration",
                             ),
-                            css_class="row",
-                            css_id="urate",
+                            Div(
+                                Div(
+                                    "crystal_analysis",
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="crystal_analysis",
+                            ),
+                            css_class="sub-form",
+                        ),
+                        Div(
+                            Div(
+                                Div(
+                                    "urate_check",
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="urate_check",
+                            ),
+                            Div(
+                                Div(
+                                    HTML(
+                                        """
+                                        {% load crispy_forms_tags %}
+                                        {% crispy urate_form %}
+                                        """
+                                    ),
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="urate",
+                            ),
+                            css_class="sub-form",
                         ),
                         css_id="medical-evaluation",
                     ),

@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..choices import BOOL_CHOICES
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import ModelFormKwargMixin, forms_helper_insert_creatinines_formset
+from .choices import Statuses
 from .models import Aki
 
 
@@ -17,6 +18,7 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
         fields = ["status"]
 
     prefix = "aki"
+    AkiFormStatuses = Statuses.choices + [(None, "I don't know")]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -45,8 +47,14 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
             )
         )
         self.fields["value"].label = "Acute Kidney Injury"
+        self.fields["status"].choices = self.AkiFormStatuses
+        self.fields["status"].initial = None
         self.fields["status"].label = "AKI Status"
-        self.fields["status"].help_text = _("What is the status of this AKI?")
+        self.fields["status"].help_text = _(
+            "What is the status of this AKI? If unknown, you can enter creatinine \
+values below and GoutHelper will figure it out. Otherwise, GoutHelper will \
+assume the AKI is ongoing."
+        )
         self.fields["status"].required = False
         self.helper = FormHelper()
         self.helper.form_tag = False

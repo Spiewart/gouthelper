@@ -3,12 +3,16 @@ from typing import TYPE_CHECKING, Union
 from django.core.exceptions import ValidationError
 from django.utils.functional import cached_property
 
-from ..labs.helpers import labs_creatinines_are_improving
+from ..labs.helpers import (
+    labs_check_chronological_order_by_date_drawn,
+    labs_creatinines_add_baselinecreatinine_to_new_objects,
+    labs_creatinines_are_improving,
+)
 from .choices import Statuses
-from .helpers import labs_check_chronological_order_by_date_drawn
 
 if TYPE_CHECKING:
     from ..labs.models import BaselineCreatinine, Creatinine
+    from ..medhistorydetails.choices import Stages
 
 
 class AkiProcessor:
@@ -20,13 +24,16 @@ class AkiProcessor:
         status: Statuses,
         creatinines: list["Creatinine"],
         baselinecreatinine: Union["BaselineCreatinine", None],
+        stage: Union["Stages", None] = None,
     ):
         self.aki_value = aki_value
         self.status = status
         self.creatinines = creatinines
         labs_check_chronological_order_by_date_drawn(self.creatinines)
         self.baselinecreatinine = baselinecreatinine
-        self.add_baselinecreatinine_to_new_creatinines()
+        labs_creatinines_add_baselinecreatinine_to_new_objects(self.creatinines, self.baselinecreatinine)
+        self.stage = stage
+
         self.aki_errors = {}
         self.creatinines_errors = {}
         self.baselinecreatinine_errors = {}
@@ -100,8 +107,3 @@ class AkiProcessor:
         if "non_field_errors" not in self.creatinines_errors:
             self.creatinines_errors["non_field_errors"] = []
         self.creatinines_errors["non_field_errors"].append(error)
-
-    def add_baselinecreatinine_to_new_creatinines(self) -> None:
-        for creatinine in self.creatinines:
-            if creatinine._state.adding:
-                creatinine.baselinecreatinine = self.baselinecreatinine

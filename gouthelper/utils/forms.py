@@ -165,32 +165,35 @@ def forms_helper_insert_cvdiseases(
         Div(
             Div(
                 Div(
-                    HTML(
-                        """
-                        <label class="form-label">Cardiovascular Diseases</label>
-                        """
-                    ),
-                    Div(),
                     Div(
                         HTML(
-                            f"""What cardiovascular diseases does {subject_the} have?
+                            """
+                            <label class="form-label">Cardiovascular Diseases</label>
                             """
                         ),
-                        css_id="hint_id_cardiovascular_diseases",
-                        css_class="form-text",
+                        Div(),
+                        Div(
+                            HTML(
+                                f"""What cardiovascular diseases does {subject_the} have?
+                                """
+                            ),
+                            css_id="hint_id_cardiovascular_diseases",
+                            css_class="form-text",
+                        ),
+                        css_class="mb-3",
+                        css_id="div_id_cardiovascular_diseases",
                     ),
-                    css_class="mb-3",
-                    css_id="div_id_cardiovascular_diseases",
+                    css_class="col",
                 ),
-                css_class="col",
+                css_class="row",
+                css_id="cardiovascular_diseases",
             ),
-            css_class="row",
-            css_id="cardiovascular_diseases",
+            css_class="sub-form",
         ),
     )
     sub_sub_len = len(layout[layout_len - 1][sub_len - 1])
     for cv_disease in CVDiseases:
-        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
+        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][0][1].append(
             Div(
                 HTML(
                     f"""
@@ -202,7 +205,7 @@ def forms_helper_insert_cvdiseases(
             ),
         )
     if hypertension:
-        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
+        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][0][1].append(
             Div(
                 HTML(
                     f"""
@@ -481,9 +484,6 @@ def forms_helper_insert_creatinines_formset(
 ) -> "Layout":
     """Helper method that inserts a Creatinine Labs formset into a crispy_forms.layout.Layout object
     as part of a multi-model form."""
-    subject_str = (
-        f"{form.str_attrs.get('subject_the')} {form.str_attrs.get('pos_past')} {form.str_attrs.get('gender_pos')}"
-    )
     layout_len = len(form.helper.layout)
     sub_len = len(form.helper.layout[layout_len - 1])
     form.helper.layout[layout_len - 1][sub_len - 1].append(
@@ -491,12 +491,12 @@ def forms_helper_insert_creatinines_formset(
             Div(
                 Div(
                     HTML(
-                        f"""<legend>Creatinines</legend><div class="form-text">Was {subject_str} creatinine checked during the AKI? Enter as many as you like, in any order.</div>{{% load crispy_forms_tags %}}{{% crispy creatinine_formset creatinine_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
+                        f"""{{% load crispy_forms_tags %}}{{% crispy creatinine_formset creatinine_formset_helper %}}""",  # noqa: E501, F541 # pylint: disable=W1309
                     ),
                     css_class="col",
                 ),
+                css_class="row",
             ),
-            css_class="row",
             css_id="creatinines",
         ),
     )

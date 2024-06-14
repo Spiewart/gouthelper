@@ -21,6 +21,7 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
+from ..akis.helpers import akis_get_status_from_creatinines
 from ..akis.services import AkiProcessor
 from ..contents.choices import Contexts
 from ..dateofbirths.models import DateOfBirth
@@ -98,29 +99,45 @@ class FlareBase:
             status = aki_form.cleaned_data.get("status", None)
             baselinecreatinine_form = self.medhistory_detail_forms["baselinecreatinine"]
             baselinecreatinine = baselinecreatinine_form.instance
+            ckddetail_form = self.medhistory_detail_forms["ckddetail"]
+            stage = (
+                ckddetail_form.cleaned_data.get("stage", None)
+                if ckddetail_form and hasattr(ckddetail_form, "cleaned_data")
+                else None
+            )
             ordered_creatinine_formset = labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
                 creatinine_formsets
             )
             ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
                 ordered_creatinine_formset
             )
-            processor = AkiProcessor(
-                aki_value=aki,
-                status=status,
-                creatinines=ordered_list_of_creatinines,
-                baselinecreatinine=baselinecreatinine,
-            )
-            aki_creatinine_errors = processor.get_errors()
-            if aki_creatinine_errors:
-                for form_key, error_dict in aki_creatinine_errors.items():
-                    if form_key in self.oto_forms:
-                        for error_key, error in error_dict.items():
-                            self.oto_forms[form_key].add_error(error_key, error)
-                    elif form_key in self.lab_formsets:
-                        for error_key, error in error_dict.items():
-                            self.lab_formsets[form_key][0][0].add_error(error_key, error)
-                if not self.errors_bool:
-                    self.errors_bool = True
+            if status is not None:
+                processor = AkiProcessor(
+                    aki_value=aki,
+                    status=status,
+                    creatinines=ordered_list_of_creatinines,
+                    baselinecreatinine=baselinecreatinine,
+                )
+                aki_creatinine_errors = processor.get_errors()
+                if aki_creatinine_errors:
+                    self.set_aki_creatinines_errors(aki_creatinine_errors)
+            else:
+                stage = akis_get_status_from_creatinines(
+                    ordered_list_of_creatinines=ordered_list_of_creatinines,
+                    baselinecreatinine=baselinecreatinine,
+                    stage=stage,
+                )
+
+    def set_aki_creatinines_errors(self, errors: dict) -> None:
+        for form_key, error_dict in errors.items():
+            if form_key in self.oto_forms:
+                for error_key, error in error_dict.items():
+                    self.oto_forms[form_key].add_error(error_key, error)
+            elif form_key in self.lab_formsets:
+                for error_key, error in error_dict.items():
+                    self.lab_formsets[form_key][0][0].add_error(error_key, error)
+            if not self.errors_bool:
+                self.errors_bool = True
 
     def post_process_urate_check(self) -> None:
         urate_val = self.oto_forms["urate"].cleaned_data.get("value", None)

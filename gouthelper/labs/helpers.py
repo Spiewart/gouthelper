@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from django.forms import ModelForm  # type: ignore
 
     from .forms import PpxUrateFormSet, UrateForm
-    from .models import Creatinine, Lab, Urate
+    from .models import BaselineCreatinine, Creatinine, Lab, Urate
 
 
 def labs_calculate_baseline_creatinine_range_from_ckd_stage(
@@ -97,6 +97,15 @@ def labs_creatinine_is_at_baseline_eGFR(
 ) -> bool:
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=51%2C52-,Table%201.,-RIFLE%20criteria%20for
     return not creatinine_eGFR < baseline_eGFR * 0.75
+
+
+def labs_creatinines_add_baselinecreatinine_to_new_objects(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+    baselinecreatinine: Union["BaselineCreatinine", None],
+) -> None:
+    for creatinine in creatinines:
+        if creatinine._state.adding:
+            creatinine.baselinecreatinine = baselinecreatinine
 
 
 def labs_creatinines_improved(

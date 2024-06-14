@@ -289,6 +289,13 @@ class Creatinine(CreatinineBase, Lab):
     def related_models(cls) -> list[Literal["aki"]]:
         return ["aki"]
 
+    @cached_property
+    def stage(self) -> Union["Stages", None]:
+        if self.ckddetail:
+            return self.ckddetail.stage
+        else:
+            return None
+
 
 class Urate(Lab):
     class Meta(Lab.Meta):
