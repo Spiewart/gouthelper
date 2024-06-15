@@ -23,10 +23,9 @@ def akis_aki_is_resolved_via_creatinines(
 def akis_get_status_from_creatinines(
     ordered_list_of_creatinines: list["Creatinine"],
 ) -> "Statuses":
-    if akis_aki_is_resolved_via_creatinines(ordered_list_of_creatinines[0]):
-        return Statuses.RESOLVED
-    else:
-        if labs_creatinines_are_improving(ordered_list_of_creatinines):
+    if ordered_list_of_creatinines:
+        if akis_aki_is_resolved_via_creatinines(ordered_list_of_creatinines[0]):
+            return Statuses.RESOLVED
+        elif labs_creatinines_are_improving(ordered_list_of_creatinines):
             return Statuses.IMPROVING
-        else:
-            return Statuses.ONGOING
+    return Statuses.ONGOING

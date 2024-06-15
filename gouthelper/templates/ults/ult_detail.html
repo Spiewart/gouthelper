@@ -74,7 +74,7 @@
                             {% include 'ultaids/ultaid_detail_card.html' with object=object.user.ultaid %}
                           {% else %}
                             <a type="button"
-                               class="btn btn-primary btn-lg mini-button"
+                               class="btn btn-primary btn-lg"
                                href="{% url 'ultaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
                                role="button">Create UltAid</a>
                           {% endif %}
@@ -84,7 +84,7 @@
                           {% include 'ultaids/ultaid_detail_card.html' with object=object.ultaid %}
                         {% else %}
                           <a type="button"
-                             class="btn btn-primary btn-lg mini-button"
+                             class="btn btn-primary btn-lg"
                              href="{% url 'ultaids:ult-create' ult=object.pk %}?next={{ object.get_absolute_url }}"
                              role="button">Create UltAid</a>
                         {% endif %}

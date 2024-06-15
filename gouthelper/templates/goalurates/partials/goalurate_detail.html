@@ -35,14 +35,14 @@
   {% endif %}
   {% if patient %}
     <a type="button"
-       class="btn btn-primary btn-lg mini-button"
+       class="btn btn-primary btn-lg"
        hx-get="{% url 'goalurates:pseudopatient-update' object.username %}"
        hx-target="#goalurate"
        hx-trigger="click"
        role="button">Update Goal Urate</a>
   {% else %}
     <a type="button"
-       class="btn btn-primary btn-lg mini-button"
+       class="btn btn-primary btn-lg"
        hx-get="{% url 'goalurates:update' object.pk %}"
        hx-target="#goalurate"
        hx-trigger="click"

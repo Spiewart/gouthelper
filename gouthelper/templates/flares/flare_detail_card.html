@@ -1,0 +1,60 @@
+{% load project_tags %}
+
+<div class="card card-body spacious-cards" id="flare_{{ object.pk }}-card">
+  <div class="row">
+    <div class="col">
+      <h3 class="card-title">{{ object.dates }}</h3>
+    </div>
+    <div class="col-auto align-items-center d-flex justify-content-end">
+      <button class="btn btn-secondary btn-sm"
+              id="flare_{{ object.pk }}_card_collapse_control"
+              data-bs-toggle="collapse"
+              data-bs-target="#flare_{{ object.pk }}_card_collapse"
+              type="button"
+              aria-expanded="true"
+              aria-controls="flare_{{ object.pk }}_card_collapse">Hide</button>
+    </div>
+  </div>
+  <div class="collapse show" id="flare_{{ object.pk }}_card_collapse">
+    <div class="row">
+      <div class="col">
+        <ul>
+          <li>Joints: {{ object.joints_str }}</li>
+          <li>
+            {% if object.urate %}
+              {{ object.urate }}
+            {% else %}
+              Urate: none
+            {% endif %}
+          </li>
+        </ul>
+      </div>
+      <div class="col">
+        <ul>
+          <li>Likelihood: {{ object.get_likelihood_display }}</li>
+          <li>Prevalence: {{ object.get_prevalence_display }}</li>
+        </ul>
+      </div>
+    </div>
+    {% if object.user %}
+      <a href="{% url 'flares:pseudopatient-update' object.user.username object.pk %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% else %}
+      <a href="{% url 'flares:update' object.pk %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% endif %}
+    {% if object.user %}
+      <a href="{% url 'flares:pseudopatient-detail' object.user.username object.pk %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% else %}
+      <a href="{% url 'flares:detail' object.pk %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% endif %}
+  </div>
+</div>
+{% block inline_javascript %}
+  <link rel="stylesheet"
+        href="https://code.jquery.com/ui/1.13.2/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+{% endblock inline_javascript %}

@@ -557,14 +557,14 @@ function medical_evaluation_checker() {
     $('#aki').show();
     $('#div_id_aki').prop('required', true);
     add_asterisk($('#div_id_aki'));
-    $('#urate_check').show();
+    $('#urate-sub-form').show();
     $('#div_id_urate_check').prop('required', true);
     add_asterisk($('#div_id_urate_check'));
     urate_checker();
     $('#diagnosed').show();
     $('#div_id_diagnosed').prop('required', true);
     add_asterisk($('#div_id_diagnosed'));
-    $('#aspiration').show();
+    $('#aspiration-sub-form').show();
     $('#div_id_aspiration').prop('required', true);
     add_asterisk($('#div_id_aspiration'));
     aspiration_checker();
@@ -573,7 +573,7 @@ function medical_evaluation_checker() {
     $('#div_id_aki').prop('required', false);
     $('#id_aki').val('');
     remove_asterisk($('#div_id_aki'));
-    $('#urate_check').hide();
+    $('#urate-sub-form').hide();
     $('#div_id_urate_check').prop('required', false);
     $('#id_urate_check').val('');
     remove_asterisk($('#div_id_urate_check'));
@@ -582,7 +582,7 @@ function medical_evaluation_checker() {
     $('#div_id_diagnosed').prop('required', false);
     $('#id_diagnosed').val('');
     remove_asterisk($('#div_id_diagnosed'));
-    $('#aspiration').hide();
+    $('#aspiration-sub-form').hide();
     $('#div_id_aspiration').prop('required', false);
     $('#id_aspiration').val('');
     remove_asterisk($('#div_id_aspiration'));

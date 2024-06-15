@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any  # pylint: disable=E0015, E0013 # type: ignore
+from typing import TYPE_CHECKING, Any, Union  # pylint: disable=E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
 from django.contrib import messages  # pylint: disable=e0401 # type: ignore
@@ -21,7 +21,6 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
-from ..akis.helpers import akis_get_status_from_creatinines
 from ..akis.services import AkiProcessor
 from ..contents.choices import Contexts
 from ..dateofbirths.models import DateOfBirth
@@ -32,6 +31,7 @@ from ..labs.helpers import (
     labs_get_list_of_instances_from_list_of_forms_cleaned_data,
 )
 from ..labs.models import Creatinine
+from ..medhistorys.choices import MedHistoryTypes
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin
@@ -50,6 +50,9 @@ from .models import Flare
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
+
+    from ..labs.models import BaselineCreatinine
+    from ..medhistorydetails.choices import Stages
 
 User = get_user_model()
 
@@ -97,36 +100,38 @@ class FlareBase:
             aki_form = self.oto_forms["aki"]
             aki = aki_form.cleaned_data.get("value", None)
             status = aki_form.cleaned_data.get("status", None)
-            baselinecreatinine_form = self.medhistory_detail_forms["baselinecreatinine"]
-            baselinecreatinine = baselinecreatinine_form.instance
-            ckddetail_form = self.medhistory_detail_forms["ckddetail"]
-            stage = (
-                ckddetail_form.cleaned_data.get("stage", None)
-                if ckddetail_form and hasattr(ckddetail_form, "cleaned_data")
-                else None
-            )
+            ckd_form = self.medhistory_forms[MedHistoryTypes.CKD]
+            ckd = ckd_form.cleaned_data.get("value", None) if hasattr(ckd_form, "cleaned_data") else None
+            baselinecreatinine = self.get_baselinecreatinine() if ckd else None
+            stage = self.get_stage() if ckd else None
             ordered_creatinine_formset = labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
                 creatinine_formsets
             )
             ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
                 ordered_creatinine_formset
             )
-            if status is not None:
-                processor = AkiProcessor(
-                    aki_value=aki,
-                    status=status,
-                    creatinines=ordered_list_of_creatinines,
-                    baselinecreatinine=baselinecreatinine,
-                )
+            processor = AkiProcessor(
+                aki_value=aki,
+                status=status,
+                creatinines=ordered_list_of_creatinines,
+                baselinecreatinine=(baselinecreatinine if baselinecreatinine else None),
+                stage=stage,
+            )
+            if status is not None and status != "":
                 aki_creatinine_errors = processor.get_errors()
                 if aki_creatinine_errors:
                     self.set_aki_creatinines_errors(aki_creatinine_errors)
             else:
-                stage = akis_get_status_from_creatinines(
-                    ordered_list_of_creatinines=ordered_list_of_creatinines,
-                    baselinecreatinine=baselinecreatinine,
-                    stage=stage,
-                )
+                status = processor.get_status()
+                aki_form.instance.status = status
+
+    def get_baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
+        form = self.medhistory_detail_forms["baselinecreatinine"]
+        return form.instance if (hasattr(form, "cleaned_data") and form.cleaned_data.get("value", False)) else None
+
+    def get_stage(self) -> Union["Stages", None]:
+        form = self.medhistory_detail_forms["ckddetail"]
+        return form.cleaned_data.get("stage", None) if hasattr(form, "cleaned_data") else None
 
     def set_aki_creatinines_errors(self, errors: dict) -> None:
         for form_key, error_dict in errors.items():

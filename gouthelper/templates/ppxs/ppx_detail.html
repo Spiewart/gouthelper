@@ -78,7 +78,7 @@
                             {% include 'ppxaids/ppxaid_detail_card.html' with object=object.user.ppxaid %}
                           {% else %}
                             <a type="button"
-                               class="btn btn-primary btn-lg mini-button"
+                               class="btn btn-primary btn-lg"
                                href="{% url 'ppxaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
                                role="button">Create PpxAid</a>
                           {% endif %}
@@ -87,7 +87,7 @@
                             {% include 'ppxaids/ppxaid_detail_card.html' with object=object.ppxaid %}
                           {% else %}
                             <a type="button"
-                               class="btn btn-primary btn-lg mini-button"
+                               class="btn btn-primary btn-lg"
                                href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ object.get_absolute_url }}"
                                role="button">Create PpxAid</a>
                           {% endif %}
@@ -141,14 +141,14 @@
                       {% if object.user %}
                         {% if not object.user.goalurate %}
                           <a type="button"
-                             class="btn btn-primary btn-lg mini-button"
+                             class="btn btn-primary btn-lg"
                              hx-get="{% url 'goalurates:pseudopatient-create' username=object.user.username %}"
                              hx-target="#goalurate"
                              hx-trigger="click"
                              role="button">Create GoalUrate</a>
                         {% else %}
                           <a type="button"
-                             class="btn btn-primary btn-lg mini-button"
+                             class="btn btn-primary btn-lg"
                              hx-get="{% url 'goalurates:pseudopatient-update' object.user.username %}"
                              hx-target="#goalurate"
                              hx-trigger="click"
@@ -157,14 +157,14 @@
                       {% else %}
                         {% if not object.has_goalurate %}
                           <a type="button"
-                             class="btn btn-primary btn-lg mini-button"
+                             class="btn btn-primary btn-lg"
                              hx-get="{% url 'goalurates:ppx-create' ppx=object.pk %}"
                              hx-target="#goalurate"
                              hx-trigger="click"
                              role="button">Create GoalUrate</a>
                         {% else %}
                           <a type="button"
-                             class="btn btn-primary btn-lg mini-button"
+                             class="btn btn-primary btn-lg"
                              hx-get="{% url 'goalurates:update' object.goalurate.pk %}"
                              hx-target="#goalurate"
                              hx-trigger="click"

@@ -374,6 +374,16 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         creatinines = new_flare.aki.creatinine_set.all()
         self.assertEqual(creatinines.count(), 2)
 
+    def test__aki_status_set_with_creatinines(self):
+        flare_data = flare_data_factory(otos={"aki": True}, mhs=None, creatinines=[Decimal("3.0"), Decimal("3.0")])
+        flare_data.update({"aki-status": ""})
+        response = self.client.post(reverse("flares:create"), flare_data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+
+        aki = Aki.objects.order_by("created").last()
+        self.assertEqual(aki.status, Aki.Statuses.ONGOING)
+
 
 class TestFlareDetail(TestCase):
     def setUp(self):

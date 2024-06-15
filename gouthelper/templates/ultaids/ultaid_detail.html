@@ -103,14 +103,14 @@
                   </ul>
                   {% if patient %}
                     <a type="button"
-                       class="btn btn-primary btn-lg mini-button"
+                       class="btn btn-primary btn-lg"
                        hx-get="{% url 'goalurates:pseudopatient-create' username=patient.username %}"
                        hx-target="#goalurate"
                        hx-trigger="click"
                        role="button">Create GoalUrate</a>
                   {% else %}
                     <a type="button"
-                       class="btn btn-primary btn-lg mini-button"
+                       class="btn btn-primary btn-lg"
                        hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
                        hx-target="#goalurate"
                        hx-trigger="click"

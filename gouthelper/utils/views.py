@@ -637,10 +637,12 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                     queryset_kwargs = {self.query_obj_attr: self.query_object}
                 else:
                     lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
-                    if lab_related_onetoone_attr and self.lab_belongs_to_object(lab):
+                    if lab_related_onetoone_attr:
                         queryset_kwargs = {lab_related_onetoone_attr: getattr(self.object, lab_related_onetoone_attr)}
                     elif self.user:
                         queryset_kwargs = {"user": self.user}
+                    elif self.lab_belongs_to_object(lab):
+                        queryset_kwargs = {self.object_attr: self.object}
                     else:
                         queryset_kwargs = None
                 kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(lab, queryset_kwargs)
@@ -1251,6 +1253,10 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             if self.get_mh_cleaned_value(mhtype, mh_form.cleaned_data):
                 if mh_obj:
                     mh_to_include = mh_obj
+                    if self.related_object and self.medhistory_needs_related_object_attr_update(
+                        mh_obj, self.related_object, self.related_object_attr
+                    ):
+                        self.add_mh_to_qs(mh=mh_to_include, qs=self.mhs_2_save)
                 else:
                     mh_to_include = mh_form.save(commit=False)
                     self.add_mh_to_qs(mh=mh_to_include, qs=self.mhs_2_save)
@@ -1402,13 +1408,17 @@ menopause status to evaluate their flare."
     def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
         for related_object in self.related_objects:
             related_object_attr = related_object.__class__.__name__.lower()
-            if self.form_valid_medhistory_needs_related_object_attr_update(mh, related_object_attr, related_object):
+            if self.medhistory_needs_related_object_attr_update(mh, related_object, related_object_attr):
                 setattr(mh, related_object_attr, related_object)
 
     @staticmethod
-    def form_valid_medhistory_needs_related_object_attr_update(
-        mh: "MedHistory", related_object_attr: str, related_object: "MedAllergyAidHistoryModel"
+    def medhistory_needs_related_object_attr_update(
+        mh: "MedHistory",
+        related_object: "MedAllergyAidHistoryModel",
+        related_object_attr: str | None = None,
     ) -> bool:
+        if not related_object_attr:
+            related_object_attr = related_object.__class__.__name__.lower()
         return (
             mh.medhistorytype in related_object.aid_medhistorys()
             or mh._state.adding

@@ -441,6 +441,13 @@ symptoms are due to gout."
 doesn't get any extra points for {gender_pos} Diagnostic Rule score."
         return mark_safe(main_str)
 
+    @property
+    def dates(self) -> str:
+        return (
+            f"{shorten_date_for_str(self.date_started)} - "
+            f"{shorten_date_for_str(self.date_ended) if self.date_ended else 'present'}"
+        )
+
     @cached_property
     def demographic_risk(self) -> bool:
         """Method that returns True if the patient referenced by a Flare
@@ -1014,8 +1021,7 @@ The absence of erythema (redness) does not add any points to the Diagnostic Rule
         return mark_safe(redness_str)
 
     def __str__(self):
-        return f"Flare ({shorten_date_for_str(self.date_started)} - \
-{shorten_date_for_str(self.date_ended) if self.date_ended else 'present'})"
+        return f"Flare ({self.dates})"
 
     @classmethod
     def stringify_joints(cls, joints: list[LimitedJointChoices]) -> str:

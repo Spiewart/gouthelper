@@ -1192,7 +1192,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         response = self.client.post(
             reverse("ppxs:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
-        print(forms_print_response_errors(response))
+        forms_print_response_errors(response)
         assert response.status_code == 302
 
         # Get the Ppx
@@ -1230,7 +1230,6 @@ class TestPpxPseudopatientUpdate(TestCase):
             reverse("ppxs:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
         )
         forms_print_response_errors(response)
-        print(data)
         assert response.status_code == 302
 
         # Get the urates
@@ -1455,7 +1454,6 @@ class TestPpxUpdate(TestCase):
         data = ppx_data_factory(ppx=self.ppx, urates=[])
 
         # Modify the first urate date_drawn to be an invalid value
-        print(data)
         data.update(
             {
                 "urate-0-value": "5.9",

@@ -301,6 +301,7 @@ for these symptoms?"
                                 css_id="crystal_analysis",
                             ),
                             css_class="sub-form",
+                            css_id="aspiration-sub-form",
                         ),
                         Div(
                             Div(
@@ -325,6 +326,7 @@ for these symptoms?"
                                 css_id="urate",
                             ),
                             css_class="sub-form",
+                            css_id="urate-sub-form",
                         ),
                         css_id="medical-evaluation",
                     ),

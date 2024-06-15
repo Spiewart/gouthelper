@@ -14,7 +14,7 @@
          href=""
          role="button">About</a>
       <a type="button"
-         class="btn btn-primary btn-lg mini-button"
+         class="btn btn-primary btn-lg"
          href="{% url 'users:provider-pseudopatient-create' request.user.username %}"
          role="button">Create</a>
     </div>
@@ -35,7 +35,7 @@
               </div>
               <div class="col">
                 <a type="button"
-                   class="btn btn-primary btn-lg mini-button"
+                   class="btn btn-primary btn-lg"
                    href="{% url 'users:pseudopatient-delete' object.username %}"
                    role="button">Delete</a>
               </div>

@@ -1,87 +1,85 @@
 {% load project_tags %}
 
-<div id="flareaid-card" class="card spacious-cards">
-  <div class="card-body">
-    <div class="row">
-      <div class="col">
-        <h3 class="card-title">
-          {% if object.recommendation %}
-            Recommended Flare Treatment: {{ object.recommendation.0.lower.capitalize }}
-          {% else %}
-            No Recommendation Available
-          {% endif %}
-        </h3>
-      </div>
-      <div class="col-auto align-items-center d-flex justify-content-end">
-        <button class="btn btn-secondary btn-sm"
-                id="flareaid_card_collapse_control"
-                data-bs-toggle="collapse"
-                data-bs-target="#flareaid_card_collapse"
-                type="button"
-                aria-expanded="true"
-                aria-controls="flareaid_card_collapse">Hide</button>
-      </div>
+<div class="card card-body spacious-cards" id="flareaid-card">
+  <div class="row">
+    <div class="col">
+      <h3 class="card-title">
+        {% if object.recommendation %}
+          Recommended Flare Treatment: {{ object.recommendation.0.lower.capitalize }}
+        {% else %}
+          No Recommendation Available
+        {% endif %}
+      </h3>
     </div>
-    <div class="collapse show" id="flareaid_card_collapse">
-      {% if object.recommendation %}
-        {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
-        <ul>
-          {% for key, val in dosing_dict.items %}
-            <li>
-              <strong>{{ key }}</strong>: {{ val }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <h3 class="card-title"></h3>
-        <ul>
-          <li>{{ object.recommendation_is_none_str }}</li>
-        </ul>
-      {% endif %}
-      {% call_method object 'optional_treatment' flare as optional_treatment %}
-      {% if optional_treatment %}
-        <hr size="3" color="dark" />
-        <h4 class="card-title">{{ optional_treatment.0 }} [OPTIONAL]</h4>
-        <ul>
-          {% for key, val in optional_treatment.1.items %}
-            <li>
-              <strong>{{ key }}</strong>: {{ val }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-      {% if flare.likelihood == "UNLIKELY" %}
-        <hr size="3" color="dark" />
-        <h4 class="card-title">{{ flare.likelihood_interp }}</h4>
-        <ul>
-          <li>Treatments directed at gout may not be necessary or address {{ str_attrs.subject_the_pos }} symptoms.</li>
-        </ul>
-      {% elif flare.likelihood == "EQUIVOCAL" %}
-        <hr size="3" color="dark" />
-        <h4 class="card-title">{{ flare.likelihood_interp }}</h4>
-        <ul>
+    <div class="col-auto align-items-center d-flex justify-content-end">
+      <button class="btn btn-secondary btn-sm"
+              id="flareaid_card_collapse_control"
+              data-bs-toggle="collapse"
+              data-bs-target="#flareaid_card_collapse"
+              type="button"
+              aria-expanded="true"
+              aria-controls="flareaid_card_collapse">Hide</button>
+    </div>
+  </div>
+  <div class="collapse show" id="flareaid_card_collapse">
+    {% if object.recommendation %}
+      {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
+      <ul>
+        {% for key, val in dosing_dict.items %}
           <li>
-            <strong>Consider expert evaluation or more diagnostic testing prior to initiating gout treatment</strong>. Alternative diagnoses
-            may not respond as well to gout-directed therapy.
+            <strong>{{ key }}</strong>: {{ val }}
           </li>
-        </ul>
-      {% endif %}
-      {% if object.user %}
-        <a href="{% url 'flareaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
-      {% else %}
-        <a href="{% url 'flareaids:update' object.pk %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
-      {% endif %}
-      {% if object.user %}
-        <a href="{% url 'flareaids:pseudopatient-detail' object.user.username %}"
-           class="btn btn-primary spacious-buttons">Details</a>
-      {% else %}
-        <a href="{% url 'flareaids:detail' object.pk %}"
-           class="btn btn-primary spacious-buttons">Details</a>
-      {% endif %}
-      <a href="{% url 'flareaids:about' %}"
-         class="btn btn-primary spacious-buttons">About</a>
-    </div>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <h3 class="card-title"></h3>
+      <ul>
+        <li>{{ object.recommendation_is_none_str }}</li>
+      </ul>
+    {% endif %}
+    {% call_method object 'optional_treatment' flare as optional_treatment %}
+    {% if optional_treatment %}
+      <hr size="3" color="dark" />
+      <h4 class="card-title">{{ optional_treatment.0 }} [OPTIONAL]</h4>
+      <ul>
+        {% for key, val in optional_treatment.1.items %}
+          <li>
+            <strong>{{ key }}</strong>: {{ val }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if flare.likelihood == "UNLIKELY" %}
+      <hr size="3" color="dark" />
+      <h4 class="card-title">{{ flare.likelihood_interp }}</h4>
+      <ul>
+        <li>Treatments directed at gout may not be necessary or address {{ str_attrs.subject_the_pos }} symptoms.</li>
+      </ul>
+    {% elif flare.likelihood == "EQUIVOCAL" %}
+      <hr size="3" color="dark" />
+      <h4 class="card-title">{{ flare.likelihood_interp }}</h4>
+      <ul>
+        <li>
+          <strong>Consider expert evaluation or more diagnostic testing prior to initiating gout treatment</strong>. Alternative diagnoses
+          may not respond as well to gout-directed therapy.
+        </li>
+      </ul>
+    {% endif %}
+    {% if object.user %}
+      <a href="{% url 'flareaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% else %}
+      <a href="{% url 'flareaids:update' object.pk %}?next={{ request.path }}"
+         class="btn btn-primary spacious-buttons">Update</a>
+    {% endif %}
+    {% if object.user %}
+      <a href="{% url 'flareaids:pseudopatient-detail' object.user.username %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% else %}
+      <a href="{% url 'flareaids:detail' object.pk %}"
+         class="btn btn-primary spacious-buttons">Details</a>
+    {% endif %}
+    <a href="{% url 'flareaids:about' %}"
+       class="btn btn-primary spacious-buttons">About</a>
   </div>
 </div>

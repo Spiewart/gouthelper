@@ -102,19 +102,27 @@
           {% if object.user.flareaid %}
             {% include 'flareaids/flareaid_detail_card.html' with object=object.user.flareaid flare=object %}
           {% else %}
-            <a type="button"
-               class="btn btn-primary btn-lg spacious-buttons"
-               href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
-               role="button">FlareAid</a>
+            <div id="flareaid-card" class="card spacious-cards">
+              <div class="card-body">
+                <a type="button"
+                   class="btn btn-primary btn-lg spacious-buttons"
+                   href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
+                   role="button">FlareAid</a>
+              </div>
+            </div>
           {% endif %}
         {% else %}
           {% if object.flareaid %}
             {% include 'flareaids/flareaid_detail_card.html' with object=object.flareaid flare=object %}
           {% else %}
-            <a type="button"
-               class="btn btn-primary btn-lg spacious-buttons"
-               href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
-               role="button">FlareAid</a>
+            <div class="card card-body spacious-cards" id="flareaid-card">
+              <h3 class="card-title">Recommended Flare Treatment</h3>
+              <p>Get customized treatment recommendations for {{ object }} by creating a FlareAid.</p>
+              <a type="button"
+                 class="btn btn-primary btn-lg"
+                 href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
+                 role="button">Create FlareAid</a>
+            </div>
           {% endif %}
         {% endif %}
       </div>

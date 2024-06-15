@@ -108,6 +108,15 @@ def labs_creatinines_add_baselinecreatinine_to_new_objects(
             creatinine.baselinecreatinine = baselinecreatinine
 
 
+def labs_creatinines_add_stage_to_new_objects(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+    stage: Stages | None,
+) -> None:
+    for creatinine in creatinines:
+        if creatinine._state.adding:
+            creatinine.stage = stage
+
+
 def labs_creatinines_improved(
     current_creatinine: "Creatinine",
     prior_creatinine: "Creatinine",
