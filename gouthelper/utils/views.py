@@ -566,6 +566,10 @@ class GoutHelperEditMixin:
             )
         )
 
+    def set_errors_bool_True(self) -> None:
+        if not self.errors_bool:
+            self.errors_bool = True
+
     def set_forms(self) -> None:
         self.set_lab_formsets()
         self.set_medallergy_forms()

@@ -238,11 +238,11 @@
               <ul>
                 <li>
                   {% if flare.diagnosed %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosed</a> with gout
+                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: gout
                   {% elif flare.diagnosed is not None %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosed</a> with something other than gout
+                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: not gout
                   {% else %}
-                    <a class="samepage-link" href="#diagnosed">No diagnostic evaluation</a>
+                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: unclear
                   {% endif %}
                 </li>
                 <li>

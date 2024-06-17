@@ -105,10 +105,10 @@ class AkiProcessor:
             self.errors["aki"] = self.aki_errors
 
     def check_for_and_add_creatinines_to_errors(self) -> None:
-        if "creatinines" not in self.errors:
-            self.errors["creatinines"] = self.creatinines_errors
+        if "creatinine" not in self.errors:
+            self.errors["creatinine"] = self.creatinines_errors
 
     def creatinines_errors_get_or_create_and_append_to_non_field_errors(self, error: ValidationError) -> None:
-        if "non_field_errors" not in self.creatinines_errors:
-            self.creatinines_errors["non_field_errors"] = []
-        self.creatinines_errors["non_field_errors"].append(error)
+        if None not in self.creatinines_errors:
+            self.creatinines_errors[None] = []
+        self.creatinines_errors[None].append(error)

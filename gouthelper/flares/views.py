@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Union  # pylint: disable=E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
@@ -49,8 +50,12 @@ from .forms import FlareForm
 from .models import Flare
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet  # type: ignore
+    from decimal import Decimal
 
+    from django.db.models import QuerySet  # type: ignore
+    from django.forms import ModelForm  # type: ignore
+
+    from ..akis.choices import Statuses
     from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.choices import Stages
 
@@ -72,7 +77,7 @@ class FlareAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.FLARE, tag=None)
 
 
-class FlareBase:
+class FlareEditBase:
     class Meta:
         abstract = True
 
@@ -97,41 +102,49 @@ class FlareBase:
     def post_process_aki(self) -> None:
         creatinine_formsets = self.lab_formsets["creatinine"][0]
         if labs_formset_has_one_or_more_valid_labs(creatinine_formsets):
-            aki_form = self.oto_forms["aki"]
-            aki = aki_form.cleaned_data.get("value", None)
-            status = aki_form.cleaned_data.get("status", None)
-            ckd_form = self.medhistory_forms[MedHistoryTypes.CKD]
-            ckd = ckd_form.cleaned_data.get("value", None) if hasattr(ckd_form, "cleaned_data") else None
+            aki_form, aki, status = self.get_aki_form_value_and_status()
+            ckd = self.get_ckd()
             baselinecreatinine = self.get_baselinecreatinine() if ckd else None
-            stage = self.get_stage() if ckd else None
+            stage = self.get_stage(ckd)
             ordered_creatinine_formset = labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
                 creatinine_formsets
             )
-            ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
-                ordered_creatinine_formset
-            )
-            processor = AkiProcessor(
-                aki_value=aki,
-                status=status,
-                creatinines=ordered_list_of_creatinines,
-                baselinecreatinine=(baselinecreatinine if baselinecreatinine else None),
-                stage=stage,
-            )
-            if status is not None and status != "":
-                aki_creatinine_errors = processor.get_errors()
-                if aki_creatinine_errors:
-                    self.set_aki_creatinines_errors(aki_creatinine_errors)
-            else:
-                status = processor.get_status()
-                aki_form.instance.status = status
+            if not self.creatinines_date_drawns_are_out_of_bounds(ordered_creatinine_formset):
+                ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
+                    ordered_creatinine_formset
+                )
+                processor = AkiProcessor(
+                    aki_value=aki,
+                    status=status,
+                    creatinines=ordered_list_of_creatinines,
+                    baselinecreatinine=(baselinecreatinine if baselinecreatinine else None),
+                    stage=stage,
+                )
+                if status is not None and status != "":
+                    aki_creatinine_errors = processor.get_errors()
+                    if aki_creatinine_errors:
+                        self.set_aki_creatinines_errors(aki_creatinine_errors)
+                else:
+                    status = processor.get_status()
+                    aki_form.instance.status = status
+
+    def get_aki_form_value_and_status(self) -> tuple["ModelForm", bool, Union["Statuses", None]]:
+        form = self.oto_forms["aki"]
+        return form, form.cleaned_data.get("value", None), form.cleaned_data.get("status", None)
 
     def get_baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
         form = self.medhistory_detail_forms["baselinecreatinine"]
         return form.instance if (hasattr(form, "cleaned_data") and form.cleaned_data.get("value", False)) else None
 
-    def get_stage(self) -> Union["Stages", None]:
-        form = self.medhistory_detail_forms["ckddetail"]
-        return form.cleaned_data.get("stage", None) if hasattr(form, "cleaned_data") else None
+    def get_ckd(self) -> True | None:
+        ckd_form = self.medhistory_forms[MedHistoryTypes.CKD]
+        return ckd_form.cleaned_data.get("value", None) if hasattr(ckd_form, "cleaned_data") else None
+
+    def get_stage(self, ckd: True | None) -> Union["Stages", None]:
+        if ckd:
+            form = self.medhistory_detail_forms["ckddetail"]
+            return form.cleaned_data.get("stage", None) if hasattr(form, "cleaned_data") else None
+        return None
 
     def set_aki_creatinines_errors(self, errors: dict) -> None:
         for form_key, error_dict in errors.items():
@@ -141,11 +154,32 @@ class FlareBase:
             elif form_key in self.lab_formsets:
                 for error_key, error in error_dict.items():
                     self.lab_formsets[form_key][0][0].add_error(error_key, error)
-            if not self.errors_bool:
-                self.errors_bool = True
+            self.set_errors_bool_True()
+
+    def creatinine_date_drawn_out_of_bounds(self, creatinine: "Creatinine") -> bool:
+        return (
+            creatinine.date_drawn.date() < self.object.date_started - timedelta(days=15)
+            or self.object.date_ended
+            and creatinine.date_drawn.date() > self.object.date_ended
+        )
+
+    def creatinines_date_drawns_are_out_of_bounds(self, creatinine_forms: list["ModelForm"]) -> bool:
+        """Compares Creatinines date_drawn field to Flare date_started and date_ended fields."""
+        out_of_bounds_error = False
+        for form in creatinine_forms:
+            if self.creatinine_date_drawn_out_of_bounds(form.instance):
+                message = (
+                    f"Creatinine wasn't close enough ({form.instance.date_drawn.date()}) to "
+                    f"the Flare's symptoms {self.object.dates} to be relevent."
+                )
+                form.add_error("date_drawn", ValidationError(message=message))
+                out_of_bounds_error = True
+        if out_of_bounds_error and not self.errors_bool:
+            self.errors_bool = True
+        return out_of_bounds_error
 
     def post_process_urate_check(self) -> None:
-        urate_val = self.oto_forms["urate"].cleaned_data.get("value", None)
+        urate_form, urate_val = self.get_urate_form_and_value()
         urate_check = self.form.cleaned_data.get("urate_check", None)
         if urate_check and not urate_val:
             urate_error = ValidationError(
@@ -153,12 +187,34 @@ class FlareBase:
 If you don't know the value, please uncheck the Uric Acid Lab Check box."
             )
             self.form.add_error("urate_check", urate_error)
-            self.oto_forms["urate"].add_error("value", urate_error)
-            if not self.errors_bool:
-                self.errors_bool = True
+            urate_form.add_error("value", urate_error)
+            self.set_errors_bool_True()
+
+    def get_urate_form_and_value(self) -> Union["ModelForm", Union["Decimal", None]]:
+        form = self.oto_forms["urate"]
+        return form, form.cleaned_data.get("value", None)
 
 
-class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlareAnonEditBase(FlareEditBase):
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        self.post_process_aki()
+        # Compare creatinine date_drawns to Flare date_started and date_ended
+        self.post_process_menopause()
+        self.post_process_urate_check()
+        # Compare urate date_drawn to flare_date_started and date_ended
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
+            else:
+                return self.errors
+        else:
+            return self.form_valid()
+
+
+class FlareCreate(
+    FlareAnonEditBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin
+):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
@@ -172,19 +228,6 @@ class FlareCreate(FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin
         initial["onset"] = None
         initial["redness"] = None
         return initial
-
-    def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        self.post_process_aki()
-        self.post_process_menopause()
-        self.post_process_urate_check()
-        if self.errors or self.errors_bool:
-            if self.errors_bool and not self.errors:
-                return super().render_errors()
-            else:
-                return self.errors
-        else:
-            return self.form_valid()
 
 
 class FlareDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -228,7 +271,7 @@ class FlareDetail(FlareDetailBase):
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
 
 
-class FlarePatientBase(FlareBase):
+class FlarePatientEditBase(FlareEditBase):
     MEDHISTORY_FORMS = PATIENT_MEDHISTORY_FORMS
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
@@ -242,6 +285,24 @@ class FlarePatientBase(FlareBase):
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, username=self.user.username)
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        self.post_process_aki()
+        # Compare creatinine date_drawns to Flare date_started and date_ended
+        self.post_process_urate_check()
+        # Compare urate date_drawn to flare_date_started and date_ended
+        # Compare Flare date_started and date_ended to other Flares for the same user
+        if self.errors or self.errors_bool:
+            if self.errors_bool and not self.errors:
+                return super().render_errors()
+            else:
+                return self.errors
+        else:
+            return self.form_valid()
+
+    def compare_flare_dates_to_other_flares_for_user(self) -> None:
+        pass
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):
@@ -272,7 +333,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
 
 
 class FlarePseudopatientCreate(
-    FlarePatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
+    FlarePatientEditBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
 ):
     """View for creating a Flare for a patient."""
 
@@ -284,18 +345,6 @@ class FlarePseudopatientCreate(
         initial["onset"] = None
         initial["redness"] = None
         return initial
-
-    def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        self.post_process_aki()
-        self.post_process_urate_check()
-        if self.errors or self.errors_bool:
-            if self.errors_bool and not self.errors:
-                return super().render_errors()
-            else:
-                return self.errors
-        else:
-            return self.form_valid()
 
 
 class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessMessageMixin):
@@ -384,10 +433,11 @@ class FlareUpdateMixin:
     def get_initial(self) -> dict[str, Any]:
         """Overwrite get_initial() to populate form non-field field inputs"""
         initial = super().get_initial()
+        aki = getattr(self.object, "aki")
         crystal_analysis = getattr(self.object, "crystal_analysis")
         diagnosed = getattr(self.object, "diagnosed")
         urate = getattr(self.object, "urate")
-        if crystal_analysis is not None or diagnosed is not None or urate is not None:
+        if aki or crystal_analysis is not None or diagnosed is not None or urate is not None:
             initial["medical_evaluation"] = True
             if crystal_analysis is not None:
                 initial["aspiration"] = True
@@ -407,7 +457,7 @@ class FlareUpdateMixin:
 
 class FlarePseudopatientUpdate(
     FlareUpdateMixin,
-    FlarePatientBase,
+    FlarePatientEditBase,
     GoutHelperAidEditMixin,
     PermissionRequiredMixin,
     UpdateView,
@@ -424,20 +474,14 @@ class FlarePseudopatientUpdate(
             else Creatinine.objects
         )
 
-    def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        self.post_process_aki()
-        self.post_process_urate_check()
-        if self.errors or self.errors_bool:
-            if self.errors_bool and not self.errors:
-                return super().render_errors()
-            else:
-                return self.errors
-        return self.form_valid()
-
 
 class FlareUpdate(
-    FlareUpdateMixin, FlareBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    FlareUpdateMixin,
+    FlareAnonEditBase,
+    GoutHelperAidEditMixin,
+    AutoPermissionRequiredMixin,
+    UpdateView,
+    SuccessMessageMixin,
 ):
     """Updates a Flare"""
 
@@ -453,15 +497,3 @@ class FlareUpdate(
 
     def get_queryset(self):
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
-
-    def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        self.post_process_aki()
-        self.post_process_menopause()
-        self.post_process_urate_check()
-        if self.errors or self.errors_bool:
-            if self.errors_bool and not self.errors:
-                return super().render_errors()
-            else:
-                return self.errors
-        return self.form_valid()
