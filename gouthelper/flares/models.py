@@ -650,8 +650,10 @@ This does not affect the Diagnostic Rule score."
                 self.urate,
             )
             if self.hyperuricemia:
-                hyperuricemia_str += "which is hyperuricemic (>= 5.88 mg/dL)</strong> per the Diagnostic Rule. \
-This increases the Diagnostic Rule score by 3.5 points."
+                hyperuricemia_str += (
+                    "which is hyperuricemic (greater than 5.88 mg/dL)</strong> per the "
+                    "Diagnostic Rule. This increases the Diagnostic Rule score by 3.5 points."
+                )
             else:
                 hyperuricemia_str += "which is not hyperuricemic (>= 5.88 mg/dL)</strong> per the Diagnostic Rule. \
 This does not affect the Diagnostic Rule score."

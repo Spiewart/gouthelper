@@ -319,6 +319,7 @@ class GoutHelperEditMixin:
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
         if next_url:
+            next_url += f"#{self.object_attr}"
             return next_url
         else:
             return super().get_success_url() + "?updated=True"
@@ -442,10 +443,14 @@ class GoutHelperEditMixin:
         ):
             self.errors_bool = False
             self.form.save(commit=False)
-            self.post_process_oto_forms()
-            self.post_process_ma_forms()
-            self.post_process_mh_forms()
-            self.post_process_lab_formsets()
+            if self.oto_forms:
+                self.post_process_oto_forms()
+            if self.medallergy_forms:
+                self.post_process_ma_forms()
+            if self.medhistory_forms:
+                self.post_process_mh_forms()
+            if self.lab_formsets:
+                self.post_process_lab_formsets()
             self.errors = self.render_errors() if self.errors_bool else None
         else:
             self.errors_bool = False

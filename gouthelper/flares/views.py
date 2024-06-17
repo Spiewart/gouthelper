@@ -35,7 +35,7 @@ from ..labs.models import Creatinine
 from ..medhistorys.choices import MedHistoryTypes
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
-from ..utils.views import GoutHelperAidEditMixin
+from ..utils.views import LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin
 from .dicts import (
     LAB_FORMSETS,
     MEDHISTORY_DETAIL_FORMS,
@@ -57,7 +57,6 @@ if TYPE_CHECKING:
 
     from ..akis.choices import Statuses
     from ..labs.models import BaselineCreatinine
-    from ..medhistorydetails.choices import Stages
 
 User = get_user_model()
 
@@ -77,7 +76,7 @@ class FlareAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.FLARE, tag=None)
 
 
-class FlareEditBase:
+class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
@@ -136,11 +135,11 @@ class FlareEditBase:
         form = self.medhistory_detail_forms["baselinecreatinine"]
         return form.instance if (hasattr(form, "cleaned_data") and form.cleaned_data.get("value", False)) else None
 
-    def get_ckd(self) -> True | None:
+    def get_ckd(self):
         ckd_form = self.medhistory_forms[MedHistoryTypes.CKD]
         return ckd_form.cleaned_data.get("value", None) if hasattr(ckd_form, "cleaned_data") else None
 
-    def get_stage(self, ckd: True | None) -> Union["Stages", None]:
+    def get_stage(self, ckd):
         if ckd:
             form = self.medhistory_detail_forms["ckddetail"]
             return form.cleaned_data.get("stage", None) if hasattr(form, "cleaned_data") else None
@@ -212,9 +211,7 @@ class FlareAnonEditBase(FlareEditBase):
             return self.form_valid()
 
 
-class FlareCreate(
-    FlareAnonEditBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class FlareCreate(FlareAnonEditBase, AutoPermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new Flare"""
 
     success_message = "Flare created successfully!"
@@ -332,9 +329,7 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
         return Pseudopatient.objects.flares_qs().filter(username=self.kwargs["username"])
 
 
-class FlarePseudopatientCreate(
-    FlarePatientEditBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View for creating a Flare for a patient."""
 
     permission_required = "flares.can_add_flare"
@@ -458,7 +453,6 @@ class FlareUpdateMixin:
 class FlarePseudopatientUpdate(
     FlareUpdateMixin,
     FlarePatientEditBase,
-    GoutHelperAidEditMixin,
     PermissionRequiredMixin,
     UpdateView,
     SuccessMessageMixin,
@@ -478,7 +472,6 @@ class FlarePseudopatientUpdate(
 class FlareUpdate(
     FlareUpdateMixin,
     FlareAnonEditBase,
-    GoutHelperAidEditMixin,
     AutoPermissionRequiredMixin,
     UpdateView,
     SuccessMessageMixin,
