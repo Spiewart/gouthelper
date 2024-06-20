@@ -42,7 +42,7 @@ class TestAkiProcessor(TestCase):
             baselinecreatinine=self.baselinecreatinine,
         )
         errors = processor.get_errors()
-        self.assertIn("creatinines", errors)
+        self.assertIn("creatinine", errors)
 
     def test__returns_status_and_creatinines_error_when_status_ongoing_creatinines_resolved(self):
         processor = AkiProcessor(
@@ -54,11 +54,12 @@ class TestAkiProcessor(TestCase):
         errors = processor.get_errors()
         self.assertIn("aki", errors)
         self.assertIn("status", errors["aki"])
-        self.assertIn("creatinines", errors)
-        self.assertIn("non_field_errors", errors["creatinines"])
+        self.assertIn("creatinine", errors)
+        self.assertIn(None, errors["creatinine"])
 
     def test__returns_status_and_creatinines_error_when_status_resolved_creatinines_not(self):
         self.creatinines[0] = CreatinineFactory(value=Decimal(5.0))
+        print([c.date_drawn for c in self.creatinines])
         processor = AkiProcessor(
             aki_value=True,
             status=Statuses.RESOLVED,
@@ -68,8 +69,8 @@ class TestAkiProcessor(TestCase):
         errors = processor.get_errors()
         self.assertIn("aki", errors)
         self.assertIn("status", errors["aki"])
-        self.assertIn("creatinines", errors)
-        self.assertIn("non_field_errors", errors["creatinines"])
+        self.assertIn("creatinine", errors)
+        self.assertIn(None, errors["creatinine"])
 
     def test__no_errors_when_resolved_and_creatinines_resolved(self):
         processor = AkiProcessor(
@@ -112,5 +113,5 @@ class TestAkiProcessor(TestCase):
         errors = processor.get_errors()
         self.assertIn("aki", errors)
         self.assertIn("status", errors["aki"])
-        self.assertIn("creatinines", errors)
-        self.assertIn("non_field_errors", errors["creatinines"])
+        self.assertIn("creatinine", errors)
+        self.assertIn(None, errors["creatinine"])

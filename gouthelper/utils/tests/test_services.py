@@ -52,6 +52,7 @@ from ..services import (
     aids_dose_adjust_allopurinol_ckd,
     aids_dose_adjust_colchicine,
     aids_dose_adjust_febuxostat_ckd,
+    aids_get_colchicine_contraindication_for_stage,
     aids_hlab5801_contra,
     aids_json_to_trt_dict,
     aids_options,
@@ -434,6 +435,62 @@ class TestAidsDoseAdjustColchicine(TestCase):
         self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq2"])
         self.assertIsNone(trt_dict[Treatments.COLCHICINE]["dose3"])
         self.assertIsNone(trt_dict[Treatments.COLCHICINE]["freq3"])
+
+
+class TestAidsGetColchicineContraindicationForStage(TestCase):
+    def setUp(self):
+        self.defaulttrtsettings = FlareAidSettings.objects.get()
+
+    def test__stage_1(self):
+        self.assertEqual(
+            Contraindications.DOSEADJ,
+            aids_get_colchicine_contraindication_for_stage(
+                stage=Stages.ONE, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__stage_2(self):
+        self.assertEqual(
+            Contraindications.DOSEADJ,
+            aids_get_colchicine_contraindication_for_stage(
+                stage=Stages.TWO, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__stage_3(self):
+        self.assertEqual(
+            Contraindications.DOSEADJ,
+            aids_get_colchicine_contraindication_for_stage(
+                stage=Stages.THREE, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__stage_4(self):
+        self.assertEqual(
+            Contraindications.ABSOLUTE,
+            aids_get_colchicine_contraindication_for_stage(
+                stage=Stages.FOUR, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__stage_5(self):
+        self.assertEqual(
+            Contraindications.ABSOLUTE,
+            aids_get_colchicine_contraindication_for_stage(
+                stage=Stages.FIVE, defaulttrtsettings=self.defaulttrtsettings
+            ),
+        )
+
+    def test__settings_contraindicate_colchicine_for_all_ckd(self):
+        self.defaulttrtsettings.colch_ckd = False
+        self.defaulttrtsettings.save()
+        for stage in [stage for stage in Stages.values if stage is not None]:
+            self.assertEqual(
+                Contraindications.ABSOLUTE,
+                aids_get_colchicine_contraindication_for_stage(
+                    stage=stage, defaulttrtsettings=self.defaulttrtsettings
+                ),
+            )
 
 
 class TestAidsDoseAdjustFebuxostatCkd(TestCase):

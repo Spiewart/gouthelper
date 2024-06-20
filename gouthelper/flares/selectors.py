@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 def creatinines_prefetch() -> Prefetch:
     return Prefetch(
         "aki__creatinine_set",
-        queryset=apps.get_model("labs.Creatinine").objects.select_related("user").all(),
+        queryset=apps.get_model("labs.Creatinine").objects.order_by("-date_drawn").select_related("user").all(),
         to_attr="creatinines_qs",
     )
 

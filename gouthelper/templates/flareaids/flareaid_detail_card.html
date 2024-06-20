@@ -37,7 +37,7 @@
         <li>{{ object.recommendation_is_none_str }}</li>
       </ul>
     {% endif %}
-    {% call_method object 'optional_treatment' flare as optional_treatment %}
+    {% call_method object 'optional_treatment' as optional_treatment %}
     {% if optional_treatment %}
       <hr size="3" color="dark" />
       <h4 class="card-title">{{ optional_treatment.0 }} [OPTIONAL]</h4>

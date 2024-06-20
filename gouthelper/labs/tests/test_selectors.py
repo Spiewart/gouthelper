@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
@@ -14,10 +15,10 @@ pytestmark = pytest.mark.django_db
 
 class TestUrateUserlessQuerySet(TestCase):
     def setUp(self):
-        self.urate1 = UrateFactory(value=5.0, date_drawn=timezone.now())
-        self.urate2 = UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=23))
-        self.urate3 = UrateFactory(value=7.0, date_drawn=timezone.now() - timedelta(days=190))
-        self.urate4 = UrateFactory(value=8.0, date_drawn=timezone.now() - timedelta(days=365))
+        self.urate1 = UrateFactory(value=Decimal(5.0), date_drawn=timezone.now())
+        self.urate2 = UrateFactory(value=Decimal(6.0), date_drawn=timezone.now() - timedelta(days=23))
+        self.urate3 = UrateFactory(value=Decimal(7.0), date_drawn=timezone.now() - timedelta(days=190))
+        self.urate4 = UrateFactory(value=Decimal(8.0), date_drawn=timezone.now() - timedelta(days=365))
         self.flare = create_flare(
             date_started=(timezone.now() - timedelta(days=150)).date(), urate=UrateFactory(value=15.0)
         )
@@ -51,9 +52,9 @@ class TestUrateUserlessQuerySet(TestCase):
 class TestDatedUrates(TestCase):
     def test__no_flares(self):
         # Create a few urates
-        UrateFactory(value=5.0, date_drawn=timezone.now())
-        UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=23))
-        UrateFactory(value=7.0, date_drawn=timezone.now() - timedelta(days=190))
+        UrateFactory(value=Decimal(5.0), date_drawn=timezone.now())
+        UrateFactory(value=Decimal(6.0), date_drawn=timezone.now() - timedelta(days=23))
+        UrateFactory(value=Decimal(7.0), date_drawn=timezone.now() - timedelta(days=190))
         # Test that the queryset is annotated with date_drawns
         qs = Urate.objects.all()
         qs = dated_urates(qs)
@@ -63,9 +64,9 @@ class TestDatedUrates(TestCase):
 
     def test__no_date_drawns(self):
         # Create a few urates without date_drawns
-        urate1 = UrateFactory(value=5.0)
-        urate2 = UrateFactory(value=6.0)
-        urate3 = UrateFactory(value=7.0)
+        urate1 = UrateFactory(value=Decimal(5.0))
+        urate2 = UrateFactory(value=Decimal(6.0))
+        urate3 = UrateFactory(value=Decimal(7.0))
         # Create a few flares and assign urates to the flares urate attr
         create_flare(date_started=(timezone.now() - timedelta(days=150)).date(), urate=urate1)
         create_flare(date_started=(timezone.now() - timedelta(days=23)).date(), urate=urate2)
@@ -79,9 +80,9 @@ class TestDatedUrates(TestCase):
 
     def test__date_drawns_and_flares(self):
         # Create a few urates without date_drawns
-        urate1 = UrateFactory(value=5.0, date_drawn=timezone.now() - timedelta(days=151))
-        urate2 = UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=22))
-        urate3 = UrateFactory(value=7.0)
+        urate1 = UrateFactory(value=Decimal(5.0), date_drawn=timezone.now() - timedelta(days=151))
+        urate2 = UrateFactory(value=Decimal(6.0), date_drawn=timezone.now() - timedelta(days=22))
+        urate3 = UrateFactory(value=Decimal(7.0))
         # Create a few flares and assign urates to the flares urate attr
         create_flare(date_started=timezone.now() - timedelta(days=150), urate=urate1)
         create_flare(date_started=timezone.now() - timedelta(days=23), urate=urate2)
@@ -99,9 +100,9 @@ class TestDatedUrates(TestCase):
 
     def test__urates_limited_to_last_2_years(self):
         # Create some urates, including some older than 2 years
-        UrateFactory(value=5.0, date_drawn=timezone.now())
-        UrateFactory(value=6.0, date_drawn=timezone.now() - timedelta(days=23))
-        UrateFactory(value=7.0, date_drawn=timezone.now() - timedelta(days=190))
+        UrateFactory(value=Decimal(5.0), date_drawn=timezone.now())
+        UrateFactory(value=Decimal(6.0), date_drawn=timezone.now() - timedelta(days=23))
+        UrateFactory(value=Decimal(7.0), date_drawn=timezone.now() - timedelta(days=190))
         old_urate = UrateFactory(value=8.0, date_drawn=timezone.now() - timedelta(days=765))
         # Test that the queryset excludes urates older than 2 years
         qs = Urate.objects.all()

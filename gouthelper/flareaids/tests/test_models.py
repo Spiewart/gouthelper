@@ -1,7 +1,10 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
+from ...akis.choices import Statuses
 from ...defaults.models import FlareAidSettings
+from ...flares.selectors import flares_user_qs
+from ...flares.tests.factories import create_flare
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
@@ -68,3 +71,45 @@ class TestFlareAid(TestCase):
         self.flareaid.update_aid()
         self.flareaid.refresh_from_db()
         self.assertTrue(self.flareaid.decisionaid)
+
+    def test__flare_with_related_flare(self):
+        flareaid = create_flareaid()
+        flare = create_flare(flareaid=flareaid)
+        self.assertEqual(flareaid.related_flare, flare)
+
+    def test__flare_with_user(self):
+        user_flareaid = create_flareaid(user=True)
+        user_flare = create_flare(user=user_flareaid.user)
+        user = flares_user_qs(username=user_flareaid.user.username, flare_pk=user_flare.pk).get()
+        flareaid = user.flareaid
+        flare = user.flare_qs
+        self.assertEqual(flareaid.related_flare, flare)
+
+    def test__get_flare_options_without_aki(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki=None)
+        self.assertFalse(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertEqual(options, flareaid.options)
+        self.assertIn(Treatments.NAPROXEN, options.keys())
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_ongoing(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.ONGOING}, labs=None)
+        self.assertTrue(flare.aki)
+        print(flare.aki.status)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_resolved(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.RESOLVED}, labs=None)
+        self.assertTrue(flare.aki)
+        print(flare.aki.status)
+        print(flare.aki.creatinine_set.all())
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertEqual(options, flareaid.options)
+        self.assertIn(Treatments.NAPROXEN, options.keys())
+        self.assertIn(Treatments.COLCHICINE, options.keys())

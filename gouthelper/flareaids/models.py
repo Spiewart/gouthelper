@@ -9,14 +9,15 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..akis.choices import Statuses
 from ..defaults.models import FlareAidSettings
 from ..defaults.selectors import defaults_flareaidsettings
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import FlarePpxChoices, Treatments, TrtTypes
+from ..treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
 from ..users.models import Pseudopatient
 from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
-from ..utils.services import aids_json_to_trt_dict
+from ..utils.services import aids_json_to_trt_dict, aids_options
 from .managers import FlareAidManager
 from .services import FlareAidDecisionAid
 
@@ -188,45 +189,78 @@ treatment is typically very short and the risk of bleeding is low."
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
     @cached_property
+    def options(self) -> dict:
+        """Overwritten to adjust for a Flare and any acute kidney injury (AKI) that may be present."""
+        if self.related_flare:
+            return self.get_flare_options(self.related_flare)
+        return super().options
+
+    def get_flare_options(self, flare: "Flare") -> dict:
+        def need_to_check_options():
+            return (
+                flare.aki
+                and (flare.aki.status == Statuses.ONGOING or flare.aki.status == Statuses.IMPROVING)
+                and (
+                    Treatments.COLCHICINE in options
+                    or next(iter([trt for trt in options if trt in NsaidChoices.values]), None)
+                )
+            )
+
+        def remove_nsaids():
+            for trt in NsaidChoices.values:
+                options.pop(trt, None)
+
+        def remove_colchicine():
+            options.pop(Treatments.COLCHICINE, None)
+
+        def colchicine_should_be_dose_adjusted():
+            if flare.aki.creatinines:
+                pass
+            else:
+                return False
+
+        def dose_adjust_colchicine():
+            pass
+
+        options = aids_options(self.aid_dict)
+        if need_to_check_options():
+            if flare.aki.status == Statuses.ONGOING:
+                remove_nsaids()
+                remove_colchicine()
+            elif flare.aki.status == Statuses.IMPROVING:
+                remove_nsaids()
+                if colchicine_should_be_dose_adjusted():
+                    dose_adjust_colchicine()
+                else:
+                    remove_colchicine()
+            else:
+                pass
+        return options
+
+    @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
         """Returns {dict} of FlareAid's Flare Treatment recommendation {treatment: dosing}."""
         if not flare_settings:
             flare_settings = self.defaulttrtsettings
-        try:
-            return (flare_settings.flaretrt1, self.options[flare_settings.flaretrt1])
-        except KeyError:
-            try:
-                return (
-                    flare_settings.flaretrt2,
-                    self.options[flare_settings.flaretrt2],
-                )
-            except KeyError:
-                try:
-                    return (
-                        flare_settings.flaretrt3,
-                        self.options[flare_settings.flaretrt3],
-                    )
-                except KeyError:
-                    try:
-                        return (
-                            flare_settings.flaretrt4,
-                            self.options[flare_settings.flaretrt4],
-                        )
-                    except KeyError:
-                        try:
-                            return (
-                                flare_settings.flaretrt5,
-                                self.options[flare_settings.flaretrt5],
-                            )
-                        except KeyError:
-                            return None
+        for i in range(1, 6):
+            trt = getattr(flare_settings, f"flaretrt{i}", None)
+            dosing_dict = self.options.get(trt, None)
+            if dosing_dict:
+                return trt, dosing_dict
+            else:
+                continue
+        return None
 
+    @cached_property
     def related_flare(self) -> Union["Flare", None]:
-        return getattr(self, "flare", None)
+        if self.user:
+            return getattr(self.user, "flare_qs", None)
+        else:
+            return getattr(self, "flare", None)
 
-    def optional_treatment(self, flare: Union["Flare", None] = None) -> tuple[str, dict] | None:
+    def optional_treatment(self) -> tuple[str, dict] | None:
         """Returns a dictionary of the dosing for a given treatment."""
-        return self.get_flare_optional_treatments(flare if flare else self.related_flare())
+        return self.get_flare_optional_treatments(self.flare)
 
     @classmethod
     def trttype(cls) -> str:

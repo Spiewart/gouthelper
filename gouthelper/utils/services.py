@@ -121,14 +121,24 @@ PpxAidSettings object.
         Union[Contraindications, None]: Contraindications enum or None.
     """
     if ckd:
-        if ckddetail:
-            if ckddetail.stage is not None and ckddetail.stage <= 3 and defaulttrtsettings.colch_ckd is True:
-                return Contraindications.DOSEADJ
-            else:
-                return Contraindications.ABSOLUTE
+        if ckddetail and ckddetail.stage is not None:
+            return aids_get_colchicine_contraindication_for_stage(
+                stage=Stages(ckddetail.stage),
+                defaulttrtsettings=defaulttrtsettings,
+            )
         else:
             return Contraindications.ABSOLUTE
     return None
+
+
+def aids_get_colchicine_contraindication_for_stage(
+    stage: Stages,
+    defaulttrtsettings: Union["FlareAidSettings", "PpxAidSettings"],
+) -> Contraindications:
+    if stage <= 3 and defaulttrtsettings.colch_ckd is True:
+        return Contraindications.DOSEADJ
+    else:
+        return Contraindications.ABSOLUTE
 
 
 def aids_create_trts_dosing_dict(default_trts: "QuerySet") -> dict:

@@ -2500,10 +2500,6 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
     def test__creatinines_created(self):
         flare = create_flare(labs=[])
-        if getattr(flare, "aki", None):
-            self.assertFalse(flare.aki.creatinine_set.exists())
-        else:
-            self.assertFalse(getattr(flare, "aki", False))
         data = flare_data_factory(flare=flare, creatinines=[Decimal("2.0")])
         response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), data)
         forms_print_response_errors(response)

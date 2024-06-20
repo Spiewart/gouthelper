@@ -61,7 +61,9 @@ class Aki(
 
     @cached_property
     def creatinines(self):
-        return get_qs_or_set(self, "creatinine")
+        list_or_qs = get_qs_or_set(self, "creatinine")
+        if isinstance(list_or_qs, models.QuerySet):
+            list_or_qs = list_or_qs.order_by("-date_drawn")
 
     @cached_property
     def resolved(self) -> bool:

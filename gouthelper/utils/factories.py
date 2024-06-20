@@ -1,11 +1,12 @@
 import random
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
-from django.db import IntegrityError  # pylint: disable=e0401 # type: ignore
 from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
+from django.db.utils import IntegrityError  # pylint: disable=e0401 # type: ignore
+from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
@@ -52,11 +53,24 @@ if TYPE_CHECKING:
     from ..flareaids.models import FlareAid
     from ..flares.models import Flare
     from ..goalurates.models import GoalUrate
+    from ..labs.models import Creatinine
     from ..ppxaids.models import PpxAid
     from ..ppxs.models import Ppx
     from ..ultaids.models import UltAid
     from ..ults.models import Ult
 
+
+class _Auto:
+    """
+    Sentinel value used when 'None' would be allowed due to a nullable database field.
+    """
+
+    def __bool__(self):
+        # Allow `Auto` to be used like `None` or `False` in boolean expressions
+        return False
+
+
+Auto: Any = _Auto()
 
 User = get_user_model()
 
@@ -97,8 +111,15 @@ def count_data_deleted(data: dict[str, str], selector: str = None) -> int:
     return sum(1 for key in data if "DELETE" in key)
 
 
-def fake_date_drawn(years: int = 2) -> date:
-    return fake.date_between(start_date=f"-{years}y", end_date="today")
+def fake_date_drawn(date_drawn_range: tuple[date, date] | None, years: int = 2) -> date:
+    date_started = f"-{(timezone.now().date() - date_drawn_range[0]).days}d" if date_drawn_range else f"-{years}y"
+    date_ended = (
+        f"-{(timezone.now().date() - date_drawn_range[1]).days}d"
+        if date_drawn_range and date_drawn_range[1]
+        else "today"
+    )
+    date_drawn = fake.date_between(start_date=date_started, end_date=date_ended)
+    return date_drawn
 
 
 def fake_creatinine_decimal() -> Decimal:
@@ -359,10 +380,12 @@ class DataMixin:
         user_otos: list[str] = None,
         user: User = None,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", None] = None,
+        aid_obj_attr: str | None = None,
     ):
         """Method to set class attributes. Anything that is required (*req) should not have data."""
         self.user = user if user else aid_obj.user if aid_obj else None
         self.aid_obj = aid_obj
+        self.aid_obj_attr = aid_obj_attr if aid_obj_attr else aid_obj.__class__.__name__.lower() if aid_obj else None
         if self.aid_obj:
             if self.user and self.aid_obj.user != self.user:
                 raise ValueError(f"{self.aid_obj} does not belong to {self.user}. Something wrong.")
@@ -467,8 +490,7 @@ class DataMixin:
 class LabDataMixin(DataMixin):
     """Mixin for creating data for labs to populate forms for testing."""
 
-    @staticmethod
-    def get_labtype_fake_decimal(labtype: Literal["creatinine"] | Literal["urate"]) -> Decimal:
+    def get_labtype_fake_decimal(self, labtype: Literal["creatinine"] | Literal["urate"]) -> Decimal:
         if labtype == "creatinine":
             return fake_creatinine_decimal()
         elif labtype == "urate":
@@ -476,32 +498,47 @@ class LabDataMixin(DataMixin):
         else:
             raise ValueError(f"Invalid labtype: {labtype}")
 
-    @classmethod
     def create_labtype_data(
-        cls,
+        self,
         index: int,
-        lab: Literal["urate"],
-        lab_obj: Urate | Decimal | None = None,
+        lab: Literal["creatinine", "urate"],
+        lab_obj: Union["Creatinine", Urate, Decimal, None] = None,
+        data: dict | None = None,
     ) -> dict[str, str | Decimal]:
+        if lab == "creatinine" and self.aid_obj_attr == "flare":
+            date_started = datetime.strptime(data.get("date_started"), "%Y-%m-%d").date()
+            date_ended = (
+                datetime.strptime(data.get("date_ended"), "%Y-%m-%d").date()
+                if data.get("date_ended")
+                else self.aid_obj.date_ended
+                if self.aid_obj and self.aid_obj.date_ended
+                else timezone.now().date()
+            )
+            date_drawn_range = (date_started, date_ended)
+        else:
+            date_drawn_range = None
         return {
             f"{lab}-{index}-value": (
-                cls.get_labtype_fake_decimal(lab)
+                self.get_labtype_fake_decimal(lab)
                 if not lab_obj
                 else lab_obj
                 if isinstance(lab_obj, Decimal)
                 else lab_obj.value
             ),
             f"{lab}-{index}-date_drawn": (
-                str(fake_date_drawn()) if not lab_obj or isinstance(lab_obj, Decimal) else lab_obj.date_drawn
+                str(fake_date_drawn(date_drawn_range))
+                if not lab_obj
+                or isinstance(lab_obj, Decimal)
+                or (lab_obj and lab == "creatinine" and self.aid_obj_attr and self.aid_obj_attr == "flare")
+                else lab_obj.date_drawn
             ),
             f"{lab}-{index}-id": (lab_obj.pk if lab_obj and not isinstance(lab_obj, Decimal) else ""),
         }
 
-    @classmethod
-    def create_up_to_5_labs_data(cls, data: dict, num_init_labs: int, lab: Literal["urate"]) -> int:
+    def create_up_to_5_labs_data(self, data: dict, num_init_labs: int, lab: Literal["urate"]) -> int:
         num_new_labs = random.randint(0, 5)
         for i in range(num_new_labs):
-            data.update(cls.create_labtype_data(i + num_init_labs, lab))
+            data.update(self.create_labtype_data(i + num_init_labs, lab, None, data))
         return num_new_labs
 
     @staticmethod
@@ -518,8 +555,9 @@ class LabDataMixin(DataMixin):
             }
         )
 
-    def create_lab_data(self) -> dict:
-        data = {}
+    def create_lab_data(self, data: dict | None = None) -> dict:
+        if not data:
+            data = {}
         for lab in self.aid_labs:
             if self.labs is None or self.labs.get(lab, None) is None:
                 init_labs = None
@@ -542,7 +580,7 @@ class LabDataMixin(DataMixin):
                 else:
                     num_init_labs = len(init_labs)
                 for i, lab_obj in enumerate(init_labs):
-                    data.update(self.create_labtype_data(i, lab, lab_obj))
+                    data.update(self.create_labtype_data(i, lab, lab_obj, data))
             else:
                 num_init_labs = 0
 
@@ -565,14 +603,18 @@ class LabDataMixin(DataMixin):
                                             index = self.get_lab_id_key(data, lab_obj.pk).split("-")[1]
                                             data.update({f"{lab}-{index}-{key}": val})
                                 else:
-                                    data.update(self.create_labtype_data(num_new_labs + num_init_labs, lab, lab_obj))
+                                    data.update(
+                                        self.create_labtype_data(num_new_labs + num_init_labs, lab, lab_obj, data)
+                                    )
                                     num_new_labs += 1
                             else:
                                 if lab_tup_or_obj in init_labs:
                                     raise ValueError(f"{lab_tup_or_obj} is already in the data. Cannot again.")
                                 else:
                                     data.update(
-                                        self.create_labtype_data(num_new_labs + num_init_labs, lab, lab_tup_or_obj)
+                                        self.create_labtype_data(
+                                            num_new_labs + num_init_labs, lab, lab_tup_or_obj, data
+                                        )
                                     )
                                     num_new_labs += 1
                 elif lab_list_of_tups_or_None:
@@ -582,7 +624,7 @@ class LabDataMixin(DataMixin):
                             lab_obj = lab_obj_or_tup[0]
                         else:
                             lab_obj = lab_obj_or_tup
-                        data.update(self.create_labtype_data(i + num_init_labs, lab, lab_obj))
+                        data.update(self.create_labtype_data(i + num_init_labs, lab, lab_obj, data))
                 elif lab_list_of_tups_or_None is not None:
                     num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
                 else:
@@ -769,7 +811,10 @@ class CreateAidMixin:
             oto_kwargs = {}
             for key, val in kwargs.items():
                 if next(iter([oto_key for oto_key in self.otos.keys() if oto_key == key]), False):
-                    oto_kwargs.update({key: val})
+                    if isinstance(val, dict):
+                        oto_kwargs.update({key: self.otos[key](**val)})
+                    else:
+                        oto_kwargs.update({key: val})
             # pop() the otos from the kwargs
             for key, val in oto_kwargs.items():
                 kwargs.pop(key)
@@ -818,6 +863,10 @@ class LabCreatorMixin(CreateAidMixin):
                         if related_obj:
                             related_obj_attr = related_obj.__class__.__name__.lower()
                             lab_factory_kwargs.update({related_obj_attr: related_obj})
+                            if aid_obj_attr == "flare":
+                                lab_factory_kwargs.update(
+                                    {"date_drawn": fake_date_drawn((related_obj.date_started, related_obj.date_ended))}
+                                )
                         lab = lab_factory(lab_factory_kwargs)
                     qs_attr.append(lab)
                 if lab_name == "urate":
@@ -1052,7 +1101,11 @@ class OneToOneCreatorMixin(CreateAidMixin):
         )
 
     @staticmethod
-    def _factory_is_model_datatype(factory: Any):
+    def _factory_is_model_datatype(factory: Any, onetoone: str):
+        print(factory)
+        print(onetoone)
+        if onetoone == "aki":
+            return factory is True
         return isinstance(factory, (date, Genders, Ethnicitys, Decimal, bool))
 
     @staticmethod
@@ -1089,7 +1142,7 @@ class OneToOneCreatorMixin(CreateAidMixin):
                         except IntegrityError as exc:
                             raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
                     self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory)
-                elif self._factory_is_model_datatype(factory):
+                elif self._factory_is_model_datatype(factory, onetoone):
                     if self.user.just_created:
                         model_fact = self._get_model_factory(factory, onetoone)
                         try:
@@ -1126,7 +1179,8 @@ class OneToOneCreatorMixin(CreateAidMixin):
                 if self._factory_is_model_object(factory):
                     setattr(aid_obj, onetoone, factory)
                     setattr(self, onetoone, factory)
-                elif self._factory_is_model_datatype(factory):
+                elif self._factory_is_model_datatype(factory, onetoone):
+                    print("heres problem")
                     model_fact = self._get_model_factory(factory, onetoone)
                     factory_obj = self._create_factory(model_fact, factory)
                     setattr(self, onetoone, factory_obj)

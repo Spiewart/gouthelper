@@ -463,7 +463,7 @@ class FlarePseudopatientUpdate(
     @cached_property
     def creatinine_formset_qs(self):
         return (
-            Creatinine.objects.filter(aki=self.object.aki).order_by("date_drawn")
+            Creatinine.objects.filter(aki=self.object.aki).order_by("-date_drawn")
             if hasattr(self.object, "aki")
             else Creatinine.objects
         )
@@ -483,7 +483,7 @@ class FlareUpdate(
     @cached_property
     def creatinine_formset_qs(self):
         return (
-            Creatinine.objects.filter(aki=self.object.aki).order_by("date_drawn")
+            Creatinine.objects.filter(aki=self.object.aki).order_by("-date_drawn")
             if hasattr(self.object, "aki")
             else Creatinine.objects
         )

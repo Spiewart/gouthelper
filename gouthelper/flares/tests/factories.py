@@ -11,6 +11,7 @@ from django.utils import timezone  # pylint: disable=E0401  # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=E0401  # type: ignore
 from factory.faker import faker  # pylint: disable=E0401  # type: ignore
 
+from ...akis.choices import Statuses
 from ...akis.tests.factories import AkiFactory
 from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
@@ -78,6 +79,7 @@ def flare_data_factory(
         user_otos=["dateofbirth", "gender"],
         user=user,
         aid_obj=flare,
+        aid_obj_attr="flare",
     )
     data = data_constructor.create()
     # Create FlareAid Data
@@ -127,10 +129,10 @@ def flare_data_factory(
         if creatinines:
             data["aki-value"] = True
         if data.get("aki-value", None):
-            data.update(data_constructor.create_lab_data())
+            data_constructor.create_lab_data(data)
         else:
             data_constructor.labs = None
-            data.update(data_constructor.create_lab_data())
+            data_constructor.create_lab_data(data)
     else:
         data["medical_evaluation"] = False
         data["aki-value"] = False
@@ -139,7 +141,7 @@ def flare_data_factory(
         data["diagnosed"] = ""
         data["urate_check"] = ""
         data_constructor.labs = None
-        data.update(data_constructor.create_lab_data())
+        data_constructor.create_lab_data(data)
     return data
 
 
@@ -186,7 +188,7 @@ class CreateFlare(MedHistoryCreatorMixin, LabCreatorMixin, OneToOneCreatorMixin)
         # Create the OneToOne fields and add them to the Flare
         # Check if there are labs, i.e. Creatinines, to be created
         # If so, Flare has to have an Aki
-        if self.labs and ("aki" not in kwargs or kwargs.get("aki")):
+        if self.labs and ("aki" not in kwargs or kwargs.get("aki") is not None):
             self.otos["aki"] = True
         self.create_otos(flare)
         # Add Flare-specific fields to the Flare
@@ -250,7 +252,12 @@ class CreateFlare(MedHistoryCreatorMixin, LabCreatorMixin, OneToOneCreatorMixin)
         # Check if the flare has an Aki and if so, create the Creatinines
         if flare.aki and self.labs:
             self.create_labs(flare, flare.aki)
-        elif flare.aki and self.labs is None and fake.boolean():
+        elif (
+            flare.aki
+            and self.labs is None
+            and (flare.aki.status != Statuses.RESOLVED or flare.aki.status != Statuses.IMPROVING)
+            and fake.boolean()
+        ):
             self.create_labs(flare, flare.aki)
         # Return the Flare
         return flare
@@ -277,7 +284,10 @@ def create_flare(
         mhs_specified = True
     # Set the Creatinines to be created
     if labs is None:
-        if "aki" not in kwargs or kwargs.get("aki", False):
+        aki_kwarg = kwargs.get("aki", False)
+        if (aki_kwarg is False and aki_kwarg is not None) or (
+            isinstance(aki_kwarg, dict) and "status" not in aki_kwarg
+        ):
             labs_kwarg = {CreatinineFactory: [CreatinineFactory.build() for _ in range(random.randint(0, 5))]}
         else:
             labs_kwarg = None
