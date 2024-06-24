@@ -1,11 +1,16 @@
+from datetime import timedelta
+from decimal import Decimal
+
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
+from django.utils import timezone  # type: ignore
 
 from ...akis.choices import Statuses
 from ...defaults.models import FlareAidSettings
 from ...flares.selectors import flares_user_qs
-from ...flares.tests.factories import create_flare
-from ...medhistorys.lists import FLAREAID_MEDHISTORYS
+from ...flares.tests.factories import CustomFlareFactory, create_flare
+from ...labs.tests.factories import CreatinineFactory
+from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
 from ...treatments.choices import FlarePpxChoices, Treatments
 from ..models import FlareAid
@@ -98,7 +103,6 @@ class TestFlareAid(TestCase):
         flareaid = create_flareaid(mhs=[], mas=[])
         flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.ONGOING}, labs=None)
         self.assertTrue(flare.aki)
-        print(flare.aki.status)
         options = flareaid.get_flare_options(flare=flare)
         self.assertNotIn(Treatments.NAPROXEN, options.keys())
         self.assertNotIn(Treatments.COLCHICINE, options.keys())
@@ -107,9 +111,30 @@ class TestFlareAid(TestCase):
         flareaid = create_flareaid(mhs=[], mas=[])
         flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.RESOLVED}, labs=None)
         self.assertTrue(flare.aki)
-        print(flare.aki.status)
-        print(flare.aki.creatinine_set.all())
         options = flareaid.get_flare_options(flare=flare)
         self.assertEqual(options, flareaid.options)
         self.assertIn(Treatments.NAPROXEN, options.keys())
         self.assertIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_improving_no_creatinines(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.IMPROVING}, labs=None)
+        self.assertTrue(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_improving_not_at_baselinecreatinine(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare_mh_kwargs = {mhtype.lower(): None for mhtype in FLARE_MEDHISTORYS}
+        flare = CustomFlareFactory(
+            **flare_mh_kwargs,
+            baselinecreatinine=Decimal("2.0"),
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4))],
+            flareaid=flareaid,
+        ).create_object()
+        self.assertEqual(flare.aki.status, Statuses.IMPROVING)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())

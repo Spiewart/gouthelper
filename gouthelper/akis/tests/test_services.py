@@ -59,7 +59,6 @@ class TestAkiProcessor(TestCase):
 
     def test__returns_status_and_creatinines_error_when_status_resolved_creatinines_not(self):
         self.creatinines[0] = CreatinineFactory(value=Decimal(5.0))
-        print([c.date_drawn for c in self.creatinines])
         processor = AkiProcessor(
             aki_value=True,
             status=Statuses.RESOLVED,

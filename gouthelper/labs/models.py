@@ -247,6 +247,15 @@ class Creatinine(CreatinineBase, Lab):
                 raise ValueError(f"{self} has no associated gender.")
 
     @cached_property
+    def current_eGFR(self) -> Decimal:
+        self.check_for_age_and_gender()
+        return self.calculate_eGFR(age=self.age, gender=self.gender)
+
+    @cached_property
+    def current_stage(self) -> "Stages":
+        return self.calculate_stage(age=self.age, gender=self.gender)
+
+    @cached_property
     def dateofbirth(self) -> Union["DateOfBirth", None]:
         if self.user:
             return self.user.dateofbirth

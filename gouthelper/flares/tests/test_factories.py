@@ -1,23 +1,29 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from sqlite3 import IntegrityError
 
 import pytest
 from django.test import TestCase  # type: ignore
+from django.utils import timezone  # type: ignore
 from factory.faker import faker  # type: ignore
 
+from ...akis.choices import Statuses
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
+from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import Urate
+from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...users.tests.factories import create_psp
+from ...utils.test_helpers import date_days_ago
 from ..choices import LimitedJointChoices
 from ..models import Flare
-from .factories import create_flare, flare_data_factory
+from .factories import CustomFlareFactory, create_flare, flare_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -364,3 +370,159 @@ class TestAki(TestCase):
         assert not getattr(flare, "aki", False)
         flare = create_flare(aki=False)
         assert not getattr(flare, "aki", False)
+
+
+class TestFlareFactory(TestCase):
+    def test__flare_created(self):
+        factory = CustomFlareFactory()
+        flare = factory.create_object()
+        self.assertTrue(isinstance(flare, Flare))
+
+    def test__user_created(self) -> None:
+        factory = CustomFlareFactory(user=True)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "user"))
+        self.assertTrue(flare.user)
+
+    def test__user_created_with_dateofbirth(self) -> None:
+        dateofbirth: date = (timezone.now() - timedelta(days=365 * 30)).date()
+        factory = CustomFlareFactory(user=True, dateofbirth=dateofbirth)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "user"))
+        self.assertTrue(flare.user)
+        self.assertTrue(hasattr(flare.user, "dateofbirth"))
+        self.assertTrue(flare.user.dateofbirth)
+        self.assertEqual(flare.user.dateofbirth.value, dateofbirth)
+
+    def test__ValueError_raised_with_user_and_dateofbirth(self) -> None:
+        user = create_psp()
+        with self.assertRaises(ValueError):
+            CustomFlareFactory(user=user, dateofbirth=True)
+
+    def test__user_created_with_gender(self) -> None:
+        factory = CustomFlareFactory(user=True, gender=Genders.FEMALE)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "user"))
+        self.assertTrue(flare.user)
+        self.assertTrue(hasattr(flare.user, "gender"))
+        self.assertTrue(flare.user.gender)
+        self.assertEqual(flare.user.gender.value, Genders.FEMALE)
+
+    def test__ValueError_raised_with_user_and_gender(self) -> None:
+        user = create_psp()
+        with self.assertRaises(ValueError):
+            CustomFlareFactory(user=user, gender=True)
+
+    def test__aki_created(self) -> None:
+        factory = CustomFlareFactory(aki=Statuses.ONGOING)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "aki"))
+        self.assertTrue(flare.aki)
+        self.assertEqual(flare.aki.status, Statuses.ONGOING)
+
+    def test__aki_created_with_user(self) -> None:
+        factory = CustomFlareFactory(aki=Statuses.ONGOING, user=True)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "aki"))
+        self.assertTrue(flare.aki)
+        self.assertEqual(flare.aki.status, Statuses.ONGOING)
+        self.assertTrue(hasattr(flare.aki, "user"))
+        self.assertTrue(flare.aki.user)
+        self.assertEqual(flare.aki.user, flare.user)
+
+    def test__aki_created_with_creatinines(self) -> None:
+        factory = CustomFlareFactory(
+            creatinines=[(Decimal("1.0"), date_days_ago(0)), (Decimal("1.1"), date_days_ago(3))]
+        )
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "aki"))
+        self.assertTrue(hasattr(flare.aki, "creatinines"))
+        self.assertTrue(flare.aki.creatinines)
+        self.assertEqual(len(flare.aki.creatinines), 2)
+
+    def test__creatinines_with_no_aki_raises_ValueError(self) -> None:
+        with self.assertRaises(ValueError):
+            CustomFlareFactory(
+                aki=None, creatinines=[(Decimal("1.0"), date_days_ago(0)), (Decimal("1.1"), date_days_ago(3))]
+            )
+
+    def test__date_started(self) -> None:
+        date_started = date_days_ago(3)
+        factory = CustomFlareFactory(date_started=date_started)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "date_started"))
+        self.assertTrue(flare.date_started)
+        self.assertTrue(isinstance(flare.date_started, date))
+        self.assertEqual(flare.date_started, date_started)
+
+    def test__date_ended(self) -> None:
+        date_ended = date_days_ago(4)
+        factory = CustomFlareFactory(date_ended=date_ended)
+        flare = factory.create_object()
+        self.assertTrue(hasattr(flare, "date_ended"))
+        self.assertTrue(flare.date_ended)
+        self.assertTrue(isinstance(flare.date_ended, date))
+        self.assertEqual(flare.date_ended, date_ended)
+
+    def test__date_ended_before_date_started_raises_IntegrityError(self):
+        date_started = (timezone.now() - timedelta(days=3)).date()
+        date_ended = (timezone.now() - timedelta(days=4)).date()
+        factory = CustomFlareFactory(date_started=date_started, date_ended=date_ended)
+        with self.assertRaises(IntegrityError):
+            factory.create_object()
+
+    def test__stage_creates_ckddetail(self):
+        factory = CustomFlareFactory(stage=Stages.THREE)
+        flare = factory.create_object()
+        self.assertTrue(flare.ckd)
+        self.assertTrue(flare.ckddetail)
+        self.assertEqual(flare.ckddetail.stage, Stages.THREE)
+
+    def test__stage_creates_baselinecreatinine(self) -> None:
+        factory = CustomFlareFactory(baselinecreatinine=Decimal("2.0"))
+        flare = factory.create_object()
+        self.assertTrue(flare.ckd)
+        self.assertTrue(flare.ckddetail)
+        self.assertTrue(flare.baselinecreatinine)
+        self.assertEqual(flare.baselinecreatinine.value, Decimal("2.0"))
+        self.assertEqual(
+            flare.ckddetail.stage,
+            labs_stage_calculator(
+                labs_eGFR_calculator(flare.baselinecreatinine, age_calc(flare.dateofbirth.value), flare.gender.value)
+            ),
+        )
+
+    def test__deletes_ckd_and_relations_when_ckd_is_False(self) -> None:
+        factory = CustomFlareFactory(baselinecreatinine=Decimal("2.0"))
+        flare = factory.create_object()
+        next_factory = CustomFlareFactory(flare=flare, ckd=False)
+        modified_flare = next_factory.create_object()
+        self.assertFalse(modified_flare.ckd)
+        self.assertFalse(modified_flare.ckddetail)
+        self.assertFalse(modified_flare.baselinecreatinine)
+
+    def test__creates_menopause(self) -> None:
+        factory = CustomFlareFactory(menopause=True)
+        flare = factory.create_object()
+        self.assertTrue(flare.menopause)
+        self.assertEqual(flare.gender.value, Genders.FEMALE)
+        self.assertGreaterEqual(age_calc(flare.dateofbirth.value), 40)
+
+    def test__menopause_raises_ValueError_for_tooyoung_female(self):
+        dateofbirth = (timezone.now() - timedelta(days=365 * 35)).date()
+        with self.assertRaises(ValueError):
+            CustomFlareFactory(dateofbirth=dateofbirth, menopause=True, gender=Genders.FEMALE)
+
+    def test__creates_urate(self) -> None:
+        factory = CustomFlareFactory(urate=Decimal("5.0"))
+        flare = factory.create_object()
+        self.assertTrue(flare.urate)
+        self.assertEqual(flare.urate.value, Decimal("5.0"))
+
+    def test__updates_flare_urate(self) -> None:
+        factory = CustomFlareFactory(urate=Decimal("5.0"))
+        flare = factory.create_object()
+        next_factory = CustomFlareFactory(flare=flare, urate=Decimal("6.0"))
+        modified_flare = next_factory.create_object()
+        self.assertTrue(modified_flare.urate)
+        self.assertEqual(modified_flare.urate.value, Decimal("6.0"))

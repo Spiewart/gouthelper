@@ -150,6 +150,10 @@ def get_True_or_empty_str() -> bool | str:
     return fake.boolean() or ""
 
 
+def get_bool_or_None() -> bool | None:
+    return fake.boolean() if fake.boolean() else None
+
+
 def get_mh_val(medhistory: MedHistoryTypes, bool_mhs: MedHistoryTypes) -> bool | str:
     if medhistory in bool_mhs:
         return fake.boolean()
@@ -821,13 +825,23 @@ class CreateAidMixin:
                 self.otos.update({key: val})
         if self.mh_dets:
             for key, val in kwargs.copy().items():
-                mh_det_str = key.split("detail")[0]
-                try:
-                    mh = MedHistoryTypes(mh_det_str.upper())
-                except ValueError:
+                if "detail" in key:
+                    mh_det_str = key.split("detail")[0]
+                    try:
+                        mh = MedHistoryTypes(mh_det_str.upper())
+                    except ValueError:
+                        continue
+                elif key == "baselinecreatinine":
+                    mh = MedHistoryTypes.CKD
+                else:
                     continue
                 if mh in self.mh_dets.keys():
-                    if val is not None:
+                    if key == "baselinecreatinine":
+                        print("adding baselinecreatinine")
+                        self.mh_dets[mh].update({"baselinecreatinine": val})
+                        print(self.mh_dets[mh])
+                        kwargs.pop(key)
+                    elif val is not None:
                         for field, field_val in val.items():
                             self.mh_dets[mh].update({field: field_val})
                         kwargs.pop(key)
@@ -966,7 +980,13 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                             raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.")
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
-                elif specified or fake.boolean():
+                elif (
+                    specified
+                    or fake.boolean()
+                    or opt_mh_dets
+                    and medhistory in opt_mh_dets
+                    and opt_mh_dets[medhistory]
+                ):
                     if medhistory == MedHistoryTypes.MENOPAUSE:
                         continue
                     if specified:
@@ -1102,8 +1122,6 @@ class OneToOneCreatorMixin(CreateAidMixin):
 
     @staticmethod
     def _factory_is_model_datatype(factory: Any, onetoone: str):
-        print(factory)
-        print(onetoone)
         if onetoone == "aki":
             return factory is True
         return isinstance(factory, (date, Genders, Ethnicitys, Decimal, bool))
@@ -1180,7 +1198,6 @@ class OneToOneCreatorMixin(CreateAidMixin):
                     setattr(aid_obj, onetoone, factory)
                     setattr(self, onetoone, factory)
                 elif self._factory_is_model_datatype(factory, onetoone):
-                    print("heres problem")
                     model_fact = self._get_model_factory(factory, onetoone)
                     factory_obj = self._create_factory(model_fact, factory)
                     setattr(self, onetoone, factory_obj)

@@ -341,11 +341,7 @@ so""",
         """Method  that returns BaselineCreatinine object from ckd attribute/property
         or None if either doesn't exist.
         """
-
-        try:
-            return self.ckd.baselinecreatinine if self.ckd else None
-        except AttributeError:
-            pass
+        return getattr(self.ckd, "baselinecreatinine", None) if self.ckd else None
 
     @cached_property
     def bleed(self) -> Union["MedHistory", False]:
@@ -428,11 +424,12 @@ It also affects the body's medication processing and can affect medication dosin
     def ckddetail(self) -> Union["CkdDetail", None]:
         """Method that returns CkdDetail object from the objects ckd attribute/property
         or None if either doesn't exist."""
+        return getattr(self.ckd, "ckddetail", None) if self.ckd else None
 
-        try:
-            return self.ckd.ckddetail if self.ckd else None
-        except AttributeError:
-            return None
+    @cached_property
+    def stage(self) -> str:
+        """Method that returns the stage of the object's CKD."""
+        return self.ckddetail.stage if self.ckddetail else None
 
     @cached_property
     def colchicine_allergy(self) -> list["MedAllergy"] | None:

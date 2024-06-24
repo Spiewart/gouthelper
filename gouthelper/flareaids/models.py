@@ -12,12 +12,13 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..akis.choices import Statuses
 from ..defaults.models import FlareAidSettings
 from ..defaults.selectors import defaults_flareaidsettings
+from ..medhistorys.choices import Contraindications
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
 from ..users.models import Pseudopatient
 from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
-from ..utils.services import aids_json_to_trt_dict, aids_options
+from ..utils.services import aids_get_colchicine_contraindication_for_stage, aids_json_to_trt_dict, aids_options
 from .managers import FlareAidManager
 from .services import FlareAidDecisionAid
 
@@ -189,6 +190,25 @@ treatment is typically very short and the risk of bleeding is low."
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
     @cached_property
+    def might_have_more_options_with_age_or_gender(self) -> bool:
+        return (
+            self.related_flare
+            and self.related_flare.aki
+            and self.related_flare.aki.status == Statuses.IMPROVING
+            and Treatments.COLCHICINE not in self.options
+            # Check if there are not any other contraindications to colchicine
+            and (not self.related_flare.aki.age or not self.related_flare.aki.gender)
+        )
+
+    @cached_property
+    def might_have_more_options_with_age(self) -> bool:
+        return self.might_have_more_options_with_age_or_gender and not self.flare.aki.age
+
+    @cached_property
+    def might_have_more_options_with_gender(self) -> bool:
+        return self.might_have_more_options_with_age_or_gender and not self.flare.aki.gender
+
+    @cached_property
     def options(self) -> dict:
         """Overwritten to adjust for a Flare and any acute kidney injury (AKI) that may be present."""
         if self.related_flare:
@@ -214,10 +234,32 @@ treatment is typically very short and the risk of bleeding is low."
             options.pop(Treatments.COLCHICINE, None)
 
         def colchicine_should_be_dose_adjusted():
-            if flare.aki.creatinines:
-                pass
-            else:
-                return False
+            if Treatments.COLCHICINE in options:
+                if flare.aki.improving_with_creatinines:
+                    if (
+                        flare.aki.baselinecreatinine
+                        and not flare.aki.most_recent_creatinine.is_at_baseline
+                        and flare.aki.age
+                        and flare.aki.gender is not None
+                    ):
+                        return (
+                            aids_get_colchicine_contraindication_for_stage(
+                                flare.aki.most_recent_creatinine.current_stage,
+                                defaulttrtsettings=self.defaulttrtsettings,
+                            )
+                            == Contraindications.DOSEADJ
+                        )
+                    elif flare.aki.stage and flare.aki.age and flare.aki.gender is not None:
+                        return not flare.aki.most_recent_creatinine.is_within_range_for_stage
+                    elif flare.aki.age and flare.aki.gender is not None:
+                        return (
+                            aids_get_colchicine_contraindication_for_stage(
+                                stage=flare.aki.most_recent_creatinine.current_stage,
+                                defaulttrtsettings=self.defaulttrtsettings,
+                            )
+                            == Contraindications.DOSEADJ
+                        )
+            return False
 
         def dose_adjust_colchicine():
             pass
@@ -233,8 +275,6 @@ treatment is typically very short and the risk of bleeding is low."
                     dose_adjust_colchicine()
                 else:
                     remove_colchicine()
-            else:
-                pass
         return options
 
     @cached_property
