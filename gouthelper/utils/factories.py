@@ -521,6 +521,8 @@ class LabDataMixin(DataMixin):
             date_drawn_range = (date_started, date_ended)
         else:
             date_drawn_range = None
+        print(data)
+        print(date_drawn_range)
         return {
             f"{lab}-{index}-value": (
                 self.get_labtype_fake_decimal(lab)
@@ -537,6 +539,14 @@ class LabDataMixin(DataMixin):
                 else lab_obj.date_drawn
             ),
             f"{lab}-{index}-id": (lab_obj.pk if lab_obj and not isinstance(lab_obj, Decimal) else ""),
+        }
+
+    def create_empty_labtype_data(self, lab: Literal["creatinine", "urate"]) -> dict[str, str]:
+        return {
+            f"{lab}-0-value": "",
+            f"{lab}-0-date_drawn": "",
+            f"{lab}-0-id": "",
+            f"{lab}-0-DELETE": "",
         }
 
     def create_up_to_5_labs_data(self, data: dict, num_init_labs: int, lab: Literal["urate"]) -> int:
@@ -637,11 +647,14 @@ class LabDataMixin(DataMixin):
                 num_new_labs = self.create_up_to_5_labs_data(data, num_init_labs, lab)
             else:
                 num_new_labs = 0
-
+            total_forms = num_init_labs + num_new_labs
+            if not total_forms:
+                total_forms += 1
+                data.update(self.create_empty_labtype_data(lab))
             data.update(
                 {
                     f"{lab}-INITIAL_FORMS": num_init_labs,
-                    f"{lab}-TOTAL_FORMS": num_init_labs + num_new_labs,
+                    f"{lab}-TOTAL_FORMS": total_forms,
                 }
             )
 
@@ -980,13 +993,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                             raise IntegrityError(f"MedHistory {medhistory} already exists for {aid_obj}.")
                     aid_obj.medhistorys_qs.append(medhistory)
                 # If the medhistory is specified or 50/50 chance, create the MedHistory object
-                elif (
-                    specified
-                    or fake.boolean()
-                    or opt_mh_dets
-                    and medhistory in opt_mh_dets
-                    and opt_mh_dets[medhistory]
-                ):
+                elif specified or fake.boolean() or opt_mh_dets and medhistory in opt_mh_dets:
                     if medhistory == MedHistoryTypes.MENOPAUSE:
                         continue
                     if specified:

@@ -12,7 +12,7 @@ from ...flares.tests.factories import CustomFlareFactory, create_flare
 from ...labs.tests.factories import CreatinineFactory
 from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
-from ...treatments.choices import FlarePpxChoices, Treatments
+from ...treatments.choices import ColchicineDoses, FlarePpxChoices, Treatments
 from ..models import FlareAid
 from .factories import create_flareaid
 
@@ -25,6 +25,7 @@ class TestFlareAid(TestCase):
         self.settings = FlareAidSettings.objects.get(user=None)
         self.user_flareaid = create_flareaid(user=True)
         self.empty_flareaid = create_flareaid(mhs=[], mas=[])
+        self.flare_empty_mh_kwargs = {mhtype.lower(): None for mhtype in FLARE_MEDHISTORYS}
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
@@ -126,15 +127,52 @@ class TestFlareAid(TestCase):
 
     def test__get_flare_options_with_aki_improving_not_at_baselinecreatinine(self):
         flareaid = create_flareaid(mhs=[], mas=[])
-        flare_mh_kwargs = {mhtype.lower(): None for mhtype in FLARE_MEDHISTORYS}
         flare = CustomFlareFactory(
-            **flare_mh_kwargs,
+            **self.flare_empty_mh_kwargs,
             baselinecreatinine=Decimal("2.0"),
             aki=Statuses.IMPROVING,
             creatinines=[CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4))],
             flareaid=flareaid,
         ).create_object()
-        self.assertEqual(flare.aki.status, Statuses.IMPROVING)
         options = flareaid.get_flare_options(flare=flare)
         self.assertNotIn(Treatments.NAPROXEN, options.keys())
         self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_stage(self) -> None:
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = CustomFlareFactory(
+            **self.flare_empty_mh_kwargs,
+            aki=Statuses.IMPROVING,
+            dateofbirth=timezone.now() - timedelta(days=365 * 50),
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="1.4", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+            flareaid=flareaid,
+        ).create_object()
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+        colchicine_dosing_dict = options[Treatments.COLCHICINE]
+        self.assertEqual(colchicine_dosing_dict["dose"], ColchicineDoses.POINTTHREE)
+        self.assertEqual(colchicine_dosing_dict["dose2"], ColchicineDoses.POINTSIX)
+        self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)
+
+    def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_baselinecreatinine(self) -> None:
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = CustomFlareFactory(
+            **self.flare_empty_mh_kwargs,
+            aki=Statuses.IMPROVING,
+            dateofbirth=timezone.now() - timedelta(days=365 * 40),
+            baselinecreatinine=Decimal("1.7"),
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="2.0", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+            flareaid=flareaid,
+        ).create_object()
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+        colchicine_dosing_dict = options[Treatments.COLCHICINE]
+        self.assertEqual(colchicine_dosing_dict["dose"], ColchicineDoses.POINTTHREE)
+        self.assertEqual(colchicine_dosing_dict["dose2"], ColchicineDoses.POINTSIX)
+        self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)

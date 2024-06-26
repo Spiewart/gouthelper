@@ -786,17 +786,13 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                             self.labs_2_rem.append(lab)
                             qs_attr.remove(lab)
                 for form in lab_tup[0]:
-                    if (
-                        "value" in form.cleaned_data
-                        and not form.cleaned_data["DELETE"]
-                        and (
-                            (form.instance and form.has_changed())
-                            or form.instance is None
-                            or _lab_needs_relation_set(form.instance)
-                        )
+                    if form.instance_should_persist and (
+                        (form.instance and form.has_changed())
+                        or form.instance is None
+                        or _lab_needs_relation_set(form.instance)
                     ):
                         self.labs_2_save.append(form.instance)
-                    if form.instance not in qs_attr:
+                    if form.instance_should_persist and form.instance not in qs_attr:
                         qs_attr.append(form.instance)
 
     def populate_a_lab_formset(

@@ -18,13 +18,19 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
 from ..users.models import Pseudopatient
 from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
-from ..utils.services import aids_get_colchicine_contraindication_for_stage, aids_json_to_trt_dict, aids_options
+from ..utils.services import (
+    aids_dose_adjust_colchicine,
+    aids_get_colchicine_contraindication_for_stage,
+    aids_json_to_trt_dict,
+    aids_options,
+)
 from .managers import FlareAidManager
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
+    from ..akis.models import Aki
     from ..flares.models import Flare
     from ..medhistorys.choices import MedHistoryTypes
 
@@ -216,16 +222,6 @@ treatment is typically very short and the risk of bleeding is low."
         return super().options
 
     def get_flare_options(self, flare: "Flare") -> dict:
-        def need_to_check_options():
-            return (
-                flare.aki
-                and (flare.aki.status == Statuses.ONGOING or flare.aki.status == Statuses.IMPROVING)
-                and (
-                    Treatments.COLCHICINE in options
-                    or next(iter([trt for trt in options if trt in NsaidChoices.values]), None)
-                )
-            )
-
         def remove_nsaids():
             for trt in NsaidChoices.values:
                 options.pop(trt, None)
@@ -233,49 +229,55 @@ treatment is typically very short and the risk of bleeding is low."
         def remove_colchicine():
             options.pop(Treatments.COLCHICINE, None)
 
-        def colchicine_should_be_dose_adjusted():
-            if Treatments.COLCHICINE in options:
-                if flare.aki.improving_with_creatinines:
-                    if (
-                        flare.aki.baselinecreatinine
-                        and not flare.aki.most_recent_creatinine.is_at_baseline
-                        and flare.aki.age
-                        and flare.aki.gender is not None
-                    ):
-                        return (
-                            aids_get_colchicine_contraindication_for_stage(
-                                flare.aki.most_recent_creatinine.current_stage,
-                                defaulttrtsettings=self.defaulttrtsettings,
-                            )
-                            == Contraindications.DOSEADJ
-                        )
-                    elif flare.aki.stage and flare.aki.age and flare.aki.gender is not None:
-                        return not flare.aki.most_recent_creatinine.is_within_range_for_stage
-                    elif flare.aki.age and flare.aki.gender is not None:
-                        return (
-                            aids_get_colchicine_contraindication_for_stage(
-                                stage=flare.aki.most_recent_creatinine.current_stage,
-                                defaulttrtsettings=self.defaulttrtsettings,
-                            )
-                            == Contraindications.DOSEADJ
-                        )
-            return False
-
-        def dose_adjust_colchicine():
-            pass
-
         options = aids_options(self.aid_dict)
-        if need_to_check_options():
+        if self.need_to_check_options(flare=flare, options=options):
             if flare.aki.status == Statuses.ONGOING:
                 remove_nsaids()
                 remove_colchicine()
             elif flare.aki.status == Statuses.IMPROVING:
                 remove_nsaids()
-                if colchicine_should_be_dose_adjusted():
-                    dose_adjust_colchicine()
+                if self.colchicine_should_be_dose_adjusted_for_aki(options=options, aki=flare.aki):
+                    aids_dose_adjust_colchicine(
+                        trt_dict=options, aid_type=TrtTypes.FLARE, defaulttrtsettings=self.defaulttrtsettings
+                    )
                 else:
                     remove_colchicine()
         return options
+
+    def need_to_check_options(self, flare: "Flare", options: dict) -> bool:
+        return (
+            flare.aki
+            and (flare.aki.status == Statuses.ONGOING or flare.aki.status == Statuses.IMPROVING)
+            and (
+                Treatments.COLCHICINE in options
+                or next(iter([trt for trt in options if trt in NsaidChoices.values]), None)
+            )
+        )
+
+    def colchicine_should_be_dose_adjusted_for_aki(self, options: dict, aki: "Aki") -> bool:
+        if Treatments.COLCHICINE in options:
+            if aki.baselinecreatinine:
+                return aki.improving_with_creatinines_but_not_at_baselinecreatinine and (
+                    aids_get_colchicine_contraindication_for_stage(
+                        aki.most_recent_creatinine.current_stage,
+                        defaulttrtsettings=self.defaulttrtsettings,
+                    )
+                    == Contraindications.DOSEADJ
+                )
+            elif aki.stage:
+                return (
+                    aki.improving_with_creatinines_stage_age_gender_no_baselinecreatinine
+                    and not aki.most_recent_creatinine.is_within_range_for_stage
+                )
+            else:
+                return aki.improving_with_creatinines_age_gender_no_stage_or_baselinecreatinine and (
+                    aids_get_colchicine_contraindication_for_stage(
+                        stage=aki.most_recent_creatinine.current_stage,
+                        defaulttrtsettings=self.defaulttrtsettings,
+                    )
+                    == Contraindications.DOSEADJ
+                )
+        return False
 
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
@@ -294,13 +296,13 @@ treatment is typically very short and the risk of bleeding is low."
     @cached_property
     def related_flare(self) -> Union["Flare", None]:
         if self.user:
-            return getattr(self.user, "flare_qs", None)
+            flare_qs = getattr(self.user, "flare_qs", None)
+            return flare_qs.first() if isinstance(flare_qs, models.QuerySet) else flare_qs[0] if flare_qs else None
         else:
             return getattr(self, "flare", None)
 
     def optional_treatment(self) -> tuple[str, dict] | None:
-        """Returns a dictionary of the dosing for a given treatment."""
-        return self.get_flare_optional_treatments(self.flare)
+        return self.get_flare_optional_treatments(self.related_flare)
 
     @classmethod
     def trttype(cls) -> str:

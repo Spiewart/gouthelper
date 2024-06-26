@@ -66,12 +66,6 @@ assume the AKI is ongoing."
         )
         forms_helper_insert_creatinines_formset(self)
 
-    def clean(self):
-        cleaned_data = super().clean()
-        if not cleaned_data.get("value", False) and "status" not in cleaned_data:
-            cleaned_data["status"] = Aki.Statuses.ONGOING
-        return cleaned_data
-
     def check_for_value(self):
         value = self.cleaned_data["value"]
         if not value:

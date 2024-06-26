@@ -15,14 +15,18 @@ from factory.faker import faker
 from ...akis.choices import Statuses
 from ...akis.models import Aki
 from ...akis.tests.factories import AkiFactory
-from ...choices import BOOL_CHOICES, LimitedJointChoices
+from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
+from ...labs.helpers import (
+    labs_calculate_baseline_creatinine_range_from_ckd_stage,
+    labs_eGFR_calculator,
+    labs_stage_calculator,
+)
 from ...labs.models import BaselineCreatinine, Creatinine, Urate
 from ...labs.tests.factories import CreatinineFactory, UrateFactory
 from ...medhistorydetails.choices import DialysisChoices, Stages
@@ -45,6 +49,7 @@ from ...utils.factories import (
     get_or_create_medhistory_atomic,
 )
 from ...utils.helpers import get_or_create_qs_attr
+from ..choices import LimitedJointChoices
 from ..models import Flare
 
 if TYPE_CHECKING:
@@ -212,14 +217,14 @@ class CustomFlareFactory:
         return self.stage or self.baselinecreatinine or self.dialysis or (self.ckd and fake.boolean())
 
     def get_or_create_dialysis(self) -> bool:
-        if self.dialysis == Auto:
+        if self.dialysis is Auto:
             if not self.stage and not self.baselinecreatinine and self.ckd:
                 return fake.boolean()
             return False
         return self.dialysis
 
     def get_or_create_stage(self) -> Stages | None:
-        if self.stage == Auto:
+        if self.stage is Auto:
             if self.baselinecreatinine:
                 return labs_stage_calculator(
                     labs_eGFR_calculator(
@@ -248,11 +253,56 @@ class CustomFlareFactory:
         return None
 
     def get_or_create_baselinecreatinine(self) -> Decimal | None:
-        if self.baselinecreatinine == Auto:
-            pass
+        def create_baselinecreatinine(min_value: float, max_value: float) -> BaselineCreatinine:
+            return BaselineCreatinine.objects.create(
+                value=fake.pydecimal(
+                    left_digits=1, right_digits=1, positive=True, min_value=min_value, max_value=max_value
+                ),
+                medhistory=self.ckd,
+            )
+
+        def create_baselinecreatinine_value(min_value: float, max_value: float) -> Decimal:
+            return fake.pydecimal(
+                left_digits=1, right_digits=1, positive=True, min_value=min_value, max_value=max_value
+            )
+
+        def create_baselinecreatinine_value_known() -> BaselineCreatinine:
+            return BaselineCreatinine.objects.create(
+                value=self.baselinecreatinine,
+                medhistory=self.ckd,
+            )
+
+        def calculate_min_max_values(stage: Stages, age: int, gender: Genders) -> tuple[float, float]:
+            (
+                max_value,
+                min_value,
+            ) = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+            return round(float(min_value), 1), round(float(max_value), 1)
+
+        if self.baselinecreatinine is Auto:
+            if self.ckd and not self.dialysis and (self.stage or self.stage is Auto):
+                min_value, max_value = calculate_min_max_values(
+                    self.stage,
+                    age_calc(self.get_dateofbirth_value_from_attr()),
+                    self.get_gender_value_from_attr(),
+                )
+                return create_baselinecreatinine_value(min_value, max_value) if fake.boolean() else None
         elif self.baselinecreatinine:
             self.update_ckd()
-            return self.baselinecreatinine
+            if self.baselinecreatinine is True:
+                if self.stage:
+                    min_value, max_value = calculate_min_max_values(
+                        self.stage,
+                        age_calc(self.get_dateofbirth_value_from_attr()),
+                        gender=self.get_gender_value_from_attr(),
+                    )
+                    return create_baselinecreatinine_value(min_value, max_value)
+                else:
+                    return create_baselinecreatinine_value(min_value=1.5, max_value=6.0)
+            elif isinstance(self.baselinecreatinine, Decimal):
+                return self.baselinecreatinine
+            else:
+                return self.baselinecreatinine.value
         return None
 
     def create_ckddetail_kwargs(self) -> dict[str, Any]:
@@ -282,7 +332,7 @@ class CustomFlareFactory:
         self.baselinecreatinine = self.get_or_create_baselinecreatinine()
 
     def get_or_create_urate(self) -> Urate | None:
-        if self.urate == Auto:
+        if self.urate is Auto:
             return self.flare.urate if self.flare else UrateFactory() if fake.boolean() else None
         elif self.urate:
             if isinstance(self.urate, Urate):
@@ -317,6 +367,9 @@ class CustomFlareFactory:
                 )
             return DateOfBirthFactory(**kwargs)
 
+    def get_dateofbirth_value_from_attr(self) -> date | None:
+        return self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
+
     def get_or_create_gender(self) -> Gender | None:
         if self.user:
             return None
@@ -330,6 +383,9 @@ class CustomFlareFactory:
             elif self.menopause:
                 kwargs["value"] = Genders.FEMALE
             return GenderFactory(**kwargs)
+
+    def get_gender_value_from_attr(self) -> Genders | None:
+        return self.gender.value if isinstance(self.gender, Gender) else self.gender
 
     def get_or_create_medical_evaluation(self) -> bool | None:
         return self.urate or self.aki or self.creatinines or self.medical_evaluation or fake.boolean()
@@ -583,6 +639,24 @@ def flare_data_factory(
     otos: dict[str:Any] | None = None,
     creatinines: list["Creatinine", "Decimal", tuple["Creatinine", Any]] | None = None,
 ) -> dict[str, str]:
+    def create_date_ended(date_started: date) -> date:
+        date_start = date_started + timedelta(days=1)
+        date_diff = timezone.now().date() - date_start
+        date_end = date_start + timedelta(days=30) if date_diff > timedelta(days=30) else date_start + date_diff
+        print(timezone.now().date())
+        print(date_started)
+        print(date_start)
+        print(date_diff)
+        print(date_end)
+        return (
+            fake.date_between_dates(
+                date_start=date_start,
+                date_end=date_end,
+            )
+            if date_diff > timedelta(days=1)
+            else date_end
+        )
+
     data_constructor = CreateFlareData(
         aid_mhs=FLARE_MEDHISTORYS,
         mhs=mhs,
@@ -608,24 +682,17 @@ def flare_data_factory(
     )
     data["date_started"] = str(date_started)
     if flare and flare.date_ended is not None:
-        date_diff = timezone.now().date() - date_started
         if fake.boolean():
-            data["date_ended"] = str(
-                fake.date_between_dates(
-                    date_start=date_started,
-                    date_end=date_started + timedelta(days=30) if date_diff > timedelta(days=30) else date_diff,
-                )
-            )
+            data["date_ended"] = str(create_date_ended(date_started))
         else:
             data["date_ended"] = ""
     elif fake.boolean():
-        date_diff = timezone.now().date() - date_started
-        data["date_ended"] = str(
-            fake.date_between_dates(
-                date_start=date_started,
-                date_end=date_started + timedelta(days=30) if date_diff > timedelta(days=30) else date_diff,
-            )
-        )
+        data["date_ended"] = str(create_date_ended(date_started))
+    else:
+        data["date_ended"] = ""
+    print("after date_started/ended created")
+    print(data["date_started"])
+    print(data["date_ended"])
     data["onset"] = fake.boolean()
     data["redness"] = fake.boolean()
     data["joints"] = get_random_joints()

@@ -1384,6 +1384,7 @@ class TestPpxUpdate(TestCase):
             }
         )
         # POST the data
+        print(data)
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
         forms_print_response_errors(response)
 

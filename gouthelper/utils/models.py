@@ -1651,6 +1651,7 @@ aggressively with ULT."
         self,
     ) -> bool:
         """Returns True if the object's most recent Urate object is at goal."""
+        print(self.all_urates)
         return labs_urates_at_goal(self.all_urates, self.goal_urate)
 
     @cached_property

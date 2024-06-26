@@ -4,6 +4,7 @@ from django import forms  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
 from django.urls import reverse_lazy  # type: ignore
 from django.utils import timezone  # type: ignore
+from django.utils.functional import cached_property  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
@@ -93,6 +94,14 @@ class LabForm(BaseLabForm):
                 if date_drawn > timezone.now():
                     error_message = ValidationError(_("Labs can't be drawn in the future... Or can they?"))
                     self.add_error("date_drawn", error_message)
+
+    @cached_property
+    def instance_should_persist(self) -> bool:
+        return (
+            hasattr(self, "cleaned_data")
+            and self.cleaned_data.get("value", None) not in [None, ""]
+            and not self.cleaned_data.get("DELETE")
+        )
 
 
 class BaselineCreatinineForm(BaseLabForm):

@@ -22,6 +22,7 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     PermissionRequiredMixin,
 )
 
+from ..akis.choices import Statuses
 from ..akis.services import AkiProcessor
 from ..contents.choices import Contexts
 from ..dateofbirths.models import DateOfBirth
@@ -55,7 +56,6 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
-    from ..akis.choices import Statuses
     from ..labs.models import BaselineCreatinine
 
 User = get_user_model()
@@ -100,8 +100,8 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
 
     def post_process_aki(self) -> None:
         creatinine_formsets = self.lab_formsets["creatinine"][0]
+        aki_form, aki, status = self.get_aki_form_value_and_status()
         if labs_formset_has_one_or_more_valid_labs(creatinine_formsets):
-            aki_form, aki, status = self.get_aki_form_value_and_status()
             ckd = self.get_ckd()
             baselinecreatinine = self.get_baselinecreatinine() if ckd else None
             stage = self.get_stage(ckd)
@@ -126,6 +126,9 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
                 else:
                     status = processor.get_status()
                     aki_form.instance.status = status
+        elif aki and (status is None or status == ""):
+            aki_form.cleaned_data["status"] = Statuses.ONGOING
+            aki_form.instance.status = Statuses.ONGOING
 
     def get_aki_form_value_and_status(self) -> tuple["ModelForm", bool, Union["Statuses", None]]:
         form = self.oto_forms["aki"]
@@ -137,7 +140,12 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
 
     def get_ckd(self):
         ckd_form = self.medhistory_forms[MedHistoryTypes.CKD]
-        return ckd_form.cleaned_data.get("value", None) if hasattr(ckd_form, "cleaned_data") else None
+        return (
+            ckd_form.cleaned_data.get(f"{MedHistoryTypes.CKD}-value", None)
+            if hasattr(ckd_form, "cleaned_data")
+            else None
+        )
+        # TODO - WRITE TEST FOR THESE METHODS
 
     def get_stage(self, ckd):
         if ckd:

@@ -8,6 +8,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..dateofbirths.helpers import age_calc
 from ..labs.helpers import labs_check_chronological_order_by_date_drawn
 from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers import get_qs_or_set
@@ -66,7 +67,9 @@ class Aki(
 
     @cached_property
     def age(self) -> int | None:
-        return self.user.age if self.user else self.flare.age if hasattr(self, "flare") else None
+        return (
+            age_calc(self.user.dateofbirth.value) if self.user else self.flare.age if hasattr(self, "flare") else None
+        )
 
     @cached_property
     def ckd(self) -> Union["MedHistory", None]:
@@ -88,6 +91,28 @@ class Aki(
     @cached_property
     def improving_with_creatinines(self) -> bool:
         return self.status == Statuses.IMPROVING and self.creatinines
+
+    @cached_property
+    def improving_with_creatinines_but_not_at_baselinecreatinine(self) -> bool:
+        return self.improving_with_creatinines and (
+            self.baselinecreatinine and not self.most_recent_creatinine.is_at_baseline and self.has_age_and_gender
+        )
+
+    @cached_property
+    def improving_with_creatinines_stage_age_gender_no_baselinecreatinine(self) -> bool:
+        return self.improving_with_creatinines and (
+            not self.baselinecreatinine and self.stage and self.has_age_and_gender
+        )
+
+    @cached_property
+    def improving_with_creatinines_age_gender_no_stage_or_baselinecreatinine(self) -> bool:
+        return self.improving_with_creatinines and (
+            not self.stage and not self.baselinecreatinine and self.has_age_and_gender
+        )
+
+    @cached_property
+    def has_age_and_gender(self) -> bool:
+        return self.age and self.gender is not None
 
     @cached_property
     def most_recent_creatinine(self) -> "Creatinine":

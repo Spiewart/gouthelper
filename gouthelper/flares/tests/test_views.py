@@ -14,6 +14,7 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone  # type: ignore
 
+from ...akis.choices import Statuses
 from ...akis.models import Aki
 from ...contents.models import Content
 from ...dateofbirths.forms import DateOfBirthForm
@@ -25,7 +26,7 @@ from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
 from ...labs.forms import UrateFlareForm
 from ...labs.models import Urate
-from ...labs.tests.factories import UrateFactory
+from ...labs.tests.factories import CreatinineFactory, UrateFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import AnginaForm, CadForm, ChfForm, CkdForm, GoutForm, HeartattackForm, PvdForm, StrokeForm
@@ -84,6 +85,8 @@ class TestFlareCreate(TestCase):
         self.factory = RequestFactory()
         self.view: FlareCreate = FlareCreate
         self.request = self.factory.get("/fake-url/")
+        self.user = AnonymousUser()
+        self.request.user = self.user
         self.flare_data = {
             "crystal_analysis": "",
             "date_ended": "",
@@ -362,6 +365,16 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         new_flare = Flare.objects.order_by("created").last()
         self.assertTrue(new_flare.aki)
 
+    def test__aki_without_status_created_ongoing(self) -> None:
+        flare_data = flare_data_factory(otos={"aki": True})
+        flare_data.update({"aki-status": ""})
+        response = self.client.post(reverse("flares:create"), flare_data)
+        self.assertEqual(response.status_code, 302)
+
+        new_flare = Flare.objects.order_by("created").last()
+        self.assertTrue(new_flare.aki)
+        self.assertEqual(new_flare.aki.status, Aki.Statuses.ONGOING)
+
     def test__creatinines_created(self):
         # Create Flare data with creatinines
         flare_data = flare_data_factory(creatinines=[Decimal("3.0"), Decimal("3.0")])
@@ -383,6 +396,33 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
         aki = Aki.objects.order_by("created").last()
         self.assertEqual(aki.status, Aki.Statuses.ONGOING)
+
+    def test__aki_ongoing_creatinines_improved_raises_ValidationError(self) -> None:
+        flare_data = flare_data_factory(
+            otos={"aki": True},
+            mhs=None,
+            creatinines=[
+                CreatinineFactory(value=Decimal("3.0")),
+                CreatinineFactory(value=Decimal("2.0")),
+            ],
+        )
+        flare_data.update({"date_started": str((timezone.now() - timedelta(days=5)).date())})
+        flare_data.update({"date_ended": str((timezone.now() - timedelta(days=1)).date())})
+        flare_data.update({"creatinine-0-date_drawn": str(timezone.now() - timedelta(days=4))})
+        flare_data.update({"creatinine-1-date_drawn": str(timezone.now() - timedelta(days=2))})
+        flare_data.update({"aki-status": Statuses.ONGOING})
+        response = self.client.post(reverse("flares:create"), flare_data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("status", response.context_data["aki_form"].errors)
+        self.assertIn(
+            "The AKI is marked as ongoing, but the creatinines suggest it is improving.",
+            response.context_data["aki_form"].errors["status"][0],
+        )
+        self.assertIn(
+            "The AKI is marked as ongoing, but the creatinines suggest it is improving.",
+            response.context_data["creatinine_formset"].errors[0]["__all__"],
+        )
 
 
 class TestFlareDetail(TestCase):

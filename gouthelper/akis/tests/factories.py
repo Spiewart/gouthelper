@@ -2,8 +2,9 @@ from decimal import Decimal
 
 from factory import post_generation  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
-from factory.fuzzy import FuzzyChoice  # type: ignore
+from factory.fuzzy import FuzzyChoice
 
+from ...labs.helpers import labs_sort_list_by_date_drawn
 from ...labs.models import Creatinine
 from ...labs.tests.factories import CreatinineFactory
 from ...utils.helpers import get_or_create_qs_attr
@@ -37,3 +38,4 @@ class AkiFactory(DjangoModelFactory):
                 else:
                     raise ValueError("creatinine must be a Decimal or Creatinine object")
                 get_or_create_qs_attr(self, "creatinines").append(creatinine)
+            labs_sort_list_by_date_drawn(self.creatinines_qs)

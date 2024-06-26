@@ -173,6 +173,13 @@ This would typically mean the patient is on dialysis."
         )
 
 
+def labs_sort_list_by_date_drawn(
+    labs: list["Lab"],
+) -> None:
+    """Method that orders a list or QuerySet of labs by date_drawn."""
+    labs.sort(key=lambda x: x.date_drawn, reverse=True)
+
+
 def labs_round_decimal(value: Decimal, places: int) -> Decimal:
     """Method that rounds a Decimal to a given number of places."""
     if value is not None:
@@ -567,7 +574,9 @@ def labs_urates_at_goal_within_last_month(
     goal_urate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is at goal within the last month."""
-    return labs_urates_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(urates[0].date)
+    return labs_urates_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+        urates[0].date_drawn_or_flare_date
+    )
 
 
 def labs_urates_not_at_goal_within_last_x_days(
@@ -576,7 +585,9 @@ def labs_urates_not_at_goal_within_last_x_days(
     goal_urate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last x days."""
-    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_is_within_x_days(urates[0].date, x)
+    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_is_within_x_days(
+        urates[0].date_drawn_or_flare_date, x
+    )
 
 
 def labs_urates_not_at_goal_within_last_month(
@@ -584,7 +595,9 @@ def labs_urates_not_at_goal_within_last_month(
     goal_urate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last month."""
-    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(urates[0].date)
+    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+        urates[0].date_drawn_or_flare_date
+    )
 
 
 def labs_urates_at_goal_x_months(
@@ -621,7 +634,7 @@ def labs_urates_at_goal_x_months(
         labs_urates_compare_chronological_order_by_date(
             current_urate=urates[r], previous_urate=urates[r - 1] if r > 0 else None, first_urate=urates[0]
         )
-        if (urates[0].date - urates[r].date) >= timedelta(days=30 * x):
+        if (urates[0].date_drawn_or_flare_date - urates[r].date_drawn_or_flare_date) >= timedelta(days=30 * x):
             return True
         # If Urates aren't x months apart but both are below goal_urate
         # Recurse to the next urate further back in time urates[r+1]
