@@ -1204,7 +1204,7 @@ class TestPpxPseudopatientUpdate(TestCase):
     def test__post_creates_urates(self):
         """Test that the view creates the User's Urate objects."""
         # Create data based on the User's Ppx
-        data = ppx_data_factory(ppx=self.psp.ppx)
+        data = ppx_data_factory(ppx=self.psp.ppx, urates=None)
 
         # Count the User's urates
         # urate_count = self.psp.urate_set.count()
@@ -1384,7 +1384,6 @@ class TestPpxUpdate(TestCase):
             }
         )
         # POST the data
-        print(data)
         response = self.client.post(reverse("ppxs:update", kwargs={"pk": self.ppx.pk}), data)
         forms_print_response_errors(response)
 

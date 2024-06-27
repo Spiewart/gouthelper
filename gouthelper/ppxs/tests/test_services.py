@@ -79,9 +79,14 @@ class TestPpxDecisionAidMethods(TestCase):
 
     def test__at_goal(self):
         """Test that all the at_goal property outcomes return the correct value."""
-        self.ppx.urate_set.all().delete()
-        aid = PpxDecisionAid(ppx_userless_qs(pk=self.ppx.pk))
-        self.assertEqual(aid.at_goal, self.ppx.urates_at_goal)
+        ppx = create_ppx(
+            labs=[
+                UrateFactory(value=Decimal("5.0"), date_drawn=timezone.now() - timedelta(days=190)),
+                UrateFactory(value=Decimal("5.0"), date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+        )
+        aid = PpxDecisionAid(ppx_userless_qs(pk=ppx.pk))
+        self.assertEqual(aid.at_goal, ppx.urates_at_goal)
 
     def test__init_not_at_goal(self):
         """Test that the constructor sets the GoutDetail object's

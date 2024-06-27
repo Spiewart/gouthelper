@@ -362,8 +362,8 @@ class CustomFlareFactory:
                     kwargs["value"] = self.dateofbirth
             elif self.menopause:
                 kwargs["value"] = fake.date_between_dates(
-                    date_start=(timezone.now() - timedelta(days=365 * 50)).date(),
-                    date_end=(timezone.now() - timedelta(days=365 * 80)).date(),
+                    date_start=(timezone.now() - timedelta(days=365 * 80)).date(),
+                    date_end=(timezone.now() - timedelta(days=365 * 50)).date(),
                 )
             return DateOfBirthFactory(**kwargs)
 
