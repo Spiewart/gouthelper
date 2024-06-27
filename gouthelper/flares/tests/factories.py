@@ -155,7 +155,8 @@ class CustomFlareFactory:
                 self.flare.date_started
                 if self.flare
                 else fake.date_between_dates(
-                    date_start=(timezone.now() - timedelta(days=365)).date(), date_end=timezone.now().date()
+                    date_start=(timezone.now() - timedelta(days=365)).date(),
+                    date_end=timezone.now().date() if not self.date_ended else self.date_ended,
                 )
             )
 
