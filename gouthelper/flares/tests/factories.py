@@ -253,23 +253,9 @@ class CustomFlareFactory:
         return None
 
     def get_or_create_baselinecreatinine(self) -> Decimal | None:
-        def create_baselinecreatinine(min_value: float, max_value: float) -> BaselineCreatinine:
-            return BaselineCreatinine.objects.create(
-                value=fake.pydecimal(
-                    left_digits=1, right_digits=1, positive=True, min_value=min_value, max_value=max_value
-                ),
-                medhistory=self.ckd,
-            )
-
         def create_baselinecreatinine_value(min_value: float, max_value: float) -> Decimal:
             return fake.pydecimal(
                 left_digits=1, right_digits=1, positive=True, min_value=min_value, max_value=max_value
-            )
-
-        def create_baselinecreatinine_value_known() -> BaselineCreatinine:
-            return BaselineCreatinine.objects.create(
-                value=self.baselinecreatinine,
-                medhistory=self.ckd,
             )
 
         def calculate_min_max_values(stage: Stages, age: int, gender: Genders) -> tuple[float, float]:
@@ -277,6 +263,8 @@ class CustomFlareFactory:
                 max_value,
                 min_value,
             ) = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+            if max_value < min_value:
+                raise ValueError(f"Max value: {max_value} is less than min value: {min_value}")
             return round(float(min_value), 1), round(float(max_value), 1)
 
         if self.baselinecreatinine is Auto:
