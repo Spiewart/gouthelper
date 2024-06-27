@@ -78,17 +78,17 @@ class TestFlareAid(TestCase):
         self.flareaid.refresh_from_db()
         self.assertTrue(self.flareaid.decisionaid)
 
-    def test__flare_with_related_flare(self):
+    def test__related_flare(self):
         flareaid = create_flareaid()
         flare = create_flare(flareaid=flareaid)
         self.assertEqual(flareaid.related_flare, flare)
 
-    def test__flare_with_user(self):
+    def test__related_flare_with_user(self):
         user_flareaid = create_flareaid(user=True)
         user_flare = create_flare(user=user_flareaid.user)
         user = flares_user_qs(username=user_flareaid.user.username, flare_pk=user_flare.pk).get()
         flareaid = user.flareaid
-        flare = user.flare_qs
+        flare = user.flare_qs[0]
         self.assertEqual(flareaid.related_flare, flare)
 
     def test__get_flare_options_without_aki(self):

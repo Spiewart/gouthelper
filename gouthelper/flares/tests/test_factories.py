@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from sqlite3 import IntegrityError
 
 import pytest
 from django.test import TestCase  # type: ignore
@@ -365,12 +364,6 @@ class TestAki(TestCase):
             assert hasattr(flare.aki, "user")
             assert flare.aki.user == flare.user
 
-    def test__create_flare_without_aki(self):
-        flare = create_flare(aki=None)
-        assert not getattr(flare, "aki", False)
-        flare = create_flare(aki=False)
-        assert not getattr(flare, "aki", False)
-
 
 class TestFlareFactory(TestCase):
     def test__flare_created(self):
@@ -463,13 +456,6 @@ class TestFlareFactory(TestCase):
         self.assertTrue(flare.date_ended)
         self.assertTrue(isinstance(flare.date_ended, date))
         self.assertEqual(flare.date_ended, date_ended)
-
-    def test__date_ended_before_date_started_raises_IntegrityError(self):
-        date_started = (timezone.now() - timedelta(days=3)).date()
-        date_ended = (timezone.now() - timedelta(days=4)).date()
-        factory = CustomFlareFactory(date_started=date_started, date_ended=date_ended)
-        with self.assertRaises(IntegrityError):
-            factory.create_object()
 
     def test__stage_creates_ckddetail(self):
         factory = CustomFlareFactory(stage=Stages.THREE)

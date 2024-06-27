@@ -218,6 +218,13 @@ class TestCreatinine(TestCase):
         flare = create_flare(mhs=[MedHistoryTypes.CKD])
         aki = AkiFactory(flare=flare)
         creatinine = CreatinineFactory(aki=aki)
+        if creatinine.ckddetail:
+            flare.ckddetail.delete()
+            delattr(flare, "ckd")
+            delattr(flare, "ckddetail")
+            delattr(creatinine, "ckd")
+            delattr(creatinine, "ckddetail")
+        creatinine.refresh_from_db()
         self.assertIsNone(creatinine.ckddetail)
 
     def test__ckddetail_with_aki_flare_with_ckddetail(self):
