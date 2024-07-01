@@ -171,7 +171,7 @@ class GoutDetailForm(forms.ModelForm):
             self.str_attrs["subject_the"],
             reverse_lazy("flares:about"),
         )
-        self.fields["at_goal"].label = "At Goal Uric Acid Level"
+        self.fields["at_goal"].label = "Goal Uric Acid"
         self.fields["at_goal"].initial = None
         self.fields["at_goal"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["at_goal"].help_text = format_lazy(
@@ -190,15 +190,16 @@ class GoutDetailForm(forms.ModelForm):
         )
         self.fields["on_ppx"].initial = None
         self.fields["on_ppx"].choices = YES_OR_NO_OR_NONE
-        self.fields["on_ppx"].label = "Prophylaxis (PPx)"
+        self.fields["on_ppx"].label = "Prophylaxis"
         self.fields["on_ppx"].help_text = format_lazy(
-            """{} {} already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+            """{} {} on anti-inflammatories for gout flare prevention \
+(<a href="{}" target="_blank">prophylaxis</a>)?""",
             self.str_attrs["Tobe"],
             self.str_attrs["subject_the"],
             reverse_lazy("treatments:about-ppx"),
         )
         self.fields["on_ppx"].required = True
-        self.fields["on_ult"].label = "Urate-Lowering Therapy (ULT)"
+        self.fields["on_ult"].label = "Urate-Lowering Therapy"
         self.fields["on_ult"].help_text = format_lazy(
             """{} {} on <a href="{}" target="_blank">urate-lowering therapy</a> (ULT)?""",
             self.str_attrs["Tobe"],
@@ -212,6 +213,8 @@ class GoutDetailForm(forms.ModelForm):
             "starting_ult"
         ].help_text = f"Is {self.str_attrs.get('subject_the')} just starting ULT (urate-lowering therapy) or \
 {self.str_attrs.get('pos')} {self.str_attrs.get('gender_subject')} started ULT in the last 3 months?"
+        self.fields["starting_ult"].initial = None
+        self.fields["starting_ult"].choices = YES_OR_NO_OR_NONE
         self.helper = FormHelper()
         self.helper.form_tag = False
         legend_sub = "the Patient" if not self.patient else self.patient
@@ -254,14 +257,6 @@ class GoutDetailForm(forms.ModelForm):
                     ),
                     Div(
                         Div(
-                            "on_ppx",
-                            css_class="col",
-                        ),
-                        css_class="row",
-                        css_id="on_ppx",
-                    ),
-                    Div(
-                        Div(
                             "on_ult",
                             css_class="col",
                         ),
@@ -275,6 +270,14 @@ class GoutDetailForm(forms.ModelForm):
                         ),
                         css_class="row",
                         css_id="starting_ult",
+                    ),
+                    Div(
+                        Div(
+                            "on_ppx",
+                            css_class="col",
+                        ),
+                        css_class="row",
+                        css_id="on_ppx",
                     ),
                     css_id="goutdetail-form",
                 ),

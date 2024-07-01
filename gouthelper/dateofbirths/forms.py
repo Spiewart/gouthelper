@@ -25,7 +25,7 @@ class DateOfBirthForm(ModelFormKwargMixin, OneToOneForm):
         self.fields["value"] = IntegerField(
             label=_("Age"),
             help_text=format_lazy(
-                """How old {} {} (range: 18-120)? <a href="{}" target="_next">Why do we need to know?</a>""",
+                """How old {} {}? <a href="{}" target="_next">Why do we need to know?</a>""",
                 self.str_attrs["tobe"],
                 self.str_attrs["subject_the"],
                 reverse_lazy("dateofbirths:about"),

@@ -477,8 +477,7 @@ class MenopauseForm(MedHistoryForm):
         )
         self.fields[
             self.value
-        ].help_text = f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} gone through menopause? (Either \
-biologically or medically)"
+        ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} menopausal or post-menopausal?"
         self.fields[self.value].label = "Menopause"
 
 

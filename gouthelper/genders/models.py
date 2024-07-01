@@ -1,3 +1,5 @@
+from typing import Literal
+
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse_lazy
@@ -38,8 +40,8 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
-    def __str__(self):
+    def __str__(self) -> Genders | Literal["Gender unknown"]:
         if self.value is not None:
-            return f"{self.Genders(self.value).label.lower()}"
+            return self.get_value_display()
         else:
             return "Gender unknown"
