@@ -218,17 +218,17 @@ class TestFlareMethods(TestCase):
         self.flare.date_started = (timezone.now() - timedelta(days=7)).date()
         self.flare.date_ended = None
         self.flare.save()
-        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%b %d')} - present)")
+        self.assertEqual(self.flare.__str__(), f"Flare ({self.flare.date_started.strftime('%-m/%d')} - present)")
         self.flare.date_ended = (timezone.now() - timedelta(days=1)).date()
         self.assertEqual(
             self.flare.__str__(),
-            f"Flare ({self.flare.date_started.strftime('%b %d')} - {self.flare.date_ended.strftime('%b %d')})",
+            f"Flare ({self.flare.date_started.strftime('%-m/%d')} - {self.flare.date_ended.strftime('%-m/%d')})",
         )
         self.flare.user = PseudopatientFactory()
         self.assertEqual(
             self.flare.__str__(),
-            f"Flare ({self.flare.date_started.strftime('%b %d')} \
-- {self.flare.date_ended.strftime('%b %d')})",
+            f"Flare ({self.flare.date_started.strftime('%-m/%d')} \
+- {self.flare.date_ended.strftime('%-m/%d')})",
         )
 
     def test__uncommon_joints(self):
