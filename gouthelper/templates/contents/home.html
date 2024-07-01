@@ -29,17 +29,18 @@
     <div class="jumbotron bg-primary">
       <h1>Get Started</h1>
       <p class="lead">
-        Start by creating a GoutPatient (pseudopatient). If you'd like to save GoutPatients to
-        reference later, create an account. If you know which tool you need, just pick that from the Navigation Bar.
+        Start by creating a GoutPatient. If you'd like to save GoutPatients to reference later, create an account. If you know which tool you need, just pick that from the Navigation Bar.
       </p>
       <hr class="my-4" />
       <p>
         GoutPatients are a way to conslidate information and use multiple GoutHelper tools without duplicating information.
-        They also don't require, and in fact don't allow, any Protected Health Information (PHI).
-      </p>
-      <a class="btn btn-warning btn-lg"
-         href="{% url 'users:pseudopatient-create' %}"
-         role="button"><strong>Create GoutPatient</strong></a>
-    </div>
-  </main>
+        They also don't require, and in fact don't allow, any Protected Health Information (PHI). <strong>GoutHelper assumes that all GoutPatients
+        have gout. If you are uncertain about whether a patient's symptoms are due to gout, create a <a class="yellow-hyperlink" href="{% url 'flares:create' %}">Flare</a>
+      to see what GoutHelper thinks.</strong>
+    </p>
+    <a class="btn btn-warning btn-lg"
+       href="{% url 'users:pseudopatient-create' %}"
+       role="button"><strong>Create GoutPatient</strong></a>
+  </div>
+</main>
 {% endblock content %}

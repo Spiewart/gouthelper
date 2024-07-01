@@ -193,6 +193,13 @@ class UserUpdateView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMes
     fields = ["name"]
     success_message = _("Information successfully updated")
 
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.role == Roles.PSEUDOPATIENT:
+            return HttpResponseRedirect(
+                reverse("users:pseudopatient-update", kwargs={"username": request.user.username})
+            )
+        return super().dispatch(request, *args, **kwargs)
+
     def get_success_url(self):
         assert self.request.user.is_authenticated  # for mypy to know that the user is authenticated
         return self.request.user.get_absolute_url()

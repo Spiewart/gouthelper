@@ -290,19 +290,19 @@ def shorten_date_for_str(date: datetime, abbrev_last_week: bool = False, show_ti
     # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
     if abbrev_last_week and date >= timezone.now() - timedelta(days=7):
         if show_time:
-            return f"{date.strftime('%a-%I:%M%p')}"
+            return f"{date.strftime('%a-%-I:%M%p')}"
         else:
             return f"{date.strftime('%a')}"
     elif date.year == timezone.now().year:
         if show_time:
-            return f"{date.strftime('%b %d-%I:%M%p')}"
+            return f"{date.strftime('%-m/%d-%-I:%M%p')}"
         else:
-            return f"{date.strftime('%b %d')}"
+            return f"{date.strftime('%-m/%d')}"
     else:
         if show_time:
-            return f"{date.strftime('%b %d-%Y-%I:%M%p')}"
+            return f"{date.strftime('%-m/%d-%Y-%-I:%M%p')}"
         else:
-            return f"{date.strftime('%b %d-%Y')}"
+            return f"{date.strftime('%-m/%d-%Y')}"
 
 
 def wrap_with_html_badge(text: str, badge_type: str) -> str:

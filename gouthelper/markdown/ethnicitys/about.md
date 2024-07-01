@@ -10,7 +10,7 @@
 
 ## <span id="about">About</span>
 
-GoutHelper appreciates that race and ethnicity are sensitive subjects and that in modern medicine we should strive to avoid race-based judgement and predictions, as well as develop accurate assessments of health that are not dependent on race or ethnicity. However, GoutHelper has to ask about race / ethnicity because of the risk imparted by the [HLA-B\*5801](/labs/about/hlab5801/).
+GoutHelper appreciates that race and ethnicity are sensitive subjects and that in modern medicine we should strive to avoid race-based judgement and predictions, as well as develop accurate assessments of health that are not dependent on race or ethnicity. However, GoutHelper has to ask about race / ethnicity because of the risk imparted by [HLA-B\*5801](/labs/about/hlab5801/).
 
 ---
 
