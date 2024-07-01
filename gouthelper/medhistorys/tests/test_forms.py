@@ -475,7 +475,7 @@ class TestMenopauseForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.MENOPAUSE}-value"].help_text,
-            "Has the patient gone through menopause? (Either biologically or medically)",
+            "Is the patient menopausal or post-menopausal?",
         )
         self.assertTrue(
             isinstance(

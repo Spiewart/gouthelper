@@ -117,16 +117,17 @@ class TestGoutDetailForm(TestCase):
         )
         # Test on_ppx
         self.assertIsNone(self.form.fields["on_ppx"].initial)
-        self.assertEqual(self.form.fields["on_ppx"].label, "Prophylaxis (PPx)")
+        self.assertEqual(self.form.fields["on_ppx"].label, "Prophylaxis")
         self.assertEqual(
             self.form.fields["on_ppx"].help_text,
             format_lazy(
-                """Is the patient already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+                """Is the patient on anti-inflammatories for gout flare prevention \
+(<a href="{}" target="_blank">prophylaxis</a>)?""",
                 reverse_lazy("treatments:about-ppx"),
             ),
         )
         self.assertTrue(self.form.fields["on_ppx"].required)
         # Test on_ult
-        self.assertEqual(self.form.fields["on_ult"].label, "Urate-Lowering Therapy (ULT)")
+        self.assertEqual(self.form.fields["on_ult"].label, "Urate-Lowering Therapy")
         self.assertIsNone(self.form.fields["on_ult"].initial)
         self.assertTrue(self.form.fields["on_ult"].required)
