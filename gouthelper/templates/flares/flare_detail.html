@@ -123,6 +123,14 @@
                  href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
                  role="button">Create FlareAid</a>
             </div>
+            or
+            <div class="card card-body spacious-cards" id="goutpatient-card">
+              <h3 class="card-title">Turn Flare INTO GOUTPATIENT</h3>
+              <a type="button"
+                 class="btn btn-primary btn-lg"
+                 href="{% url 'users:pseudopatient-flare-create' flare=object.pk %}"
+                 role="button">Create GoutPatient</a>
+            </div>
           {% endif %}
         {% endif %}
       </div>

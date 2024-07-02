@@ -17,6 +17,8 @@ from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import yearsago
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
+from ...flares.models import Flare
+from ...flares.tests.factories import CustomFlareFactory
 from ...genders.choices import Genders
 from ...genders.forms import GenderForm
 from ...medhistorydetails.forms import GoutDetailForm
@@ -31,6 +33,7 @@ from ..forms import PseudopatientForm, UserAdminChangeForm
 from ..models import Pseudopatient, User
 from ..views import (
     PseudopatientCreateView,
+    PseudopatientFlareCreateView,
     PseudopatientListView,
     PseudopatientUpdateView,
     UserDeleteView,
@@ -44,7 +47,7 @@ from .factories_data import pseudopatient_form_data_factory
 pytestmark = pytest.mark.django_db
 
 
-class TestPseudoPatientCreateView(TestCase):
+class TestPseudopatientCreateView(TestCase):
     """Tests for the PseudopatientCreateView, which is actually a View
     with a post method, not a CreateView.
     """
@@ -355,6 +358,106 @@ menopause status to evaluate their flare."
         request.user = create_psp()
         with pytest.raises(PermissionDenied):
             view.as_view()(request)
+
+
+class TestPseudopatientFlareCreateView(TestCase):
+    def setUp(self):
+        self.view = PseudopatientFlareCreateView
+        self.flare, self.response, self.pseudopatient = self.return_flare_response_user("POST")
+        self.flare.refresh_from_db()
+
+    def return_flare_response_user(
+        self, method: str = "POST", flare: Flare | None = None, data: dict | None = None
+    ) -> tuple[Flare, HttpResponseRedirect, User]:
+        if not flare:
+            flare = CustomFlareFactory().create_object()
+        if not data:
+            data = {
+                "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
+                f"{MedHistoryTypes.GOUT}-value": True,
+                "flaring": True,
+                "at_goal": True,
+                "at_goal_long_term": False,
+                "on_ppx": False,
+                "on_ult": True,
+                "starting_ult": False,
+            }
+        if method == "POST":
+            response = self.client.post(
+                reverse("users:pseudopatient-flare-create", kwargs={"flare": flare.pk}), data=data
+            )
+        else:
+            response = self.client.get(
+                reverse("users:pseudopatient-flare-create", kwargs={"flare": flare.pk}), data=data
+            )
+        pseudopatient = Pseudopatient.objects.last()
+        return flare, response, pseudopatient
+
+    def test__get_context_data(self):
+        """Test that the required context data is passed to the template."""
+        flare, response, _ = self.return_flare_response_user("GET")
+        assert response.status_code == 200
+        assert "age" in response.context
+        assert response.context["age"] == flare.age
+        assert "dateofbirth_form" not in response.context
+        assert "gender_form" not in response.context
+        assert "gender" in response.context
+        assert response.context["gender"] == flare.gender.value
+        assert "ethnicity_form" in response.context
+        assert "goutdetail_form" in response.context
+        assert "flare" in response.context
+        assert response.context["flare"] == flare
+
+    def test__flare(self):
+        """Test that the view's flare() method returns the flare object."""
+        view = PseudopatientFlareCreateView()
+        view.kwargs = {"flare": self.flare.pk}
+        assert view.flare == self.flare
+
+    def test__get_form_kwargs(self):
+        """Test that the view's get_form_kwargs() method returns the flare object."""
+        flare, response, _ = self.return_flare_response_user("GET")
+        assert response.status_code == 200
+        assert "form" in response.context
+        form = response.context["form"]
+        assert form.flare == flare
+
+    def test__related_objects(self):
+        """Test that the view's related_objects() method returns the flare object."""
+        view = PseudopatientFlareCreateView()
+        view.kwargs = {"flare": self.flare.pk}
+        assert view.related_object == self.flare
+
+    def test__post_returns_302_response(self):
+        assert self.response.status_code == 302
+
+    def test__post_creates_new_user(self) -> None:
+        assert Pseudopatient.objects.flares_qs(self.flare.pk).exists()
+
+    def test__flare_has_no_medhistory_set(self) -> None:
+        assert not self.flare.medhistory_set.exists()
+
+    def test__flare_medhistorys_are_set_to_user(self) -> None:
+        flare = CustomFlareFactory(cad=True, angina=True).create_object()
+        flare_medhistory_count = flare.medhistory_set.count()
+        flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
+        _, _, user = self.return_flare_response_user(flare=flare)
+        user = Pseudopatient.objects.flares_qs(flare.pk).filter(flare__pk=flare.pk).get()
+        assert (
+            user.medhistory_set.count() == flare_medhistory_count
+            if flare_has_gout_medhistory
+            else flare_medhistory_count + 1
+        )
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).exists()
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).exists()
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
+
+    def test__flare_has_no_otos(self) -> None:
+        assert not self.flare.dateofbirth
+        assert not self.flare.gender
+
+    def test__flare_has_user_updated(self) -> None:
+        assert self.flare.user == self.pseudopatient
 
 
 class TestPseudopatientDetailView(TestCase):

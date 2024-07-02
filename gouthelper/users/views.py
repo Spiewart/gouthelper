@@ -1,17 +1,28 @@
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, RedirectView, UpdateView
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
+from ..flares.models import Flare
 from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin, remove_patient_from_session
 from .choices import Roles
-from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS
+from .dicts import (
+    FLARE_MEDHISTORY_FORMS,
+    FLARE_OTO_FORMS,
+    FLARE_REQ_OTOS,
+    MEDHISTORY_DETAIL_FORMS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+)
 from .forms import PseudopatientForm
 from .models import Pseudopatient
 from .selectors import pseudopatient_profile_qs, pseudopatient_qs
@@ -55,6 +66,61 @@ class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
 
 
 pseudopatient_create_view = PseudopatientCreateView.as_view()
+
+
+class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    model = Pseudopatient
+    form_class = PseudopatientForm
+
+    MEDHISTORY_FORMS = FLARE_MEDHISTORY_FORMS
+    OTO_FORMS = FLARE_OTO_FORMS
+    REQ_OTOS = FLARE_REQ_OTOS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+
+    # TODO: refactor dispatch to prevent calling on a flare with a FlareAid
+
+    @cached_property
+    def flare(self) -> Flare | None:
+        flare_kwarg = self.kwargs.get("flare", None)
+        return Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"flare": self.flare})
+        return context
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.flare:
+            kwargs.update({"flare": self.flare})
+        return kwargs
+
+    def get_permission_object(self):
+        if self.flare and self.flare.user:
+            raise PermissionError("Trying to create a Pseudopatient for a Flare that already has a user.")
+        return None
+
+    def get_permission_required(self):
+        """Returns the list of permissions that the user must have in order to access the view."""
+        perms = ["users.can_add_user"]
+        if self.kwargs.get("username", None):
+            perms += ["users.can_add_user_with_provider"]
+        return perms
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            kwargs.update({"flare": self.flare})
+            return self.form_valid(**kwargs)
+
+    @cached_property
+    def related_object(self) -> Flare:
+        return self.flare
+
+
+pseudopatient_flare_create_view = PseudopatientFlareCreateView.as_view()
 
 
 class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, UpdateView, SuccessMessageMixin):

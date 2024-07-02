@@ -36,6 +36,7 @@ class PseudopatientForm(ModelFormKwargMixin, forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        self.flare = kwargs.pop("flare", None)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -45,11 +46,12 @@ class PseudopatientForm(ModelFormKwargMixin, forms.ModelForm):
             ),
         )
         forms_helper_insert_demographics(layout=self.helper.layout)
-        # Insert dateofbirth and gender forms above menopause form
-        forms_helper_insert_dateofbirth(layout=self.helper.layout)
-        forms_helper_insert_gender(layout=self.helper.layout)
-        # Insert MenopauseForm
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
+        if not self.flare:
+            # Insert dateofbirth and gender forms above menopause form
+            forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            forms_helper_insert_gender(layout=self.helper.layout)
+            # Insert MenopauseForm
+            forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
         # Insert ethnicity and gout/detail forms
         forms_helper_insert_ethnicity(layout=self.helper.layout)
         forms_helper_insert_goutdetail(layout=self.helper.layout)

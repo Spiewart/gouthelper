@@ -124,6 +124,20 @@ def first_letter_lowercase(string: str) -> str:
     return string[:1].lower() + string[1:]
 
 
+def list_of_possible_related_object_attrs() -> list[str]:
+    return ["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"]
+
+
+def list_of_objects_related_objects(obj: Any) -> bool:
+    related_objects = []
+    for attr in list_of_possible_related_object_attrs():
+        if hasattr(obj, attr):
+            rel_obj = getattr(obj, attr)
+            if rel_obj:
+                related_objects.append(rel_obj)
+    return related_objects
+
+
 def get_or_create_qs_attr(
     obj: Any,
     name: str,

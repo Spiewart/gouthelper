@@ -86,7 +86,6 @@ class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMix
         return Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        """Add ultaid to context if it exists."""
         context = super().get_context_data(**kwargs)
         context.update({"flare": self.flare})
         return context

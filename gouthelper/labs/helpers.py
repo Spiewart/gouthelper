@@ -51,7 +51,7 @@ def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
             return labs_calculate_baseline_creatinine_from_eGFR_age_gender(
                 eGFR=eGFR, age=age, gender=gender, value=value + value / 2
             )
-    return value
+    return value if value < Decimal(10) else Decimal("9.99")
 
 
 def labs_creatinine_is_at_baseline_creatinine(

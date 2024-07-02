@@ -24,7 +24,12 @@ from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
-from ..utils.helpers import get_or_create_qs_attr, get_str_attrs
+from ..utils.helpers import (
+    get_or_create_qs_attr,
+    get_str_attrs,
+    list_of_objects_related_objects,
+    list_of_possible_related_object_attrs,
+)
 
 if TYPE_CHECKING:
     from django.forms import BaseModelFormSet  # type: ignore
@@ -161,10 +166,7 @@ class GoutHelperEditMixin:
                 or self.create_view
             )
 
-        if isinstance(self.form.instance, User):
-            self.user = self.form.save()
-            self.save_object = False
-        elif form_should_save():
+        if form_should_save():
             self.object = self.form.save(commit=False)
             self.save_object = True
         else:
@@ -539,11 +541,15 @@ class GoutHelperEditMixin:
 
     @classmethod
     def get_related_objects_attrs(cls) -> list[str]:
-        return ["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"]
+        return list_of_possible_related_object_attrs()
+
+    @classmethod
+    def get_related_object_attr(cls, related_object: Any) -> str:
+        return related_object.__class__.__name__.lower()
 
     @cached_property
     def related_object_attr(self) -> str:
-        return self.related_object.__class__.__name__.lower() if self.related_object else None
+        return self.get_related_object_attr(self.related_object) if self.related_object else None
 
     @cached_property
     def request_user(self):
@@ -1399,10 +1405,9 @@ menopause status to evaluate their flare."
         if self.mhs_2_save:
             if self.user:
                 for mh in self.mhs_2_save:
-                    if self.user:
-                        if mh.user is None:
-                            mh.user = self.user
-                        mh.update_set_date_and_save()
+                    if mh.user is None:
+                        mh.user = self.user
+                    mh.update_set_date_and_save()
             else:
                 for mh in self.mhs_2_save:
                     if getattr(mh, self.object_attr, None) is None:
@@ -1654,57 +1659,39 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
     """Overwritten to modify related models around a User, rather than
     a GoutHelper DecisionAid or TreatmentAid object. Also to create a user."""
 
+    def gout_form_is_in_mhs_2_save(self) -> bool:
+        return any([isinstance(mh, Gout) for mh in self.mhs_2_save])
+
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to facilitate creating Users."""
         if self.create_view:  # pylint: disable=W0125
             self.form.instance.username = uuid.uuid4().hex[:30]
             self.object = self.form.save()
+        self.user = self.object
+        if self.related_object:
+            self.update_related_object_and_otos(self.related_object)
+            self.update_related_object_medhistorys_qs(self.related_object)
+            related_objects_related_objects = list_of_objects_related_objects(self.related_object)
+            if related_objects_related_objects:
+                for related_object in related_objects_related_objects:
+                    self.update_related_object_and_otos(related_object)
+                    self.update_related_object_medhistorys_qs(related_object)
         # Save the OneToOne related models
         if self.oto_forms:
-            if self.oto_2_save:
-                for oto in self.oto_2_save:
-                    if oto.user is None:
-                        oto.user = self.object
-                    oto.save()
-            if self.oto_2_rem:
-                for oto in self.oto_2_rem:
-                    oto.delete()
-        if self.medhistory_forms:
-            if self.mhs_2_save:
-                for mh in self.mhs_2_save:
-                    if mh.user is None:
-                        mh.user = self.object
-                    mh.save()
-            if self.mhdets_2_save:
-                for mh_det in self.mhdets_2_save:
-                    if self.create_view and isinstance(mh_det, GoutDetail):
-                        mh_det.medhistory = Gout.objects.create(user=self.object)
-                    mh_det.save()
-            if self.mhs_2_remove:
-                for mh in self.mhs_2_remove:
-                    mh.delete()
-            if self.mhdets_2_remove:
-                for mh_det in self.mhdets_2_remove:
-                    mh_det.instance.delete()
+            self.form_valid_save_otos()
+            self.form_valid_delete_otos()
+        if self.req_otos and self.related_object:
+            self.form_valid_related_object_otos()
         if self.medallergy_forms:
-            if self.ma_2_save:
-                for ma in self.ma_2_save:
-                    if ma.user is None:
-                        ma.user = self.object
-                    ma.save()
-            if self.ma_2_rem:
-                for ma in self.ma_2_rem:
-                    ma.delete()
+            self.form_valid_save_medallergys()
+            self.form_valid_delete_medallergys()
+        if self.medhistory_forms:
+            self.form_valid_save_medhistorys()
+            self.form_valid_save_medhistory_details()
+            self.form_valid_delete_medhistorys()
+            self.form_valid_delete_medhistory_details()
         if self.lab_formsets:
-            if self.labs_2_save:
-                # Modify and remove labs from the object
-                for lab in self.labs_2_save:
-                    if lab.user is None:
-                        lab.user = self.object
-                    lab.save()
-            if self.labs_2_rem:
-                for lab in self.labs_2_rem:
-                    lab.delete()
+            self.form_valid_save_and_delete_labs()
         if self.create_view:  # pylint: disable=W0125
             # Create a PseudopatientProfile for the Pseudopatient
             PseudopatientProfile.objects.create(
@@ -1712,6 +1699,68 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
                 provider=self.request.user if self.provider else None,  # pylint: disable=W0125
             )
         return HttpResponseRedirect(self.get_success_url())
+
+    def update_related_obj_medhistory(self, mh: "MedHistory", mh_related_obj: Any) -> None:
+        if mh_related_obj:
+            setattr(mh, self.related_object_attr, None)
+        if mh.user is None:
+            mh.user = self.user
+        self.mhs_2_save.append(mh)
+
+    def update_related_object_medhistorys_qs(self, related_object: Any) -> None:
+        if not hasattr(related_object, "medhistorys_qs"):
+            raise AttributeError("Related object must have a medhistorys_qs attribute.")
+        for mh in related_object.medhistorys_qs:
+            mh_related_obj = getattr(mh, self.get_related_object_attr(related_object), None)
+            if mh_related_obj or mh.user is None:
+                self.update_related_obj_medhistory(mh, mh_related_obj)
+
+    def update_related_object_and_otos(self, related_object: Any) -> None:
+        if self.update_related_object_oto_fields(related_object):
+            self.related_object.full_clean()
+            self.related_object.save()
+
+    def update_related_object_oto(self, oto: str, related_obj_oto: Any) -> None:
+        setattr(self.related_object, oto, None)
+        self.update_related_object_oto_user(related_obj_oto)
+
+    def update_related_object_oto_user(self, related_obj_oto: Any) -> bool:
+        if related_obj_oto.user is None:
+            related_obj_oto.user = self.user
+            self.oto_2_save.append(related_obj_oto)
+            return True
+        return False
+
+    def update_related_object_oto_fields(self, related_object: Any) -> bool:
+        save_related_obj = False
+        for oto in related_object.get_list_of_onetoone_fields():
+            related_obj_oto = getattr(related_object, oto, None)
+            if related_obj_oto:
+                if oto in self.req_otos:
+                    if related_obj_oto:
+                        self.update_related_object_oto(oto, related_obj_oto)
+                        if not save_related_obj:
+                            save_related_obj = True
+                    if related_object.user is None:
+                        related_object.user = self.user
+                        if not save_related_obj:
+                            save_related_obj = True
+                elif self.update_related_object_oto_user(related_obj_oto):
+                    if not save_related_obj:
+                        save_related_obj = True
+        return save_related_obj
+
+    def form_valid_save_medhistory_details(self) -> None:
+        if self.mhdets_2_save:
+            for mh_det in self.mhdets_2_save:
+                # Call self.gout_form_is_in_mhs_2_save() at the end of the conditional to prevent
+                # IntegrityError when creating a Pseudopatient from a Flare that already has a Gout MedHistory
+                if self.create_view and isinstance(mh_det, GoutDetail) and not self.gout_form_is_in_mhs_2_save():
+                    mh_det.medhistory = Gout.objects.create(user=self.object)
+                mh_det.save()
+                self.form_valid_update_mh_det_mh(
+                    mh_det.instance.medhistory if isinstance(mh_det, ModelForm) else mh_det.medhistory,
+                )
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,

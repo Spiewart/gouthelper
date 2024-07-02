@@ -817,6 +817,10 @@ contraindicated."
             main_str += f" <strong>{Subject_the} {pos_neg_past} a gastric bypass</strong>."
         return mark_safe(main_str)
 
+    @classmethod
+    def get_list_of_onetoone_fields(cls) -> list[str]:
+        return [field.name for field in cls._meta.get_fields() if isinstance(field, models.OneToOneField)]
+
     def get_str_attrs(
         self,
         *args: (

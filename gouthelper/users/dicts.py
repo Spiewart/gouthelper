@@ -17,3 +17,13 @@ OTO_FORMS = {
 }
 
 MEDHISTORY_DETAIL_FORMS = {"goutdetail": GoutDetailForm}
+
+FLARE_MEDHISTORY_FORMS = {
+    MedHistoryTypes.GOUT: GoutForm,
+}
+
+FLARE_REQ_OTOS = ["dateofbirth", "gender"]
+
+FLARE_OTO_FORMS = {
+    "ethnicity": EthnicityForm,
+}
