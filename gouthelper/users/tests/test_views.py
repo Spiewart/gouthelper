@@ -17,6 +17,7 @@ from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import yearsago
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
+from ...flareaids.tests.factories import create_flareaid
 from ...flares.models import Flare
 from ...flares.tests.factories import CustomFlareFactory
 from ...genders.choices import Genders
@@ -365,12 +366,14 @@ class TestPseudopatientFlareCreateView(TestCase):
         self.view = PseudopatientFlareCreateView
         self.flare, self.response, self.pseudopatient = self.return_flare_response_user("POST")
         self.flare.refresh_from_db()
+        self.flareaid = self.flare.flareaid
 
     def return_flare_response_user(
         self, method: str = "POST", flare: Flare | None = None, data: dict | None = None
     ) -> tuple[Flare, HttpResponseRedirect, User]:
         if not flare:
             flare = CustomFlareFactory().create_object()
+            create_flareaid(flare=flare)
         if not data:
             data = {
                 "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
@@ -458,6 +461,23 @@ class TestPseudopatientFlareCreateView(TestCase):
 
     def test__flare_has_user_updated(self) -> None:
         assert self.flare.user == self.pseudopatient
+
+    def test__flareaid_has_no_medhistory_set(self) -> None:
+        assert not self.flareaid.medhistory_set.exists()
+
+    def test__flareaid_medhistorys_are_set_to_user(self) -> None:
+        flare = CustomFlareFactory(cad=True, angina=True).create_object()
+        flareaid = create_flareaid(mhs=[MedHistoryTypes.COLCHICINEINTERACTION, MedHistoryTypes.IBD], flare=flare)
+        flare_medhistory_count = flare.medhistory_set.count()
+        flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
+        flareaid_medhistory_count = flareaid.medhistory_set.count()
+        _, _, user = self.return_flare_response_user(flare=flare)
+        user = Pseudopatient.objects.flares_qs(flare.pk).filter(flare__pk=flare.pk).get()
+        assert user.medhistory_set.count() == flareaid_medhistory_count + (
+            flare_medhistory_count if flare_has_gout_medhistory else flare_medhistory_count + 1
+        )
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists()
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).exists()
 
 
 class TestPseudopatientDetailView(TestCase):

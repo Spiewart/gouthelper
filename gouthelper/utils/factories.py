@@ -1,5 +1,5 @@
 import random
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Union
 
@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: 
 from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 from django.db.utils import IntegrityError  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
+from django.utils.functional import cached_property
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
@@ -23,15 +24,17 @@ from ..genders.choices import Genders
 from ..genders.models import Gender
 from ..genders.tests.factories import GenderFactory
 from ..labs.helpers import (
+    labs_calculate_baseline_creatinine_range_from_ckd_stage,
     labs_eGFR_calculator,
     labs_stage_calculator,
     labs_urates_annotate_order_by_date_drawn_or_flare_date,
 )
-from ..labs.models import Hlab5801, Lab, Urate
+from ..labs.models import BaselineCreatinine, Hlab5801, Lab, Urate
 from ..labs.tests.factories import Hlab5801Factory, UrateFactory
 from ..medallergys.models import MedAllergy
 from ..medallergys.tests.factories import MedAllergyFactory
-from ..medhistorydetails.choices import DialysisDurations, Stages
+from ..medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+from ..medhistorydetails.models import CkdDetail
 from ..medhistorydetails.tests.factories import GoutDetailFactory, create_ckddetail
 from ..medhistorydetails.tests.helpers import (
     update_or_create_ckddetail_data,
@@ -58,6 +61,8 @@ if TYPE_CHECKING:
     from ..ppxs.models import Ppx
     from ..ultaids.models import UltAid
     from ..ults.models import Ult
+
+    User = get_user_model()
 
 
 class _Auto:
@@ -850,9 +855,7 @@ class CreateAidMixin:
                     continue
                 if mh in self.mh_dets.keys():
                     if key == "baselinecreatinine":
-                        print("adding baselinecreatinine")
                         self.mh_dets[mh].update({"baselinecreatinine": val})
-                        print(self.mh_dets[mh])
                         kwargs.pop(key)
                     elif val is not None:
                         for field, field_val in val.items():
@@ -1264,3 +1267,572 @@ def form_data_nsaid_contra(data: dict) -> Contraindications | None:
         return Contraindications.ABSOLUTE
     else:
         return None
+
+
+class CustomFactoryBaseMixin:
+    related_object: Any | None
+
+    def update_related_object_attr(self, related_object: Any | None = None):
+        if not self.related_object or self.related_object is not related_object:
+            self.related_object = related_object
+
+
+class CustomFactoryUserMixin:
+    user: Union["User", bool, None]
+
+    def get_or_create_user(self) -> Union["User", None]:
+        if self.user is True:
+            kwargs = {}
+            if hasattr(self, "dateofbirth") and self.dateofbirth:
+                if not isinstance(self.dateofbirth, date):
+                    raise TypeError(f"Invalid type for dateofbirth: {type(self.dateofbirth)}")
+                kwargs["dateofbirth"] = self.dateofbirth
+            if hasattr(self, "gender") and self.gender:
+                if not isinstance(self.gender, Genders):
+                    raise TypeError(f"Invalid type for gender: {type(self.gender)}")
+                kwargs["gender"] = self.gender
+            return create_psp(**kwargs)
+        else:
+            if self.user:
+                has_dateofbirth = hasattr(self, "dateofbirth")
+                has_gender = hasattr(self, "gender")
+
+                if has_dateofbirth and self.dateofbirth and has_gender and self.gender:
+                    raise ValueError(
+                        f"{self.user} already has a dateofbirth: {self.user.date} and a gender: {self.user.gender}."
+                    )
+                elif has_dateofbirth and self.dateofbirth:
+                    raise ValueError(f"{self.user} already has a dateofbirth: {self.user.dateofbirth}")
+                elif has_gender and self.gender:
+                    raise ValueError(f"{self.user} already has a gender: {self.user.gender}")
+                return self.user
+            else:
+                return None
+
+
+class CustomFactoryDateOfBirthMixin:
+    dateofbirth: DateOfBirth | date | None
+    user: Union["User", bool, None]
+
+    def get_or_create_dateofbirth(self) -> DateOfBirth | date | None:
+        if self.user:
+            return None
+        else:
+            kwargs = {}
+            if self.dateofbirth:
+                if isinstance(self.dateofbirth, DateOfBirth):
+                    return self.dateofbirth
+                else:
+                    kwargs["value"] = self.dateofbirth
+            elif hasattr(self, "menopause") and self.menopause:
+                kwargs["value"] = fake.date_between_dates(
+                    date_start=(timezone.now() - timedelta(days=365 * 80)).date(),
+                    date_end=(timezone.now() - timedelta(days=365 * 50)).date(),
+                )
+            return DateOfBirthFactory(**kwargs)
+
+    def get_dateofbirth_value_from_attr(self) -> date | None:
+        return self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
+
+
+class CustomFactoryGenderMixin:
+    gender: Union["Gender", "Genders", None]
+    menopause: Union["MedHistory", bool, None]
+    user: Union["User", bool, None]
+
+    def get_or_create_gender(self) -> Union["Gender", "Genders", None]:
+        if self.user:
+            return None
+        else:
+            kwargs = {}
+            if self.gender:
+                if isinstance(self.gender, Gender):
+                    return self.gender
+                else:
+                    kwargs["value"] = self.gender
+            elif hasattr(self, "menopause") and self.menopause:
+                kwargs["value"] = Genders.FEMALE
+            return GenderFactory(**kwargs)
+
+    def get_gender_value_from_attr(self) -> Union["Gender", "Genders", None]:
+        return self.gender.value if isinstance(self.gender, Gender) else self.gender
+
+
+class CustomFactoryAkiMixin:
+    aki: Union[Statuses, "Aki", None]
+    creatinines: list["Creatinine", "Decimal", tuple["Creatinine", "date"]] | None
+    flare: Union["Flare", bool, None]
+    user: Union["User", bool, None]
+
+    def get_or_create_aki(self) -> Aki:
+        def create_aki():
+            kwargs = {}
+            if hasattr(self, "creatinines") and self.creatinines:
+                kwargs["creatinines"] = self.creatinines
+            return AkiFactory(user=self.user, **kwargs)
+
+        if self.aki is Auto:
+            return (
+                self.flare.aki
+                if self.flare
+                else create_aki()
+                if ((hasattr(self, "creatinines") and self.creatinines) or fake.boolean())
+                else None
+            )
+        elif self.aki:
+            if isinstance(self.aki, Aki):
+                return self.aki
+            else:
+                if not isinstance(self.aki, Statuses):
+                    raise TypeError(f"Invalid type for aki: {type(self.aki)}")
+                return AkiFactory(
+                    status=self.aki,
+                    user=self.user,
+                    creatinines=self.creatinines if hasattr(self.creatinines) else None,
+                )
+        elif hasattr(self, "creatinines") and self.creatinines:
+            raise ValueError("Cannot create creatinines for a Flare without an Aki!")
+        else:
+            return None
+
+
+class CustomFactoryCkdMixin:
+    ckd: Union[bool, "MedHistory", None]
+    baselinecreatinine: BaselineCreatinine | Decimal | None
+    stage: Stages | None
+    dialysis: bool | None
+    user: Union["User", bool, None]
+    related_object: Any | None
+    dateofbirth: DateOfBirth | date | None
+    gender: Union["Gender", "Genders", None]
+
+    ModDurations = DialysisDurations = DialysisDurations.values.copy()
+    ModDurations.remove("")
+    ModStages = Stages.values.copy()
+    ModStages.remove(None)
+
+    @cached_property
+    def needs_ckd(self) -> bool:
+        print(self.ckd, self.stage, self.baselinecreatinine, self.dialysis)
+        return (
+            True
+            if (self.ckd is Auto or self.ckd) and (self.stage or self.baselinecreatinine or self.dialysis)
+            else False
+        )
+
+    @cached_property
+    def needs_ckddetail(self) -> bool:
+        return self.needs_ckd and (
+            self.stage or self.baselinecreatinine or self.dialysis or (self.ckd and fake.boolean())
+        )
+
+    def get_or_create_dialysis(self) -> bool:
+        if self.dialysis is Auto:
+            if not self.stage and not self.baselinecreatinine and self.ckd:
+                return fake.boolean()
+            return False
+        return self.dialysis
+
+    def get_or_create_stage(self) -> Stages | None:
+        if self.stage is Auto:
+            if self.baselinecreatinine:
+                return labs_stage_calculator(
+                    labs_eGFR_calculator(
+                        creatinine=self.baselinecreatinine,
+                        age=age_calc(
+                            self.dateofbirth
+                            if isinstance(self.dateofbirth, date)
+                            else self.dateofbirth.value
+                            if not self.user
+                            else self.user.dateofbirth
+                        ),
+                        gender=(
+                            self.gender
+                            if isinstance(self.gender, Genders)
+                            else self.gender.value
+                            if not self.user
+                            else self.user.gender.value
+                        ),
+                    )
+                )
+            elif self.dialysis:
+                return Stages.FIVE
+            else:
+                return random.choice([stage for stage in self.ModStages if isinstance(stage, int)])
+        elif self.stage:
+            self.update_ckd_attr()
+            return self.stage
+        return None
+
+    def get_or_create_baselinecreatinine(self) -> Decimal | None:
+        def create_baselinecreatinine_value(min_value: float, max_value: float) -> Decimal:
+            return fake.pydecimal(
+                left_digits=1, right_digits=1, positive=True, min_value=min_value, max_value=max_value
+            )
+
+        def calculate_min_max_values(stage: Stages, age: int, gender: Genders) -> tuple[float, float]:
+            (
+                max_value,
+                min_value,
+            ) = labs_calculate_baseline_creatinine_range_from_ckd_stage(stage, age, gender)
+            if max_value < min_value:
+                raise ValueError(f"Max value: {max_value} is less than min value: {min_value}")
+            return round(float(min_value), 1), round(float(max_value), 1)
+
+        if self.baselinecreatinine is Auto:
+            if self.ckd and not self.dialysis and (self.stage or self.stage is Auto):
+                min_value, max_value = calculate_min_max_values(
+                    self.stage,
+                    age_calc(self.get_dateofbirth_value_from_attr()),
+                    self.get_gender_value_from_attr(),
+                )
+                return create_baselinecreatinine_value(min_value, max_value) if fake.boolean() else None
+        elif self.baselinecreatinine:
+            self.update_ckd_attr()
+            if self.baselinecreatinine is True:
+                if self.stage:
+                    min_value, max_value = calculate_min_max_values(
+                        self.stage,
+                        age_calc(self.get_dateofbirth_value_from_attr()),
+                        gender=self.get_gender_value_from_attr(),
+                    )
+                    return create_baselinecreatinine_value(min_value, max_value)
+                else:
+                    return create_baselinecreatinine_value(min_value=1.5, max_value=6.0)
+            elif isinstance(self.baselinecreatinine, Decimal):
+                return self.baselinecreatinine
+            else:
+                return self.baselinecreatinine.value
+        return None
+
+    def create_ckddetail_kwargs(self) -> dict[str, Any]:
+        return {
+            "medhistory": self.ckd,
+            "stage": self.stage,
+            "dialysis": self.dialysis,
+            "dialysis_type": (
+                DialysisChoices.values[random.randint(0, len(DialysisChoices.values) - 1)] if self.dialysis else None
+            ),
+            "dialysis_duration": (
+                self.ModDurations[random.randint(0, len(self.ModDurations) - 1)] if self.dialysis else None
+            ),
+        }
+
+    def update_ckd_attr(self) -> None:
+        if not self.ckd and self.needs_ckd:
+            self.ckd = True
+
+    def update_ckddetail_attr(self) -> None:
+        self.dialysis = self.get_or_create_dialysis()
+        self.stage = self.get_or_create_stage()
+        self.baselinecreatinine = self.get_or_create_baselinecreatinine()
+
+    def update_ckddetail(self) -> None:
+        if self.needs_ckddetail:
+            ckddetail_kwargs = self.create_ckddetail_kwargs()
+            if self.user and self.user.ckddetail:
+                if next(iter(k for k, v in ckddetail_kwargs.items() if v != getattr(self.user.ckddetail, k)), False):
+                    self.user.ckddetail.update(**ckddetail_kwargs)
+            elif self.related_object and self.related_object.ckddetail:
+                ckddetail_needs_to_be_saved = False
+                for k, v in ckddetail_kwargs.items():
+                    if v != getattr(self.related_object.ckddetail, k):
+                        setattr(self.related_object.ckddetail, k, v)
+                        ckddetail_needs_to_be_saved = True
+                if ckddetail_needs_to_be_saved:
+                    self.related_object.ckddetail.full_clean()
+                    self.related_object.ckddetail.save()
+            else:
+                self.related_object.ckddetail = CkdDetail.objects.create(
+                    **ckddetail_kwargs,
+                )
+            if self.baselinecreatinine:
+                baselinecreatinine_value = (
+                    self.baselinecreatinine
+                    if isinstance(self.baselinecreatinine, Decimal)
+                    else self.baselinecreatinine.value
+                )
+                if (
+                    self.user
+                    and self.user.baselinecreatinine
+                    and self.user.baselinecreatinine.value != baselinecreatinine_value
+                ):
+                    self.user.baselinecreatinine.value = baselinecreatinine_value
+                    self.user.baselinecreatinine.full_clean()
+                    self.user.baselinecreatinine.save()
+                elif (
+                    self.related_object
+                    and self.related_object.baselinecreatinine
+                    and self.related_object.baselinecreatinine.value != baselinecreatinine_value
+                ):
+                    self.related_object.baselinecreatinine.value = baselinecreatinine_value
+                    self.related_object.baselinecreatinine.full_clean()
+                    self.related_object.baselinecreatinine.save()
+                else:
+                    self.related_object.baselinecreatinine = BaselineCreatinine.objects.create(
+                        value=baselinecreatinine_value, medhistory=self.ckd
+                    )
+
+
+class CustomFactoryMedHistoryMixin:
+    medhistorys: list[MedHistoryTypes]
+    related_object: Any | None
+    related_object_attr: str | None
+    user: Union["User", bool, None]
+
+    def get_or_create_medhistory(self, medhistorytype: MedHistoryTypes) -> MedHistory | bool | None:
+        mh_attr = medhistorytype.lower()
+        mh = getattr(self, mh_attr)
+        if mh is Auto:
+            if self.user:
+                return getattr(self.user, mh_attr, None)
+            elif self.related_object:
+                return getattr(self.related_object, mh_attr, None)
+            else:
+                return fake.boolean()
+        elif mh:
+            if isinstance(mh, MedHistory):
+                return mh
+            else:
+                return True
+        return None
+
+    def set_medhistory_attr(self, medhistorytype: MedHistoryTypes, value) -> None:
+        setattr(self, medhistorytype.lower(), value)
+
+    def update_medhistory_attrs(self) -> None:
+        for medhistory in self.medhistorys:
+            if medhistory == MedHistoryTypes.MENOPAUSE:
+                self.set_medhistory_attr(medhistory, self.get_or_create_menopause())
+            elif medhistory == MedHistoryTypes.GOUT:
+                self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
+            elif medhistory == MedHistoryTypes.CKD:
+                if self.needs_ckd:
+                    self.update_ckd_attr()
+                self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
+                if self.needs_ckddetail:
+                    self.update_ckddetail_attr()
+            else:
+                self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
+
+    def mh_object_needs_related_object_or_user_update(self, mh_val_or_object: MedHistory) -> bool:
+        if self.related_object:
+            related_object_attr = self.related_object.__class__.__name__.lower()
+            return isinstance(mh_val_or_object, MedHistory) and (
+                getattr(mh_val_or_object, related_object_attr) != self.related_object
+                or getattr(mh_val_or_object, related_object_attr) is None
+                or mh_val_or_object.user != self.related_object.user
+            )
+        else:
+            return isinstance(mh_val_or_object, MedHistory) and mh_val_or_object.user
+
+    def update_mh_object(self, mh_val_or_object: MedHistory) -> None:
+        setattr(mh_val_or_object, self.related_object_attr, self.related_object if not self.user else None)
+        mh_val_or_object.user = (
+            self.related_object.user if self.related_object and not self.user else self.user if self.user else None
+        )
+        mh_val_or_object.full_clean()
+        mh_val_or_object.save()
+
+    def get_mh_to_delete(self, mh_attr: str) -> MedHistory | None:
+        if self.user:
+            return getattr(self.user, mh_attr, False)
+        elif self.related_object:
+            return getattr(self.related_object, mh_attr, False)
+        else:
+            return None
+
+    def delete_related_object_ckddetail_properties(self) -> None:
+        if hasattr(self.related_object, "ckddetail") and self.related_object.ckddetail:
+            delattr(self.related_object, "ckddetail")
+        if hasattr(self.related_object, "baselinecreatinine") and self.related_object.baselinecreatinine:
+            delattr(self.related_object, "baselinecreatinine")
+
+    def delete_mh_to_delete(self, mh_to_delete: MedHistory, mh_attr: str) -> None:
+        mh_to_delete.delete()
+        delattr(self.user, mh_attr) if self.user else delattr(
+            self.related_object, mh_attr
+        ) if self.related_object else None
+        if self.user and mh_to_delete in self.user.medhistorys_qs:
+            self.user.medhistorys_qs.remove(mh_to_delete)
+        elif mh_to_delete in self.related_object.medhistorys_qs:
+            self.related_object.medhistorys_qs.remove(mh_to_delete)
+        if mh_to_delete.medhistorytype == MedHistoryTypes.CKD and self.related_object:
+            self.delete_related_object_ckddetail_properties()
+
+    def update_medhistorys(self) -> None:
+        for medhistory in self.medhistorys:
+            mh_attr = medhistory.lower()
+            mh_val_or_object = getattr(self, mh_attr)
+            if mh_val_or_object:
+                if self.mh_object_needs_related_object_or_user_update(mh_val_or_object):
+                    self.update_mh_object(mh_val_or_object)
+                elif self.user and getattr(self.user, mh_attr, False):
+                    setattr(self, mh_attr, getattr(self.user, mh_attr))
+                else:
+                    if not isinstance(mh_val_or_object, MedHistory):
+                        mh_kwargs = {}
+                        if self.related_object and not self.user:
+                            related_object_attr = self.related_object.__class__.__name__.lower()
+                            mh_kwargs.update({related_object_attr: self.related_object})
+                        mh_val_or_object = MedHistory.objects.create(
+                            medhistorytype=medhistory,
+                            user=self.user,
+                            **mh_kwargs,
+                        )
+                    setattr(
+                        self,
+                        mh_attr,
+                        mh_val_or_object,
+                    )
+                if self.user and mh_val_or_object not in self.user.medhistorys_qs:
+                    self.user.medhistorys_qs.append(mh_val_or_object)
+                elif self.related_object and mh_val_or_object not in self.related_object.medhistorys_qs:
+                    self.related_object.medhistorys_qs.append(mh_val_or_object)
+            else:
+                mh_to_delete = self.get_mh_to_delete(mh_attr)
+                if mh_to_delete:
+                    self.delete_mh_to_delete(mh_to_delete, mh_attr)
+
+
+class CustomFactoryMenopauseMixin:
+    menopause: MedHistory | bool | None
+    dateofbirth: DateOfBirth | date | None
+    gender: Union["Gender", "Genders", None]
+    user: Union["User", bool, None]
+    related_object: Any | None
+
+    def get_or_create_menopause(self) -> MedHistory | None:
+        if self.menopause == Auto:
+            if self.user:
+                return getattr(self.user, "menopause", None)
+            elif self.flare:
+                return getattr(self.flare, "menopause", None)
+            else:
+                return get_menopause_val(
+                    age=age_calc(
+                        self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
+                    ),
+                    gender=self.gender.value if isinstance(self.gender, Gender) else self.gender,
+                )
+        elif self.menopause:
+            self.check_menopause_gender(self.gender)
+            if (
+                age_calc(self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth)
+                < 40
+            ):
+                raise ValueError("Menopause cannot be created for a woman under 40 years old.")
+            if isinstance(self.menopause, MedHistory):
+                return self.menopause
+            else:
+                return True
+        return None
+
+    def check_menopause_gender(self, gender: Genders) -> bool:
+        if gender == Genders.MALE:
+            raise ValueError("Men cannot have a menopause MedHistory")
+
+
+class CustomFactoryMedAllergyMixin:
+    treatments: list[Treatments]
+    related_object: Any | None
+    related_object_attr: str | None
+    user: Union["User", bool, None]
+
+    def get_or_create_medallergy(self, treatment: Treatments) -> MedAllergy | bool | None:
+        ma_attr = f"{treatment.lower()}_allergy"
+        ma = getattr(self, ma_attr)
+        if ma is Auto:
+            if self.user:
+                return getattr(self.user, ma_attr, None)
+            elif self.related_object:
+                return getattr(self.related_object, ma_attr, None)
+            else:
+                return fake.boolean()
+        elif ma:
+            if isinstance(ma, MedAllergy):
+                return ma
+            else:
+                return True
+        return None
+
+    def set_medallergy_attr(self, treatment: Treatments, value) -> None:
+        ma_attr = f"{treatment.lower()}_allergy"
+        setattr(self, ma_attr, value)
+
+    def update_medallergy_attrs(self) -> None:
+        for treatment in self.treatments:
+            self.set_medallergy_attr(treatment, self.get_or_create_medallergy(treatment))
+
+    def ma_object_needs_related_object_or_user_update(self, ma_val_or_object: MedAllergy) -> bool:
+        if self.related_object:
+            return isinstance(ma_val_or_object, MedAllergy) and (
+                getattr(ma_val_or_object, self.related_object_attr) != self.related_object
+                or getattr(ma_val_or_object, self.related_object_attr) is None
+                or ma_val_or_object.user != self.related_object.user
+            )
+        else:
+            return isinstance(ma_val_or_object, MedAllergy) and ma_val_or_object.user
+
+    def update_ma_object(self, ma_val_or_object: MedAllergy) -> None:
+        setattr(ma_val_or_object, self.related_object_attr, self.related_object if not self.user else None)
+        ma_val_or_object.user = (
+            self.related_object.user if self.related_object and not self.user else self.user if self.user else None
+        )
+        ma_val_or_object.full_clean()
+        ma_val_or_object.save()
+
+    def get_ma_to_delete(self, ma_attr: str) -> MedAllergy | None:
+        if self.user:
+            return getattr(self.user, ma_attr, False)
+        elif self.related_object:
+            return getattr(self.related_object, ma_attr, False)
+        else:
+            return None
+
+    def delete_ma_to_delete(self, ma_to_delete: MedAllergy, ma_attr: str) -> None:
+        ma_to_delete.delete()
+        (
+            delattr(self.user, ma_attr)
+            if self.user
+            else delattr(self.related_object, ma_attr)
+            if self.related_object
+            else None
+        )
+        if self.user and ma_to_delete in self.user.medallergys_qs:
+            self.user.medallergys_qs.remove(ma_to_delete)
+        elif ma_to_delete in self.related_object.medallergys_qs:
+            self.related_object.medallergys_qs.remove(ma_to_delete)
+
+    def update_medallergys(self) -> None:
+        for treatment in self.treatments:
+            ma_attr = f"{treatment.lower()}_allergy"
+            ma_val_or_object = getattr(self, ma_attr)
+            if ma_val_or_object:
+                if self.ma_object_needs_related_object_or_user_update(ma_val_or_object):
+                    self.update_ma_object(ma_val_or_object)
+                elif self.user and getattr(self.user, ma_attr, False):
+                    setattr(self, ma_attr, getattr(self.user, ma_attr))
+                else:
+                    if not isinstance(ma_val_or_object, MedAllergy):
+                        ma_kwargs = {}
+                        if self.related_object and not self.user:
+                            ma_kwargs.update({self.related_object_attr: self.related_object})
+                        ma_val_or_object = MedAllergy.objects.create(
+                            treatment=treatment,
+                            user=self.user,
+                            **ma_kwargs,
+                        )
+                    setattr(
+                        self,
+                        ma_attr,
+                        ma_val_or_object,
+                    )
+                if self.user and ma_val_or_object not in self.user.medallergys_qs:
+                    self.user.medallergys_qs.append(ma_val_or_object)
+                elif self.related_object and ma_val_or_object not in self.related_object.medallergys_qs:
+                    self.related_object.medallergys_qs.append(ma_val_or_object)
+            else:
+                ma_to_delete = self.get_ma_to_delete(ma_attr)
+                if ma_to_delete:
+                    self.delete_ma_to_delete(ma_to_delete, ma_attr)

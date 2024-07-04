@@ -128,7 +128,7 @@ def list_of_possible_related_object_attrs() -> list[str]:
     return ["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"]
 
 
-def list_of_objects_related_objects(obj: Any) -> bool:
+def list_of_objects_related_objects(obj: Any) -> list[Any]:
     related_objects = []
     for attr in list_of_possible_related_object_attrs():
         if hasattr(obj, attr):

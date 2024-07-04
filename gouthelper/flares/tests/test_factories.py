@@ -460,11 +460,12 @@ class TestFlareFactory(TestCase):
     def test__stage_creates_ckddetail(self):
         factory = CustomFlareFactory(stage=Stages.THREE)
         flare = factory.create_object()
+        self.assertTrue(flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).exists())
         self.assertTrue(flare.ckd)
         self.assertTrue(flare.ckddetail)
         self.assertEqual(flare.ckddetail.stage, Stages.THREE)
 
-    def test__stage_creates_baselinecreatinine(self) -> None:
+    def test__creates_baselinecreatinine(self) -> None:
         factory = CustomFlareFactory(baselinecreatinine=Decimal("2.0"))
         flare = factory.create_object()
         self.assertTrue(flare.ckd)

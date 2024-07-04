@@ -4,13 +4,24 @@ import pytest  # pylint: disable=E0401  # type: ignore
 from factory.django import DjangoModelFactory  # pylint: disable=E0401  # type: ignore
 from factory.faker import faker
 
+from ...akis.choices import Statuses
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
-from ...medhistorydetails.models import CkdDetail
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
+from ...medhistorys.models import MedHistory
 from ...treatments.choices import FlarePpxChoices
 from ...utils.factories import (
+    Auto,
+    CustomFactoryAkiMixin,
+    CustomFactoryBaseMixin,
+    CustomFactoryCkdMixin,
+    CustomFactoryDateOfBirthMixin,
+    CustomFactoryGenderMixin,
+    CustomFactoryMedAllergyMixin,
+    CustomFactoryMedHistoryMixin,
+    CustomFactoryUserMixin,
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,
@@ -18,19 +29,25 @@ from ...utils.factories import (
     OneToOneCreatorMixin,
     OneToOneDataMixin,
 )
+from ...utils.helpers import get_or_create_qs_attr
 from ..models import FlareAid
 
 if TYPE_CHECKING:
+    from datetime import date
+    from decimal import Decimal
+
     from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
+
+    from ...akis.models import Aki
+    from ...dateofbirths.models import DateOfBirth
+    from ...flares.models import Flare
+    from ...genders.models import Gender
+    from ...medallergys.models import MedAllergy
+    from ...medhistorydetails.choices import Stages
 
     User = get_user_model()
 
 pytestmark = pytest.mark.django_db
-
-DialysisDurations = CkdDetail.DialysisDurations.values
-DialysisDurations.remove("")
-Stages = CkdDetail.Stages.values
-Stages.remove(None)
 
 fake = faker.Faker()
 
@@ -142,3 +159,140 @@ def create_flareaid(
 class FlareAidFactory(DjangoModelFactory):
     class Meta:
         model = FlareAid
+
+
+class CustomFlareAidFactory(
+    CustomFactoryBaseMixin,
+    CustomFactoryAkiMixin,
+    CustomFactoryCkdMixin,
+    CustomFactoryDateOfBirthMixin,
+    CustomFactoryGenderMixin,
+    CustomFactoryMedAllergyMixin,
+    CustomFactoryMedHistoryMixin,
+    CustomFactoryUserMixin,
+):
+    def __init__(
+        self,
+        user: Union["User", bool, None] = None,
+        flare: Union["Flare", bool, None] = None,
+        flareaid: Union["FlareAid", bool, None] = None,
+        angina: bool | MedHistory | None = Auto,
+        anticoagulation: bool | MedHistory | None = Auto,
+        bleed: bool | MedHistory | None = Auto,
+        cad: bool | MedHistory | None = Auto,
+        chf: bool | MedHistory | None = Auto,
+        ckd: bool | MedHistory | None = Auto,
+        baselinecreatinine: Union["Decimal", None] = Auto,
+        stage: Union["Stages", None] = Auto,
+        dialysis: bool | None = Auto,
+        colchicineinteraction: bool | MedHistory | None = Auto,
+        diabetes: bool | MedHistory | None = Auto,
+        gastricbypass: bool | MedHistory | None = Auto,
+        heartattack: bool | MedHistory | None = Auto,
+        hypertension: bool | MedHistory | None = Auto,
+        ibd: bool | MedHistory | None = Auto,
+        organtransplant: bool | MedHistory | None = Auto,
+        pud: bool | MedHistory | None = Auto,
+        pvd: bool | MedHistory | None = Auto,
+        stroke: bool | MedHistory | None = Auto,
+        aki: Union[Statuses, "Aki", None] = Auto,
+        dateofbirth: Union["date", "DateOfBirth", None] = Auto,
+        gender: Union[Genders, "Gender", None] = Auto,
+        celecoxib_allergy: Union["MedAllergy", bool, None] = Auto,
+        colchicine_allergy: Union["MedAllergy", bool, None] = Auto,
+        diclofenac_allergy: Union["MedAllergy", bool, None] = Auto,
+        ibuprofen_allergy: Union["MedAllergy", bool, None] = Auto,
+        indomethacin_allergy: Union["MedAllergy", bool, None] = Auto,
+        meloxicam_allergy: Union["MedAllergy", bool, None] = Auto,
+        methylprednisolone_allergy: Union["MedAllergy", bool, None] = Auto,
+        naproxen_allergy: Union["MedAllergy", bool, None] = Auto,
+        prednisone_allergy: Union["MedAllergy", bool, None] = Auto,
+    ) -> None:
+        self.user = user
+        self.flareaid = flareaid
+        self.flare = flare
+        self.angina = angina
+        self.anticoagulation = anticoagulation
+        self.bleed = bleed
+        self.cad = cad
+        self.chf = chf
+        self.ckd = ckd
+        self.baselinecreatinine = baselinecreatinine
+        self.stage = stage
+        self.dialysis = dialysis
+        self.colchicineinteraction = colchicineinteraction
+        self.diabetes = diabetes
+        self.gastricbypass = gastricbypass
+        self.heartattack = heartattack
+        self.hypertension = hypertension
+        self.ibd = ibd
+        self.organtransplant = organtransplant
+        self.pud = pud
+        self.pvd = pvd
+        self.stroke = stroke
+        self.aki = aki
+        self.dateofbirth = dateofbirth
+        self.gender = gender
+        self.celecoxib_allergy = celecoxib_allergy
+        self.colchicine_allergy = colchicine_allergy
+        self.diclofenac_allergy = diclofenac_allergy
+        self.ibuprofen_allergy = ibuprofen_allergy
+        self.indomethacin_allergy = indomethacin_allergy
+        self.meloxicam_allergy = meloxicam_allergy
+        self.methylprednisolone_allergy = methylprednisolone_allergy
+        self.naproxen_allergy = naproxen_allergy
+        self.prednisone_allergy = prednisone_allergy
+        self.related_object = self.flareaid
+        self.related_object_attr = "flareaid"
+        self.medhistorys = FLAREAID_MEDHISTORYS
+        self.treatments = FlarePpxChoices.values
+        self.sequentially_update_attrs()
+
+    def sequentially_update_attrs(self) -> None:
+        self.user = self.get_or_create_user()
+        self.flare = self.get_or_create_flare()
+        self.dateofbirth = self.get_or_create_dateofbirth()
+        self.gender = self.get_or_create_gender()
+        self.aki = self.get_or_create_aki()
+        self.update_medhistory_attrs()
+        self.update_medallergy_attrs()
+
+    def get_or_create_flare(self) -> Union["Flare", None]:
+        def create_flare():
+            raise ValueError("Not yet implemented, should not be called.")
+
+        if self.flare and self.user:
+            raise ValueError("Cannot create a FlareAid with a Flare and a User.")
+        return self.flare or create_flare() if self.flare is Auto else None
+
+    def create_object(self):
+        flareaid_kwargs = {
+            "dateofbirth": self.dateofbirth,
+            "gender": self.gender,
+            "user": self.user,
+        }
+        if self.flareaid:
+            flareaid = self.flareaid
+            flareaid_needs_to_be_saved = False
+            for k, v in flareaid_kwargs.items():
+                if getattr(flareaid, k) != v:
+                    flareaid_needs_to_be_saved = True
+                    setattr(flareaid, k, v)
+            if flareaid_needs_to_be_saved:
+                flareaid.save()
+        else:
+            self.flareaid = FlareAid.objects.create(
+                **flareaid_kwargs,
+            )
+        if self.user:
+            get_or_create_qs_attr(self.user, "medhistorys")
+            get_or_create_qs_attr(self.user, "medallergys")
+            self.user.flareaid_qs = [self.flareaid]
+        else:
+            get_or_create_qs_attr(self.flareaid, "medhistorys")
+            get_or_create_qs_attr(self.flareaid, "medallergys")
+        self.update_related_object_attr(self.flareaid)
+        self.update_medhistorys()
+        self.update_ckddetail()
+        self.update_medallergys()
+        return self.flareaid

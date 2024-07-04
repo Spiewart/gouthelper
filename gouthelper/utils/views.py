@@ -1672,10 +1672,9 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             self.update_related_object_and_otos(self.related_object)
             self.update_related_object_medhistorys_qs(self.related_object)
             related_objects_related_objects = list_of_objects_related_objects(self.related_object)
-            if related_objects_related_objects:
-                for related_object in related_objects_related_objects:
-                    self.update_related_object_and_otos(related_object)
-                    self.update_related_object_medhistorys_qs(related_object)
+            for related_object in related_objects_related_objects:
+                self.update_related_object_and_otos(related_object)
+                self.update_related_object_medhistorys_qs(related_object)
         # Save the OneToOne related models
         if self.oto_forms:
             self.form_valid_save_otos()
