@@ -1315,49 +1315,117 @@ class CustomFactoryUserMixin:
                 return None
 
 
+def related_object_has_dob(related_object: Any | None = None, dateofbirth: DateOfBirth | date | None = None):
+    return (
+        hasattr(related_object, "dateofbirth")
+        and related_object.dateofbirth
+        and related_object.dateofbirth != dateofbirth
+    )
+
+
+def create_dateofbirth(
+    dateofbirth: Any | None = None,
+    menopause: MedHistory | bool | None = None,
+    build: bool = False,
+) -> DateOfBirth:
+    kwargs = {}
+    if dateofbirth:
+        if isinstance(dateofbirth, DateOfBirth):
+            return dateofbirth
+        else:
+            kwargs["value"] = dateofbirth
+    elif menopause:
+        kwargs["value"] = fake.date_between_dates(
+            date_start=(timezone.now() - timedelta(days=365 * 80)).date(),
+            date_end=(timezone.now() - timedelta(days=365 * 50)).date(),
+        )
+    if build:
+        return DateOfBirthFactory.build(**kwargs)
+    else:
+        return DateOfBirthFactory(**kwargs)
+
+
 class CustomFactoryDateOfBirthMixin:
     dateofbirth: DateOfBirth | date | None
+    related_object: Any | None
     user: Union["User", bool, None]
 
     def get_or_create_dateofbirth(self) -> DateOfBirth | date | None:
-        if self.user:
-            return None
-        else:
-            kwargs = {}
-            if self.dateofbirth:
-                if isinstance(self.dateofbirth, DateOfBirth):
-                    return self.dateofbirth
-                else:
-                    kwargs["value"] = self.dateofbirth
-            elif hasattr(self, "menopause") and self.menopause:
-                kwargs["value"] = fake.date_between_dates(
-                    date_start=(timezone.now() - timedelta(days=365 * 80)).date(),
-                    date_end=(timezone.now() - timedelta(days=365 * 50)).date(),
+        if self.dateofbirth is Auto:
+            if self.user:
+                return None
+            elif related_object_has_dob(self.related_object, self.dateofbirth):
+                return self.related_object.dateofbirth
+            else:
+                return create_dateofbirth(
+                    dateofbirth=self.dateofbirth,
+                    menopause=self.menopause if hasattr(self, "menopause") else None,
                 )
-            return DateOfBirthFactory(**kwargs)
+        else:
+            if self.user:
+                return None
+            elif related_object_has_dob(self.related_object, self.dateofbirth):
+                raise ValueError("Cannot create a DateOfBirth for a related object that already has one!")
+            else:
+                return create_dateofbirth(
+                    dateofbirth=self.dateofbirth,
+                    menopause=self.menopause if hasattr(self, "menopause") else None,
+                )
 
     def get_dateofbirth_value_from_attr(self) -> date | None:
         return self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
 
 
+def related_object_has_gender(related_object: Any, gender: Union[Gender, "Genders", None]):
+    return hasattr(related_object, "gender") and related_object.gender and related_object.gender != gender
+
+
+def create_gender(
+    gender: Union["Gender", "Genders", None],
+    menopause: Union["MedHistory", bool, None],
+    build: bool = False,
+) -> DateOfBirth:
+    kwargs = {}
+    if gender:
+        if isinstance(gender, Gender):
+            return gender
+        else:
+            kwargs["value"] = gender
+    elif menopause:
+        kwargs["value"] = Genders.FEMALE
+    if build:
+        return GenderFactory.build(**kwargs)
+    else:
+        return GenderFactory(**kwargs)
+
+
 class CustomFactoryGenderMixin:
     gender: Union["Gender", "Genders", None]
     menopause: Union["MedHistory", bool, None]
+    related_object: Any | None
     user: Union["User", bool, None]
 
     def get_or_create_gender(self) -> Union["Gender", "Genders", None]:
-        if self.user:
-            return None
+        if self.gender is Auto:
+            if self.user:
+                return None
+            elif related_object_has_gender(related_object=self.related_object, gender=self.gender):
+                return self.related_object.gender
+            else:
+                return create_gender(
+                    gender=self.gender,
+                    menopause=self.menopause if hasattr(self, "menopause") else None,
+                )
         else:
-            kwargs = {}
-            if self.gender:
-                if isinstance(self.gender, Gender):
-                    return self.gender
-                else:
-                    kwargs["value"] = self.gender
-            elif hasattr(self, "menopause") and self.menopause:
-                kwargs["value"] = Genders.FEMALE
-            return GenderFactory(**kwargs)
+            if self.user:
+                return None
+            elif related_object_has_gender(related_object=self.related_object, gender=self.gender):
+                raise ValueError("Cannot create a Gender for a related object that already has one!")
+            else:
+                return create_gender(
+                    gender=self.gender,
+                    menopause=self.menopause if hasattr(self, "menopause") else None,
+                )
 
     def get_gender_value_from_attr(self) -> Union["Gender", "Genders", None]:
         return self.gender.value if isinstance(self.gender, Gender) else self.gender
@@ -1596,11 +1664,19 @@ class CustomFactoryMedHistoryMixin:
             else:
                 return fake.boolean()
         elif mh:
+            if (
+                self.related_object
+                and hasattr(self.related_object, mh_attr)
+                and getattr(self.related_object, mh_attr) != mh
+            ):
+                raise ValueError(
+                    f"Cannot edit medhistory for related {self.related_object}. Modify the related object."
+                )
             if isinstance(mh, MedHistory):
                 return mh
             else:
                 return True
-        return None
+        return getattr(self.related_object, mh_attr, None) if self.related_object else None
 
     def set_medhistory_attr(self, medhistorytype: MedHistoryTypes, value) -> None:
         setattr(self, medhistorytype.lower(), value)

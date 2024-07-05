@@ -10,11 +10,11 @@ from ...defaults.models import FlareAidSettings
 from ...flares.selectors import flares_user_qs
 from ...flares.tests.factories import CustomFlareFactory, create_flare
 from ...labs.tests.factories import CreatinineFactory
-from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
+from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
 from ...treatments.choices import ColchicineDoses, FlarePpxChoices, Treatments
 from ..models import FlareAid
-from .factories import create_flareaid
+from .factories import CustomFlareAidFactory, create_flareaid
 
 pytestmark = pytest.mark.django_db
 
@@ -25,7 +25,7 @@ class TestFlareAid(TestCase):
         self.settings = FlareAidSettings.objects.get(user=None)
         self.user_flareaid = create_flareaid(user=True)
         self.empty_flareaid = create_flareaid(mhs=[], mas=[])
-        self.flare_empty_mh_kwargs = {mhtype.lower(): None for mhtype in FLARE_MEDHISTORYS}
+        self.empty_flareaid_mh_kwargs = {mhtype.lower(): None for mhtype in FLAREAID_MEDHISTORYS}
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
@@ -126,10 +126,11 @@ class TestFlareAid(TestCase):
         self.assertNotIn(Treatments.COLCHICINE, options.keys())
 
     def test__get_flare_options_with_aki_improving_not_at_baselinecreatinine(self):
-        flareaid = create_flareaid(mhs=[], mas=[])
-        flare = CustomFlareFactory(
-            **self.flare_empty_mh_kwargs,
+        flareaid = CustomFlareAidFactory(
             baselinecreatinine=Decimal("2.0"),
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
             aki=Statuses.IMPROVING,
             creatinines=[CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4))],
             flareaid=flareaid,
@@ -139,11 +140,13 @@ class TestFlareAid(TestCase):
         self.assertNotIn(Treatments.COLCHICINE, options.keys())
 
     def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_stage(self) -> None:
-        flareaid = create_flareaid(mhs=[], mas=[])
-        flare = CustomFlareFactory(
-            **self.flare_empty_mh_kwargs,
-            aki=Statuses.IMPROVING,
+        flareaid = CustomFlareAidFactory(
             dateofbirth=timezone.now() - timedelta(days=365 * 50),
+            colchicine_allergy=False,
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
             creatinines=[
                 CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
                 CreatinineFactory(value="1.4", date_drawn=timezone.now() - timedelta(days=1)),
@@ -158,12 +161,14 @@ class TestFlareAid(TestCase):
         self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)
 
     def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_baselinecreatinine(self) -> None:
-        flareaid = create_flareaid(mhs=[], mas=[])
-        flare = CustomFlareFactory(
-            **self.flare_empty_mh_kwargs,
-            aki=Statuses.IMPROVING,
+        flareaid = CustomFlareAidFactory(
             dateofbirth=timezone.now() - timedelta(days=365 * 40),
             baselinecreatinine=Decimal("1.7"),
+            colchicine_allergy=False,
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
             creatinines=[
                 CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
                 CreatinineFactory(value="2.0", date_drawn=timezone.now() - timedelta(days=1)),

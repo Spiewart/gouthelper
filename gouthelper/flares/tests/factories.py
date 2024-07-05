@@ -142,17 +142,23 @@ class CustomFlareFactory(
         self.dateofbirth = dateofbirth
         self.gender = gender
         self.urate = urate
-        self.related_object = self.flare
+        self.related_object = self.get_init_related_object()
         self.related_object_attr = "flare"
         self.medhistorys = FLARE_MEDHISTORYS
         self.sequentially_update_attrs()
+
+    def get_init_related_object(self) -> Flare | FlareAid | None:
+        if isinstance(self.flare, Flare) and isinstance(self.flareaid, FlareAid):
+            raise ValueError("Cannot create a Flare with a Flare and a FlareAid.")
+        elif isinstance(self.flareaid, FlareAid):
+            return self.flareaid
+        else:
+            return self.flare
 
     def get_or_create_flareaid(self) -> Union["FlareAid", None]:
         if self.flareaid:
             if self.user:
                 raise ValueError("Cannot create a Flare with a FlareAid and a User.")
-            if isinstance(self.flareaid, FlareAid):
-                raise TypeError("Providing FlareAid object is not implemented yet. Must call with bool.")
         return self.flareaid or None
 
     def get_or_create_crystal_analysis(self) -> bool | None:
@@ -247,19 +253,15 @@ class CustomFlareFactory(
         self.update_medhistory_attrs()
 
     def create_object(self):
-        if self.flareaid:
-            if isinstance(self.flareaid, FlareAid):
-                # Does anything need to be done here?
-                pass
-            else:
-                flareaid_kwargs = {
-                    "dateofbirth": self.dateofbirth,
-                    "gender": self.gender,
-                    "user": self.user,
-                }
-                flareaid_kwargs.update(self.get_medhistory_kwargs_for_related_object(FlareAid))
-                self.flareaid = CustomFlareAidFactory(**flareaid_kwargs).create_object()
-                self.update_medhistory_attrs_for_related_object_medhistorys(self.flareaid)
+        if self.flareaid and not isinstance(self.flareaid, FlareAid):
+            flareaid_kwargs = {
+                "dateofbirth": self.dateofbirth,
+                "gender": self.gender,
+                "user": self.user,
+            }
+            flareaid_kwargs.update(self.get_medhistory_kwargs_for_related_object(FlareAid))
+            self.flareaid = CustomFlareAidFactory(**flareaid_kwargs).create_object()
+            self.update_medhistory_attrs_for_related_object_medhistorys(self.flareaid)
 
         flare_kwargs = {
             "crystal_analysis": self.crystal_analysis,

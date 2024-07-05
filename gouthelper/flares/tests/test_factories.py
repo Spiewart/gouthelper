@@ -10,6 +10,7 @@ from ...akis.choices import Statuses
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...flareaids.tests.factories import CustomFlareAidFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
@@ -563,18 +564,6 @@ class TestFlareFactory(TestCase):
             flare_cad.pk,
             flareaid_cad.pk,
         )
-        print("flare")
-        for medhistory in flare.medhistory_set.all():
-            print(medhistory)
-            print(medhistory.pk)
-            print(medhistory.flare)
-            print(medhistory.flareaid)
-        print("flareaid")
-        for medhistory in flareaid.medhistory_set.all():
-            print(medhistory)
-            print(medhistory.pk)
-            print(medhistory.flare)
-            print(medhistory.flareaid)
         for medhistory in flare.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS):
             self.assertTrue(flareaid.medhistory_set.filter(pk=medhistory.pk).exists())
         for medhistory in flareaid.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS):
@@ -591,3 +580,34 @@ class TestFlareFactory(TestCase):
         flare = factory.create_object()
         self.assertTrue(flare.flareaid.gender)
         self.assertEqual(flare.gender, flare.flareaid.gender)
+
+    def test__creates_flare_with_same_dateofbirth_as_flareaid(self) -> None:
+        flareaid_factory = CustomFlareAidFactory()
+        flareaid = flareaid_factory.create_object()
+        factory = CustomFlareFactory(flareaid=flareaid)
+        flare = factory.create_object()
+        self.assertEqual(flare.dateofbirth, flareaid.dateofbirth)
+
+    def test__creates_flare_with_same_gender_as_flareaid(self) -> None:
+        flareaid_factory = CustomFlareAidFactory()
+        flareaid = flareaid_factory.create_object()
+        factory = CustomFlareFactory(flareaid=flareaid)
+        flare = factory.create_object()
+        self.assertEqual(flareaid.gender, flare.gender)
+
+    def test__creates_flare_with_same_medhistorys_as_flareaid(self) -> None:
+        flareaid_factory = CustomFlareAidFactory(angina=True, cad=True, ibd=False, colchicineinteraction=True)
+        flareaid = flareaid_factory.create_object()
+        factory = CustomFlareFactory(flareaid=flareaid)
+        flare = factory.create_object()
+        for mh in flareaid.medhistory_set.all():
+            if mh.medhistorytype in FLARE_MEDHISTORYS:
+                self.assertTrue(flare.medhistory_set.filter(medhistorytype=mh.medhistorytype).exists())
+        self.assertTrue(flareaid.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).exists())
+        self.assertTrue(flareaid.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertFalse(flareaid.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).exists())
+        self.assertTrue(flareaid.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
+        self.assertTrue(flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).exists())
+        self.assertTrue(flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).exists())
+        self.assertFalse(flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).exists())
+        self.assertFalse(flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists())
