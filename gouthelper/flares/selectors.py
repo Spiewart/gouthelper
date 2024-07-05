@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Union
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
-from ..medhistorys.lists import FLARE_MEDHISTORYS
+from ..medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
+from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -51,6 +52,34 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
+def flareaid_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
+        .select_related("ckddetail", "baselinecreatinine")
+    ).all()
+
+
+def flareaid_medhistory_prefetch() -> Prefetch:
+    return Prefetch(
+        "flareaid__medhistory_set",
+        queryset=flareaid_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def flareaid_medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values)).all()
+
+
+def flareaid_medallergy_prefetch() -> Prefetch:
+    return Prefetch(
+        "flareaid__medallergy_set",
+        queryset=flareaid_medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
 def flare_relations(qs: "QuerySet") -> "QuerySet":
     """QuerySet to fetch all the related objects for a Flare."""
     return qs.select_related(
@@ -70,6 +99,12 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
             "urate",
         )
         .prefetch_related(creatinines_prefetch())
+    )
+
+
+def flare_and_flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
+    return flare_userless_relations(qs).prefetch_related(
+        flareaid_medhistory_prefetch(), flareaid_medallergy_prefetch()
     )
 
 

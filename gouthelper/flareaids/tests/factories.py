@@ -29,7 +29,6 @@ from ...utils.factories import (
     OneToOneCreatorMixin,
     OneToOneDataMixin,
 )
-from ...utils.helpers import get_or_create_qs_attr
 from ..models import FlareAid
 
 if TYPE_CHECKING:
@@ -285,13 +284,9 @@ class CustomFlareAidFactory(
                 **flareaid_kwargs,
             )
         if self.user:
-            get_or_create_qs_attr(self.user, "medhistorys")
-            get_or_create_qs_attr(self.user, "medallergys")
             self.user.flareaid_qs = [self.flareaid]
-        else:
-            get_or_create_qs_attr(self.flareaid, "medhistorys")
-            get_or_create_qs_attr(self.flareaid, "medallergys")
         self.update_related_object_attr(self.flareaid)
+        self.update_related_objects_related_objects()
         self.update_medhistorys()
         self.update_ckddetail()
         self.update_medallergys()

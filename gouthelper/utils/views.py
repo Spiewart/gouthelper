@@ -1669,12 +1669,24 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             self.object = self.form.save()
         self.user = self.object
         if self.related_object:
-            self.update_related_object_and_otos(self.related_object)
-            self.update_related_object_medhistorys_qs(self.related_object)
             related_objects_related_objects = list_of_objects_related_objects(self.related_object)
             for related_object in related_objects_related_objects:
+                related_object_attr = self.get_related_object_attr(related_object)
+                setattr(self.related_object, related_object_attr, None)
                 self.update_related_object_and_otos(related_object)
-                self.update_related_object_medhistorys_qs(related_object)
+                self.update_related_object_medhistorys_qs(related_object, related_object_attr)
+            self.update_related_object_and_otos(self.related_object)
+            self.update_related_object_medhistorys_qs(self.related_object)
+            try:
+                assert not [mh for mh in self.mhs_2_save if mh.flare or mh.flareaid]
+            except AssertionError:
+                for mh in self.mhs_2_save:
+                    print("in assertionerror")
+                    print(mh)
+                    print(mh.flare)
+                    print(mh.flareaid)
+                    print(mh.pk)
+                raise AssertionError("Flare or FlareAid MedHistory objects are not allowed to be saved.")
         # Save the OneToOne related models
         if self.oto_forms:
             self.form_valid_save_otos()
@@ -1699,28 +1711,38 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             )
         return HttpResponseRedirect(self.get_success_url())
 
-    def update_related_obj_medhistory(self, mh: "MedHistory", mh_related_obj: Any) -> None:
-        if mh_related_obj:
-            setattr(mh, self.related_object_attr, None)
+    def update_related_obj_medhistory(
+        self, mh: "MedHistory", mh_related_obj: Any | None, related_object_attr: str
+    ) -> None:
+        if mh_related_obj is not None:
+            setattr(mh, related_object_attr, None)
         if mh.user is None:
             mh.user = self.user
-        self.mhs_2_save.append(mh)
+        if mh not in self.mhs_2_save:
+            self.mhs_2_save.append(mh)
 
-    def update_related_object_medhistorys_qs(self, related_object: Any) -> None:
+    def update_related_object_medhistorys_qs(
+        self, related_object: Any, related_object_attr: str | None = None
+    ) -> None:
         if not hasattr(related_object, "medhistorys_qs"):
             raise AttributeError("Related object must have a medhistorys_qs attribute.")
+        elif not related_object_attr:
+            related_object_attr = self.get_related_object_attr(related_object)
         for mh in related_object.medhistorys_qs:
-            mh_related_obj = getattr(mh, self.get_related_object_attr(related_object), None)
-            if mh_related_obj or mh.user is None:
-                self.update_related_obj_medhistory(mh, mh_related_obj)
+            mh_related_obj = getattr(mh, related_object_attr, None)
+            if mh_related_obj is not None or mh.user is None:
+                mh_in_mhs_2_save = next((m for m in self.mhs_2_save if m == mh), None)
+                self.update_related_obj_medhistory(
+                    mh_in_mhs_2_save if mh_in_mhs_2_save else mh, mh_related_obj, related_object_attr
+                )
 
     def update_related_object_and_otos(self, related_object: Any) -> None:
         if self.update_related_object_oto_fields(related_object):
-            self.related_object.full_clean()
-            self.related_object.save()
+            related_object.full_clean()
+            related_object.save()
 
-    def update_related_object_oto(self, oto: str, related_obj_oto: Any) -> None:
-        setattr(self.related_object, oto, None)
+    def update_related_object_oto(self, related_object: Any, oto: str, related_obj_oto: Any) -> None:
+        setattr(related_object, oto, None)
         self.update_related_object_oto_user(related_obj_oto)
 
     def update_related_object_oto_user(self, related_obj_oto: Any) -> bool:
@@ -1737,7 +1759,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             if related_obj_oto:
                 if oto in self.req_otos:
                     if related_obj_oto:
-                        self.update_related_object_oto(oto, related_obj_oto)
+                        self.update_related_object_oto(related_object, oto, related_obj_oto)
                         if not save_related_obj:
                             save_related_obj = True
                     if related_object.user is None:

@@ -48,10 +48,11 @@ from ..medhistorys.models import MedHistory
 from ..treatments.choices import NsaidChoices, Treatments
 from ..users.tests.factories import create_psp
 from .db_helpers import get_or_create_attr, get_or_create_medhistory_atomic
-from .helpers import get_or_create_qs_attr, get_qs_or_set
+from .helpers import get_or_create_qs_attr, get_qs_or_set, list_of_objects_related_objects
 
 if TYPE_CHECKING:
     import uuid
+    from typing import Type
 
     from ..flareaids.models import FlareAid
     from ..flares.models import Flare
@@ -143,7 +144,7 @@ def fake_urate_decimal() -> Decimal:
         right_digits=1,
         positive=True,
         min_value=0.3,
-        max_value=8,
+        max_value=15,
     )
 
 
@@ -526,8 +527,6 @@ class LabDataMixin(DataMixin):
             date_drawn_range = (date_started, date_ended)
         else:
             date_drawn_range = None
-        print(data)
-        print(date_drawn_range)
         return {
             f"{lab}-{index}-value": (
                 self.get_labtype_fake_decimal(lab)
@@ -1276,6 +1275,12 @@ class CustomFactoryBaseMixin:
         if not self.related_object or self.related_object is not related_object:
             self.related_object = related_object
 
+    def update_related_objects_related_objects(self) -> None:
+        if self.related_object:
+            self.related_objects_related_objects = list_of_objects_related_objects(self.related_object)
+        else:
+            self.related_objects_related_objects = None
+
 
 class CustomFactoryUserMixin:
     user: Union["User", bool, None]
@@ -1388,7 +1393,7 @@ class CustomFactoryAkiMixin:
                 return AkiFactory(
                     status=self.aki,
                     user=self.user,
-                    creatinines=self.creatinines if hasattr(self.creatinines) else None,
+                    creatinines=self.creatinines if hasattr(self, "creatinines") else None,
                 )
         elif hasattr(self, "creatinines") and self.creatinines:
             raise ValueError("Cannot create creatinines for a Flare without an Aki!")
@@ -1413,7 +1418,6 @@ class CustomFactoryCkdMixin:
 
     @cached_property
     def needs_ckd(self) -> bool:
-        print(self.ckd, self.stage, self.baselinecreatinine, self.dialysis)
         return (
             True
             if (self.ckd is Auto or self.ckd) and (self.stage or self.baselinecreatinine or self.dialysis)
@@ -1578,6 +1582,7 @@ class CustomFactoryMedHistoryMixin:
     medhistorys: list[MedHistoryTypes]
     related_object: Any | None
     related_object_attr: str | None
+    related_objects_related_objects: list[Any] | None
     user: Union["User", bool, None]
 
     def get_or_create_medhistory(self, medhistorytype: MedHistoryTypes) -> MedHistory | bool | None:
@@ -1661,6 +1666,13 @@ class CustomFactoryMedHistoryMixin:
             self.delete_related_object_ckddetail_properties()
 
     def update_medhistorys(self) -> None:
+        if self.user:
+            get_or_create_qs_attr(self.user, "medhistorys")
+        else:
+            get_or_create_qs_attr(self.related_object, "medhistorys")
+            if self.related_objects_related_objects:
+                for related_objects_related_object in self.related_objects_related_objects:
+                    get_or_create_qs_attr(related_objects_related_object, "medhistorys")
         for medhistory in self.medhistorys:
             mh_attr = medhistory.lower()
             mh_val_or_object = getattr(self, mh_attr)
@@ -1689,10 +1701,36 @@ class CustomFactoryMedHistoryMixin:
                     self.user.medhistorys_qs.append(mh_val_or_object)
                 elif self.related_object and mh_val_or_object not in self.related_object.medhistorys_qs:
                     self.related_object.medhistorys_qs.append(mh_val_or_object)
+                    # Need to set the mh_attr on the related_object to get around cached_property
+                    setattr(self.related_object, mh_attr, mh_val_or_object)
+                if self.related_objects_related_objects:
+                    for related_objects_related_object in self.related_objects_related_objects:
+                        if (
+                            medhistory in related_objects_related_object.aid_medhistorys()
+                            and mh_val_or_object not in related_objects_related_object.medhistorys_qs
+                        ):
+                            related_objects_related_object.medhistorys_qs.append(mh_val_or_object)
             else:
                 mh_to_delete = self.get_mh_to_delete(mh_attr)
                 if mh_to_delete:
                     self.delete_mh_to_delete(mh_to_delete, mh_attr)
+
+    def get_medhistory_kwargs_for_related_object(self, related_object_class: "Type") -> dict[str, Any]:
+        related_object_medhistory_kwargs = {}
+        related_object_medhistorys = related_object_class.aid_medhistorys()
+        for medhistory in related_object_medhistorys:
+            mh_attr = medhistory.lower()
+            if hasattr(self, mh_attr):
+                related_object_medhistory_kwargs.update({mh_attr: getattr(self, mh_attr)})
+        return related_object_medhistory_kwargs
+
+    def update_medhistory_attrs_for_related_object_medhistorys(self, related_object: Any) -> None:
+        for medhistory in self.medhistorys:
+            medhistory_attr = medhistory.lower()
+            if hasattr(related_object, medhistory_attr):
+                related_object_medhistory = getattr(related_object, medhistory_attr)
+                if related_object_medhistory:
+                    setattr(self, medhistory_attr, related_object_medhistory)
 
 
 class CustomFactoryMenopauseMixin:
@@ -1805,6 +1843,10 @@ class CustomFactoryMedAllergyMixin:
             self.related_object.medallergys_qs.remove(ma_to_delete)
 
     def update_medallergys(self) -> None:
+        if self.user:
+            get_or_create_qs_attr(self.user, "medallergys")
+        else:
+            get_or_create_qs_attr(self.flareaid, "medallergys")
         for treatment in self.treatments:
             ma_attr = f"{treatment.lower()}_allergy"
             ma_val_or_object = getattr(self, ma_attr)

@@ -18,6 +18,8 @@ from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...flareaids.models import FlareAid
+from ...flareaids.tests.factories import CustomFlareAidFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
@@ -47,13 +49,10 @@ from ...utils.factories import (
     get_menopause_val,
     get_or_create_medhistory_atomic,
 )
-from ...utils.helpers import get_or_create_qs_attr
 from ..choices import LimitedJointChoices
 from ..models import Flare
 
 if TYPE_CHECKING:
-    from ...flareaids.models import FlareAid
-
     User = get_user_model()
 
 pytestmark = pytest.mark.django_db
@@ -149,12 +148,12 @@ class CustomFlareFactory(
         self.sequentially_update_attrs()
 
     def get_or_create_flareaid(self) -> Union["FlareAid", None]:
-        def create_flareaid():
-            raise ValueError("Not yet implemented, should not be called.")
-
-        if self.flareaid and self.user:
-            raise ValueError("Cannot create a Flare with a FlareAid and a User.")
-        return self.flareaid or create_flareaid() if self.flareaid is Auto else None
+        if self.flareaid:
+            if self.user:
+                raise ValueError("Cannot create a Flare with a FlareAid and a User.")
+            if isinstance(self.flareaid, FlareAid):
+                raise TypeError("Providing FlareAid object is not implemented yet. Must call with bool.")
+        return self.flareaid or None
 
     def get_or_create_crystal_analysis(self) -> bool | None:
         def create_crystal_analysis():
@@ -248,6 +247,20 @@ class CustomFlareFactory(
         self.update_medhistory_attrs()
 
     def create_object(self):
+        if self.flareaid:
+            if isinstance(self.flareaid, FlareAid):
+                # Does anything need to be done here?
+                pass
+            else:
+                flareaid_kwargs = {
+                    "dateofbirth": self.dateofbirth,
+                    "gender": self.gender,
+                    "user": self.user,
+                }
+                flareaid_kwargs.update(self.get_medhistory_kwargs_for_related_object(FlareAid))
+                self.flareaid = CustomFlareAidFactory(**flareaid_kwargs).create_object()
+                self.update_medhistory_attrs_for_related_object_medhistorys(self.flareaid)
+
         flare_kwargs = {
             "crystal_analysis": self.crystal_analysis,
             "date_ended": self.date_ended,
@@ -261,6 +274,7 @@ class CustomFlareFactory(
             "gender": self.gender,
             "urate": self.urate,
             "user": self.user,
+            "flareaid": self.flareaid,
         }
         if self.flare:
             flare = self.flare
@@ -276,18 +290,11 @@ class CustomFlareFactory(
                 **flare_kwargs,
             )
         if self.user:
-            get_or_create_qs_attr(self.user, "medhistorys")
             self.user.flare_qs = [self.flare]
-        else:
-            get_or_create_qs_attr(self.flare, "medhistorys")
-            if self.flareaid:
-                self.flare.flareaid = self.flareaid
         self.update_related_object_attr(self.flare)
+        self.update_related_objects_related_objects()
         self.update_medhistorys()
         self.update_ckddetail()
-        if self.flareaid:
-            # TODO: add methods to create a FlareAid using the fields in the Flare
-            pass
         return self.flare
 
 
@@ -302,11 +309,6 @@ def flare_data_factory(
         date_start = date_started + timedelta(days=1)
         date_diff = timezone.now().date() - date_start
         date_end = date_start + timedelta(days=30) if date_diff > timedelta(days=30) else date_start + date_diff
-        print(timezone.now().date())
-        print(date_started)
-        print(date_start)
-        print(date_diff)
-        print(date_end)
         return (
             fake.date_between_dates(
                 date_start=date_start,
@@ -349,9 +351,6 @@ def flare_data_factory(
         data["date_ended"] = str(create_date_ended(date_started))
     else:
         data["date_ended"] = ""
-    print("after date_started/ended created")
-    print(data["date_started"])
-    print(data["date_ended"])
     data["onset"] = fake.boolean()
     data["redness"] = fake.boolean()
     data["joints"] = get_random_joints()

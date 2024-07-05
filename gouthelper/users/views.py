@@ -11,6 +11,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, R
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin
 
 from ..flares.models import Flare
+from ..flares.selectors import flareaid_medallergy_prefetch, flareaid_medhistory_prefetch
 from ..medhistorydetails.forms import GoutDetailForm
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin, remove_patient_from_session
@@ -82,7 +83,13 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
     @cached_property
     def flare(self) -> Flare | None:
         flare_kwarg = self.kwargs.get("flare", None)
-        return Flare.related_objects.get(pk=flare_kwarg) if flare_kwarg else None  # pylint: disable=W0201
+        return (
+            Flare.related_objects.prefetch_related(flareaid_medhistory_prefetch(), flareaid_medallergy_prefetch()).get(
+                pk=flare_kwarg
+            )
+            if flare_kwarg
+            else None  # pylint: disable=W0201
+        )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
