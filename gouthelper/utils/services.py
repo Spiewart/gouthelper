@@ -737,6 +737,9 @@ def get_service_object(
 class AidService:
     """Base class for Aid service class methods."""
 
+    class Meta:
+        abstract = True
+
     def __init__(
         self,
         qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
@@ -794,13 +797,26 @@ class AidService:
             oto="gender",
         )
         aid_service_check_oto_swap(oto="gender", qs_has_user=self.qs_has_user, model_attr=self.model_attr)
-        self.medallergys = self.qs.medallergys_qs if hasattr(self.qs, "medallergys_qs") else None
-        if hasattr(self.qs, "medhistorys_qs"):
-            self.medhistorys = self.qs.medhistorys_qs
-        else:
-            self.medhistorys = None
+        self.medallergys = (
+            self.get_medallergys_from_medallergys_qs() if hasattr(self.model, "aid_treatments") else None
+        )
+        self.medhistorys = (
+            self.get_medhistorys_from_medhistorys_qs() if hasattr(self.model, "aid_medhistorys") else None
+        )
         # TODO: Add side effects back in at later stage, kept here to avoid breaking other code
         self.sideeffects = None
+
+    def get_medallergys_from_medallergys_qs(self):
+        return [
+            medallergy for medallergy in self.qs.medallergys_qs if medallergy.treatment in self.model.aid_treatments()
+        ]
+
+    def get_medhistorys_from_medhistorys_qs(self):
+        return [
+            medhistory
+            for medhistory in self.qs.medhistorys_qs
+            if medhistory.medhistorytype in self.model.aid_medhistorys()
+        ]
 
     def _update(self, commit=True) -> Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]:
         """Updates the model object's decisionaid field.
@@ -811,10 +827,14 @@ class AidService:
         Returns:
             str: decisionaid field JSON representation of trt_dict
         """
-        if commit:
+        if commit and self.aids_need_2_be_saved():
             self.model_attr.full_clean()
             self.model_attr.save()
         return self.model_attr
+
+    def aids_need_2_be_saved(self) -> bool:
+        # TODO: implement this on each aid service class to actually check if the object needs to be saved
+        return True
 
 
 class TreatmentAidService(AidService):

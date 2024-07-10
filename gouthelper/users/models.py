@@ -60,7 +60,12 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     def __str__(self) -> str:
         """Unicode representation of User."""
         if self.role == Roles.PSEUDOPATIENT:
-            return f"GoutPatient [{shorten_date_for_str(date=self.created, abbrev_last_week=True, show_time=True)}]"
+            if self.profile and self.profile.provider:
+                return f"GoutPatient {self.username[len(self.profile.provider.username):]}"
+            else:
+                return (
+                    f"GoutPatient [{shorten_date_for_str(date=self.created, abbrev_last_week=True, show_time=True)}]"
+                )
         return super().__str__()
 
     @cached_property
@@ -155,6 +160,10 @@ class Pseudopatient(GoutHelperPatientModel, User):
     @cached_property
     def profile(self):
         return getattr(self, "pseudopatientprofile", None)
+
+    @classmethod
+    def list_of_related_aid_models(cls):
+        return ["flareaid", "goalurate", "ppxaid", "ppx", "ultaid", "ult"]
 
     def save(self, *args, **kwargs):
         # If a new user, set the user's role based off the

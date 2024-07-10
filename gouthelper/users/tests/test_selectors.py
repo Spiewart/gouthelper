@@ -6,8 +6,9 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...users.models import Pseudopatient
-from ..selectors import pseudopatient_qs
+from ..selectors import pseudopatient_count_for_provider_with_todays_date_in_username, pseudopatient_qs
 from .factories import create_psp
+from .test_helpers import create_pseudopatient
 
 pytestmark = pytest.mark.django_db
 
@@ -43,3 +44,25 @@ class TestPseudopatientQuerySet(TestCase):
             assert qs.ckd.ckddetail == self.pseudopatient.ckddetail
             assert qs.gout.goutdetail == self.pseudopatient.goutdetail
         assert len(queries) == 0
+
+
+class TestPseudopatientCountForProviderWithTodaysDateInUsername(TestCase):
+    def setUp(self):
+        self.provider = create_psp()
+        self.provider_username = self.provider.username
+
+    def test__returns_zero(self):
+        """Test that the count is zero when no pseudopatients exist."""
+        self.assertEqual(
+            pseudopatient_count_for_provider_with_todays_date_in_username(self.provider_username),
+            0,
+        )
+
+    def test__returns_correct_count(self):
+        """Test that the count is correct when pseudopatients exist."""
+        for i in range(1, 4):
+            create_pseudopatient(self.provider_username, i)
+            self.assertEqual(
+                pseudopatient_count_for_provider_with_todays_date_in_username(self.provider_username),
+                i,
+            )

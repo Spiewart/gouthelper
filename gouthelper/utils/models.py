@@ -53,7 +53,15 @@ if TYPE_CHECKING:
     User = get_user_model()
 
 
-class GoutHelperBaseModel:
+class GoalUrateMixin:
+    @cached_property
+    def goal_urate(self) -> GoalUrates:
+        """Returns the object's GoalUrate.goal_urate attribute if object has a GoalUrate otherwise
+        returns the GoutHelper default GoalUrates.SIX."""
+        return goalurates_get_object_goal_urate(self)
+
+
+class GoutHelperBaseModel(GoalUrateMixin):
     """Abstract base model that adds method for iterating over the model fields or
     a prefetched / select_related QuerySet of the model fields in order to
     categorize and display them."""
@@ -1643,12 +1651,6 @@ aggressively with ULT."
                 if self.belongs_to_patient
                 else urates_dated_qs().filter(**{f"{self._meta.model_name.lower()}": self})
             )
-
-    @cached_property
-    def goal_urate(self) -> GoalUrates:
-        """Returns the object's GoalUrate.goal_urate attribute if object has a GoalUrate otherwise
-        returns the GoutHelper default GoalUrates.SIX."""
-        return goalurates_get_object_goal_urate(self)
 
     @cached_property
     def urates_at_goal(

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from django.conf import settings
@@ -17,6 +18,7 @@ from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import yearsago
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
+from ...flareaids.tests.factories import CustomFlareAidFactory
 from ...flares.models import Flare
 from ...flares.tests.factories import CustomFlareFactory
 from ...genders.choices import Genders
@@ -28,6 +30,7 @@ from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Menopause
 from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.models import PseudopatientProfile
+from ...treatments.choices import Treatments
 from ...utils.test_helpers import dummy_get_response
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
@@ -371,7 +374,7 @@ class TestPseudopatientFlareCreateView(TestCase):
         self, method: str = "POST", flare: Flare | None = None, data: dict | None = None
     ) -> tuple[Flare, HttpResponseRedirect, User]:
         if not flare:
-            flare = CustomFlareFactory(flareaid=True).create_object()
+            flare = CustomFlareFactory(flareaid=True, urate=Decimal("9.0")).create_object()
         self.flareaid = flare.flareaid
         if not data:
             data = {
@@ -409,6 +412,15 @@ class TestPseudopatientFlareCreateView(TestCase):
         assert "goutdetail_form" in response.context
         assert "flare" in response.context
         assert response.context["flare"] == flare
+
+    def test__goutdetail_form_initial_set(self) -> None:
+        _, response, _ = self.return_flare_response_user("GET")
+        goutdetail_form = response.context["goutdetail_form"]
+        assert goutdetail_form.initial["flaring"] is True
+        assert goutdetail_form.initial["at_goal"] is False
+        assert goutdetail_form.initial["on_ppx"] is None
+        assert goutdetail_form.initial["on_ult"] is None
+        assert goutdetail_form.initial["starting_ult"] is None
 
     def test__flare(self):
         """Test that the view's flare() method returns the flare object."""
@@ -467,16 +479,25 @@ class TestPseudopatientFlareCreateView(TestCase):
         assert not self.flareaid.medhistory_set.exists()
 
     def test__flareaid_medhistorys_are_set_to_user(self) -> None:
-        flare = CustomFlareFactory(cad=True, angina=True, flareaid=True).create_object()
-        flareaid = flare.flareaid
+        flareaid = CustomFlareAidFactory(colchicineinteraction=True, ibd=True).create_object()
+        flare = CustomFlareFactory(flareaid=flareaid).create_object()
         flare_medhistory_count = flare.medhistory_set.count()
         flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
         flareaid_medhistory_count = flareaid.medhistory_set.exclude(medhistorytype__in=FLARE_MEDHISTORYS).count()
         _, _, user = self.return_flare_response_user(flare=flare)
-        user = Pseudopatient.objects.flares_qs(flare.pk).filter(flare__pk=flare.pk).get()
         assert user.medhistory_set.count() == flareaid_medhistory_count + (
             flare_medhistory_count if flare_has_gout_medhistory else flare_medhistory_count + 1
         )
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists()
+        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).exists()
+
+    def test__flareaid_medallergys_are_set_to_user(self) -> None:
+        flareaid = CustomFlareAidFactory(diclofenac_allergy=True, prednisone_allergy=True).create_object()
+        flare = CustomFlareFactory(flareaid=flareaid).create_object()
+        _, _, user = self.return_flare_response_user(flare=flare)
+        assert user.medallergy_set.exists()
+        assert user.medallergy_set.filter(treatment=Treatments.DICLOFENAC).exists()
+        assert user.medallergy_set.filter(treatment=Treatments.PREDNISONE).exists()
 
 
 class TestPseudopatientDetailView(TestCase):

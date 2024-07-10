@@ -202,3 +202,6 @@ class PpxAid(
                 qs = PpxAid.related_objects.filter(pk=self.pk)
         decisionaid = PpxAidDecisionAid(qs=qs)
         return decisionaid._update()
+
+    def get_update_qs_from_users_objects(self) -> Pseudopatient:
+        pass

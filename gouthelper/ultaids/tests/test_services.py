@@ -9,6 +9,7 @@ from ...defaults.tests.factories import UltAidSettingsFactory
 from ...labs.tests.factories import Hlab5801Factory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import MedHistoryTypes
+from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...treatments.choices import FebuxostatDoses, Freqs, Treatments, UltChoices
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
@@ -85,9 +86,15 @@ class TestUltAidDecisionAid(TestCase):
                 self.assertIsNotNone(decisionaid.ethnicity)
                 self.assertEqual(user.ethnicity, decisionaid.ethnicity)
                 for medhistory in user.medhistorys_qs:
-                    self.assertIn(medhistory, decisionaid.medhistorys)
+                    if medhistory.medhistorytype in ULTAID_MEDHISTORYS:
+                        self.assertIn(medhistory, decisionaid.medhistorys)
+                    else:
+                        self.assertNotIn(medhistory, decisionaid.medhistorys)
                 for medallergy in user.medallergys_qs:
-                    self.assertIn(medallergy, decisionaid.medallergys)
+                    if medallergy.treatment in UltChoices.values:
+                        self.assertIn(medallergy, decisionaid.medallergys)
+                    else:
+                        self.assertNotIn(medallergy, decisionaid.medallergys)
 
     def test__init_with_ultaid_with_user(self):
         for ultaid in UltAid.objects.select_related("user").filter(user__isnull=False).all():
@@ -119,9 +126,15 @@ class TestUltAidDecisionAid(TestCase):
                 self.assertEqual(user.hlab5801, decisionaid.hlab5801)
             self.assertEqual(user.ethnicity, decisionaid.ethnicity)
             for medhistory in user.medhistorys_qs:
-                self.assertIn(medhistory, decisionaid.medhistorys)
+                if medhistory.medhistorytype in ULTAID_MEDHISTORYS:
+                    self.assertIn(medhistory, decisionaid.medhistorys)
+                else:
+                    self.assertNotIn(medhistory, decisionaid.medhistorys)
             for medallergy in user.medallergys_qs:
-                self.assertIn(medallergy, decisionaid.medallergys)
+                if medallergy.treatment in UltChoices.values:
+                    self.assertIn(medallergy, decisionaid.medallergys)
+                else:
+                    self.assertNotIn(medallergy, decisionaid.medallergys)
 
     def test___create_trts_dict_no_user(self):
         for ultaid in UltAid.related_objects.all():

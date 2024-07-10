@@ -183,7 +183,7 @@ class GoalUratePseudopatientCreate(
     """View for creating a GoalUrate for a Pseudopatient."""
 
     permission_required = "goalurates.can_add_goalurate"
-    success_message = "%(username)s's GoalUrate successfully created."
+    success_message = "%(user)s's GoalUrate successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -193,7 +193,7 @@ class GoalUratePseudopatientCreate(
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
 
 class GoalUratePseudopatientDetail(GoalUrateDetailBase):
@@ -256,7 +256,7 @@ class GoalUratePseudopatientUpdate(
     UpdateView,
     SuccessMessageMixin,
 ):
-    success_message = "%(username)s's GoalUrate successfully updated."
+    success_message = "%(user)s's GoalUrate successfully updated."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -266,7 +266,7 @@ class GoalUratePseudopatientUpdate(
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
 
 class GoalUrateUpdate(

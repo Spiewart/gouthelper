@@ -1,0 +1,18 @@
+{% load project_tags %}
+
+<div id="ult-card" class="card spacious-cards">
+  <div class="card-body">
+    <h3 class="card-title">{{ ult }}</h3>
+    {% if ult.user %}
+      <a href="{% url 'ults:pseudopatient-update' ult.user.username %}?next={{ object.get_absolute_url }}"
+         class="btn btn-primary btn-sm">Update</a>
+      <a href="{% url 'ults:pseudopatient-detail' ult.user.username %}"
+         class="btn btn-primary btn-sm">Details</a>
+    {% else %}
+      <a href="{% url 'ults:update' ult.pk %}?next={{ object.get_absolute_url }}"
+         class="btn btn-primary btn-sm">Update</a>
+      <a href="{% url 'ults:detail' ult.pk %}" class="btn btn-primary btn-sm">Details</a>
+    {% endif %}
+    <a href="{% url 'ults:about' %}" class="btn btn-primary btn-sm">About</a>
+  </div>
+</div>

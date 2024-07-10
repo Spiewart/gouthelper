@@ -398,10 +398,16 @@ class HepatitisForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Hepatitis"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have hepatitis or \
-cirrhosis of the liver?"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} have <a href={} target='_next'>hepatitis</a> or <a href={} target='_next'>cirrhosis</a> of \
+the liver?""",
+                self.str_attrs["Query"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Hepatitis",
+                "https://en.wikipedia.org/wiki/Cirrhosis",
+            )
+        )
 
 
 class HypertensionForm(MedHistoryForm):
@@ -592,10 +598,15 @@ class UratestonesForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Urate Kidney Stones"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have a history \
-of urate kidney stones?"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} have a history of <a href={} target='_next'>urate kidney stones</a>?""",
+                self.str_attrs["Query"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Kidney_stone_disease#:~:text=microscopy.%5B74%5D-,Uric%20acid%20stones,\
+-%5Bedit%5D",
+            )
+        )
 
 
 class XoiinteractionForm(MedHistoryForm):
@@ -617,7 +628,13 @@ class XoiinteractionForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Xanthine Oxidase Inhibitor Interaction"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} on \
-6-mercaptopurine or azathioprine?"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} on <a href={} target='_next'>6-mercaptopurine</a> or <a href={} \
+target='_next'>azathioprine</a>?""",
+                self.str_attrs["Tobe"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Mercaptopurine",
+                "https://en.wikipedia.org/wiki/Azathioprine",
+            )
+        )

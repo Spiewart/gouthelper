@@ -1,0 +1,21 @@
+{% load project_tags %}
+
+{% if object.goalurate %}
+  {% include 'goalurates/goalurate_detail_card.html' with object=object.goalurate %}
+{% else %}
+  <div id="goalurate-card" class="card spacious-cards">
+    <div class="card-body" id="goalurate">
+      <h3 class="card-title">No GoalUrate</h3>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         hx-get="{% url 'goalurates:pseudopatient-create' username=object.username %}"
+         hx-target="#goalurate"
+         hx-trigger="click"
+         role="button">Create</a>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'goalurates:about' %}"
+         role="button">About</a>
+    </div>
+  </div>
+{% endif %}

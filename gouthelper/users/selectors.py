@@ -2,8 +2,9 @@ from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
+from django.utils import timezone  # type: ignore
 
-from ..flares.selectors import flares_prefetch
+from ..flares.selectors import flares_prefetch, most_recent_flare_prefetch
 from ..labs.selectors import urates_prefetch
 from ..medallergys.selectors import medallergys_prefetch
 from ..medhistorys.choices import MedHistoryTypes
@@ -83,18 +84,13 @@ def pseudopatient_qs(username: str) -> "QuerySet":
 
 
 def pseudopatient_profile_qs(username: str) -> "QuerySet":
-    return (
-        apps.get_model("users.Pseudopatient")
-        .objects.filter(username=username)
-        .select_related(
-            "pseudopatientprofile",
-            "dateofbirth",
-            "gender",
-            "ethnicity",
-        )
-        .prefetch_related(
-            pseudopatient_profile_medhistory_prefetch(),
-        )
+    return pseudopatient_onetoone_relations(
+        apps.get_model("users.Pseudopatient").objects.filter(username=username)
+    ).prefetch_related(
+        most_recent_flare_prefetch(),
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+        urates_prefetch(),
     )
 
 
@@ -110,7 +106,7 @@ def pseudopatient_related_aids(qs: "QuerySet") -> "QuerySet":
     ).prefetch_related(flares_prefetch())
 
 
-def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
+def pseudopatient_onetoone_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
         "ethnicity",
@@ -120,12 +116,28 @@ def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
         "hlab5801",
         "ppxaid",
         "ppx",
-        "pseudopatientprofile",
+        "pseudopatientprofile__provider",
         "ultaid",
         "ult",
-    ).prefetch_related(
+    )
+
+
+def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
+    return pseudopatient_onetoone_relations(qs).prefetch_related(
         flares_prefetch(),
         medhistorys_prefetch(),
         medallergys_prefetch(),
         urates_prefetch(),
+    )
+
+
+def pseudopatient_count_for_provider_with_todays_date_in_username(provider_username: str) -> "QuerySet":
+    return (
+        apps.get_model("users.Pseudopatient")
+        .objects.select_related("pseudopatientprofile__provider")
+        .filter(
+            pseudopatientprofile__provider__username=provider_username,
+            username__startswith=f"{provider_username} [{timezone.now().date().strftime('%-m-%-d-%y')}:",
+        )
+        .count()
     )

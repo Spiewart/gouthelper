@@ -90,10 +90,10 @@ class TestFlareAidFactory(TestCase):
         factory = CustomFlareAidFactory(baselinecreatinine=Decimal("2.0"))
         flareaid = factory.create_object()
         next_factory = CustomFlareAidFactory(flareaid=flareaid, ckd=False)
-        modified_flare = next_factory.create_object()
-        self.assertFalse(modified_flare.ckd)
-        self.assertFalse(modified_flare.ckddetail)
-        self.assertFalse(modified_flare.baselinecreatinine)
+        modified_flareaid = next_factory.create_object()
+        self.assertFalse(modified_flareaid.ckd)
+        self.assertFalse(modified_flareaid.ckddetail)
+        self.assertFalse(modified_flareaid.baselinecreatinine)
 
     def test__creates_ibuprofen_allergy(self) -> None:
         factory = CustomFlareAidFactory(ibuprofen_allergy=True)

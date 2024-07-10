@@ -1,4 +1,7 @@
 from django.urls import reverse  # pylint:disable=E0401  # type: ignore
+from django.utils import timezone  # pylint:disable=E0401  # type: ignore
+
+from .selectors import pseudopatient_count_for_provider_with_todays_date_in_username
 
 
 def get_user_change(instance, request, **kwargs):  # pylint:disable=W0613
@@ -19,3 +22,8 @@ def get_user_change(instance, request, **kwargs):  # pylint:disable=W0613
     else:
         # Otherwise, return None
         return None
+
+
+def create_pseudopatient_username_for_new_user_for_provider(provider_username: str) -> str:
+    current_date_pseudopatients = pseudopatient_count_for_provider_with_todays_date_in_username(provider_username)
+    return provider_username + f" [{(timezone.now().date().strftime('%-m-%-d-%y'))}:{current_date_pseudopatients + 1}]"

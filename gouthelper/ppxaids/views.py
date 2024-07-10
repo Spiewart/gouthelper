@@ -167,7 +167,7 @@ class PpxAidPseudopatientCreate(
     """View for creating a PpxAid for a patient."""
 
     permission_required = "ppxaids.can_add_ppxaid"
-    success_message = "%(username)s's PpxAid successfully created."
+    success_message = "%(user)s's PpxAid successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -176,7 +176,7 @@ class PpxAidPseudopatientCreate(
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -247,7 +247,7 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
 class PpxAidPseudopatientUpdate(
     PpxAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    success_message = "%(username)s's PpxAid successfully created."
+    success_message = "%(user)s's PpxAid successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -256,7 +256,7 @@ class PpxAidPseudopatientUpdate(
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.

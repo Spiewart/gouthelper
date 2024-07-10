@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% load static %}
+{% load project_tags %}
 
 {% block title %}
   {{ object }}
@@ -27,8 +28,19 @@
     <div class="container">
       <hr size="3" color="dark" />
       <div class="row">
-        <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>
-        <div class="col-sm-6">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>
+        <div class="col">
+          {% include 'users/demographics.html' with object=object %}
+          {% include 'users/aid_cards/ppx.html' %}
+          {% include 'users/aid_cards/ult.html' %}
+          {% include 'users/aid_cards/goalurate.html' %}
+          {% include 'users/aid_cards/most_recent_flare.html' %}
+        </div>
+        <div class="col">
+          {% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}
+          {% include 'users/aid_cards/flareaid.html' %}
+          {% include 'users/aid_cards/ppxaid.html' %}
+          {% include 'users/aid_cards/ultaid.html' %}
+        </div>
       </div>
     </div>
     {% if object == request.user %}

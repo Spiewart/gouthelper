@@ -289,7 +289,7 @@ class FlarePatientEditBase(FlareEditBase):
         )
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -341,7 +341,7 @@ class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, Cr
     """View for creating a Flare for a patient."""
 
     permission_required = "flares.can_add_flare"
-    success_message = "%(username)s's Flare successfully created."
+    success_message = "%(user)s's Flare successfully created."
 
     def get_initial(self) -> dict[str, Any]:
         initial = super().get_initial()
@@ -354,7 +354,7 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessM
     """View for deleting a Flare for a patient."""
 
     model = Flare
-    success_message = "%(username)s's Flare successfully deleted."
+    success_message = "%(user)s's Flare successfully deleted."
 
     def dispatch(self, request, *args, **kwargs):
         # Set the user and object with get_object()
@@ -466,7 +466,7 @@ class FlarePseudopatientUpdate(
     SuccessMessageMixin,
 ):
     permission_required = "flares.can_change_flare"
-    success_message = "%(username)s's FlareAid successfully updated."
+    success_message = "%(user)s's FlareAid successfully updated."
 
     @cached_property
     def creatinine_formset_qs(self):

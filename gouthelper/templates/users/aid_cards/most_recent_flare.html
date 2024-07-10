@@ -1,0 +1,19 @@
+{% load project_tags %}
+
+{% if object.most_recent_flare %}
+  {% include 'flares/flare_detail_mini_card.html' with object=object.most_recent_flare.0 %}
+{% else %}
+  <div id="flares-card" class="card spacious-cards">
+    <div class="card-body" id="flares">
+      <h3 class="card-title">No Flares</h3>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'flares:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+         role="button">Create</a>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'flares:about' %}"
+         role="button">About</a>
+    </div>
+  </div>
+{% endif %}

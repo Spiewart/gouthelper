@@ -36,6 +36,14 @@ def flares_prefetch(pk: Union["UUID", None] = None) -> Prefetch:
     )
 
 
+def most_recent_flare_prefetch() -> Prefetch:
+    return Prefetch(
+        "flare_set",
+        queryset=apps.get_model("flares.Flare").objects.order_by("-date_started"),
+        to_attr="most_recent_flare",
+    )
+
+
 def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")

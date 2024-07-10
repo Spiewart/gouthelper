@@ -164,7 +164,7 @@ class FlareAidPseudopatientCreate(
     """View for creating a FlareAid for a patient."""
 
     permission_required = "flareaids.can_add_flareaid"
-    success_message = "%(username)s's FlareAid successfully created."
+    success_message = "%(user)s's FlareAid successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -173,7 +173,7 @@ class FlareAidPseudopatientCreate(
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -244,13 +244,13 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
 class FlareAidPseudopatientUpdate(
     FlareAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    success_message = "%(username)s's FlareAid successfully updated."
+    success_message = "%(user)s's FlareAid successfully updated."
 
     def get_permission_object(self):
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.

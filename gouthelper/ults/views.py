@@ -137,7 +137,7 @@ class UltPseudopatientCreate(
     """View for creating a Ult for a patient."""
 
     permission_required = "ults.can_add_ult"
-    success_message = "%(username)s's Ult successfully created."
+    success_message = "%(user)s's Ult successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -146,7 +146,7 @@ class UltPseudopatientCreate(
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -215,13 +215,13 @@ class UltPseudopatientUpdate(
 ):
     """UpdateView for Ults with a User."""
 
-    success_message = "%(username)s's Ult successfully updated."
+    success_message = "%(user)s's Ult successfully updated."
 
     def get_permission_object(self):
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         """Overwritten to finish the post() method and avoid conflicts with the MRO.

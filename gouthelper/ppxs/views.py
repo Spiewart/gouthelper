@@ -256,7 +256,7 @@ class PpxPseudopatientCreate(
     """View for creating a Ppx for a patient."""
 
     permission_required = "ppxs.can_add_ppx"
-    success_message = "%(username)s's Ppx successfully created."
+    success_message = "%(user)s's Ppx successfully created."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
@@ -265,7 +265,7 @@ class PpxPseudopatientCreate(
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, username=self.user.username)
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -327,7 +327,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
 class PpxPseudopatientUpdate(
     PpxPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    success_message = "%(user)s's Ppx successfully updated."
+    success_message = "%(user)ss's Ppx successfully updated."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,

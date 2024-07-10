@@ -62,9 +62,9 @@
           <u>Recommendation</u>
         </h3>
         <div class="row">
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
-          {% if object.recommendation %}
-            <div class="col">
+          <div class="col">
+            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+            {% if object.recommendation %}
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">Universal Flare Treatment Instructions</h4>
                 <ul>
@@ -74,8 +74,8 @@
                   <li>Call your doctor if your symptoms do not improve</li>
                 </ul>
               </div>
-            </div>
-          {% endif %}
+            {% endif %}
+          </div>
         </div>
       </div>
       {% if object.recommendation %}

@@ -5,19 +5,15 @@
     <h3 class="card-title">{{ object }}</h3>
     {% if object.user %}
       <a href="{% url 'ppxs:pseudopatient-update' object.user.username %}?next={{ request.path }}"
-         class="btn btn-primary spacious-buttons">Update</a>
+         class="btn btn-primary btn-sm">Update</a>
+      <a href="{% url 'ppxs:pseudopatient-detail' object.user.username %}"
+         class="btn btn-primary btn-sm">Details</a>
     {% else %}
       <a href="{% url 'ppxs:update' object.pk %}?next={{ request.path }}"
-         class="btn btn-primary spacious-buttons">Update</a>
-    {% endif %}
-    {% if object.user %}
-      <a href="{% url 'ppxs:pseudopatient-detail' object.user.username %}"
-         class="btn btn-primary spacious-buttons">Details</a>
-    {% else %}
+         class="btn btn-primary btn-sm">Update</a>
       <a href="{% url 'ppxs:detail' object.pk %}"
-         class="btn btn-primary spacious-buttons">Details</a>
+         class="btn btn-primary btn-sm">Details</a>
     {% endif %}
-    <a href="{% url 'ppxs:about' %}"
-       class="btn btn-primary spacious-buttons">About</a>
+    <a href="{% url 'ppxs:about' %}" class="btn btn-primary btn-sm">About</a>
   </div>
 </div>

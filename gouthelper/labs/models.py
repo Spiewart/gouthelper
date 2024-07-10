@@ -14,7 +14,7 @@ from ..choices import BOOL_CHOICES
 from ..dateofbirths.helpers import age_calc
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
-from ..utils.models import GoutHelperModel
+from ..utils.models import GoalUrateMixin, GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import (
     labs_creatinine_is_at_baseline_creatinine,
@@ -306,7 +306,7 @@ class Creatinine(CreatinineBase, Lab):
             return None
 
 
-class Urate(Lab):
+class Urate(Lab, GoalUrateMixin):
     class Meta(Lab.Meta):
         constraints = Lab.Meta.constraints + [
             # If there's a User, there can be no associated Ppx objects
@@ -351,6 +351,10 @@ class Urate(Lab):
             return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
         else:
             return "Urate: No value"
+
+    @cached_property
+    def at_goal(self) -> bool:
+        return self.value <= self.goal_urate
 
     @cached_property
     def date_drawn_or_flare_date(self):

@@ -36,21 +36,41 @@
       </form>
     {% else %}
       {% if request.user.is_authenticated %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'users:provider-pseudopatient-create' user.username %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:provider-pseudopatient-flare-create' user.username flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:provider-pseudopatient-create' user.username %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% else %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'users:pseudopatient-create' %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:pseudopatient-flare-create' flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:pseudopatient-create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% endif %}
     {% endif %}
   </main>

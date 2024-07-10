@@ -314,9 +314,9 @@ def shorten_date_for_str(date: datetime, abbrev_last_week: bool = False, show_ti
             return f"{date.strftime('%-m/%d')}"
     else:
         if show_time:
-            return f"{date.strftime('%-m/%d-%Y-%-I:%M%p')}"
+            return f"{date.strftime('%-m/%d/%y-%-I:%M%p')}"
         else:
-            return f"{date.strftime('%-m/%d-%Y')}"
+            return f"{date.strftime('%-m/%d/%y')}"
 
 
 def wrap_with_html_badge(text: str, badge_type: str) -> str:

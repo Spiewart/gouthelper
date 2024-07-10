@@ -25,6 +25,7 @@
               action="{% url 'ults:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -33,6 +34,7 @@
               action="{% url 'ults:update' form.instance.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
@@ -43,6 +45,7 @@
               action="{% url 'ults:pseudopatient-create' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -51,6 +54,7 @@
               action="{% url 'ults:create' %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}

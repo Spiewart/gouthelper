@@ -1,0 +1,25 @@
+{% load project_tags %}
+
+<div id="goalurate-card" class="card spacious-cards">
+  <div class="card-body" id="goalurate">
+    <h3 class="card-title">GoalUrate: {{ object.get_goal_urate_display }}</h3>
+    {% if object.user %}
+      <a class="btn btn-primary btn-sm"
+         hx-get="{% url 'goalurates:pseudopatient-update' object.user.username %}?next={{ request.path }}"
+         hx-target="#goalurate"
+         hx-trigger="click"
+         role="button">Update</a>
+      <a href="{% url 'goalurates:pseudopatient-detail' object.user.username %}"
+         class="btn btn-primary btn-sm">Details</a>
+    {% else %}
+      <a class="btn btn-primary btn-sm"
+         hx-get="{% url 'goalurates:update' object.pk %}?next={{ request.path }}"
+         hx-target="#goalurate"
+         hx-trigger="click"
+         role="button">Update</a>
+      <a href="{% url 'goalurates:detail' object.pk %}"
+         class="btn btn-primary btn-sm">Details</a>
+    {% endif %}
+    <a href="{% url 'goalurates:about' %}" class="btn btn-primary btn-sm">About</a>
+  </div>
+</div>

@@ -22,6 +22,7 @@ from ..medhistorys.dicts import MedHistoryTypesAids
 from ..medhistorys.helpers import medhistorys_get, medhistorys_get_default_medhistorytype
 from ..medhistorys.models import Gout
 from ..profiles.models import PseudopatientProfile
+from ..users.helpers import create_pseudopatient_username_for_new_user_for_provider
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
 from ..utils.helpers import (
@@ -33,7 +34,7 @@ from ..utils.helpers import (
 
 if TYPE_CHECKING:
     from django.forms import BaseModelFormSet  # type: ignore
-    from django.http import HttpRequest, HttpResponse  # type: ignore
+    from django.http import HttpResponse  # type: ignore
 
     from ..akis.models import Aki
     from ..dateofbirths.forms import DateOfBirthForm
@@ -49,67 +50,65 @@ if TYPE_CHECKING:
 User = get_user_model()
 
 
-def add_patient_to_session(request: "HttpRequest", patient: Pseudopatient | User) -> None:
-    request.session.update({"patient": str(patient), "username": patient.username})
-    if not request.session.get("recent_patients", None):
-        request.session["recent_patients"] = []
-    if patient.username not in [recent_patient[1] for recent_patient in request.session["recent_patients"]]:
-        request.session["recent_patients"].append(tuple([str(patient), patient.username]))
-    elif patient.username != request.session["recent_patients"][0][1]:
-        request.session["recent_patients"].remove(
-            next(
-                iter(
-                    [
-                        recent_patient
-                        for recent_patient in request.session["recent_patients"]
-                        if recent_patient[1] == patient.username
-                    ]
-                )
-            )
-        )
-        request.session["recent_patients"].insert(0, tuple([str(patient), patient.username]))
-
-
-def remove_patient_from_session(
-    request: "HttpRequest",
-    patient: Pseudopatient | User,
-    delete: bool = False,
-) -> None:
-    request.session.pop("patient", None)
-    request.session.pop("username", None)
-    if (
-        delete
-        and request.session.get("recent_patients", None)
-        and patient.username in [recent_patient[1] for recent_patient in request.session["recent_patients"]]
-    ):
-        request.session["recent_patients"].remove(
-            next(
-                iter(
-                    [
-                        recent_patient
-                        for recent_patient in request.session["recent_patients"]
-                        if recent_patient[1] == patient.username
-                    ]
-                )
-            )
-        )
-
-
-def update_session_patient(request: "HttpRequest", patient: Pseudopatient | User | None) -> None:
-    if patient:
-        add_patient_to_session(request, patient)
-    else:
-        remove_patient_from_session(request, patient)
-
-
 class PatientSessionMixin:
     """Mixin to add a session to a view."""
 
     def get_context_data(self, **kwargs):
         """Overwritten to add the patient to the session."""
         context = super().get_context_data(**kwargs)
-        update_session_patient(self.request, getattr(self, "user", None))
+        self.update_session_patient()
         return context
+
+    def add_patient_to_session(self, patient: Pseudopatient | User) -> None:
+        self.request.session.update({"patient": str(patient), "username": patient.username})
+        if not self.request.session.get("recent_patients", None):
+            self.request.session["recent_patients"] = []
+        if patient.username not in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]:
+            self.request.session["recent_patients"].append(tuple([str(patient), patient.username]))
+        elif patient.username != self.request.session["recent_patients"][0][1]:
+            self.request.session["recent_patients"].remove(
+                next(
+                    iter(
+                        [
+                            recent_patient
+                            for recent_patient in self.request.session["recent_patients"]
+                            if recent_patient[1] == patient.username
+                        ]
+                    )
+                )
+            )
+            self.request.session["recent_patients"].insert(0, tuple([str(patient), patient.username]))
+
+    def remove_patient_from_session(
+        self,
+        patient: Pseudopatient | User,
+        delete: bool = False,
+    ) -> None:
+        self.request.session.pop("patient", None)
+        self.request.session.pop("username", None)
+        if (
+            delete
+            and self.request.session.get("recent_patients", None)
+            and patient.username in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]
+        ):
+            self.request.session["recent_patients"].remove(
+                next(
+                    iter(
+                        [
+                            recent_patient
+                            for recent_patient in self.request.session["recent_patients"]
+                            if recent_patient[1] == patient.username
+                        ]
+                    )
+                )
+            )
+
+    def update_session_patient(self) -> None:
+        patient = getattr(self, "user", None)
+        if patient:
+            self.add_patient_to_session(patient)
+        else:
+            self.remove_patient_from_session(patient)
 
 
 def validate_form_list(form_list: list[ModelForm]) -> bool:
@@ -320,6 +319,7 @@ class GoutHelperEditMixin:
     def get_success_url(self):
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
+        print(next_url)
         if next_url:
             next_url += f"#{self.object_attr}"
             return next_url
@@ -1664,29 +1664,22 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
 
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to facilitate creating Users."""
+
+        def create_user_for_provider() -> Pseudopatient:
+            self.form.instance.username = create_pseudopatient_username_for_new_user_for_provider(
+                provider_username=self.provider
+            )
+            new_goutpatient = self.form.save()
+            return new_goutpatient
+
         if self.create_view:  # pylint: disable=W0125
-            self.form.instance.username = uuid.uuid4().hex[:30]
-            self.object = self.form.save()
+            if self.provider:
+                self.object = create_user_for_provider()
+            else:
+                self.form.instance.username = uuid.uuid4().hex[:30]
+                self.object = self.form.save()
         self.user = self.object
-        if self.related_object:
-            related_objects_related_objects = list_of_objects_related_objects(self.related_object)
-            for related_object in related_objects_related_objects:
-                related_object_attr = self.get_related_object_attr(related_object)
-                setattr(self.related_object, related_object_attr, None)
-                self.update_related_object_and_otos(related_object)
-                self.update_related_object_medhistorys_qs(related_object, related_object_attr)
-            self.update_related_object_and_otos(self.related_object)
-            self.update_related_object_medhistorys_qs(self.related_object)
-            try:
-                assert not [mh for mh in self.mhs_2_save if mh.flare or mh.flareaid]
-            except AssertionError:
-                for mh in self.mhs_2_save:
-                    print("in assertionerror")
-                    print(mh)
-                    print(mh.flare)
-                    print(mh.flareaid)
-                    print(mh.pk)
-                raise AssertionError("Flare or FlareAid MedHistory objects are not allowed to be saved.")
+        self.form_valid_process_related_objects()
         # Save the OneToOne related models
         if self.oto_forms:
             self.form_valid_save_otos()
@@ -1711,6 +1704,19 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             )
         return HttpResponseRedirect(self.get_success_url())
 
+    def form_valid_process_related_objects(self) -> None:
+        if self.related_object:
+            related_objects_related_objects = list_of_objects_related_objects(self.related_object)
+            for related_object in related_objects_related_objects:
+                related_object_attr = self.get_related_object_attr(related_object)
+                setattr(self.related_object, related_object_attr, None)
+                self.update_related_object_and_otos(related_object)
+                self.update_related_object_medhistorys_qs(related_object, related_object_attr)
+                if hasattr(related_object, "medallergys_qs"):
+                    self.update_related_object_medallergys_qs(related_object, related_object_attr)
+            self.update_related_object_and_otos(self.related_object)
+            self.update_related_object_medhistorys_qs(self.related_object, self.related_object_attr)
+
     def update_related_obj_medhistory(
         self, mh: "MedHistory", mh_related_obj: Any | None, related_object_attr: str
     ) -> None:
@@ -1721,20 +1727,43 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         if mh not in self.mhs_2_save:
             self.mhs_2_save.append(mh)
 
-    def update_related_object_medhistorys_qs(
-        self, related_object: Any, related_object_attr: str | None = None
-    ) -> None:
+    def update_related_object_medhistorys_qs(self, related_object: Any, related_object_attr: str) -> None:
         if not hasattr(related_object, "medhistorys_qs"):
             raise AttributeError("Related object must have a medhistorys_qs attribute.")
-        elif not related_object_attr:
-            related_object_attr = self.get_related_object_attr(related_object)
         for mh in related_object.medhistorys_qs:
             mh_related_obj = getattr(mh, related_object_attr, None)
             if mh_related_obj is not None or mh.user is None:
+                # For some reason this is needed to prevent IntegrityError when saving the MedHistory
+                # TODO: learn more about editing object references between separate lists
                 mh_in_mhs_2_save = next((m for m in self.mhs_2_save if m == mh), None)
                 self.update_related_obj_medhistory(
                     mh_in_mhs_2_save if mh_in_mhs_2_save else mh, mh_related_obj, related_object_attr
                 )
+
+    def update_related_object_medallergys_qs(self, related_object: Any, related_object_attr: str) -> None:
+        if not hasattr(related_object, "medallergys_qs"):
+            raise AttributeError("Related object must have a medallergys_qs attribute.")
+        if not hasattr(self, "ma_2_save"):
+            self.medallergy_forms = True
+            self.ma_2_save = []
+            self.ma_2_rem = []
+        for ma in related_object.medallergys_qs:
+            ma_related_obj = getattr(ma, related_object_attr, None)
+            if ma_related_obj is not None or ma.user is None:
+                ma_in_ma_2_save = next((m for m in self.ma_2_save if m == ma), None)
+                self.update_related_obj_medallergy(
+                    ma_in_ma_2_save if ma_in_ma_2_save else ma, ma_related_obj, related_object_attr
+                )
+
+    def update_related_obj_medallergy(
+        self, ma: "MedAllergy", ma_related_obj: Any | None, related_object_attr: str
+    ) -> None:
+        if ma_related_obj is not None:
+            setattr(ma, related_object_attr, None)
+        if ma.user is None:
+            ma.user = self.user
+        if ma not in self.ma_2_save:
+            self.ma_2_save.append(ma)
 
     def update_related_object_and_otos(self, related_object: Any) -> None:
         if self.update_related_object_oto_fields(related_object):

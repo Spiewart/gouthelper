@@ -9,6 +9,7 @@ from django.utils import timezone  # type: ignore
 from ...akis.tests.factories import AkiFactory
 from ...flares.tests.factories import create_flare
 from ...genders.choices import Genders
+from ...goalurates.choices import GoalUrates
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
@@ -147,6 +148,13 @@ class TestBaselineCreatinine(TestCase):
 class TestUrate(TestCase):
     def setUp(self):
         self.urate = UrateFactory(value=Decimal("5.0"))
+
+    def test__goalurate(self) -> None:
+        self.assertTrue(self.urate.goal_urate)
+        self.assertEqual(self.urate.goal_urate, GoalUrates.SIX)
+
+    def test__at_goal(self) -> None:
+        self.assertTrue(self.urate.at_goal)
 
     def test__value_str(self):
         self.assertEqual(

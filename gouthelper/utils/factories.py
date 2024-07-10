@@ -1494,8 +1494,13 @@ class CustomFactoryCkdMixin:
 
     @cached_property
     def needs_ckddetail(self) -> bool:
-        return self.needs_ckd and (
-            self.stage or self.baselinecreatinine or self.dialysis or (self.ckd and fake.boolean())
+        return (
+            True
+            if (
+                self.needs_ckd
+                and (self.stage or self.baselinecreatinine or self.dialysis or (self.ckd and fake.boolean()))
+            )
+            else False
         )
 
     def get_or_create_dialysis(self) -> bool:
@@ -1676,23 +1681,28 @@ class CustomFactoryMedHistoryMixin:
                 return mh
             else:
                 return True
-        return getattr(self.related_object, mh_attr, None) if self.related_object else None
+        return None
 
     def set_medhistory_attr(self, medhistorytype: MedHistoryTypes, value) -> None:
         setattr(self, medhistorytype.lower(), value)
 
     def update_medhistory_attrs(self) -> None:
+        print("in update_medhistory_attrs")
         for medhistory in self.medhistorys:
             if medhistory == MedHistoryTypes.MENOPAUSE:
                 self.set_medhistory_attr(medhistory, self.get_or_create_menopause())
             elif medhistory == MedHistoryTypes.GOUT:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
             elif medhistory == MedHistoryTypes.CKD:
+                print(self.needs_ckd)
                 if self.needs_ckd:
                     self.update_ckd_attr()
+                print(self.ckd)
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
+                print(self.needs_ckddetail)
                 if self.needs_ckddetail:
                     self.update_ckddetail_attr()
+                print(self.ckd)
             else:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
 
@@ -1731,7 +1741,7 @@ class CustomFactoryMedHistoryMixin:
 
     def delete_mh_to_delete(self, mh_to_delete: MedHistory, mh_attr: str) -> None:
         mh_to_delete.delete()
-        delattr(self.user, mh_attr) if self.user else delattr(
+        delattr(self.user, mh_attr) if self.user else delattr(  # pylint: disable=W0106
             self.related_object, mh_attr
         ) if self.related_object else None
         if self.user and mh_to_delete in self.user.medhistorys_qs:

@@ -27,6 +27,7 @@
               action="{% url 'ppxs:pseudopatient-update' view.kwargs.username %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -36,6 +37,7 @@
               action="{% url 'ppxs:update' form.instance.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}

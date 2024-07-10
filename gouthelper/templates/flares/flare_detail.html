@@ -123,7 +123,8 @@
                  href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
                  role="button">Create FlareAid</a>
             </div>
-            or
+          {% endif %}
+          {% if not object.user %}
             <div class="card card-body spacious-cards" id="goutpatient-card">
               <h3 class="card-title">Turn Flare INTO GOUTPATIENT</h3>
               <a type="button"
@@ -211,8 +212,14 @@
               <ul>
                 <li>Age: {{ flare.age }}</li>
                 <li>
-                  Gender: {{ flare.gender }}
-                  {% if not gender %}(<strong>2 points</strong>){% endif %}
+                  Gender:
+                  {% if flare.user %}
+                    {{ flare.user.gender|lower }}
+                    {% if not flare.user.gender %}(<strong>2 points</strong>){% endif %}
+                  {% else %}
+                    {{ flare.gender|lower }}
+                    {% if not flare.gender %}(<strong>2 points</strong>){% endif %}
+                  {% endif %}
                   {% if flare.menopause %}
                     , post-menopausal
                   {% elif object.ckd %}

@@ -53,7 +53,9 @@
           <u>Recommendation</u>
         </h2>
         <div class="row">
-          {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_link=True %}
+          <div class="col">
+            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_link=True %}
+          </div>
           <div class="col">
             {% if object.recommendation %}
               <div class="card card-body spacious-cards">
@@ -74,7 +76,7 @@
               {% else %}
                 {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate ult=object.recommendation.0.lower %}
               {% endif %}
-            {% else %}
+            {% elif object.recommendation %}
               <div>
                 <div class="card card-body spacious-cards" id="goalurate">
                   <h4 class="card-title">Goal Uric Acid</h4>

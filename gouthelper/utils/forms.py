@@ -102,8 +102,8 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                 HTML(
                     """
                         <hr size="3" color="dark">
-                        <legend>About {{ patient }} ({{ patient.gender }}, age {{ patient.age }}, \
-{{ patient.ethnicity }})</legend>
+                        <legend>About {{ patient }} ({{ patient.gender|lower }}, age {{ patient.age }}, \
+{{ patient.ethnicity|lower }})</legend>
                     """
                 ),
                 css_id="about-the-patient",
@@ -115,7 +115,7 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                 HTML(
                     """
                         <hr size="3" color="dark">
-                        <legend>About {{ patient }} ({{ patient.gender }}, age {{ patient.age }})</legend>
+                        <legend>About {{ patient }} ({{ patient.gender|lower }}, age {{ patient.age }})</legend>
                     """
                 ),
                 css_id="about-the-patient",
@@ -141,7 +141,7 @@ def forms_helper_insert_about_the_related_object(layout: "Layout", htmx: bool = 
                         <legend>About {{ str_attrs.subject_the }} \
 {% if view.related_object.age or view.related_object.gender %}(\
 {% if view.related_object.age %}{{ view.related_object.age }} year old {% endif %} \
-{% if view.related_object.gender %}{{ view.related_object.gender }}{% endif %}\
+{% if view.related_object.gender %}{{ view.related_object.gender|lower }}{% endif %}\
 ){% endif %}</legend>"""
                 ),
                 css_id="about-the-patient",

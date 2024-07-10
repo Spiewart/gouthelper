@@ -8,7 +8,7 @@
     <div class="col">
       <h1>{{ view.kwargs|get_key:"username"|capfirst }}'s Pseudopatients</h1>
     </div>
-    <div class="col align-items-center d-flex">
+    <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href=""
@@ -30,10 +30,10 @@
             <div class="row">
               <div class="col">
                 <h3 class="card-title">
-                  <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ view.kwargs.username }}-{{ object.created }}</a>
+                  <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ object }}</a>
                 </h3>
               </div>
-              <div class="col">
+              <div class="col-auto align-items-center d-flex justify-content-end">
                 <a type="button"
                    class="btn btn-primary btn-lg"
                    href="{% url 'users:pseudopatient-delete' object.username %}"

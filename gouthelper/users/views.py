@@ -1,8 +1,9 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any, Union
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.forms import ModelForm
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.functional import cached_property
@@ -13,8 +14,10 @@ from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredM
 from ..flares.models import Flare
 from ..flares.selectors import flareaid_medallergy_prefetch, flareaid_medhistory_prefetch
 from ..medhistorydetails.forms import GoutDetailForm
+from ..medhistorydetails.models import GoutDetail
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin, remove_patient_from_session
+from ..utils.exceptions import Continue
+from ..utils.views import GoutHelperUserDetailMixin, GoutHelperUserEditMixin
 from .choices import Roles
 from .dicts import (
     FLARE_MEDHISTORY_FORMS,
@@ -26,7 +29,10 @@ from .dicts import (
 )
 from .forms import PseudopatientForm
 from .models import Pseudopatient
-from .selectors import pseudopatient_profile_qs, pseudopatient_qs
+from .selectors import pseudopatient_profile_qs
+
+if TYPE_CHECKING:
+    from ..medhistorys.models import MedHistory
 
 User = get_user_model()
 
@@ -102,6 +108,16 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
             kwargs.update({"flare": self.flare})
         return kwargs
 
+    def get_goutdetail_initial(self) -> dict[str, Any]:
+        initial = {
+            "on_ppx": None,
+            "on_ult": None,
+            "starting_ult": None,
+        }
+        initial["flaring"] = True
+        initial["at_goal"] = False if self.flare.urate and not self.flare.urate.at_goal else None
+        return initial
+
     def get_permission_object(self):
         if self.flare and self.flare.user:
             raise PermissionError("Trying to create a Pseudopatient for a Flare that already has a user.")
@@ -114,12 +130,56 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
             perms += ["users.can_add_user_with_provider"]
         return perms
 
+    def goutdetail_mh_context(
+        self,
+        kwargs: dict[str, Any],
+        mh_obj: Union["MedHistory", User, None] = None,
+    ) -> None:
+        """Overwritten to add initial to the GoutDetail form."""
+        if "goutdetail_form" not in kwargs:
+            goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
+            goutdetail_form = self.medhistory_detail_forms["goutdetail"]
+            kwargs["goutdetail_form"] = (
+                goutdetail_form
+                if isinstance(goutdetail_form, ModelForm)
+                else goutdetail_form(
+                    instance=goutdetail_i,
+                    initial=self.get_goutdetail_initial(),
+                    patient=self.user,
+                    request_user=self.request_user,
+                    str_attrs=self.str_attrs,
+                )
+            )
+            raise Continue
+
+    def goutdetail_mh_post_pop(
+        self,
+        gout: Union["MedHistory", None],
+    ) -> None:
+        """Overwritten to add initial to GoutDetailForm."""
+        if gout:
+            gd = getattr(gout, "goutdetail", None)
+        else:
+            gd = GoutDetail()
+        self.medhistory_detail_forms.update(
+            {
+                "goutdetail": self.medhistory_detail_forms["goutdetail"](
+                    self.request.POST,
+                    instance=gd,
+                    initial=self.get_goutdetail_initial(),
+                    str_attrs=self.str_attrs,
+                    patient=self.user,
+                    request_user=self.request_user,
+                )
+            }
+        )
+        raise Continue
+
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
         if self.errors:
             return self.errors
         else:
-            kwargs.update({"flare": self.flare})
             return self.form_valid(**kwargs)
 
     @cached_property
@@ -175,8 +235,26 @@ class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailM
     slug_url_kwarg = "username"
     template_name = "users/pseudopatient_detail.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
-        return pseudopatient_qs(self.kwargs.get("username", None))
+        return pseudopatient_profile_qs(self.kwargs.get("username", None))
+
+    def get(self, request, *args, **kwargs):
+        for onetoone in Pseudopatient.list_of_related_aid_models():
+            related_onetoone = getattr(self.object, onetoone, None)
+            if related_onetoone:
+                related_onetoone.update_aid(qs=self.object)
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def get_permission_object(self) -> Pseudopatient:
+        return self.object
+
+    def update_session_patient(self) -> None:
+        self.add_patient_to_session(self.object)
 
 
 pseudopatient_detail_view = PseudopatientDetailView.as_view()
@@ -199,7 +277,7 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHel
     # Overwrite get_queryset() to return Patient objects filtered by their PseudopatientProfile provider field
     # Fetch only Pseudopatients where the provider is equal to the requesting User (Provider)
     def get_queryset(self):
-        return Pseudopatient.objects.filter(pseudopatientprofile__provider=self.request.user)
+        return Pseudopatient.objects.filter(pseudopatientprofile__provider=self.request.user).order_by("modified")
 
 
 pseudopatient_list_view = PseudopatientListView.as_view()
@@ -212,7 +290,7 @@ class UserDeleteView(
     success_message = _("User successfully deleted")
 
     def form_valid(self, form):
-        remove_patient_from_session(self.request, self.object, delete=True)
+        self.remove_patient_from_session(self.object, delete=True)
         return super().form_valid(form)
 
     def get_success_message(self, cleaned_data):

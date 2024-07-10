@@ -1,0 +1,19 @@
+{% load project_tags %}
+
+{% if object.ultaid %}
+  {% include 'ultaids/ultaid_detail_mini_card.html' with object=object.ultaid %}
+{% else %}
+  <div id="ultaid-card" class="card spacious-cards">
+    <div class="card-body" id="ultaid">
+      <h3 class="card-title">No UltAid</h3>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'ultaids:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+         role="button">Create</a>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'ultaids:about' %}"
+         role="button">About</a>
+    </div>
+  </div>
+{% endif %}

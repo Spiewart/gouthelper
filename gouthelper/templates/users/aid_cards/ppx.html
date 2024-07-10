@@ -1,0 +1,19 @@
+{% load project_tags %}
+
+{% if object.ppx %}
+  {% include 'ppxs/ppx_detail_card.html' with object=object.ppx %}
+{% else %}
+  <div id="ppx-card" class="card spacious-cards">
+    <div class="card-body">
+      <h3 class="card-title">No Ppx</h3>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'ppxs:pseudopatient-create' username=object.user.username %}?next={{ request.path }}"
+         role="button">Create</a>
+      <a type="button"
+         class="btn btn-primary btn-sm"
+         href="{% url 'ppxs:about' %}"
+         role="button">About</a>
+    </div>
+  </div>
+{% endif %}
