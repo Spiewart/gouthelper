@@ -1,12 +1,14 @@
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
 from django.test import TestCase  # type: ignore
-from django.test.utils import CaptureQueriesContext  # type: ignore
+from django.test.utils import CaptureQueriesContext
 
 from ...dateofbirths.helpers import age_calc
 from ...defaults.models import UltAidSettings
 from ...defaults.tests.factories import UltAidSettingsFactory
+from ...ethnicitys.choices import Ethnicitys
 from ...labs.tests.factories import Hlab5801Factory
+from ...medallergys.models import MedAllergy
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
@@ -183,11 +185,11 @@ class TestUltAidDecisionAid(TestCase):
             UltAidSettings.objects.filter(user__isnull=True).get(),
         )
 
-    def test___save_trt_dict_to_decisionaid(self):
+    def test___save_decisionaid_dict_to_decisionaid(self):
         self.assertFalse(self.ultaid.decisionaid)
         decisionaid = UltAidDecisionAid(qs=self.ultaid)
         trt_dict = decisionaid._create_trts_dict()
-        decisionaid._save_trt_dict_to_decisionaid(trt_dict)
+        decisionaid._save_decisionaid_dict_to_decisionaid(trt_dict)
         self.ultaid.refresh_from_db()
         self.assertEqual(self.ultaid.decisionaid, aids_dict_to_json(trt_dict))
 
@@ -317,3 +319,34 @@ class TestUltAidDecisionAid(TestCase):
         ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], mh_dets={"ckddetail": None})
         ultaid.update_aid()
         self.assertTrue(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
+
+    def test__aid_needs_2_be_saved_False(self) -> None:
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
+        decisionaid._update()
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True(self) -> None:
+        decisionaid = UltAidDecisionAid(qs=self.ultaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True_with_changed_related_object(self) -> None:
+        ultaid = create_ultaid(
+            ethnicity=Ethnicitys.CAUCASIANAMERICAN, hlab5801=False, mhs=[], mas=[], xoiinteraction=False
+        )
+        decisionaid = UltAidDecisionAid(qs=ultaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+        decisionaid = UltAidDecisionAid(qs=ultaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+        allopurinol_allergy = MedAllergy.objects.create(ultaid=ultaid, treatment=Treatments.ALLOPURINOL)
+        if not hasattr(ultaid, "medallergys_qs"):
+            ultaid.medallergys_qs = ultaid.medallergy_set.all()
+        else:
+            ultaid.medallergys_qs.append(allopurinol_allergy)
+        decisionaid = UltAidDecisionAid(qs=ultaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())

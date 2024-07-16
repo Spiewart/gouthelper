@@ -35,6 +35,8 @@ class FlareDecisionAid(AidService):
         self.cvdiseases = medhistorys_get(self.medhistorys, CVDiseases.values)
         self.gout = medhistorys_get(self.medhistorys, MedHistoryTypes.GOUT)
         self.menopause = medhistorys_get(self.medhistorys, MedHistoryTypes.MENOPAUSE)
+        self.initial_likelihood = self.model_attr.likelihood
+        self.initial_prevalence = self.model_attr.prevalence
 
     def _update(self, commit=True) -> "Flare":
         """Updates the Flare likelihood and prevalence fields.
@@ -45,6 +47,30 @@ class FlareDecisionAid(AidService):
         Returns:
             Flare: the updated Flare (self)
         """
+        self.update_prevalence()
+        self.update_likelihood()
+        return super()._update(commit=commit)
+
+    def get_aid_object_from_user_qs(
+        self,
+        model_attr_str: str = "flare",
+    ) -> "Flare":
+        if hasattr(self.qs, f"{model_attr_str}_qs"):
+            model_obj = getattr(self.qs, f"{model_attr_str}_qs")
+        elif hasattr(self.qs, f"most_recent_{model_attr_str}"):
+            model_obj = getattr(self.qs, f"most_recent_{model_attr_str}")
+        else:
+            raise AttributeError(
+                f"{self.qs} does not have a '{model_attr_str}_qs' or 'most_recent_{model_attr_str}' attribute."
+            )
+        if isinstance(model_obj, QuerySet):
+            return model_obj[0]
+        elif isinstance(model_obj, list):
+            return model_obj[0]
+        else:
+            return model_obj
+
+    def update_prevalence(self) -> None:
         self.model_attr.prevalence = flares_calculate_prevalence(
             prevalence_points=flares_calculate_prevalence_points(
                 gender=self.gender,
@@ -55,6 +81,8 @@ class FlareDecisionAid(AidService):
                 urate=self.urate,
             )
         )
+
+    def update_likelihood(self) -> None:
         self.model_attr.likelihood = flares_calculate_likelihood(
             less_likelys=flares_get_less_likelys(
                 age=self.age,
@@ -70,4 +98,15 @@ class FlareDecisionAid(AidService):
             crystal_analysis=self.model_attr.crystal_analysis,
             prevalence=self.model_attr.prevalence,
         )
-        return super()._update(commit=commit)
+
+    def likelihood_has_changed(self) -> bool:
+        """Returns True if the Flare likelihood or prevalence has changed, False if not."""
+        return self.model_attr.likelihood != self.initial_likelihood
+
+    def prevalence_has_changed(self) -> bool:
+        """Returns True if the Flare prevalence has changed, False if not."""
+        return self.model_attr.prevalence != self.initial_prevalence
+
+    def aid_needs_2_be_saved(self) -> bool:
+        """Returns True if the Flare likelihood or prevalence has changed, False if not."""
+        return self.likelihood_has_changed() or self.prevalence_has_changed()

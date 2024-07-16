@@ -14,6 +14,7 @@ from ...defaults.tests.factories import (
     DefaultMedHistoryFactory,
     FlareAidSettingsFactory,
 )
+from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
@@ -35,6 +36,7 @@ class TestFlareAidMethods(TestCase):
         for _ in range(5):
             self.fas_userless.append(create_flareaid())
             self.fas_user.append(create_flareaid(user=True))
+        self.flareaid = create_flareaid()
 
     def test__init_no_user(self):
         """Test that the __init__ method sets the attrs on the service class correctly
@@ -294,27 +296,31 @@ class TestFlareAidMethods(TestCase):
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])
         self.assertFalse(decisionaid_dict[Treatments.PREDNISONE]["contra"])
 
-    def test__save_trt_dict_to_decisionaid_saves(self):
-        """Test that the _save_trt_dict_to_decisionaid method saves the decisionaid field as a JSON string.
+    def test__save_decisionaid_dict_to_decisionaid_saves(self):
+        """Test that the _save_decisionaid_dict_to_decisionaid method saves the decisionaid field as a JSON string.
         Also test that the decisionaid field is an empty dict, as this is the default for the field."""
         fa_user = flareaid_user_qs(username=FlareAid.objects.filter(user__isnull=False).last().user.username).get()
         fa = fa_user.flareaid
         da = FlareAidDecisionAid(qs=fa_user)
         da_dict = da._create_decisionaid_dict()  # pylint: disable=w0212, line-too-long # noqa: E501
-        da._save_trt_dict_to_decisionaid(da_dict, commit=True)  # pylint: disable=w0212, line-too-long # noqa: E501
+        da._save_decisionaid_dict_to_decisionaid(
+            da_dict, commit=True
+        )  # pylint: disable=w0212, line-too-long # noqa: E501
         # Assert that the decisionaid field is a str
         self.assertTrue(isinstance(fa.decisionaid, str))
         self.assertEqual(aids_dict_to_json(da_dict), fa.decisionaid)
 
-    def test__save_trt_dict_to_decisionaid_commit_False_doesnt_save(self):
-        """Test that the _save_trt_dict_to_decisionaid method doesn't save the decisionaid field
+    def test__save_decisionaid_dict_to_decisionaid_commit_False_doesnt_save(self):
+        """Test that the _save_decisionaid_dict_to_decisionaid method doesn't save the decisionaid field
         when commit=False."""
         fa = flareaid_userless_qs(
             pk=FlareAid.objects.filter(user__isnull=True).values_list("pk", flat=True).last()
         ).get()
         da = FlareAidDecisionAid(qs=fa)
         da_dict = da._create_decisionaid_dict()  # pylint: disable=w0212, line-too-long # noqa: E501
-        da._save_trt_dict_to_decisionaid(da_dict, commit=False)  # pylint: disable=w0212, line-too-long # noqa: E501
+        da._save_decisionaid_dict_to_decisionaid(
+            da_dict, commit=False
+        )  # pylint: disable=w0212, line-too-long # noqa: E501
         # Assert that the decisionaid field is an empty dict, as this is the default for the field
         self.assertTrue(isinstance(fa.decisionaid, str))
         fa.refresh_from_db()
@@ -328,3 +334,32 @@ class TestFlareAidMethods(TestCase):
         da._update()  # pylint: disable=w0212
         fa.refresh_from_db()
         self.assertTrue(fa.decisionaid)
+
+    def test__aid_needs_2_be_saved_False(self) -> None:
+        decisionaid = FlareAidDecisionAid(qs=self.flareaid)
+        decisionaid._update()
+        decisionaid = FlareAidDecisionAid(qs=self.flareaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True(self) -> None:
+        decisionaid = FlareAidDecisionAid(qs=self.flareaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True_with_changed_related_object(self) -> None:
+        flareaid = create_flareaid(mhs=[], mas=[])
+        decisionaid = FlareAidDecisionAid(qs=flareaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+        decisionaid = FlareAidDecisionAid(qs=flareaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+        prednisone_allergy = MedAllergy.objects.create(flareaid=flareaid, treatment=Treatments.PREDNISONE)
+        if not hasattr(flareaid, "medallergys_qs"):
+            flareaid.medallergys_qs = flareaid.medallergy_set.all()
+        else:
+            flareaid.medallergys_qs.append(prednisone_allergy)
+        decisionaid = FlareAidDecisionAid(qs=flareaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())

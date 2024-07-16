@@ -1,19 +1,22 @@
 {% load project_tags %}
 
 {% if object.ppx %}
-  {% include 'ppxs/ppx_detail_card.html' with object=object.ppx %}
+  {% include 'ppxs/ppx_detail_card.html' with ppx=object.ppx %}
 {% else %}
-  <div id="ppx-card" class="card spacious-cards">
-    <div class="card-body">
-      <h3 class="card-title">No Ppx</h3>
-      <a type="button"
-         class="btn btn-primary btn-sm"
-         href="{% url 'ppxs:pseudopatient-create' username=object.user.username %}?next={{ request.path }}"
-         role="button">Create</a>
-      <a type="button"
-         class="btn btn-primary btn-sm"
-         href="{% url 'ppxs:about' %}"
-         role="button">About</a>
-    </div>
+  <div class="dropdown" id="ppx-dropdown">
+    <button class="btn btn-secondary dropdown-toggle btn-lg"
+            type="button"
+            id="ppx-dropdownMenuButton"
+            data-bs-toggle="dropdown"
+            aria-expanded="false">{{ object.ppx }}</button>
+    <ul class="dropdown-menu" aria-labelledby="ppx-dropdownMenuButton">
+      <li>
+        <a class="dropdown-item"
+           href="{% url 'ppxs:pseudopatient-create' username=object.user.username %}?next={{ request.path }}">Details</a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="{% url 'ppxs:about' %}">About</a>
+      </li>
+    </ul>
   </div>
 {% endif %}

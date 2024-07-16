@@ -34,6 +34,7 @@ class PpxDecisionAid(AidService):
         self.urate_within_90_days: bool = labs_urate_within_90_days(urates=self.urates, sorted_by_date=True)
         self.at_goal = self.model_attr.urates_at_goal
         self.at_goal_long_term = self.model_attr.urates_at_goal_long_term
+        self.initial_indication = self.model_attr.indication
 
     gout: Union["MedHistory", None]
     goutdetail: Union["GoutDetail", None]
@@ -107,5 +108,14 @@ class PpxDecisionAid(AidService):
             self.model_attr.goutdetail.update_at_goal_long_term(at_goal_long_term=self.at_goal_long_term)
             self.model_attr.goutdetail.full_clean()
             self.model_attr.goutdetail.save()
-        self.model_attr.indication = self._get_indication()
+        self.set_model_attr_indication()
         return super()._update(commit=commit)
+
+    def aid_needs_2_be_saved(self) -> bool:
+        return self.indication_has_changed()
+
+    def indication_has_changed(self) -> bool:
+        return self.model_attr.indication != self.initial_indication
+
+    def set_model_attr_indication(self) -> None:
+        self.model_attr.indication = self._get_indication()

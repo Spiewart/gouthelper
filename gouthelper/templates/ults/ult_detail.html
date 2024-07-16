@@ -62,7 +62,7 @@
               <h3 div class="card-title">
                 <b><u>{{ object.get_indication_display }}</u></b>
               </h3>
-              <p class="card-text">{{ object.indication_interp }}</p>
+              <p class="card-text">{{ object.get_indication_interp }}</p>
               {% if object.user or object.indicated %}
                 <hr size="3" color="dark" />
                 <div id="ultaid">
@@ -127,7 +127,7 @@
             </div>
           </div>
           <div class="col">
-            <div class="card card-body" id="gout-card">
+            <div class="card card-body" id="medical-card">
               <h3 class="card-title">
                 <u>Medical</u>
               </h3>

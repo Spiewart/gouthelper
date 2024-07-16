@@ -1,9 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
+from django.utils import timezone
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
@@ -15,13 +17,14 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.helpers import medhistorys_get
 from ...medhistorys.lists import FLARE_MEDHISTORYS
+from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import CkdFactory
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
-from ..choices import Likelihoods, Prevalences
+from ..choices import Likelihoods, LimitedJointChoices, Prevalences
 from ..selectors import flare_userless_qs, flares_user_qs
 from ..services import FlareDecisionAid
-from .factories import create_flare
+from .factories import CustomFlareFactory, create_flare
 
 pytestmark = pytest.mark.django_db
 
@@ -63,6 +66,7 @@ class TestFlareMethods(TestCase):
                 MedHistoryTypes.MENOPAUSE,
             ],
         )
+        self.flare = CustomFlareFactory().create_object()
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
@@ -132,3 +136,55 @@ class TestFlareMethods(TestCase):
         self.assertIn(self.flare_userless.prevalence, Prevalences.values)
         self.assertIsNotNone(self.flare_userless.prevalence)
         self.assertIn(self.flare_userless.likelihood, Likelihoods.values)
+
+    def test__aid_needs_2_be_saved_False(self) -> None:
+        decisionaid = FlareDecisionAid(qs=self.flare)
+        decisionaid._update()
+        decisionaid = FlareDecisionAid(qs=self.flare)
+        decisionaid.update_prevalence()
+        decisionaid.update_likelihood()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_2_be_saved_True(self) -> None:
+        decisionaid = FlareDecisionAid(qs=self.flare)
+        decisionaid.update_prevalence()
+        decisionaid.update_likelihood()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True_with_changed_related_object(self) -> None:
+        flare = CustomFlareFactory(
+            crystal_analysis=False,
+            joints=[LimitedJointChoices.ANKLEL],
+            date_ended=None,
+            medical_evaluation=False,
+            redness=False,
+            onset=False,
+            angina=False,
+            cad=False,
+            chf=False,
+            ckd=False,
+            heartattack=False,
+            hypertension=False,
+            stroke=False,
+            gender=Genders.FEMALE,
+            dateofbirth=(timezone.now() - timedelta(days=365 * 34)).date(),
+            urate=None,
+        ).create_object()
+        decisionaid = FlareDecisionAid(qs=flare)
+        decisionaid.update_prevalence()
+        decisionaid.update_likelihood()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+        decisionaid = FlareDecisionAid(qs=flare)
+        decisionaid.update_prevalence()
+        decisionaid.update_likelihood()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+        flare.redness = True
+        flare.onset = True
+        MedHistory.objects.create(flare=flare, medhistorytype=MedHistoryTypes.CAD)
+        flare.gender.value = Genders.MALE
+        flare.gender.save()
+        flare = flare_userless_qs(pk=flare.pk).first()
+        decisionaid = FlareDecisionAid(qs=flare)
+        decisionaid.update_prevalence()
+        decisionaid.update_likelihood()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())

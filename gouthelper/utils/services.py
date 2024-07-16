@@ -718,24 +718,10 @@ def aid_service_check_oto_swap(
         setattr(model_attr, oto, None)
 
 
-def get_service_object(
-    model_attr: Literal["flareaid", "flare", "goalurate", "ppxaid", "ppx", "ultaid", "ult"],
-    qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
-) -> str:
-    if model_attr != "flare":
-        return getattr(qs, model_attr)
-    else:
-        model_obj = getattr(qs, f"{model_attr}_qs")
-        if isinstance(model_obj, QuerySet):
-            return model_obj[0]
-        elif isinstance(model_obj, list):
-            return model_obj[0]
-        else:
-            return model_obj
-
-
 class AidService:
     """Base class for Aid service class methods."""
+
+    aid_needs_2_be_saved: bool
 
     class Meta:
         abstract = True
@@ -750,24 +736,24 @@ class AidService:
             self.qs = qs.get()
         else:
             self.qs = qs
-        model_attr = self.model.__name__.lower()
+        self.model_attr_str = self.model.__name__.lower()
         model_fields = [field.name for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
         self.default_settings_class = getattr(model, "defaultsettings", None)
         self.default_settings_attr = (
             self.default_settings_class().__name__.lower() if self.default_settings_class else None
         )
         if isinstance(self.qs, model):
-            setattr(self, model_attr, self.qs)
+            setattr(self, self.model_attr_str, self.qs)
             self.user = self.qs.user
             self.qs_has_user = True if self.user else False
         elif isinstance(self.qs, get_user_model()):
-            setattr(self, model_attr, get_service_object(model_attr=model_attr, qs=self.qs))
+            setattr(self, self.model_attr_str, self.get_aid_object_from_user_qs(model_attr_str=self.model_attr_str))
             self.user = self.qs
             self.qs_has_user = False
         else:
             model_name = model.__class__.__name__
-            raise TypeError(f"f{model_name}DecisionAid requires a {model_name} or User instance.")
-        self.model_attr = getattr(self, model_attr)
+            raise TypeError(f"{model_name}DecisionAid requires a {model_name} or User instance.")
+        self.model_attr = getattr(self, self.model_attr_str)
         # If the queryset is a TreatmentAid object with a user or a User,
         # try to fetch user's default settings for that type of aid
         self.defaultsettings = (
@@ -807,16 +793,24 @@ class AidService:
         self.sideeffects = None
 
     def get_medallergys_from_medallergys_qs(self):
-        return [
-            medallergy for medallergy in self.qs.medallergys_qs if medallergy.treatment in self.model.aid_treatments()
-        ]
+        if self.user:
+            return [
+                medallergy
+                for medallergy in self.qs.medallergys_qs
+                if medallergy.treatment in self.model.aid_treatments()
+            ]
+        else:
+            return self.qs.medallergys_qs
 
     def get_medhistorys_from_medhistorys_qs(self):
-        return [
-            medhistory
-            for medhistory in self.qs.medhistorys_qs
-            if medhistory.medhistorytype in self.model.aid_medhistorys()
-        ]
+        if self.user:
+            return [
+                medhistory
+                for medhistory in self.qs.medhistorys_qs
+                if medhistory.medhistorytype in self.model.aid_medhistorys()
+            ]
+        else:
+            return self.qs.medhistorys_qs
 
     def _update(self, commit=True) -> Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]:
         """Updates the model object's decisionaid field.
@@ -827,14 +821,18 @@ class AidService:
         Returns:
             str: decisionaid field JSON representation of trt_dict
         """
-        if commit and self.aids_need_2_be_saved():
+        print(self.model_attr)
+        print(self.aid_needs_2_be_saved())
+        if commit and self.aid_needs_2_be_saved():
             self.model_attr.full_clean()
             self.model_attr.save()
         return self.model_attr
 
-    def aids_need_2_be_saved(self) -> bool:
-        # TODO: implement this on each aid service class to actually check if the object needs to be saved
-        return True
+    def get_aid_object_from_user_qs(
+        self,
+        model_attr_str: Literal["flareaid", "flare", "ppxaid", "ppx", "ultaid", "ult"],
+    ) -> Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]:
+        return getattr(self.qs, model_attr_str)
 
 
 class TreatmentAidService(AidService):
@@ -844,6 +842,20 @@ class TreatmentAidService(AidService):
 
     ckddetail: Union["CkdDetail", None]
     trttype: TrtTypes.FLARE | TrtTypes.PPX | TrtTypes.ULT
+
+    def __init__(
+        self,
+        qs: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult", "User"],
+        model: type[Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "UltAid", "Ult"]],
+    ):
+        super().__init__(qs=qs, model=model)
+        self.initial_decisionaid_dict = (
+            self.model_attr.decisionaid
+            if isinstance(self.model_attr.decisionaid, dict)
+            else aids_json_to_trt_dict(self.model_attr.decisionaid)
+        )
+        print("in init")
+        print(self.initial_decisionaid_dict)
 
     def _create_trts_dict(self):
         """Returns a dict {Treatments: {dose/freq/duration + contra=False}}."""
@@ -875,7 +887,7 @@ class TreatmentAidService(AidService):
         """Returns a QuerySet of DefaultTrts filtered for the class User and treatment type."""
         return defaults_defaulttrts_trttype(trttype=self.trttype, user=self.user)
 
-    def _save_trt_dict_to_decisionaid(self, decisionaid_dict: dict, commit=True) -> str:
+    def _save_decisionaid_dict_to_decisionaid(self, decisionaid_dict: dict, commit=True) -> str:
         """Saves the trt_dict to the model object's decisionaid field as a JSON string.
 
         Args:
@@ -900,8 +912,21 @@ class TreatmentAidService(AidService):
         Returns:
             Union[FlareAid, PpxAid, UltAid]: model object
         """
-        decisionaid_dict = self._create_decisionaid_dict()
-        self.model_attr.decisionaid = self._save_trt_dict_to_decisionaid(
-            decisionaid_dict=decisionaid_dict, commit=False
-        )
+        self.update_decision_aid_dict_and_model_attr(commit=False)
         return super()._update(commit=commit)
+
+    def update_decision_aid_dict_and_model_attr(self, commit: bool = True) -> None:
+        self.decisionaid_dict = self._create_decisionaid_dict()
+        self.model_attr.decisionaid = self._save_decisionaid_dict_to_decisionaid(
+            decisionaid_dict=self.decisionaid_dict, commit=commit
+        )
+
+    def decisionaid_has_changed(self) -> bool:
+        """Returns True if the decisionaid_dict has changed since the initial_decisionaid_dict."""
+        print("in decisionaid_has_changed")
+        print(self.decisionaid_dict)
+        print(self.initial_decisionaid_dict)
+        return self.decisionaid_dict != self.initial_decisionaid_dict
+
+    def aid_needs_2_be_saved(self) -> bool:
+        return self.decisionaid_has_changed()

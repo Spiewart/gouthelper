@@ -141,8 +141,7 @@ class Ult(
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return ULT_MEDHISTORYS
 
-    @property
-    def ckd_interp(self) -> str:
+    def get_ckd_interp(self, samepage_links: bool = True) -> str:
         ckd_interp_str = super().ckd_interp
 
         ckd_interp_str += "<br> <br> CKD by itself is not an indication for ULT. However, \
@@ -165,8 +164,8 @@ or higher in the setting of {gender_pos} first flare."
         elif self.strong_indication:
             Subject_the, pos, gender_subject = self.get_str_attrs("Subject_the", "pos", "gender_subject")
             ckd_interp_str += f" <strong>{Subject_the} {pos} a strong indication \
-for ULT ({self.strong_indications_strs_with_links}), making CKD irrelevant for the determination of whether \
-{gender_subject} should be on ULT.</strong>"
+for ULT ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)}), making CKD irrelevant for \
+the determination of whether {gender_subject} should be on ULT.</strong>"
         return mark_safe(ckd_interp_str)
 
     @cached_property
@@ -202,13 +201,31 @@ for ULT ({self.strong_indications_strs_with_links}), making CKD irrelevant for t
         return self.firstflare_conditional_indications + (["multipleflares"] if self.multipleflares else [])
 
     @staticmethod
-    def conditional_indications_str_dict() -> dict:
+    def conditional_indications_str_dict(samepage_links: bool = True) -> dict:
         return {
-            "ckd3": "<a class='samepage-link' href='#ckd'>CKD</a> stage III or higher",
-            "hyperuricemia": "<a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>",
-            "uratestones": "<a class='samepage-link' href='#uratestones'>uric acid kidney stones</a>",
-            "multipleflares": "<a class='samepage-link' href='#multipleflares'>multiple flares</a> but having one or \
-less flare per year",
+            "ckd3": (
+                "<a class='samepage-link' href='#ckd'>CKD</a> stage III or higher"
+                if samepage_links
+                else "CKD stage III or higher"
+            ),
+            "hyperuricemia": (
+                "<a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>"
+                if samepage_links
+                else "hyperuricemia"
+            ),
+            "uratestones": (
+                "<a class='samepage-link' href='#uratestones'>uric acid kidney stones</a>"
+                if samepage_links
+                else "uric acid kidney stones"
+            ),
+            "multipleflares": (
+                (
+                    "<a class='samepage-link' href='#multipleflares'>multiple flares</a>"
+                    if samepage_links
+                    else "multiple flares"
+                ),
+                " but having one or less flare per year",
+            ),
         }
 
     @staticmethod
@@ -235,8 +252,7 @@ less flare per year",
     def all_conditional_indications_str(cls) -> str:
         return cls.indications_get_strs_with_links(list(cls.conditional_indications_str_dict().values()))
 
-    @property
-    def conditional_indications_str(self) -> str:
+    def get_conditional_indications_str(self, samepage_links: bool = True) -> str:
         if not self.conditional_indications or self.contraindicated:
             raise ValueError(
                 "Conditional indications method should not be called if there are no conditional indications."
@@ -245,18 +261,27 @@ less flare per year",
         if self.firstflare_conditional_indications:
             conditional_indication_display_strs = self.get_indications_display_strs(
                 self.firstflare_conditional_indications,
-                self.conditional_indications_str_dict(),
+                self.conditional_indications_str_dict(samepage_links=samepage_links),
             )
 
-            conditional_indications_str = f"<a class='samepage-link' href='#firstflare'>first gout flare</a> plus \
-{self.indications_get_strs_with_links(conditional_indication_display_strs)}"
+            conditional_indications_str = format_lazy(
+                """{} plus {}""",
+                self.indications_get_strs_with_links(conditional_indication_display_strs),
+                (
+                    "<a class='samepage-link' href='#firstflare'>first gout flare</a>"
+                    if samepage_links
+                    else "first gout flare"
+                ),
+            )
 
             if self.multipleflares:
                 conditional_indications_str += f", as well as \
-{self.conditional_indications_str_dict()['multipleflares']}"
+{self.conditional_indications_str_dict(samepage_links=samepage_links)['multipleflares']}"
 
         else:
-            conditional_indications_str = f"{self.conditional_indications_str_dict()['multipleflares']}"
+            conditional_indications_str = self.conditional_indications_str_dict(samepage_links=samepage_links)[
+                "multipleflares"
+            ]
 
         return mark_safe(conditional_indications_str)
 
@@ -272,10 +297,11 @@ less flare per year",
         cls,
         indications: list[str],
         indication_to_remove: str,
+        samepage_links: bool = True,
     ) -> str:
         return cls.indications_str(
             cls.remove_indication_from_list(indications, indication_to_remove),
-            cls.conditional_indications_str_dict(),
+            cls.conditional_indications_str_dict(samepage_links=samepage_links),
         )
 
     @classmethod
@@ -283,10 +309,11 @@ less flare per year",
         cls,
         indications: list[str],
         indication_to_remove: str,
+        samepage_links: bool = True,
     ) -> str:
         return cls.indications_str(
             cls.remove_indication_from_list(indications, indication_to_remove),
-            cls.strong_indications_str_dict(),
+            cls.strong_indications_str_dict(samepage_links=samepage_links),
         )
 
     @cached_property
@@ -362,8 +389,7 @@ ULT is strongly recommended for {gender_pos}.</strong>"
     def firstflare_detail(self) -> str:
         return html_attr_detail(self, "firstflare", "First Flare")
 
-    @property
-    def firstflare_interp(self) -> str:
+    def firstflare_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, gender_pos, gender_subject = self.get_str_attrs(
             "Subject_the", "pos", "gender_pos", "gender_subject"
         )
@@ -391,7 +417,7 @@ or <a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>"
                 else "any gout flares"
             )
 
-        def _get_firstflare_interp():
+        def _get_firstflare_interp(samepage_links: bool = samepage_links) -> str:
             base_str = f"{Subject_the} {pos} {_get_pretext()}had {_get_flares_text()}"
             if self.num_flares == self.FlareNums.TWOPLUS:
                 return (
@@ -405,7 +431,7 @@ are not applicable."
                         base_str
                         + f" and {gender_subject} {pos} associated conditions \
 ({self.conditional_indications_str}) that conditionally indicate ULT, but she also \
-has a strong indication for ULT ({self.strong_indications_strs_with_links}), \
+has a strong indication for ULT ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)}), \
 making this irrelevant."
                     )
                 else:
@@ -418,8 +444,8 @@ making this irrelevant."
                 if self.strong_indication:
                     return (
                         base_str
-                        + f", does not have any associated conditions conditionally \
-indicating ULT, but has a strong indication ({self.strong_indications_strs_with_links}) \
+                        + f", does not have any associated conditions conditionally indicating ULT, \
+but has a strong indication ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)}) \
 for ULT."
                     )
                 elif self.conditional_indication:
@@ -440,7 +466,7 @@ indicating ULT."
                     return (
                         base_str
                         + f", but does have a strong indication for ULT \
-({self.strong_indications_strs_with_links})."
+({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)})."
                     )
                 else:
                     return base_str + " and thus does not have an indication for ULT."
@@ -568,8 +594,7 @@ indication for ULT. <strong>{Subject_the} {pos if self.frequentflares else pos_n
     def has_multiple_strong_indications_for_ult(self) -> bool:
         return self.strong_indication and len(self.strong_indications) > 1
 
-    @property
-    def hyperuricemia_interp(self) -> str:
+    def hyperuricemia_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, pos_neg, gender_pos, gender_subject = self.get_str_attrs(
             "Subject_the", "pos", "pos_neg", "gender_pos", "gender_subject"
         )
@@ -581,10 +606,20 @@ only conditional indication for ULT."
                 if self.has_conditional_indication_for_hyperuricemia_only
                 else (
                     (
-                        f", which is a conditional indication for ULT in the setting of {gender_pos} \
-first flare. However, {gender_subject} also {pos} other conditional indications for ULT in the \
-setting of {gender_pos} first flare, including \
-{self.conditional_indications_str_remove_one_indication(self.conditional_indications, 'hyperuricemia')}"
+                        format_lazy(
+                            """, which is a conditional indication for ULT in the setting of {} \
+first flare. However, {} also {} other conditional indications for ULT in the \
+setting of {} first flare, including {}""",
+                            gender_pos,
+                            gender_subject,
+                            pos,
+                            gender_pos,
+                            self.conditional_indications_str_remove_one_indication(
+                                indications=self.conditional_indications,
+                                indication_to_remove="hyperuricemia",
+                                samepage_links=samepage_links,
+                            ),
+                        )
                     )
                     if (
                         self.has_multiple_conditional_indications_for_ult
@@ -592,13 +627,13 @@ setting of {gender_pos} first flare, including \
                     )
                     else (
                         f", but has other conditional indications for ULT (\
-{self.conditional_indications_str})"
+{self.get_conditional_indications_str(samepage_links=samepage_links)})"
                     )
                     if self.conditional_indication
                     else (
                         (
                             f", but {gender_subject} {pos} a strong indication \
-for ULT for other reasons ({self.strong_indications_strs_with_links})"
+for ULT for other reasons ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)})"
                         )
                         if self.strong_indication
                         else f", but ULT is not recommended because {gender_subject} has \
@@ -622,8 +657,7 @@ for ULT, hyperuricemia is a conditional indication for ULT with a very low certa
             return True
         return False
 
-    @property
-    def indication_interp(self) -> str:
+    def get_indication_interp(self, samepage_links: bool = True) -> str:
         Subject_the, Gender_subject, gender_subject, gender_ref = self.get_str_attrs(
             "Subject_the", "Gender_subject", "gender_subject", "gender_ref"
         )
@@ -633,57 +667,67 @@ for ULT, hyperuricemia is a conditional indication for ULT with a very low certa
                 "be on " if self.indicated else ("be considered for " if self.conditional_indication else "not be on ")
             )
 
-        def _get_conditional_indication_str() -> str:
+        def _get_conditional_indication_str(samepage_links: bool = samepage_links) -> str:
             return format_lazy(
                 """{} has {} <a href={}>conditional indication{}</a> for ULT: {}.""",
                 Gender_subject,
                 "multiple" if self.has_multiple_conditional_indications_for_ult else "a",
                 reverse("ults:about") + "#indicated",
                 "s" if self.has_multiple_conditional_indications_for_ult else "",
-                self.conditional_indications_str,
+                self.get_conditional_indications_str(samepage_links=samepage_links),
             )
 
-        def _get_no_indication_str() -> str:
+        def _get_no_indication_str(samepage_links: bool = samepage_links) -> str:
             if self.noflares:
                 return format_lazy(
-                    """{} has <a class='samepage-link' href='#noflares'>never had a gout flare</a>\
+                    """{} has {}\
 , which is a <a href={}>contraindication</a> for ULT.""",
                     gender_subject,
+                    (
+                        "<a class='samepage-link' href='#noflares'>never had a gout flare</a>"
+                        if samepage_links
+                        else "never had a gout flare"
+                    ),
                     reverse("ults:about") + "#notindicated",
                 )
             elif self.one_flare_without_any_indication:
                 return format_lazy(
-                    """{} has only had <a class='samepage-link' href='#firstflare'>one gout \
-flare</a>, which is a <a href={}>contraindication</a> for ULT in the absence of other \
+                    """{} has only had {}, which is a <a href={}>contraindication</a> for ULT in the absence of other \
 conditions that don't put {} at risk for future flares or other complications related \
 to gout or elevated <a href={}>uric acid</a> levels.""",
                     gender_subject,
+                    (
+                        "<a class='samepage-link' href='#firstflare'>one gout \
+flare</a>"
+                        if samepage_links
+                        else "one gout flare"
+                    ),
                     reverse("ults:about") + "#notindicated",
                     gender_ref,
                     reverse("labs:about-urate"),
                 )
 
-        def _get_strong_indication_str() -> str:
+        def _get_strong_indication_str(samepage_links: bool = samepage_links) -> str:
             return format_lazy(
                 """{} has {} <a href={}>strong indication</a>{} for ULT: {}.""",
                 Gender_subject,
                 "multiple" if self.has_multiple_strong_indications_for_ult else "a",
                 reverse("ults:about") + "#indicated",
                 "s" if self.has_multiple_strong_indications_for_ult else "",
-                self.strong_indications_strs_with_links,
+                self.get_strong_indications_strs_with_links(samepage_links=samepage_links),
             )
 
-        def _get_indication_interp_str() -> str:
+        def _get_indication_interp_str(samepage_links: bool = samepage_links) -> str:
             if self.strong_indication:
-                return _get_strong_indication_str()
+                return _get_strong_indication_str(samepage_links=samepage_links)
             elif self.conditional_indication:
-                return _get_conditional_indication_str()
+                return _get_conditional_indication_str(samepage_links=samepage_links)
             else:
                 return f"{Gender_subject} does not have an indication for ULT because {_get_no_indication_str()}"
 
         return mark_safe(
             format_lazy(
-                """{} should {}<a class='samepage-link' href={}>ULT</a>. {}""",
+                """{} should {}<a href={}>ULT</a>. {}""",
                 Subject_the,
                 _get_should_statement(),
                 reverse("treatments:about-ult"),
@@ -715,8 +759,7 @@ to gout or elevated <a href={}>uric acid</a> levels.""",
     def multipleflares_detail(self) -> str:
         return html_attr_detail(self, "multipleflares", "Multiple flares")
 
-    @property
-    def multipleflares_interp(self) -> str:
+    def multipleflares_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, gender_pos, gender_subject = self.get_str_attrs(
             "Subject_the", "pos", "gender_pos", "gender_subject"
         )
@@ -728,7 +771,7 @@ or more gout flares in {gender_pos} lifetime</strong>"
 
         if self.multipleflares and self.strong_indication:
             multiflares_str += f", however {gender_subject} has other <u>strong indications</u>\
-{self.strong_indications_strs_with_links}"
+{self.get_strong_indications_strs_with_links(samepage_links=samepage_links)}"
         elif self.multipleflares and self.conditional_indication:
             if self.has_conditional_indication_for_multipleflares_only:
                 multiflares_str += f" and as such it is the reason for {gender_pos} conditional \
@@ -787,21 +830,32 @@ or tophi with no preceding flares, which is quite rare."
         return [indication for indication in self.strong_indications_str_dict().keys() if getattr(self, indication)]
 
     @staticmethod
-    def strong_indications_str_dict() -> dict:
+    def strong_indications_str_dict(samepage_links: bool = True) -> dict:
         return {
-            "erosions": "gouty <a class='samepage-link' href='#erosions'>erosions</a>",
-            "frequentflares": "<a class='samepage-link' href='#frequentflares'>frequent flares</a>",
-            "tophi": "<a class='samepage-link' href='#tophi'>tophi</a>",
+            "erosions": format_lazy(
+                """gouty {}""",
+                "<a class='samepage-link' href='#erosions'>erosions</a>" if samepage_links else "erosions",
+            ),
+            "frequentflares": format_lazy(
+                """{}""",
+                (
+                    "<a class='samepage-link' href='#frequentflares'>frequent flares</a>"
+                    if samepage_links
+                    else "frequent flares"
+                ),
+            ),
+            "tophi": format_lazy(
+                """{}""", "<a class='samepage-link' href='#tophi'>tophi</a>" if samepage_links else "tophi"
+            ),
         }
 
-    @cached_property
-    def strong_indications_strs_with_links(self) -> str:
-        if not self.strong_indication and self.storng_indications:
+    def get_strong_indications_strs_with_links(self, samepage_links: bool = True) -> str:
+        if not self.strong_indication and self.strong_indications:
             raise ValueError("Strong indication method should not be called if there is no strong indication.")
         return self.indications_get_strs_with_links(
             self.get_indications_display_strs(
                 self.strong_indications,
-                self.strong_indications_str_dict(),
+                self.strong_indications_str_dict(samepage_links=samepage_links),
             )
         )
 
@@ -822,8 +876,7 @@ or tophi with no preceding flares, which is quite rare."
         decisionaid = UltDecisionAid(qs=qs)
         return decisionaid._update()  # pylint: disable=W0212 # type: ignore
 
-    @property
-    def uratestones_interp(self) -> str:
+    def get_uratestones_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, pos_neg, gender_pos, gender_subject = self.get_str_attrs(
             "Subject_the", "pos", "pos_neg", "gender_pos", "gender_subject"
         )
@@ -852,7 +905,7 @@ setting of {gender_pos} first flare, including \
                     else (
                         (
                             f", but {gender_subject} {pos} a strong indication \
-for ULT for other reasons ({self.strong_indications_strs_with_links})"
+for ULT for other reasons ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)})"
                         )
                         if self.strong_indication
                         else f", but ULT is not recommended because {gender_subject} has \

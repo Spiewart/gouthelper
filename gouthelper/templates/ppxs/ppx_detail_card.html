@@ -2,18 +2,63 @@
 
 <div id="ppx-card" class="card spacious-cards">
   <div class="card-body">
-    <h3 class="card-title">{{ object }}</h3>
-    {% if object.user %}
-      <a href="{% url 'ppxs:pseudopatient-update' object.user.username %}?next={{ request.path }}"
-         class="btn btn-primary btn-sm">Update</a>
-      <a href="{% url 'ppxs:pseudopatient-detail' object.user.username %}"
-         class="btn btn-primary btn-sm">Details</a>
-    {% else %}
-      <a href="{% url 'ppxs:update' object.pk %}?next={{ request.path }}"
-         class="btn btn-primary btn-sm">Update</a>
-      <a href="{% url 'ppxs:detail' object.pk %}"
-         class="btn btn-primary btn-sm">Details</a>
-    {% endif %}
-    <a href="{% url 'ppxs:about' %}" class="btn btn-primary btn-sm">About</a>
+    <div class="row">
+      <div class="col">
+        <div class="btn-group heading-button" id="ppx-dropdown">
+          <button class="btn btn-primary btn-lg" type="button">{{ ppx }}</button>
+          <button class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                  type="button"
+                  id="ppx-dropdownMenuButton"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false">
+            <span class="visually-hidden">Toggle Dropdown</span>
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="ppx-dropdownMenuButton">
+            {% if ppx.user %}
+              <li>
+                <a class="dropdown-item"
+                   href="{% url 'ppxs:pseudopatient-detail' ppx.user.username %}">Details</a>
+              </li>
+              <li>
+                <a class="dropdown-item"
+                   href="{% url 'ppxs:pseudopatient-update' ppx.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+              </li>
+            {% else %}
+              <li>
+                <a class="dropdown-item" href="{% url 'ppxs:detail' ppx.pk %}">Details</a>
+              </li>
+              <li>
+                <a class="dropdown-item"
+                   href="{% url 'ppxs:update' ppx.pk %}?next={{ object.get_absolute_url }}">Update</a>
+              </li>
+            {% endif %}
+            <li>
+              <a class="dropdown-item" href="{% url 'ppxs:about' %}">About</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-auto align-items-center d-flex justify-content-end">
+        <button class="btn btn-secondary btn-lg"
+                id="ppx_card_collapse_control"
+                data-bs-toggle="collapse"
+                data-bs-target="#ppx_card_collapse"
+                type="button"
+                aria-expanded="true"
+                aria-controls="ppx_card_collapse">Show</button>
+      </div>
+    </div>
+    <div class="collapse mini-card-content" id="ppx_card_collapse">
+      <div class="row">
+        {% for recommendation, explanation in ppx.recommendations.items %}
+          <div class="col-md-12">
+            <h4 class="card-title">
+              <b><u>{{ recommendation }}</u></b>
+            </h4>
+            <p class="card-text">{{ explanation }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 </div>

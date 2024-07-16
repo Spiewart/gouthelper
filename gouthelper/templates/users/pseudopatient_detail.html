@@ -28,15 +28,20 @@
     <div class="container">
       <hr size="3" color="dark" />
       <div class="row">
+        <div class="col">{% include 'users/demographics.html' with object=object %}</div>
+        <div class="col">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>
+      </div>
+      <hr size="3" color="dark" />
+      <div class="row">
         <div class="col">
-          {% include 'users/demographics.html' with object=object %}
-          {% include 'users/aid_cards/ppx.html' %}
+          <h4>Decision Aids</h4>
           {% include 'users/aid_cards/ult.html' %}
-          {% include 'users/aid_cards/goalurate.html' %}
+          {% include 'users/aid_cards/ppx.html' %}
           {% include 'users/aid_cards/most_recent_flare.html' %}
+          {% include 'users/aid_cards/goalurate.html' %}
         </div>
         <div class="col">
-          {% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}
+          <h4>Treatment Aids</h4>
           {% include 'users/aid_cards/flareaid.html' %}
           {% include 'users/aid_cards/ppxaid.html' %}
           {% include 'users/aid_cards/ultaid.html' %}
@@ -62,3 +67,16 @@
     {% endif %}
   </main>
 {% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $('.collapse').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+    });
+  </script>
+{% endblock inline_javascript %}

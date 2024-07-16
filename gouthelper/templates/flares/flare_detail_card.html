@@ -1,54 +1,73 @@
 {% load project_tags %}
 
-<div class="card card-body spacious-cards" id="flare_{{ object.pk }}-card">
+<div class="card card-body spacious-cards" id="flare_{{ flare.pk }}-card">
   <div class="row">
     <div class="col">
-      <h3 class="card-title">{{ object.dates }}</h3>
+      <div class="btn-group heading-button" id="flare-dropdown">
+        <button class="btn btn-primary btn-lg" type="button">
+          {% if card_title %}{{ card_title }}{% endif %}
+          {{ flare.dates }}
+        </button>
+        <button class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                type="button"
+                id="flare-dropdownMenuButton"
+                data-bs-toggle="dropdown"
+                aria-expanded="false">
+          <span class="visually-hidden">Toggle Dropdown</span>
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="flare-dropdownMenuButton">
+          {% if flare.user %}
+            <li>
+              <a class="dropdown-item"
+                 href="{% url 'flares:pseudopatient-detail' flare.user.username flare.pk %}">Details</a>
+            </li>
+            <li>
+              <a class="dropdown-item"
+                 href="{% url 'flares:pseudopatient-update' flare.user.username flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
+            </li>
+          {% else %}
+            <li>
+              <a class="dropdown-item" href="{% url 'flares:detail' flare.pk %}">Details</a>
+            </li>
+            <li>
+              <a class="dropdown-item"
+                 href="{% url 'flares:update' flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
+            </li>
+          {% endif %}
+          <li>
+            <a class="dropdown-item" href="{% url 'flares:about' %}">About</a>
+          </li>
+        </ul>
+      </div>
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
-      <button class="btn btn-secondary btn-sm"
-              id="flare_{{ object.pk }}_card_collapse_control"
+      <button class="btn btn-secondary btn-lg"
+              id="flare_{{ flare.pk }}_card_collapse_control"
               data-bs-toggle="collapse"
-              data-bs-target="#flare_{{ object.pk }}_card_collapse"
+              data-bs-target="#flare_{{ flare.pk }}_card_collapse"
               type="button"
               aria-expanded="true"
-              aria-controls="flare_{{ object.pk }}_card_collapse">Hide</button>
+              aria-controls="flare_{{ flare.pk }}_card_collapse">Show</button>
     </div>
   </div>
-  <div class="collapse show" id="flare_{{ object.pk }}_card_collapse">
+  <div class="collapse mini-card-content"
+       id="flare_{{ flare.pk }}_card_collapse">
+    <h4 class="card-title">
+      <b><u>Likelihood of Gout: {{ flare.get_likelihood_display }}</u></b>
+    </h4>
     <div class="row">
       <div class="col">
         <ul>
-          <li>Joints: {{ object.joints_str }}</li>
+          <li>Joints: {{ flare.joints_str }}</li>
           <li>
-            {% if object.urate %}
-              {{ object.urate }}
+            {% if flare.urate %}
+              {{ flare.urate }}
             {% else %}
               Urate: none
             {% endif %}
           </li>
         </ul>
       </div>
-      <div class="col">
-        <ul>
-          <li>Likelihood: {{ object.get_likelihood_display }}</li>
-          <li>Prevalence: {{ object.get_prevalence_display }}</li>
-        </ul>
-      </div>
     </div>
-    {% if object.user %}
-      <a href="{% url 'flares:pseudopatient-update' object.user.username object.pk %}?next={{ request.path }}"
-         class="btn btn-primary spacious-buttons">Update</a>
-    {% else %}
-      <a href="{% url 'flares:update' object.pk %}?next={{ request.path }}"
-         class="btn btn-primary spacious-buttons">Update</a>
-    {% endif %}
-    {% if object.user %}
-      <a href="{% url 'flares:pseudopatient-detail' object.user.username object.pk %}"
-         class="btn btn-primary spacious-buttons">Details</a>
-    {% else %}
-      <a href="{% url 'flares:detail' object.pk %}"
-         class="btn btn-primary spacious-buttons">Details</a>
-    {% endif %}
   </div>
 </div>

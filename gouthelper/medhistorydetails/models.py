@@ -109,7 +109,7 @@ class CkdDetail(MedHistoryDetail):
     def explanation(self):
         if self.dialysis:
             return f"CKD on {self.get_dialysis_type_display().lower()}\
-{'dialysis' if self.dialysis_type != 'HEMODIALYSIS' else ''}"
+{' dialysis' if self.dialysis_type != 'HEMODIALYSIS' else ''}"
         else:
             return f"CKD stage {self.get_stage_display()}"
 

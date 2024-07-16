@@ -29,7 +29,7 @@ from .dicts import (
 )
 from .forms import PseudopatientForm
 from .models import Pseudopatient
-from .selectors import pseudopatient_profile_qs
+from .selectors import pseudopatient_profile_qs, pseudopatient_profile_update_qs
 
 if TYPE_CHECKING:
     from ..medhistorys.models import MedHistory
@@ -208,7 +208,7 @@ class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
     MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
 
     def get_queryset(self):
-        return pseudopatient_profile_qs(self.kwargs.get("username"))
+        return pseudopatient_profile_update_qs(self.kwargs.get("username"))
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -243,12 +243,22 @@ class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailM
         return pseudopatient_profile_qs(self.kwargs.get("username", None))
 
     def get(self, request, *args, **kwargs):
+        self.update_onetoones()
+        self.update_most_recent_flare()
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def update_onetoones(self):
         for onetoone in Pseudopatient.list_of_related_aid_models():
             related_onetoone = getattr(self.object, onetoone, None)
             if related_onetoone:
                 related_onetoone.update_aid(qs=self.object)
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
+
+    def update_most_recent_flare(self):
+        most_recent_flare_qs = getattr(self.object, "most_recent_flare", None)
+        most_recent_flare = most_recent_flare_qs[0]
+        if most_recent_flare and not most_recent_flare.date_ended:
+            most_recent_flare.update_aid(qs=self.object)
 
     def get_permission_object(self) -> Pseudopatient:
         return self.object

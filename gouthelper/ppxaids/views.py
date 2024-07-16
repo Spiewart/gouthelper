@@ -247,7 +247,7 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
 class PpxAidPseudopatientUpdate(
     PpxAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
-    success_message = "%(user)s's PpxAid successfully created."
+    success_message = "%(user)s's PpxAid successfully updated."
 
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,

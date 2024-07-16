@@ -94,6 +94,14 @@ def pseudopatient_profile_qs(username: str) -> "QuerySet":
     )
 
 
+def pseudopatient_profile_update_qs(username: str) -> "QuerySet":
+    return pseudopatient_profile_onetoone_relations(
+        apps.get_model("users.Pseudopatient")
+        .objects.filter(username=username)
+        .prefetch_related(pseudopatient_profile_medhistory_prefetch())
+    )
+
+
 def pseudopatient_related_aids(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "flareaid",
@@ -106,17 +114,25 @@ def pseudopatient_related_aids(qs: "QuerySet") -> "QuerySet":
     ).prefetch_related(flares_prefetch())
 
 
-def pseudopatient_onetoone_relations(qs: "QuerySet") -> "QuerySet":
+def pseudopatient_profile_onetoone_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
         "ethnicity",
-        "flareaid",
         "gender",
+        "pseudopatientprofile__provider",
+        "flareaidsettings",
+        "ppxaidsettings",
+        "ultaidsettings",
+    )
+
+
+def pseudopatient_onetoone_relations(qs: "QuerySet") -> "QuerySet":
+    return pseudopatient_profile_onetoone_relations(qs).select_related(
+        "flareaid",
         "goalurate",
         "hlab5801",
         "ppxaid",
         "ppx",
-        "pseudopatientprofile__provider",
         "ultaid",
         "ult",
     )

@@ -26,6 +26,7 @@ class UltDecisionAid(AidService):
         self._assign_medhistorys()
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
+        self.initial_indication = self.model_attr.indication
 
     ckd: Union["MedHistory", None]
     ckddetail: Union["CkdDetail", None]
@@ -93,5 +94,14 @@ class UltDecisionAid(AidService):
 
     def _update(self, commit=True) -> "Ult":
         """Overwritten to update the indication field."""
-        self.model_attr.indication = self._get_indication()
+        self.set_model_attr_indication()
         return super()._update(commit=commit)
+
+    def set_model_attr_indication(self) -> None:
+        self.model_attr.indication = self._get_indication()
+
+    def aid_needs_2_be_saved(self) -> bool:
+        return self.indication_has_changed()
+
+    def indication_has_changed(self) -> bool:
+        return self.model_attr.indication != self.initial_indication

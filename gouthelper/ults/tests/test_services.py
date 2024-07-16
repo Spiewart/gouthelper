@@ -156,3 +156,19 @@ class TestUltDecisionAid(TestCase):
         ult_aid._update()  # pylint:disable=protected-access
         ult.refresh_from_db()
         self.assertEqual(ult.indication, Indications.INDICATED)
+
+    def test_aid_needs_2_be_saved_True(self):
+        # Test that the aid_needs_2_be_saved method works
+        ult = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        ult_decisionaid = UltDecisionAid(ult)
+        ult_decisionaid.set_model_attr_indication()
+        self.assertTrue(ult_decisionaid.aid_needs_2_be_saved())
+
+    def test_aid_needs_2_be_saved_False(self):
+        # Test that the aid_needs_2_be_saved method works
+        ult = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        ult_decisionaid = UltDecisionAid(ult)
+        ult_decisionaid._update()
+        ult_decisionaid = UltDecisionAid(ult)
+        ult_decisionaid.set_model_attr_indication()
+        self.assertFalse(ult_decisionaid.aid_needs_2_be_saved())

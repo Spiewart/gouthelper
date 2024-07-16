@@ -586,6 +586,9 @@ cardiovascular events.""",
             else:
                 return medhistorys_get_cvdiseases_str(self.medhistory_set.all())
 
+    def delete_cached_property(self, cached_property_name: str) -> None:
+        del self.__dict__[cached_property_name]
+
     @cached_property
     def diabetes(self) -> Union["MedHistory", bool]:
         """Method that returns Diabetes object from self.medhistorys_qs or

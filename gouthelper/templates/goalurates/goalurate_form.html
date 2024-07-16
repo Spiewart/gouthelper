@@ -26,6 +26,7 @@
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% else %}
         <form class="form-horizontal"
@@ -34,6 +35,7 @@
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% endif %}
     {% else %}
@@ -44,6 +46,7 @@
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% else %}
         {% if ultaid %}
@@ -53,6 +56,7 @@
             {% csrf_token %}
             {% crispy form %}
             {% include "_submit_button.html" %}
+            {% include '_next_inputs.html' %}
           </form>
         {% else %}
           <form class="form-horizontal"
@@ -61,6 +65,7 @@
             {% csrf_token %}
             {% crispy form %}
             {% include "_submit_button.html" %}
+            {% include '_next_inputs.html' %}
           </form>
         {% endif %}
       {% endif %}

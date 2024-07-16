@@ -1,7 +1,7 @@
 {% load project_tags %}
 
 {% if object.goalurate %}
-  {% include 'goalurates/goalurate_detail_card.html' with object=object.goalurate %}
+  {% include 'goalurates/goalurate_detail_card.html' with goalurate=object.goalurate %}
 {% else %}
   <div id="goalurate-card" class="card spacious-cards">
     <div class="card-body" id="goalurate">

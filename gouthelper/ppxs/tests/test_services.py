@@ -16,7 +16,7 @@ from ..services import PpxDecisionAid
 pytestmark = pytest.mark.django_db
 
 
-class TestPpxDecisionAidMethods(TestCase):
+class TestPpxDecisionAid(TestCase):
     """Suite of tests to test the various methods of the class method PpxDecisionAid."""
 
     def add_urates_to_ppx(self):
@@ -261,3 +261,19 @@ class TestPpxDecisionAidMethods(TestCase):
         self.assertEqual(aid.ppx.indication, Indications.CONDITIONAL)
         self.ppx.refresh_from_db()
         self.assertEqual(self.ppx.indication, Indications.CONDITIONAL)
+
+    def test_aid_needs_2_be_saved_True(self):
+        # Test that the aid_needs_2_be_saved method works
+        ppx = create_ppx(mh_dets={MedHistoryTypes.GOUT: {"flaring": True, "starting_ult": True}})
+        ppx_decisionaid = PpxDecisionAid(ppx)
+        ppx_decisionaid.set_model_attr_indication()
+        self.assertTrue(ppx_decisionaid.aid_needs_2_be_saved())
+
+    def test_aid_needs_2_be_saved_False(self):
+        # Test that the aid_needs_2_be_saved method works
+        ppx = create_ppx(mh_dets={MedHistoryTypes.GOUT: {"flaring": True, "starting_ult": True}})
+        ppx_decisionaid = PpxDecisionAid(ppx)
+        ppx_decisionaid._update()
+        ppx_decisionaid = PpxDecisionAid(ppx)
+        ppx_decisionaid.set_model_attr_indication()
+        self.assertFalse(ppx_decisionaid.aid_needs_2_be_saved())

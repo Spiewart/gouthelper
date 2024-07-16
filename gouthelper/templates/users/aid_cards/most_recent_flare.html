@@ -1,7 +1,7 @@
 {% load project_tags %}
 
 {% if object.most_recent_flare %}
-  {% include 'flares/flare_detail_mini_card.html' with object=object.most_recent_flare.0 %}
+  {% include 'flares/flare_detail_card.html' with flare=object.most_recent_flare.0 card_title='Latest Flare ' %}
 {% else %}
   <div id="flares-card" class="card spacious-cards">
     <div class="card-body" id="flares">

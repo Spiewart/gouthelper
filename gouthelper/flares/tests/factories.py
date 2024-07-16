@@ -205,10 +205,10 @@ class CustomFlareFactory(
         return self.joints or get_random_joints()
 
     def get_or_create_onset(self) -> bool:
-        return self.onset or fake.boolean() if self.onset is Auto else None
+        return self.onset or fake.boolean()
 
     def get_or_create_redness(self) -> bool:
-        return self.redness or fake.boolean() if self.redness is Auto else None
+        return self.redness or fake.boolean()
 
     def get_or_create_urate(self) -> Urate | None:
         if self.urate is Auto:

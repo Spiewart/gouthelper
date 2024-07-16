@@ -82,11 +82,7 @@ class GoalUrate(
     related_objects = GoalUrateManager()
 
     def __str__(self):
-        if self.user:
-            gu_str = f"{self.user}'s "
-        else:
-            gu_str = ""
-        return gu_str + f"Goal Urate: {self.goal_urate}"
+        return f"Goal Urate: {self.get_goal_urate_display()}"
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -116,13 +112,12 @@ individuals who have erosions. This results in the treatment being slightly more
         else:
             return reverse("goalurates:detail", kwargs={"pk": self.pk})
 
-    @cached_property
-    def interpretation(self) -> str:
+    def get_interpretation(self, samepage_links: bool = True) -> str:
         """Interprets the GoalUrate goal_urate."""
         Subject_the_pos, Gender_pos = self.get_str_attrs("Subject_the_pos", "Gender_pos")
         interp_str = f"{Subject_the_pos} goal uric acid is {self.get_goal_urate_display()}."
-        erosions_str = "<a class='samepage-link' href='#erosions'>erosions</a>"
-        tophi_str = "<a class='samepage-link' href='#tophi'>tophi</a>"
+        erosions_str = "<a class='samepage-link' href='#erosions'>erosions</a>" if samepage_links else "erosions"
+        tophi_str = "<a class='samepage-link' href='#tophi'>tophi</a>" if samepage_links else "tophi"
         if self.goal_urate == self.GoalUrates.FIVE:
             interp_str += f" {Gender_pos} goal is lower than the standard due to the presence of "
             if self.erosions and self.tophi:
@@ -157,10 +152,13 @@ risk of gout."
             else:
                 qs = GoalUrate.related_objects.get(pk=self.pk)
         updated = False
-        if qs.medhistorys_qs and self.goal_urate != GoalUrates.FIVE:
+        goalurate_medhistorys = [
+            medhistory for medhistory in qs.medhistorys_qs if medhistory.medhistorytype in self.aid_medhistorys()
+        ]
+        if goalurate_medhistorys and self.goal_urate != GoalUrates.FIVE:
             self.goal_urate = GoalUrates.FIVE
             updated = True
-        elif not qs.medhistorys_qs and self.goal_urate != GoalUrates.SIX:
+        elif not goalurate_medhistorys and self.goal_urate != GoalUrates.SIX:
             self.goal_urate = GoalUrates.SIX
             updated = True
         if updated:

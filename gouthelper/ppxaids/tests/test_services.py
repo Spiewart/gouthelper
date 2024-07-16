@@ -13,6 +13,7 @@ from ...defaults.models import PpxAidSettings
 from ...defaults.tests.factories import PpxAidSettingsFactory
 from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
+from ...medallergys.models import MedAllergy
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import CVDiseases, MedHistoryTypes
@@ -317,3 +318,32 @@ class TestPpxAidMethods(TestCase):
             self.assertIn(key, FlarePpxChoices)
             self.assertIn("dose", val_dict.keys())
             self.assertIn("freq", val_dict.keys())
+
+    def test__aid_needs_2_be_saved_False(self) -> None:
+        decisionaid = PpxAidDecisionAid(qs=self.ppxaid)
+        decisionaid._update()
+        decisionaid = PpxAidDecisionAid(qs=self.ppxaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True(self) -> None:
+        decisionaid = PpxAidDecisionAid(qs=self.ppxaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+
+    def test__aid_needs_to_be_saved_True_with_changed_related_object(self) -> None:
+        ppxaid = create_ppxaid(mhs=[], mas=[])
+        decisionaid = PpxAidDecisionAid(qs=ppxaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
+        decisionaid = PpxAidDecisionAid(qs=ppxaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertFalse(decisionaid.aid_needs_2_be_saved())
+        prednisone_allergy = MedAllergy.objects.create(ppxaid=ppxaid, treatment=Treatments.PREDNISONE)
+        if not hasattr(ppxaid, "medallergys_qs"):
+            ppxaid.medallergys_qs = ppxaid.medallergy_set.all()
+        else:
+            ppxaid.medallergys_qs.append(prednisone_allergy)
+        decisionaid = PpxAidDecisionAid(qs=ppxaid)
+        decisionaid.update_decision_aid_dict_and_model_attr()
+        self.assertTrue(decisionaid.aid_needs_2_be_saved())
