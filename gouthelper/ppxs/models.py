@@ -166,18 +166,19 @@ defaults to six months.
         """Returns a heading and explanation for a Ppx/Patient that needs clarification on its ULT
         strategy in the context of a Ppx object. This would be the case with a Ppx/Patient who is not
         on or starting ULT but is inquiring about flare prophylaxis, which is misguided."""
-        (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
+        (Subject_the,) = self.get_str_attrs("Subject_the")
         return {
             "Clarify ULT Strategy": mark_safe(
                 format_lazy(
                     """{} is neither starting nor on \
-urate-lowering therapy (ULT). Long-term flare prevention with anti-inflammatories \
-is not recommended. Instead, urate-lowering therapy \
-(<a target='_next' href={}>ULT</a>) should be utilized.""",
-                    Subject_the_pos,
-                    reverse("ults:pseudopatient-detail", kwargs={"username": self.user.username})
-                    if self.user
-                    else reverse("ults:create"),
+urate-lowering therapy (<a target='_next' href={}>ULT</a>). Long-term flare prevention with anti-inflammatories \
+is not recommended. Instead, ULT should be utilized.""",
+                    Subject_the,
+                    (
+                        reverse("ults:pseudopatient-detail", kwargs={"username": self.user.username})
+                        if self.user
+                        else reverse("ults:create")
+                    ),
                 )
             )
         }
@@ -440,6 +441,10 @@ to determine if {gender_subject} should be on flare prophylaxis."
         )
 
     @property
+    def not_on_or_starting_ult(self) -> bool:
+        return not self.on_ult and not self.starting_ult
+
+    @property
     def not_start_ppx_recommendation(self) -> dict[str, str]:
         """Returns a dictionary of a heading and explanation recommending that a Ppx/Patient not start flare
         prophylaxis."""
@@ -602,7 +607,7 @@ during this stage of treatment are for individuals who are having gout flares or
     def should_clarify_ult_strategy(self) -> bool:
         """Returns bool indicating whether or not a Ppx/Patient needs clarification on ULT strategy. This is for
         Ppx/Patients that are not on or starting ULT."""
-        return not self.on_ult and not self.starting_ult
+        return self.not_on_or_starting_ult
 
     @cached_property
     def should_consider_other_causes_of_symptoms(self) -> bool:
@@ -613,7 +618,7 @@ during this stage of treatment are for individuals who are having gout flares or
     @cached_property
     def should_continue_ppx(self) -> bool:
         """Returns True if a Ppx/Patient should continue prophylaxis."""
-        return self.on_ppx and not self.at_goal_long_term
+        return self.on_ppx and not self.at_goal_long_term and not self.should_stop_ppx
 
     @cached_property
     def should_continue_ppx_recommendation(self) -> dict[str, str]:
@@ -698,8 +703,11 @@ until {} has been at goal uric acid ({} or lower) for 6 months.""",
         """Returns True if a Ppx/Patient should stop prophylaxis."""
         return (
             self.on_ppx
-            and self.at_goal_long_term
-            and ((not self.flaring and self.at_goal) or (self.flaring and self.recent_urate))
+            and (
+                self.at_goal_long_term
+                and ((not self.flaring and self.at_goal) or (self.flaring and self.recent_urate))
+            )
+            or self.not_on_or_starting_ult
         )
 
     @cached_property
@@ -720,18 +728,33 @@ uric acid stores from a patient's body."
 
     @property
     def stop_ppx_recommendation(self) -> dict[str, str]:
-        Subject_the_pos, subject_the, gender_subject = self.get_str_attrs(
-            "Subject_the_pos", "subject_the", "gender_subject"
-        )
-        if self.recent_urate:
-            should_stop_ppx_str = f"{Subject_the_pos} uric acid is at goal, has been so for 6 months or longer, \
-and has been recently checked."
+        if self.not_on_or_starting_ult:
+            (Subject_the,) = self.get_str_attrs("Subject_the")
+            return {
+                "Stop Prophylaxis": mark_safe(
+                    format_lazy(
+                        """{} is on flare <a href={} target='_blank'>prophylaxis</a>\
+    but is not on or starting urate-lowering therapy (<a href={} target='_blank'>ULT</a>). This is not recommended. \
+    ULT should be utilized for long-term gout management. GoutHelper recommends stopping prophylaxis.""",
+                        Subject_the,
+                        reverse("treatments:about-ppx"),
+                        reverse("treatments:about-ult"),
+                    )
+                )
+            }
         else:
-            should_stop_ppx_str = f"{Subject_the_pos} uric acid is at goal, has been so for 6 months or longer, and \
-{gender_subject} is not having any symptoms of gout."
-        should_stop_ppx_str += f" ACR recommends continuing prophylaxis for six months after achieving and sustaining \
-goal uric acid. GoutHelper defaults to 6 months, so {subject_the} doesn't need it any longer."
-        return {"Stop Prophylaxis": should_stop_ppx_str}
+            Subject_the_pos, subject_the, gender_subject = self.get_str_attrs(
+                "Subject_the_pos", "subject_the", "gender_subject"
+            )
+            if self.recent_urate:
+                should_stop_ppx_str = f"{Subject_the_pos} uric acid is at goal, has been so for 6 months or longer, \
+    and has been recently checked."
+            else:
+                should_stop_ppx_str = f"{Subject_the_pos} uric acid is at goal, has been so for 6 months or longer, \
+and {gender_subject} is not having any symptoms of gout."
+            should_stop_ppx_str += f" ACR recommends continuing prophylaxis for six months after achieving and \
+sustaining goal uric acid. GoutHelper defaults to 6 months, so {subject_the} doesn't need it any longer."
+            return {"Stop Prophylaxis": should_stop_ppx_str}
 
     def __str__(self):
         return f"Ppx: {self.get_indication_display()}"

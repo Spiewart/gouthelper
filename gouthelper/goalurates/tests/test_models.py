@@ -29,10 +29,10 @@ class TestGoalUrateMethods(TestCase):
 
     def test__str__(self):
         goal_urate = create_goalurate()
-        self.assertEqual(str(goal_urate), f"Goal Urate: {goal_urate.goal_urate}")
+        self.assertEqual(str(goal_urate), f"Goal Urate: {goal_urate.get_goal_urate_display()}")
         self.assertEqual(
             str(self.user_goalurate),
-            f"{self.user_goalurate.user}'s Goal Urate: {self.user_goalurate.goal_urate}",
+            f"Goal Urate: {self.user_goalurate.get_goal_urate_display()}",
         )
 
     def test__update_with_user_lowers_goal_urate(self):

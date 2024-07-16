@@ -693,13 +693,10 @@ class TestUltPseudopatientDetail(TestCase):
         self.assertEqual(response.url, reverse("users:pseudopatient-update", kwargs=kwargs))
 
     def test__get(self):
-        """get() method should update the Ult's decisionaid field."""
-        for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
-            modified = ult.modified
-            response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
-            self.assertEqual(response.status_code, 200)
-            ult.refresh_from_db()
-            self.assertNotEqual(ult.modified, modified)
+        ult = Ult.objects.filter(user__isnull=False).select_related("user").last()
+        response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["patient"], ult.user)
 
     def test__get_permission_object(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):

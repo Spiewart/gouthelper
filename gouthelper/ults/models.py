@@ -242,7 +242,7 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
         if len(indication_strs) == 1:
             return indication_strs[0]
         else:
-            joined_str = ", ".join(indication_strs[:-1])
+            joined_str = ", ".join(str(item) for item in indication_strs[:-1])
             if len(indication_strs) > 2:
                 joined_str += ","
             joined_str += " and a history of " + indication_strs[-1]
@@ -430,7 +430,7 @@ are not applicable."
                     return (
                         base_str
                         + f" and {gender_subject} {pos} associated conditions \
-({self.conditional_indications_str}) that conditionally indicate ULT, but she also \
+({self.get_conditional_indications_str(samepage_links=samepage_links)}) that conditionally indicate ULT, but she also \
 has a strong indication for ULT ({self.get_strong_indications_strs_with_links(samepage_links=samepage_links)}), \
 making this irrelevant."
                     )
@@ -438,7 +438,7 @@ making this irrelevant."
                     return (
                         base_str
                         + f" but {gender_subject} {pos} associated conditions \
-({self.conditional_indications_str}) that conditionally indicate ULT."
+({self.get_conditional_indications_str(samepage_links=samepage_links)}) that conditionally indicate ULT."
                     )
             elif self.firstflare:
                 if self.strong_indication:

@@ -256,7 +256,7 @@ class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailM
 
     def update_most_recent_flare(self):
         most_recent_flare_qs = getattr(self.object, "most_recent_flare", None)
-        most_recent_flare = most_recent_flare_qs[0]
+        most_recent_flare = most_recent_flare_qs[0] if most_recent_flare_qs else None
         if most_recent_flare and not most_recent_flare.date_ended:
             most_recent_flare.update_aid(qs=self.object)
 
