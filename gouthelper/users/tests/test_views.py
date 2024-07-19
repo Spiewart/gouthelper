@@ -475,7 +475,6 @@ class TestPseudopatientFlareCreateView(TestCase):
 
     def test__flareaid_has_no_medhistory_set(self) -> None:
         self.flareaid.refresh_from_db()
-        print(self.flareaid.medhistory_set.all())
         assert not self.flareaid.medhistory_set.exists()
 
     def test__flareaid_medhistorys_are_set_to_user(self) -> None:

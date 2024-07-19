@@ -27,7 +27,7 @@ from ..labs.helpers import (
     labs_calculate_baseline_creatinine_range_from_ckd_stage,
     labs_eGFR_calculator,
     labs_stage_calculator,
-    labs_urates_annotate_order_by_date_drawn_or_flare_date,
+    labs_urates_annotate_order_by_flare_date_or_date_drawn,
 )
 from ..labs.models import BaselineCreatinine, Hlab5801, Lab, Urate
 from ..labs.tests.factories import Hlab5801Factory, UrateFactory
@@ -899,7 +899,7 @@ class LabCreatorMixin(CreateAidMixin):
                         lab = lab_factory(lab_factory_kwargs)
                     qs_attr.append(lab)
                 if lab_name == "urate":
-                    labs_urates_annotate_order_by_date_drawn_or_flare_date(qs_attr)
+                    labs_urates_annotate_order_by_flare_date_or_date_drawn(qs_attr)
 
 
 class MedAllergyCreatorMixin(CreateAidMixin):
@@ -1687,22 +1687,17 @@ class CustomFactoryMedHistoryMixin:
         setattr(self, medhistorytype.lower(), value)
 
     def update_medhistory_attrs(self) -> None:
-        print("in update_medhistory_attrs")
         for medhistory in self.medhistorys:
             if medhistory == MedHistoryTypes.MENOPAUSE:
                 self.set_medhistory_attr(medhistory, self.get_or_create_menopause())
             elif medhistory == MedHistoryTypes.GOUT:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
             elif medhistory == MedHistoryTypes.CKD:
-                print(self.needs_ckd)
                 if self.needs_ckd:
                     self.update_ckd_attr()
-                print(self.ckd)
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
-                print(self.needs_ckddetail)
                 if self.needs_ckddetail:
                     self.update_ckddetail_attr()
-                print(self.ckd)
             else:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
 

@@ -27,7 +27,7 @@ from ..labs.helpers import (
     labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
     labs_urate_form_at_goal_within_last_month,
     labs_urate_formset_at_goal_for_six_months,
-    labs_urates_annotate_order_by_date_drawn_or_flare_date,
+    labs_urates_annotate_order_by_flare_date_or_date_drawn,
 )
 from ..labs.models import Urate
 from ..labs.selectors import dated_urates
@@ -183,7 +183,7 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
                 return self.errors
         else:
             kwargs.update({"ppxaid": self.ppxaid})
-            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.form.instance.urates_qs)
+            labs_urates_annotate_order_by_flare_date_or_date_drawn(self.form.instance.urates_qs)
             return self.form_valid()
 
     @cached_property
@@ -276,7 +276,7 @@ class PpxPseudopatientCreate(
             else:
                 return self.errors
         else:
-            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.user.urates_qs)
+            labs_urates_annotate_order_by_flare_date_or_date_drawn(self.user.urates_qs)
             return self.form_valid()
 
 
@@ -349,7 +349,7 @@ class PpxPseudopatientUpdate(
             else:
                 return self.errors
         else:
-            labs_urates_annotate_order_by_date_drawn_or_flare_date(self.user.urates_qs)
+            labs_urates_annotate_order_by_flare_date_or_date_drawn(self.user.urates_qs)
             return self.form_valid()
 
 
@@ -379,5 +379,5 @@ class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
                 return super().render_errors()
             else:
                 return self.errors
-        labs_urates_annotate_order_by_date_drawn_or_flare_date(self.form.instance.urates_qs)
+        labs_urates_annotate_order_by_flare_date_or_date_drawn(self.form.instance.urates_qs)
         return self.form_valid()

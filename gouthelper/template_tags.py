@@ -6,6 +6,8 @@ from django.template.base import TemplateSyntaxError  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
 
 from .ethnicitys.helpers import ethnicitys_hlab5801_risk
+from .genders.choices import Genders
+from .users.models import Pseudopatient
 from .utils.helpers import add_indicator_badge
 
 if TYPE_CHECKING:
@@ -61,8 +63,18 @@ def getattribute(value, arg):
 
 
 @register.filter
+def get_gender_display_value(value) -> str:
+    return Genders(value).label
+
+
+@register.filter
 def index(indexable, i):
     return indexable[i]
+
+
+@register.filter
+def is_pseudopatient(template_object):
+    return isinstance(template_object, Pseudopatient)
 
 
 @register.filter(name="get_key")

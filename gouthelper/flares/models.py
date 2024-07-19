@@ -248,6 +248,14 @@ monosodium urate crystals on polarized microscopy?"
                 or self.gender.value == Genders.FEMALE
                 and (self.post_menopausal or self.ckd)
             )
+        elif self.user and self.user.gender:
+            return (
+                self.user.gender.value == Genders.MALE
+                and self.age
+                and self.age >= 18  # pylint: disable=w0143
+                or self.user.gender.value == Genders.FEMALE
+                and (self.post_menopausal or self.ckd)
+            )
         return False
 
     @cached_property

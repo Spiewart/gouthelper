@@ -3,6 +3,9 @@
 {% load static %}
 {% load project_tags %}
 
+{% block title %}
+  {{ object }}
+{% endblock title %}
 {% block heading %}
   <div class="row">
     <div class="col">
@@ -34,7 +37,7 @@
     <div class="col">
       <span>Jump to:</span> <a class="samepage-link" href="#outcome">Outcome</a>
       {% if object.options_without_rec %}| <a class="samepage-link" href="#options">Options</a>{% endif %}
-      | <a class="samepage-link" href="#treatment">Treatment</a> | <a class="samepage-link" href="#details">Details</a>
+      | <a class="samepage-parent-link" href="#flareaid-card">Treatment</a> | <a class="samepage-link" href="#details">Details</a>
       | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col align-items-center d-flex justify-content-end">
@@ -98,41 +101,26 @@
       </div>
       <hr size="3" color="dark" />
       <div id="flareaid">
-        {% if object.user %}
-          {% if object.user.flareaid %}
-            {% include 'flareaids/flareaid_detail_card.html' with object=object.user.flareaid flare=object %}
-          {% else %}
-            <div id="flareaid-card" class="card spacious-cards">
-              <div class="card-body">
+        {% if object.flareaid %}
+          {% include 'flareaids/flareaid_detail_card.html' with flareaid=object.flareaid flare=object card_title='get treatment recommendations for this flare!' show=True %}
+        {% else %}
+          {% include 'flareaids/flareaid_detail_card.html' with flareaid=object.user.flareaid flare=object card_title='get treatment recommendations for this flare!' show=True %}
+        {% endif %}
+        {% if not object.user %}
+          {% if not object.flareaid %}<h3 align="center">or</h3>{% endif %}
+          <div class="card card-body spacious-cards" id="goutpatient-card">
+            <div class="row">
+              <div class="col">
+                <h4 class="card-title">GoutPatient: create comprehensive gout treatment plan</h4>
+              </div>
+              <div class="col-auto">
                 <a type="button"
-                   class="btn btn-primary btn-lg spacious-buttons"
-                   href="{% url 'flareaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
-                   role="button">FlareAid</a>
+                   class="btn btn-primary"
+                   href="{% url 'users:pseudopatient-flare-create' flare=object.pk %}"
+                   role="button">Create</a>
               </div>
             </div>
-          {% endif %}
-        {% else %}
-          {% if object.flareaid %}
-            {% include 'flareaids/flareaid_detail_card.html' with object=object.flareaid flare=object %}
-          {% else %}
-            <div class="card card-body spacious-cards" id="flareaid-card">
-              <h3 class="card-title">Recommended Flare Treatment</h3>
-              <p>Get customized treatment recommendations for {{ object }} by creating a FlareAid.</p>
-              <a type="button"
-                 class="btn btn-primary btn-lg"
-                 href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ object.get_absolute_url }}"
-                 role="button">Create FlareAid</a>
-            </div>
-          {% endif %}
-          {% if not object.user %}
-            <div class="card card-body spacious-cards" id="goutpatient-card">
-              <h3 class="card-title">Turn Flare INTO GOUTPATIENT</h3>
-              <a type="button"
-                 class="btn btn-primary btn-lg"
-                 href="{% url 'users:pseudopatient-flare-create' flare=object.pk %}"
-                 role="button">Create GoutPatient</a>
-            </div>
-          {% endif %}
+          </div>
         {% endif %}
       </div>
       <div id="details">

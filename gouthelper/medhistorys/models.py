@@ -295,11 +295,6 @@ class MedHistory(
     def update_set_date_and_save(self, commit: bool = True) -> None:
         """Update the set_date field to the current date and time."""
         self.set_date = timezone.now()
-        print(self)
-        print(self.user)
-        print(self.flare)
-        print(self.flareaid)
-        print(self.pk)
         if commit:
             self.save()
 

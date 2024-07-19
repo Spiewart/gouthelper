@@ -821,8 +821,6 @@ class AidService:
         Returns:
             str: decisionaid field JSON representation of trt_dict
         """
-        print(self.model_attr)
-        print(self.aid_needs_2_be_saved())
         if commit and self.aid_needs_2_be_saved():
             self.model_attr.full_clean()
             self.model_attr.save()
@@ -854,8 +852,6 @@ class TreatmentAidService(AidService):
             if isinstance(self.model_attr.decisionaid, dict)
             else aids_json_to_trt_dict(self.model_attr.decisionaid)
         )
-        print("in init")
-        print(self.initial_decisionaid_dict)
 
     def _create_trts_dict(self):
         """Returns a dict {Treatments: {dose/freq/duration + contra=False}}."""
@@ -923,9 +919,6 @@ class TreatmentAidService(AidService):
 
     def decisionaid_has_changed(self) -> bool:
         """Returns True if the decisionaid_dict has changed since the initial_decisionaid_dict."""
-        print("in decisionaid_has_changed")
-        print(self.decisionaid_dict)
-        print(self.initial_decisionaid_dict)
         return self.decisionaid_dict != self.initial_decisionaid_dict
 
     def aid_needs_2_be_saved(self) -> bool:

@@ -196,13 +196,16 @@ def now_datetime() -> "datetime":
 
 
 def get_str_attrs(
-    obj: Union["GoutHelperPatientModel", "GoutHelperAidModel", None] = None,
+    obj: Union["GoutHelperPatientModel", "GoutHelperAidModel", Genders, None] = None,
     patient: Union["GoutHelperPatientModel", None] = None,
     request_user: Union["User", None] = None,
 ) -> dict[str, str]:
     def get_obj_gender(obj: Any) -> Genders | None:
-        gender_obj = getattr(obj, "gender", None)
-        return gender_obj.value if gender_obj else None
+        if obj in Genders.values:
+            return obj
+        else:
+            gender_obj = getattr(obj, "gender", None)
+            return gender_obj.value if gender_obj else None
 
     gender = get_obj_gender(patient if patient else obj)
 

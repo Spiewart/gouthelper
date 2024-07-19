@@ -1,58 +1,77 @@
 {% load project_tags %}
 
 <div id="ppxaid-card" class="card spacious-cards">
-  <div class="card-body">
-    <div class="row">
-      <div class="col">
-        <h3 class="card-title">
-          {% if object.recommendation %}
-            Recommended PPx: <u>{{ object.recommendation.0.lower.capitalize }}</u>
-          {% else %}
-            No Recommendation Available
-          {% endif %}
-        </h3>
+  <div class="card-body" id="ppxaid">
+    {% if ppxaid %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            {% if ppxaid.user %}
+              <!-- djlint:off --><a href="{% url 'ppxaids:pseudopatient-detail' ppxaid.user.username %}"><!-- djlint:on -->
+            {% else %}
+              <a href="{% url 'ppxaids:detail' ppxaid.pk %}">
+              {% endif %}
+              PpxAid:
+              {% if ppxaid.recommendation %}
+                {{ ppxaid.recommendation.0.lower.capitalize }}
+              {% else %}
+                Rheumatologist Required
+              {% endif %}
+            </a>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="ppxaid_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#ppxaid_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="ppxaid_card_collapse">Show</button>
+        </div>
       </div>
-      <div class="col-auto align-items-center d-flex justify-content-end">
-        <button class="btn btn-secondary btn-sm"
-                id="ppxaid_card_collapse_control"
-                data-bs-toggle="collapse"
-                data-bs-target="#ppxaid_card_collapse"
-                type="button"
-                aria-expanded="true"
-                aria-controls="ppxaid_card_collapse">Hide</button>
+      <div class="collapse mini-card-content" id="ppxaid_card_collapse">
+        <div class="row">
+          <div class="col">
+            {% if ppxaid.recommendation %}
+              {% call_method ppxaid 'treatment_dosing_dict' ppxaid.recommendation.0 as dosing_dict %}
+              <ul>
+                {% for key, val in dosing_dict.items %}
+                  <li>
+                    <strong>{{ key }}</strong>: {{ val }}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <ul>
+                <li>{{ ppxaid.recommendation_is_none_str }}</li>
+              </ul>
+            {% endif %}
+          </div>
+        </div>
+        {% if ppxaid.user %}
+          <a href="{% url 'ppxaids:pseudopatient-update' ppxaid.user.username %}?next={{ request.path }}"
+             class="btn btn-primary">Update</a>
+        {% else %}
+          <a href="{% url 'ppxaids:update' ppxaid.pk %}?next={{ request.path }}"
+             class="btn btn-primary">Update</a>
+        {% endif %}
+        <a href="{% url 'ppxaids:about' %}" class="btn btn-primary">About</a>
       </div>
-    </div>
-    <div class="collapse show" id="ppxaid_card_collapse">
-      {% if object.recommendation %}
-        {% call_method object 'treatment_dosing_dict' object.recommendation.0 as dosing_dict %}
-        <ul>
-          {% for key, val in dosing_dict.items %}
-            <li>
-              <strong>{{ key }}</strong>: {{ val }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <ul>
-          <li>{{ object.recommendation_is_none_str }}</li>
-        </ul>
-      {% endif %}
-      {% if object.user %}
-        <a href="{% url 'ppxaids:pseudopatient-update' object.user.username %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
-      {% else %}
-        <a href="{% url 'ppxaids:update' object.pk %}?next={{ request.path }}"
-           class="btn btn-primary spacious-buttons">Update</a>
-      {% endif %}
-      {% if object.user %}
-        <a href="{% url 'ppxaids:pseudopatient-detail' object.user.username %}"
-           class="btn btn-primary spacious-buttons">Details</a>
-      {% else %}
-        <a href="{% url 'ppxaids:detail' object.pk %}"
-           class="btn btn-primary spacious-buttons">Details</a>
-      {% endif %}
-      <a href="{% url 'ppxaids:about' %}"
-         class="btn btn-primary spacious-buttons">About</a>
-    </div>
+    {% else %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'ppxaids:about' %}">PpxAid</a>: none
+          </h4>
+        </div>
+        <div class="col-auto">
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'ppxaids:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+             role="button">Create</a>
+        </div>
+      </div>
+    {% endif %}
   </div>
 </div>

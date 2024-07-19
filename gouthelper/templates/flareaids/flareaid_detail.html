@@ -14,14 +14,8 @@
   <div class="row">
     <div class="col">
       <h1>
-        {% if object.user %}
-          {{ str_attrs.Subject_the_pos }} FlareAid
-        {% else %}
-          FlareAid
-          {% if object.flare %}
-            for <a href="{% url 'flares:detail' pk=object.flare.pk %}">{{ object.flare }}</a>
-          {% endif %}
-        {% endif %}
+        {% if object.user %}{{ str_attrs.Subject_the_pos }}{% endif %}
+        FlareAid
       </h1>
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
@@ -49,7 +43,11 @@
       | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
-      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+      {% if object.user %}
+        <span>{{ object.user }}</span>
+      {% elif object.flare %}
+        <a href="{% url 'flares:detail' pk=object.flare.pk %}">{{ object.flare }}</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

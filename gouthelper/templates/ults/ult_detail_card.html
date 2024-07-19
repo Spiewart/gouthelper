@@ -2,58 +2,57 @@
 
 <div id="ult-card" class="card spacious-cards">
   <div class="card-body">
-    <div class="row">
-      <div class="col">
-        <div class="btn-group heading-button" id="ult-dropdown">
-          <button class="btn btn-primary btn-lg" type="button">{{ ult }}</button>
-          <button class="btn btn-primary dropdown-toggle dropdown-toggle-split"
-                  type="button"
-                  id="ult-dropdownMenuButton"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false">
-            <span class="visually-hidden">Toggle Dropdown</span>
-          </button>
-          <ul class="dropdown-menu" aria-labelledby="ult-dropdownMenuButton">
+    {% if ult %}
+      <div class="row">
+        <div class="col">
+          <h4>
             {% if ult.user %}
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'ults:pseudopatient-detail' ult.user.username %}">Details</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'ults:pseudopatient-update' ult.user.username %}?next={{ object.get_absolute_url }}">Update</a>
-              </li>
+              <a href="{% url 'ults:pseudopatient-detail' ult.user.username %}">{{ ult }}</a>
             {% else %}
-              <li>
-                <a class="dropdown-item" href="{% url 'ults:detail' ult.pk %}">Details</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'ults:update' ult.pk %}?next={{ object.get_absolute_url }}">Update</a>
-              </li>
+              <a href="{% url 'ults:detail' ult.pk %}">{{ ult }}</a>
             {% endif %}
-            <li>
-              <a class="dropdown-item" href="{% url 'ults:about' %}">About</a>
-            </li>
-          </ul>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="ult_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#ult_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="ult_card_collapse">Show</button>
         </div>
       </div>
-      <div class="col-auto align-items-center d-flex justify-content-end">
-        <button class="btn btn-secondary btn-lg"
-                id="ult_card_collapse_control"
-                data-bs-toggle="collapse"
-                data-bs-target="#ult_card_collapse"
-                type="button"
-                aria-expanded="true"
-                aria-controls="ult_card_collapse">Show</button>
+      <div class="collapse mini-card-content" id="ult_card_collapse">
+        <h5 div class="card-title">
+          <b><u>{{ ult.get_indication_display }}</u></b>
+        </h5>
+        {% call_method ult 'get_indication_interp' False as interpretation %}
+        <p class="card-text">{{ interpretation }}</p>
+        {% if ult.user %}
+          <a class="btn btn-primary"
+             href="{% url 'ults:pseudopatient-update' ult.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+        {% else %}
+          <a class="btn btn-primary" href="{% url 'ults:detail' ult.pk %}">Details</a>
+          <a class="btn btn-primary"
+             href="{% url 'ults:update' ult.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'ults:about' %}">About</a>
       </div>
-    </div>
-    <div class="collapse mini-card-content" id="ult_card_collapse">
-      <h4 div class="card-title">
-        <b><u>{{ ult.get_indication_display }}</u></b>
-      </h4>
-      {% call_method ult 'get_indication_interp' False as interpretation %}
-      <p class="card-text">{{ interpretation }}</p>
-    </div>
+    {% else %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'ults:about' %}">Ult</a>: none
+          </h4>
+        </div>
+        <div class="col-auto">
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'ults:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+             role="button">Create</a>
+        </div>
+      </div>
+    {% endif %}
   </div>
 </div>

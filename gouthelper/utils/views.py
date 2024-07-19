@@ -9,7 +9,7 @@ from django.forms import ModelForm  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
-from django.views.generic import CreateView  # type: ignore
+from django.views.generic import CreateView
 
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
@@ -34,7 +34,7 @@ from ..utils.helpers import (
 
 if TYPE_CHECKING:
     from django.forms import BaseModelFormSet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
+    from django.http import HttpRequest, HttpResponse  # type: ignore
 
     from ..akis.models import Aki
     from ..dateofbirths.forms import DateOfBirthForm
@@ -151,6 +151,13 @@ class GoutHelperEditMixin:
     def create_view(self):
         """Method that returns True if the view is a CreateView."""
         return True if isinstance(self, CreateView) else False
+
+    def form_invalid(self, form):
+        response = super().form_invalid(form)
+        next_url = self.request.GET.get("next") or self.request.POST.get("next")
+        if next_url:
+            return HttpResponseRedirect(f"{self.request.path}?next={next_url}")
+        return response
 
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
@@ -319,7 +326,6 @@ class GoutHelperEditMixin:
     def get_success_url(self):
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
-        print(next_url)
         if next_url:
             next_url += f"#{self.object_attr}"
             return next_url
@@ -1468,6 +1474,8 @@ menopause status to evaluate their flare."
 
 
 class OneToOneFormMixin(GoutHelperEditMixin):
+    request: "HttpRequest"
+
     def check_user_onetoones(self, user: User) -> None:
         if not hasattr(self, "req_otos"):
             self.set_req_otos()
@@ -1558,6 +1566,20 @@ class OneToOneFormMixin(GoutHelperEditMixin):
     def get_dateofbirth_value(self) -> int:
         dateofbirth = self.get_dateofbirth()
         return age_calc(dateofbirth.value) if dateofbirth else None
+
+    def get_gender(self) -> Union["Gender", None]:
+        return getattr(self.query_object, "gender", None)
+
+    def get_gender_value(self) -> Genders | None:
+        gender = self.get_gender()
+        return gender.value if gender else None
+
+    @cached_property
+    def str_attrs(self) -> dict[str, str]:
+        """Returns a dict of string attributes to make forms context-sensitive."""
+        return get_str_attrs(
+            self.object if not self.create_view else self.get_gender_value(), self.user, self.request.user
+        )
 
     @cached_property
     def aki(self) -> Union["Aki", None]:

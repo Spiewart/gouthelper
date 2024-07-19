@@ -29,7 +29,13 @@
       </li>
       <li>
         ULT:
-        {% if not object.on_ult %}not{% endif %}
+        {% if object.starting_ult %}
+          starting
+        {% elif not object.on_ult %}
+          not on
+        {% else %}
+          on
+        {% endif %}
         urate-lowering therapy to achieve gout remission
       </li>
     </ul>

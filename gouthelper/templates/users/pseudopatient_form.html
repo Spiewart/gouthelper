@@ -21,7 +21,13 @@
   {% if form.instance.created %}
     Update {{ form.instance }}'s general information.
   {% else %}
-    Start building a comprehensive plan for a patient's gout.
+    Start by telling us information about the patient
+    {% if flare %}
+      ({{ age }} year old {{ gender|get_gender_display_value|lower }}), {{ str_attrs.gender_pos }}
+    {% else %}
+      his or her
+    {% endif %}
+    gout, and its related treatments.
   {% endif %}
 {% endblock subheading %}
 {% block content %}

@@ -341,17 +341,17 @@ def labs_urates_compare_chronological_order_by_date(
     current_urate: "Urate", previous_urate: Union["Urate", None], first_urate: "Urate"
 ) -> ValueError | None:
     if (
-        current_urate.date_drawn_or_flare_date > first_urate.date_drawn_or_flare_date
+        current_urate.flare_date_or_date_drawn > first_urate.flare_date_or_date_drawn
         or previous_urate
-        and current_urate.date_drawn_or_flare_date > previous_urate.date_drawn_or_flare_date
+        and current_urate.flare_date_or_date_drawn > previous_urate.flare_date_or_date_drawn
     ):
         raise ValueError("The Urates are not in chronological order. QuerySet must be ordered by date.")
 
 
-def labs_urates_annotate_order_by_date_drawn_or_flare_date(
+def labs_urates_annotate_order_by_flare_date_or_date_drawn(
     urates: list["Urate"],
 ) -> None:
-    urates.sort(key=lambda x: x.date_drawn_or_flare_date, reverse=True)
+    urates.sort(key=lambda x: x.flare_date_or_date_drawn, reverse=True)
 
 
 def labs_urates_last_at_goal(
@@ -575,7 +575,7 @@ def labs_urates_at_goal_within_last_month(
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is at goal within the last month."""
     return labs_urates_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
-        urates[0].date_drawn_or_flare_date
+        urates[0].flare_date_or_date_drawn
     )
 
 
@@ -586,7 +586,7 @@ def labs_urates_not_at_goal_within_last_x_days(
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last x days."""
     return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_is_within_x_days(
-        urates[0].date_drawn_or_flare_date, x
+        urates[0].flare_date_or_date_drawn, x
     )
 
 
@@ -596,7 +596,7 @@ def labs_urates_not_at_goal_within_last_month(
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last month."""
     return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
-        urates[0].date_drawn_or_flare_date
+        urates[0].flare_date_or_date_drawn
     )
 
 
@@ -634,7 +634,7 @@ def labs_urates_at_goal_x_months(
         labs_urates_compare_chronological_order_by_date(
             current_urate=urates[r], previous_urate=urates[r - 1] if r > 0 else None, first_urate=urates[0]
         )
-        if (urates[0].date_drawn_or_flare_date - urates[r].date_drawn_or_flare_date) >= timedelta(days=30 * x):
+        if (urates[0].flare_date_or_date_drawn - urates[r].flare_date_or_date_drawn) >= timedelta(days=30 * x):
             return True
         # If Urates aren't x months apart but both are below goal_urate
         # Recurse to the next urate further back in time urates[r+1]
@@ -680,7 +680,8 @@ def labs_urate_within_x_days(
     if not sorted_by_date:
         labs_urates_check_chronological_order_by_date(urates)
     return (
-        urates[0].date_drawn_or_flare_date and urates[0].date_drawn_or_flare_date > timezone.now() - timedelta(days=x)
+        urates[0].flare_date_or_date_drawn
+        and urates[0].flare_date_or_date_drawn > (timezone.now() - timedelta(days=x)).date()
         if urates
         else False
     )

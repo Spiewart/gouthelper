@@ -1,73 +1,74 @@
 {% load project_tags %}
 
-<div class="card card-body spacious-cards" id="flare_{{ flare.pk }}-card">
-  <div class="row">
-    <div class="col">
-      <div class="btn-group heading-button" id="flare-dropdown">
-        <button class="btn btn-primary btn-lg" type="button">
-          {% if card_title %}{{ card_title }}{% endif %}
-          {{ flare.dates }}
-        </button>
-        <button class="btn btn-primary dropdown-toggle dropdown-toggle-split"
-                type="button"
-                id="flare-dropdownMenuButton"
-                data-bs-toggle="dropdown"
-                aria-expanded="false">
-          <span class="visually-hidden">Toggle Dropdown</span>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="flare-dropdownMenuButton">
-          {% if flare.user %}
-            <li>
-              <a class="dropdown-item"
-                 href="{% url 'flares:pseudopatient-detail' flare.user.username flare.pk %}">Details</a>
-            </li>
-            <li>
-              <a class="dropdown-item"
-                 href="{% url 'flares:pseudopatient-update' flare.user.username flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
-            </li>
-          {% else %}
-            <li>
-              <a class="dropdown-item" href="{% url 'flares:detail' flare.pk %}">Details</a>
-            </li>
-            <li>
-              <a class="dropdown-item"
-                 href="{% url 'flares:update' flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
-            </li>
-          {% endif %}
-          <li>
-            <a class="dropdown-item" href="{% url 'flares:about' %}">About</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <div class="col-auto align-items-center d-flex justify-content-end">
-      <button class="btn btn-secondary btn-lg"
-              id="flare_{{ flare.pk }}_card_collapse_control"
-              data-bs-toggle="collapse"
-              data-bs-target="#flare_{{ flare.pk }}_card_collapse"
-              type="button"
-              aria-expanded="true"
-              aria-controls="flare_{{ flare.pk }}_card_collapse">Show</button>
-    </div>
-  </div>
-  <div class="collapse mini-card-content"
-       id="flare_{{ flare.pk }}_card_collapse">
-    <h4 class="card-title">
-      <b><u>Likelihood of Gout: {{ flare.get_likelihood_display }}</u></b>
-    </h4>
-    <div class="row">
-      <div class="col">
-        <ul>
-          <li>Joints: {{ flare.joints_str }}</li>
-          <li>
-            {% if flare.urate %}
-              {{ flare.urate }}
+<div class="card spacious-cards" id="flare_{{ flare.pk }}-card">
+  <div class="card-body" id="flare_{{ flare.pk }}">
+    {% if flare %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            {% if flare.user %}
+              <!-- djlint:off --><a href="{% url 'flares:pseudopatient-detail' flare.user.username flare.pk %}"><!-- djlint:on -->
             {% else %}
-              Urate: none
-            {% endif %}
-          </li>
-        </ul>
+              <a href="{% url 'flares:detail' flare.pk %}">
+              {% endif %}
+              {% if card_title %}{{ card_title }}{% endif %}
+              {{ flare.dates }}
+            </a>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="flare_{{ flare.pk }}_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#flare_{{ flare.pk }}_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="flare_{{ flare.pk }}_card_collapse">Show</button>
+        </div>
       </div>
-    </div>
+      <div class="collapse mini-card-content"
+           id="flare_{{ flare.pk }}_card_collapse">
+        <h5 class="card-title">
+          <b><u>Likelihood of Gout: {{ flare.get_likelihood_display }}</u></b>
+        </h5>
+        <div class="row">
+          <div class="col">
+            <ul>
+              <li>Joints: {{ flare.joints_str }}</li>
+              <li>
+                {% if flare.urate %}
+                  {{ flare.urate }}
+                {% else %}
+                  Urate: none
+                {% endif %}
+              </li>
+            </ul>
+          </div>
+        </div>
+        {% if flare.user %}
+          <a class="btn btn-primary"
+             href="{% url 'flares:pseudopatient-update' flare.user.username flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% else %}
+          <a class="btn btn-primary"
+             href="{% url 'flares:update' flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'flares:about' %}">About</a>
+      </div>
+    {% else %}
+      <h4 class="card-title">
+        <a href="{% url 'flares:about' %}">Flares</a>: none
+      </h4>
+      {% if object|is_pseudopatient %}
+        <a type="button"
+           class="btn btn-primary"
+           href="{% url 'flares:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+           role="button">Create</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary"
+           href="{% url 'flares:create' %}?next={{ request.path }}"
+           role="button">Create</a>
+      {% endif %}
+    {% endif %}
   </div>
 </div>

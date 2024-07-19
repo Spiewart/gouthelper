@@ -2,60 +2,62 @@
 
 <div id="goalurate-card" class="card spacious-cards">
   <div class="card-body">
-    <div class="row">
-      <div class="col">
-        <div class="btn-group heading-button" id="goalurate-dropdown">
-          <button class="btn btn-primary btn-lg" type="button">{{ goalurate }}</button>
-          <button class="btn btn-primary dropdown-toggle dropdown-toggle-split"
-                  type="button"
-                  id="goalurate-dropdownMenuButton"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false">
-            <span class="visually-hidden">Toggle Dropdown</span>
-          </button>
-          <ul class="dropdown-menu" aria-labelledby="goalurate-dropdownMenuButton">
-            {% if goalurate.user %}
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'goalurates:pseudopatient-detail' goalurate.user.username %}">Details</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'goalurates:pseudopatient-update' goalurate.user.username %}?next={{ object.get_absolute_url }}">Update</a>
-              </li>
-            {% else %}
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'goalurates:detail' goalurate.pk %}">Details</a>
-              </li>
-              <li>
-                <a class="dropdown-item"
-                   href="{% url 'goalurates:update' goalurate.pk %}?next={{ object.get_absolute_url }}">Update</a>
-              </li>
-            {% endif %}
-            <li>
-              <a class="dropdown-item" href="{% url 'goalurates:about' %}">About</a>
-            </li>
-          </ul>
-        </div>
-      </div>
-      <div class="col-auto align-items-center d-flex justify-content-end">
-        <button class="btn btn-secondary btn-lg"
-                id="goalurate_card_collapse_control"
-                data-bs-toggle="collapse"
-                data-bs-target="#goalurate_card_collapse"
-                type="button"
-                aria-expanded="true"
-                aria-controls="goalurate_card_collapse">Show</button>
-      </div>
-    </div>
-    <div class="collapse mini-card-content" id="goalurate_card_collapse">
+    {% if goalurate %}
       <div class="row">
-        <div class="col-md-12">
-          {% call_method goalurate 'get_interpretation' False as interpretation %}
-          <p class="card-text">{{ interpretation }}</p>
+        <div class="col">
+          <h4>
+            {% if goalurate.user %}
+              <!-- djlint:off --><a href="{% url 'goalurates:pseudopatient-detail' goalurate.user.username %}"><!-- djlint:on -->
+            {% else %}
+              <a href="{% url 'goalurates:detail' goalurate.pk %}">
+              {% endif %}
+            {{ goalurate }}</a>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="goalurate_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#goalurate_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="goalurate_card_collapse">Show</button>
         </div>
       </div>
+      <div class="collapse mini-card-content" id="goalurate_card_collapse">
+        <div class="row">
+          <div class="col-md-12">
+            {% call_method goalurate 'get_interpretation' False as interpretation %}
+            <p class="card-text">{{ interpretation }}</p>
+          </div>
+        </div>
+        {% if goalurate.user %}
+          <a class="btn btn-primary"
+             href="{% url 'goalurates:pseudopatient-update' goalurate.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+        {% else %}
+          <a class="btn btn-primary"
+             href="{% url 'goalurates:update' goalurate.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'goalurates:about' %}">About</a>
+      </div>
+    {% else %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'goalurates:about' %}">Goal Urate</a>: none
+          </h4>
+        </div>
+        {% if object|is_pseudopatient %}
+          <div class="col-auto align-items-center d-flex justify-content-end">
+            <a class="btn btn-primary"
+               href="{% url 'goalurates:pseudopatient-create' object.username %}">Create</a>
+          </div>
+        {% else %}
+          <div class="col-auto align-items-center d-flex justify-content-end">
+            <a class="btn btn-primary" href="{% url 'goalurates:create' %}">Create</a>
+          </div>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 </div>

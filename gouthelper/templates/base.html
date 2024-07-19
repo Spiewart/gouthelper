@@ -243,6 +243,18 @@
             };
           }
           $(href).effect("highlight", 2000);
+        })
+        $(".samepage-parent-link").click(function() {
+          var href = $(this).attr('href');
+          // check if the link target has a child element with collapse_control in the id
+          var collapse_id = href + '_collapse';
+          var collapse = $(collapse_id);
+          if (collapse.length && collapse.hasClass('show') == false) {
+            new bootstrap.Collapse(collapse, {
+              toggle: true
+            });
+          };
+          $(href).effect("highlight", 2000);
         });
         // https://stackoverflow.com/questions/34617802/load-page-and-highlight-anchor-div-using-jquery-ui
         $(document).ready(function() {

@@ -357,11 +357,11 @@ class Urate(Lab, GoalUrateMixin):
         return self.value <= self.goal_urate
 
     @cached_property
-    def date_drawn_or_flare_date(self):
-        if self.date_drawn:
-            return self.date_drawn
-        elif hasattr(self, "flare"):
+    def flare_date_or_date_drawn(self):
+        if hasattr(self, "flare"):
             return self.flare.date_started
+        elif self.date_drawn:
+            return self.date_drawn.date()
         else:
             raise ValueError(f"Urate ({self}) has no date_drawn or associated flare.")
 

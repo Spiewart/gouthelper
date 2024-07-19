@@ -28,23 +28,23 @@
     <div class="container">
       <hr size="3" color="dark" />
       <div class="row">
-        <div class="col">{% include 'users/demographics.html' with object=object %}</div>
         <div class="col">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>
+        <div class="col-auto">{% include 'users/demographics.html' with object=object %}</div>
       </div>
       <hr size="3" color="dark" />
       <div class="row">
         <div class="col">
           <h4>Decision Aids</h4>
-          {% include 'users/aid_cards/ult.html' %}
-          {% include 'users/aid_cards/ppx.html' %}
-          {% include 'users/aid_cards/most_recent_flare.html' %}
-          {% include 'users/aid_cards/goalurate.html' %}
+          {% include 'ults/ult_detail_card.html' with ult=object.ult %}
+          {% include 'ppxs/ppx_detail_card.html' with ppx=object.ppx %}
+          {% include 'flares/flare_detail_card.html' with flare=object.most_recent_flare.0 card_title='Latest Flare ' %}
+          {% include 'goalurates/goalurate_detail_card.html' with goalurate=object.goalurate %}
         </div>
         <div class="col">
           <h4>Treatment Aids</h4>
-          {% include 'users/aid_cards/flareaid.html' %}
-          {% include 'users/aid_cards/ppxaid.html' %}
-          {% include 'users/aid_cards/ultaid.html' %}
+          {% include 'flareaids/flareaid_detail_card.html' with flareaid=object.flareaid %}
+          {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.ppxaid %}
+          {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.ultaid %}
         </div>
       </div>
     </div>

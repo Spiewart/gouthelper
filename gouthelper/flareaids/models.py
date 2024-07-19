@@ -99,7 +99,7 @@ class FlareAid(
         if self.user:
             return f"{str(self.user)}'s FlareAid"
         else:
-            return f"FlareAid: created {self.created.date()}"
+            return f"FlareAid: {self.created.date()}"
 
     @cached_property
     def aid_dict(self) -> dict:
