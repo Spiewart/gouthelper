@@ -403,6 +403,7 @@ class TestPseudopatientFlareCreateView(TestCase):
         flare, response, _ = self.return_flare_response_user("GET")
         assert response.status_code == 200
         assert "age" in response.context
+        print(flare.dateofbirth)
         assert response.context["age"] == flare.age
         assert "dateofbirth_form" not in response.context
         assert "gender_form" not in response.context

@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
     from django.db.models import QuerySet
 
-    from ..utils.models import GoutHelperAidModel, GoutHelperPatientModel
-    from ..utils.types import MedAllergyAidHistoryModel
+    from .models import GoutHelperAidModel, GoutHelperPatientModel
+    from .types import MedAllergyAidHistoryModel
 
     User = get_user_model()
 

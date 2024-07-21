@@ -636,10 +636,9 @@ class GoutHelperEditMixin:
         and sets the user attr on the view."""
         username = self.kwargs.get("username", None)
         if username:
-            try:
-                self.user = self.get_user_queryset(username).get()
-                return self.user
-            except AttributeError:
+            if hasattr(self, "get_user_queryset"):
+                return self.get_user_queryset(username).get()
+            else:
                 return self.get_queryset().get(username=username)
         else:
             return None
@@ -1025,19 +1024,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     if isinstance(mh_form, ModelForm)
                     else mh_form(
                         instance=mh_obj,
-                        initial={
-                            f"{mhtype}-value": (
-                                True
-                                if mh_obj
-                                else (
-                                    False
-                                    if (self.mhtype_aids and self.mhtype_aids.get(mhtype))
-                                    else None
-                                    if self.create_view
-                                    else False
-                                )
-                            )
-                        },
+                        initial=self.get_mh_initial(mhtype, mh_obj),
                         **form_kwargs,
                     )
                 )
@@ -1133,21 +1120,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                         mhtype: mh_form(
                             self.request.POST,
                             instance=(mh_obj if mh_obj else self.get_modelform_model(self.medhistory_forms[mhtype])()),
-                            initial=(
-                                {
-                                    f"{mhtype}-value": (
-                                        True
-                                        if mh_obj
-                                        else (
-                                            False
-                                            if (self.mhtype_aids and self.mhtype_aids.get(mhtype))
-                                            else None
-                                            if self.create_view
-                                            else False
-                                        )
-                                    )
-                                }
-                            ),
+                            initial=({f"{mhtype}-value": self.get_mh_initial(mhtype, mh_obj)}),
                             **form_kwargs,
                         )
                     }
@@ -1214,35 +1187,41 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None) if self.query_object else None
         )
 
-    def get_mh_initial(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> dict[str, Any]:
-        return {
-            f"{mhtype}-value": (
-                True
-                if mh_obj
-                else (
-                    False
-                    if (
-                        MedHistoryTypesAids(
-                            mhtypes=[mhtype],
-                            related_object=self.user if self.user else self.related_object,
-                        ).get_medhistorytypes_aid_dict()
-                        and mhtype in self.medhistory_forms.keys()
-                    )
-                    else None
+    def default_get_mh_initial_value(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> bool:
+        return (
+            True
+            if mh_obj
+            else (
+                False
+                if (
+                    self.medhistory_crossref_with_related_objects_required
+                    and self.mhtypes_aids.mhtype_in_related_objects_medhistorys(mhtype=mhtype, aid_type=self.model)
                 )
+                or not self.create_view
+                else None
             )
-        }
+        )
+
+    def get_mh_initial(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> dict[str, Any]:
+        if hasattr(self, f"get_{mhtype}_initial_value"):
+            return {f"{mhtype}-value": getattr(self, f"get_{mhtype}_initial_value")(mh_obj)}
+        else:
+            return {f"{mhtype}-value": (self.default_get_mh_initial_value(mhtype, mh_obj))}
 
     @cached_property
-    def mhtype_aids(self) -> dict[MedHistoryTypes, list[type]] | None:
-        return (
-            MedHistoryTypesAids(
-                mhtypes=list(self.medhistory_forms.keys()),
-                related_object=(self.user if self.user else self.related_object if self.related_object else None),
-            ).get_medhistorytypes_aid_dict()
-            if self.create_view and (self.user or self.related_object)
-            else None
+    def mhtypes_aids(self) -> MedHistoryTypesAids:
+        return MedHistoryTypesAids(
+            mhtypes=list(self.medhistory_forms.keys()),
+            related_object=(self.object_to_crossref_medhistorys_with),
         )
+
+    @property
+    def medhistory_crossref_with_related_objects_required(self) -> bool:
+        return self.create_view and (self.object_to_crossref_medhistorys_with)
+
+    @property
+    def object_to_crossref_medhistorys_with(self) -> Union["MedAllergyAidHistoryModel", User, None]:
+        return self.user if self.user else self.related_object if self.related_object else None
 
     def post_process_mh_forms(
         self,

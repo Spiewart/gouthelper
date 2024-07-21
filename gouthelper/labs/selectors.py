@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
@@ -49,6 +50,19 @@ def urates_prefetch(dated: bool = True) -> Prefetch:
         "urate_set",
         queryset=queryset,
         to_attr="urates_qs",
+    )
+
+
+def hyperuricemia_urates_prefetch(dated: bool = True) -> Prefetch:
+    """Prefetch a boolean for whether or not a patient has hyperuricemic urates."""
+    if dated:
+        queryset = dated_urates(urates_qs()).filter(value__gte=Decimal("9.0"))
+    else:
+        queryset = apps.get_model("labs.Urate").objects.filter(value__gte=Decimal("9.0"))
+    return Prefetch(
+        "urate_set",
+        queryset=queryset,
+        to_attr="hyperuricemia_urates",
     )
 
 

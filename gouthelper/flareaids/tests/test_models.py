@@ -28,7 +28,7 @@ class TestFlareAid(TestCase):
         self.empty_flareaid_mh_kwargs = {mhtype.lower(): None for mhtype in FLAREAID_MEDHISTORYS}
 
     def test___str__(self):
-        self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
+        self.assertEqual(str(self.flareaid), f"FlareAid: {self.flareaid.created.date()}")
         self.assertEqual(str(self.user_flareaid), f"{str(self.user_flareaid.user)}'s FlareAid")
 
     def test__aid_dict(self):

@@ -16,13 +16,7 @@ from .lists import (
 )
 
 if TYPE_CHECKING:
-    from ..flareaids.models import FlareAid
-    from ..flares.models import Flare
-    from ..goalurates.models import GoalUrate
-    from ..ppxaids.models import PpxAid
-    from ..ppxs.models import Ppx
-    from ..ultaids.models import UltAid
-    from ..ults.models import Ult
+    from ..utils.types import AidNames, AidTypes
 
 CVD_CONTRAS: dict[MedHistoryTypes, Contraindications] = {cvd: Contraindications.RELATIVE for cvd in CV_DISEASES}
 
@@ -115,131 +109,119 @@ def historys_get_treatments_contras() -> dict[Treatments, dict[TrtTypes, dict[Me
     return HISTORY_TREATMENT_CONTRAS
 
 
-class MedHistoryTypesAids:
+def get_dict_of_aid_tuple_of_model_and_medhistorytypes() -> dict["AidTypes", list[MedHistoryTypes]]:
+    return {
+        "Flare": (apps.get_model("flares", "Flare"), FLARE_MEDHISTORYS),
+        "FlareAid": (apps.get_model("flareaids", "FlareAid"), FLAREAID_MEDHISTORYS),
+        "GoalUrate": (apps.get_model("goalurates", "GoalUrate"), GOALURATE_MEDHISTORYS),
+        "PpxAid": (apps.get_model("ppxaids", "PpxAid"), PPXAID_MEDHISTORYS),
+        "Ppx": (apps.get_model("ppxs", "Ppx"), PPX_MEDHISTORYS),
+        "UltAid": (apps.get_model("ultaids", "UltAid"), ULTAID_MEDHISTORYS),
+        "Ult": (apps.get_model("ults", "Ult"), ULT_MEDHISTORYS),
+    }
+
+
+class MedHistoryTypeAidsBase:
+    def __init__(
+        self,
+        related_object: Any | None = None,
+        dict_of_aid_tuple_of_model_and_medhistorytypes: dict["AidTypes", list[MedHistoryTypes]] | None = None,
+    ):
+        self.related_object = related_object
+        self.dict_of_aid_tuple_of_model_and_medhistorytypes = (
+            dict_of_aid_tuple_of_model_and_medhistorytypes or get_dict_of_aid_tuple_of_model_and_medhistorytypes()
+        )
+        for aid_attr, model_medhistorytypes_tuple in self.dict_of_aid_tuple_of_model_and_medhistorytypes.items():
+            setattr(self, aid_attr, model_medhistorytypes_tuple[0])
+            setattr(self, f"{aid_attr.upper()}_MEDHISTORYS", model_medhistorytypes_tuple[1])
+
+    def mhtype_in_related_objects_medhistorys(self, mhtype: MedHistoryTypes, aid_type: "AidTypes") -> bool:
+        if not self.related_object:
+            raise ValueError("related_object must be provided")
+        aid_name = aid_type.__name__.lower()
+        if not hasattr(self, f"mhtype_in_{aid_name}_medhistorys"):
+            return (self.related_object_is_or_has_aid_type(aid_name, aid_type)) and self.mhtype_in_aid_medhistorys(
+                mhtype, aid_name
+            )
+        else:
+            return getattr(self, f"mhtype_in_{aid_name}_medhistorys")(mhtype)
+
+    def related_object_is_or_has_aid_type(self, aid_name: "AidNames", aid_type: "AidTypes") -> bool:
+        if not self.related_object:
+            raise ValueError("related_object must be provided")
+        return getattr(self.related_object, aid_name, None) or isinstance(self.related_object, aid_type)
+
+    def mhtype_in_aid_medhistorys(self, mhtype: MedHistoryTypes, aid_name: "AidNames") -> bool:
+        return mhtype in getattr(self, f"{aid_name.upper()}_MEDHISTORYS")
+
+    def mhtype_in_flare_medhistorys(self, mhtype: MedHistoryTypes) -> bool:
+        return (
+            getattr(self.related_object, "flare", None)
+            and self.related_object.flare
+            or getattr(self.related_object, "flare_qs", None)
+            and self.related_object.flare_qs
+            or getattr(self.related_object, "flares_qs", None)
+            and self.related_object.flares_qs
+            or isinstance(self.related_object, getattr(self, "Flare"))
+        ) and mhtype in FLARE_MEDHISTORYS
+
+    def get_medhistorytype_aid_list_from_related_object(
+        self,
+        mhtype: MedHistoryTypes,
+    ) -> list["AidTypes"]:
+        if not self.related_object:
+            raise ValueError("related_object must be provided")
+        aid_list = []
+        for aid_type, _ in self.dict_of_aid_tuple_of_model_and_medhistorytypes.values():
+            if self.mhtype_in_related_objects_medhistorys(mhtype, aid_type):
+                aid_list.append(aid_type)
+        return aid_list
+
+    def get_medhistorytype_aid_list(
+        self,
+        mhtype: MedHistoryTypes,
+    ) -> list["AidTypes",]:
+        aid_list = []
+        for model_medhistorytypes_tuple in self.dict_of_aid_tuple_of_model_and_medhistorytypes.values():
+            if mhtype in model_medhistorytypes_tuple[1]:
+                aid_list.append(model_medhistorytypes_tuple[0])
+        return aid_list
+
+
+class MedHistoryTypeAids(MedHistoryTypeAidsBase):
+    def __init__(
+        self,
+        mhtype: MedHistoryTypes,
+        related_object: Any | None = None,
+    ):
+        self.mhtype = mhtype
+        super().__init__(related_object=related_object)
+
+
+class MedHistoryTypesAids(MedHistoryTypeAidsBase):
     def __init__(
         self,
         mhtypes: list[MedHistoryTypes] | MedHistoryTypes,
         related_object: Any | None = None,
     ):
         self.mhtypes = mhtypes if isinstance(mhtypes, list) else [mhtypes]
-        self.related_object = related_object
-        self.Flare = apps.get_model("flares", "Flare")
-        self.FlareAid = apps.get_model("flareaids", "FlareAid")
-        self.GoalUrate = apps.get_model("goalurates", "GoalUrate")
-        self.PpxAid = apps.get_model("ppxaids", "PpxAid")
-        self.Ppx = apps.get_model("ppxs", "Ppx")
-        self.UltAid = apps.get_model("ultaids", "UltAid")
-        self.Ult = apps.get_model("ults", "Ult")
-
-    def get_medhistorytype_aid_list(
-        self,
-        mhtype: MedHistoryTypes,
-    ) -> list[
-        type["FlareAid"]
-        | type["Flare"]
-        | type["GoalUrate"]
-        | type["PpxAid"]
-        | type["Ppx"]
-        | type["UltAid"]
-        | type["Ult"]
-    ]:
-        aid_list = []
-        if (
-            self.related_object
-            and (
-                getattr(self.related_object, "flare", None)
-                and self.related_object.flare
-                or getattr(self.related_object, "flare_qs", None)
-                and self.related_object.flare_qs
-                or getattr(self.related_object, "flares_qs", None)
-                and self.related_object.flares_qs
-                or isinstance(self.related_object, self.Flare)
-            )
-            or not self.related_object
-        ) and mhtype in FLARE_MEDHISTORYS:
-            aid_list.append(self.Flare)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "flareaid", None)
-                or isinstance(self.related_object, self.FlareAid)
-            )
-            or not self.related_object
-        ) and mhtype in FLAREAID_MEDHISTORYS:
-            aid_list.append(self.FlareAid)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "goalurate", None)
-                or isinstance(self.related_object, self.GoalUrate)
-            )
-            or not self.related_object
-        ) and mhtype in GOALURATE_MEDHISTORYS:
-            aid_list.append(self.GoalUrate)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "ppxaid", None)
-                or isinstance(self.related_object, self.PpxAid)
-            )
-            or not self.related_object
-        ) and mhtype in PPXAID_MEDHISTORYS:
-            aid_list.append(self.PpxAid)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "ppx", None)
-                or isinstance(self.related_object, self.Ppx)
-            )
-            or not self.related_object
-        ) and mhtype in PPX_MEDHISTORYS:
-            aid_list.append(self.Ppx)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "ultaid", None)
-                or isinstance(self.related_object, self.UltAid)
-            )
-            or not self.related_object
-        ) and mhtype in ULTAID_MEDHISTORYS:
-            aid_list.append(self.UltAid)
-        if (
-            (
-                self.related_object
-                and getattr(self.related_object, "ult", None)
-                or isinstance(self.related_object, self.Ult)
-            )
-            or not self.related_object
-        ) and mhtype in ULT_MEDHISTORYS:
-            aid_list.append(self.Ult)
-        return aid_list
+        super().__init__(related_object=related_object)
 
     def get_medhistorytypes_aid_dict(
         self,
-    ) -> dict[
-        MedHistoryTypes,
-        list[
-            type["FlareAid"]
-            | type["Flare"]
-            | type["GoalUrate"]
-            | type["PpxAid"]
-            | type["Ppx"]
-            | type["UltAid"]
-            | type["Ult"]
-        ],
-    ]:
-        """Returns a list of all models that use the MedHistoryTypes model.
-        Can filter by the types of model that the optional patient has if provided.
-
-        Args:
-            mhtypes (MedHistoryTypes): list or single MedHistoryTypes
-            patient (Pseudopatient, optional): the optional patient model
-
-        Returns:
-            dict: of all models that use the MedHistoryTypes model filtered
-                by the types of model that the optional patient has if provided
-        """
+    ) -> dict[MedHistoryTypes, list["AidTypes"],]:
+        """Returns a dict of lists of all models that use the MedHistoryTypes model."""
         aid_dict = {}
         for mhtype in self.mhtypes:
             aid_dict[mhtype] = self.get_medhistorytype_aid_list(mhtype)
+        return aid_dict
+
+    def get_medhistorytypes_aid_dict_from_related_object(
+        self,
+    ) -> dict[MedHistoryTypes, list["AidTypes"],]:
+        """Returns a dict of lists of all models that use the MedHistoryTypes model
+        that are or are related to the related_object."""
+        aid_dict = {}
+        for mhtype in self.mhtypes:
+            aid_dict[mhtype] = self.get_medhistorytype_aid_list_from_related_object(mhtype)
         return aid_dict

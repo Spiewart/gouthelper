@@ -365,6 +365,10 @@ class Urate(Lab, GoalUrateMixin):
         else:
             raise ValueError(f"Urate ({self}) has no date_drawn or associated flare.")
 
+    @property
+    def meets_definition_of_hyperuricemia(self) -> bool:
+        return self.value > Decimal("9.0")
+
     @classmethod
     def related_models(cls) -> list[Literal["ppx"]]:
         return ["ppx"]

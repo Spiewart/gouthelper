@@ -66,6 +66,8 @@ class GoutHelperBaseModel(GoalUrateMixin):
     a prefetched / select_related QuerySet of the model fields in order to
     categorize and display them."""
 
+    user: Union["User", None]
+
     class Meta:
         abstract = True
 
@@ -144,9 +146,8 @@ class GoutHelperBaseModel(GoalUrateMixin):
     @cached_property
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
-        if hasattr(self, "user"):
-            if self.user and self.user.dateofbirth:
-                return age_calc(date_of_birth=self.user.dateofbirth.value)
+        if hasattr(self, "user") and self.user and self.user.dateofbirth:
+            return age_calc(date_of_birth=self.user.dateofbirth.value)
         elif hasattr(self, "dateofbirth"):
             return age_calc(date_of_birth=self.dateofbirth.value)
         return None

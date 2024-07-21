@@ -19,6 +19,7 @@ from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignor
 from ..contents.choices import Contexts
 from ..dateofbirths.models import DateOfBirth
 from ..genders.models import Gender
+from ..labs.selectors import hyperuricemia_urates_prefetch
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
 from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
@@ -29,6 +30,8 @@ from .models import Ult
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models import QuerySet  # type: ignore
+
+    from ..medhistorys.models import MedHistory
 
     User = get_user_model()
 
@@ -147,6 +150,13 @@ class UltPseudopatientCreate(
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, user=self.user)
+
+    def get_HYPERURICEMIA_initial_value(self, mh_object: "MedHistory") -> bool:
+        return True if mh_object or self.user.hyperuricemia_urates else None
+
+    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+        qs = super().get_user_queryset(username)
+        return qs.prefetch_related(hyperuricemia_urates_prefetch(dated=False))
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)

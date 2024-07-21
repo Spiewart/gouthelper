@@ -10,14 +10,14 @@ from ...ults.models import Ult
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
 from ..choices import MedHistoryTypes
-from ..dicts import MedHistoryTypesAids
+from ..dicts import ULTAID_MEDHISTORYS, MedHistoryTypesAids
 
 
 class TestGetMedHistorytypeAids(TestCase):
     # Write tests for each MedHistoryType calling MedHistoryTypesAids and
     # testing that it returns a dict with the MedHistoryType as the key and the
     # aid types, per medhistorys/lists.py, as the value.
-    def test__angina(self):
+    def test__get_medhistorytypes_aid_dict_angina(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.ANGINA).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.ANGINA, aid_dict)
@@ -29,7 +29,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(UltAid, aid_list)
         self.assertEqual(len(aid_list), 4)
 
-    def test__anticoagulation(self):
+    def test__get_medhistorytypes_aid_dict_anticoagulation(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.ANTICOAGULATION).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.ANTICOAGULATION, aid_dict)
@@ -39,7 +39,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(PpxAid, aid_list)
         self.assertEqual(len(aid_list), 2)
 
-    def test__bleed(self):
+    def test__get_medhistorytypes_aid_dict_bleed(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.BLEED).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.BLEED, aid_dict)
@@ -49,7 +49,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(PpxAid, aid_list)
         self.assertEqual(len(aid_list), 2)
 
-    def test__cad(self):
+    def test__get_medhistorytypes_aid_dict_cad(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.CAD).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.CAD, aid_dict)
@@ -61,7 +61,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(UltAid, aid_list)
         self.assertEqual(len(aid_list), 4)
 
-    def test__chf(self):
+    def test__get_medhistorytypes_aid_dict_chf(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.CHF).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.CHF, aid_dict)
@@ -73,7 +73,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(UltAid, aid_list)
         self.assertEqual(len(aid_list), 4)
 
-    def test__ckd(self):
+    def test__get_medhistorytypes_aid_dict_ckd(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.CKD).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.CKD, aid_dict)
@@ -86,7 +86,7 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(Ult, aid_list)
         self.assertEqual(len(aid_list), 5)
 
-    def test__hepatitis(self):
+    def test__get_medhistorytypes_aid_dict_hepatitis(self):
         aid_dict = MedHistoryTypesAids(MedHistoryTypes.HEPATITIS).get_medhistorytypes_aid_dict()
         self.assertTrue(isinstance(aid_dict, dict))
         self.assertIn(MedHistoryTypes.HEPATITIS, aid_dict)
@@ -95,12 +95,30 @@ class TestGetMedHistorytypeAids(TestCase):
         self.assertIn(UltAid, aid_list)
         self.assertEqual(len(aid_list), 1)
 
-    def test__with_patient(self):
+    def test__get_medhistorytypes_aid_dict_from_related_object_with_flare(self):
+        for _ in range(5):
+            flare = create_flare(user=create_psp())
+            aid_dict = MedHistoryTypesAids(
+                FLARE_MEDHISTORYS, related_object=flare
+            ).get_medhistorytypes_aid_dict_from_related_object()
+            for medhistorytype in FLARE_MEDHISTORYS:
+                self.assertIn(medhistorytype, aid_dict)
+                aid_list = aid_dict.get(medhistorytype)
+                self.assertIn(Flare, aid_list)
+            for medhistorytype in ULTAID_MEDHISTORYS:
+                if medhistorytype not in FLARE_MEDHISTORYS:
+                    self.assertNotIn(medhistorytype, aid_dict)
+                else:
+                    self.assertIn(medhistorytype, aid_dict)
+                    aid_list = aid_dict.get(medhistorytype)
+                    self.assertIn(Flare, aid_list)
+
+    def test__get_medhistorytypes_aid_dict_from_related_object_with_patient(self):
         for _ in range(5):
             flare = create_flare(user=create_psp())
             aid_dict = MedHistoryTypesAids(
                 FLARE_MEDHISTORYS, related_object=Pseudopatient.objects.flares_qs().filter(pk=flare.user.pk).get()
-            ).get_medhistorytypes_aid_dict()
+            ).get_medhistorytypes_aid_dict_from_related_object()
             for medhistorytype in FLARE_MEDHISTORYS:
                 self.assertIn(medhistorytype, aid_dict)
                 aid_list = aid_dict.get(medhistorytype)

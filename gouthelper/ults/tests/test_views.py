@@ -385,7 +385,7 @@ class TestUltPseudopatientCreate(TestCase):
 
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.all():
-            with self.assertNumQueries(3):
+            with self.assertNumQueries(4):
                 kwargs = {"username": pseudopatient.username}
                 qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                 self.assertTrue(isinstance(qs, QuerySet))
@@ -410,6 +410,7 @@ class TestUltPseudopatientCreate(TestCase):
                 if qs_obj.gender:
                     self.assertTrue(isinstance(qs_obj.gender, Gender))
                 self.assertTrue(hasattr(qs_obj, "medhistorys_qs"))
+                self.assertTrue(hasattr(qs_obj, "hyperuricemia_urates"))
 
     def test__post(self):
         """Test the post() method for the view."""
