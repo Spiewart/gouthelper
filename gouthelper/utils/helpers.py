@@ -333,7 +333,17 @@ def add_indicator_badge(indicator: bool) -> str:
     )
 
 
-def html_attr_detail(self: Any, attr: str, display_val: str | None = None) -> str:
+def wrap_in_anchor(attr: str, display_val: str) -> str:
+    return mark_safe(f"<a href='{attr}'>{display_val}</a>")
+
+
+def wrap_in_samepage_links_anchor(attr: str, display_val: str | None = None) -> str:
+    return mark_safe(
+        f"<a class='samepage-link' href='#{attr}'>{display_val if display_val else attr.capitalize()}</a>"
+    )
+
+
+def add_indicator_badge_and_samepage_link(self, attr: str, display_val: str | None = None) -> str:
     return mark_safe(
         f"<a class='samepage-link' href='#{attr}'>{display_val if display_val else attr.capitalize()}</a> \
 {add_indicator_badge(getattr(self, attr))}"

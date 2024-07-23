@@ -1195,7 +1195,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 False
                 if (
                     self.medhistory_crossref_with_related_objects_required
-                    and self.mhtypes_aids.mhtype_in_related_objects_medhistorys(mhtype=mhtype, aid_type=self.model)
+                    and self.mhtypes_aids.mhtype_in_related_object_aid(mhtype=mhtype)
                 )
                 or not self.create_view
                 else None

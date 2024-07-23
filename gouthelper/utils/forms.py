@@ -103,7 +103,7 @@ def forms_helper_insert_about_the_patient(layout: "Layout", htmx: bool = False, 
                     """
                         <hr size="3" color="dark">
                         <legend>About {{ patient }} ({{ patient.gender|lower }}, age {{ patient.age }}, \
-{{ patient.ethnicity|lower }})</legend>
+{{ patient.ethnicity }})</legend>
                     """
                 ),
                 css_id="about-the-patient",

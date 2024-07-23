@@ -152,11 +152,12 @@ class UltPseudopatientCreate(
         return self.success_message % dict(cleaned_data, user=self.user)
 
     def get_HYPERURICEMIA_initial_value(self, mh_object: "MedHistory") -> bool:
+        # Called by get_mh_initial method in GoutHelperAidMixin
         return True if mh_object or self.user.hyperuricemia_urates else None
 
     def get_user_queryset(self, username: str) -> "QuerySet[Any]":
         qs = super().get_user_queryset(username)
-        return qs.prefetch_related(hyperuricemia_urates_prefetch(dated=False))
+        return qs.prefetch_related(hyperuricemia_urates_prefetch())
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)

@@ -19,6 +19,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, TrtTypes, UltChoices
 from ..ultaids.services import UltAidDecisionAid
 from ..users.models import Pseudopatient
+from ..utils.helpers import wrap_in_anchor, wrap_in_samepage_links_anchor
 from ..utils.links import get_link_febuxostat_cv_risk
 from ..utils.models import GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import aids_json_to_trt_dict, aids_probenecid_ckd_contra, aids_xois_ckd_contra
@@ -163,17 +164,17 @@ in patients with CKD of unclear stage (severity).""",
 
         return mark_safe(ckd_str)
 
-    @cached_property
-    def cvdiseases_interp(self) -> str:
+    def cvdiseases_interp(self, samepage_links: bool = True) -> str:
         (subject_the,) = self.get_str_attrs("subject_the")
         main_str = format_lazy(
             """Compared to allopurinol, <a target='_blank' href={}>febuxostat</a> was associated associated \
 with an increased risk of cardiovascular events and mortality in late-stage clinical trials required by the FDA\
-<sup><a class='samepage-link' href='#cvdiseases_interp-ref1'>1</a></sup>. This is a contested subject and while
+{}. This is a contested subject and while
 not contraindicated in individuals with cardiovascular disease, \
 febuxostat should be used cautiously in these individuals, who should also have a discussion with their provider \
 about the risks and benefits. <br> <br> """,
             reverse("treatments:about-ult") + "#febuxostat",
+            (f"<sup>{wrap_in_samepage_links_anchor('cvdiseases_interp-ref1', '1')}</sup>" if samepage_links else ""),
         )
         if self.cvdiseases:
             if self.febuxostat_cvdiseases_contra:
@@ -235,16 +236,16 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
         except AttributeError:
             return False
 
-    @property
-    def erosions_interp(self) -> str:
+    def erosions_interp(self, samepage_links: bool = True) -> str:
         subject_the, pos, gender_subject = self.get_str_attrs("subject_the", "pos", "gender_subject")
         erosions_interp_str = super().erosions_interp
         erosions_interp_str += str(
             format_lazy(
-                """<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, erosions \
+                """<br> <br> Like {}, erosions \
 are a sign of advanced gout and more severe disease. While they don't influence choice of \
 ULT, they necessitate aggressive gout treatment by lowering the <a target='_next' \
 href={}>goal uric acid</a>.""",
+                "<a class='samepage-link' href='#tophi'>tophi</a>" if samepage_links else "tophi",
                 reverse("goalurates:about"),
             )
         )
@@ -253,18 +254,22 @@ href={}>goal uric acid</a>.""",
 {gender_subject} should be treated aggressively with ULT.</strong>"
         return mark_safe(erosions_interp_str)
 
-    @cached_property
-    def explanations(self) -> list[tuple[str, str, bool, str]]:
+    def explanations(self, samepage_links: bool = True) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the UltAid to use in templates."""
         return [
             ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
-            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
-            ("erosions", "Erosions", self.erosions, self.erosions_interp),
+            (
+                "cvdiseases",
+                "Cardiovascular Diseases",
+                True if self.cvdiseases else False,
+                self.cvdiseases_interp(samepage_links=samepage_links),
+            ),
+            ("erosions", "Erosions", self.erosions, self.erosions_interp(samepage_links=samepage_links)),
             ("hepatitis", "Hepatitis", self.hepatitis, self.hepatitis_interp),
-            ("hlab5801", "HLA-B*5801", self.hlab5801, self.hlab5801_interp),
+            ("hlab5801", "HLA-B*5801", self.get_hlab5801_value(), self.hlab5801_interp),
             ("medallergys", "Medication Allergies", self.medallergys, self.medallergys_interp),
             ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
-            ("tophi", "Tophi", self.tophi, self.tophi_interp),
+            ("tophi", "Tophi", self.tophi, self.tophi_interp(samepage_links=samepage_links)),
             ("uratestones", "Urate Kidney Stones", self.uratestones, self.uratestones_interp),
             (
                 "xoiinteraction",
@@ -349,28 +354,31 @@ not recommended for {subject_the}."
         except AttributeError:
             return False
 
-    def treatment_dose_adjustment_str(self, dose_adjustment: "Decimal", samepage_link: bool = False) -> str:
+    def treatment_dose_adjustment_str(self, dose_adjustment: "Decimal", samepage_links: bool = False) -> str:
         """Return a string explaining a trt_dict's recommendations."""
-        hyperlink = "#goalurate" if samepage_link else reverse("goalurates:about")
         return mark_safe(
             format_lazy(
-                """increase the dose {} mg every {} weeks until uric acid is \
-<a class='samepage-link' href={}>at goal</a>
-                """,
+                """increase the dose {} mg every {} weeks until uric acid is {}""",
                 dose_adjustment,
                 int(self.defaulttrtsettings.dose_adj_interval.days / 7),
-                hyperlink,
+                wrap_in_samepage_links_anchor("goalurate", "at goal")
+                if samepage_links
+                else wrap_in_anchor(reverse("goalurates:about"), "at goal"),
             )
         )
 
-    def treatment_dosing_dict(self, trt: Treatments, samepage_link: bool = False) -> dict[str, str]:
+    def treatment_dosing_dict(self, trt: Treatments, samepage_links: bool = False) -> dict[str, str]:
         """Returns a dictionary of the dosing for a given treatment."""
         dosing_dict = {}
         dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
         dosing_dict.update(
-            {"Dose Adjustment": self.treatment_dose_adjustment_str(self.treatment_dose_adjustment(trt), samepage_link)}
+            {
+                "Dose Adjustment": self.treatment_dose_adjustment_str(
+                    self.treatment_dose_adjustment(trt), samepage_links
+                )
+            }
         )
-        info_dict = getattr(self, f"{trt.lower()}_info_dict")
+        info_dict = getattr(self, f"{trt.lower()}_info_dict")(samepage_links=samepage_links)
         for key, val in info_dict.items():
             dosing_dict.update({key: val})
         return dosing_dict

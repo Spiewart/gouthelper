@@ -6,7 +6,7 @@ from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
-from django.utils.text import format_lazy  # type: ignore
+from django.utils.text import format_lazy
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
@@ -27,7 +27,7 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_
 from ..medhistorys.lists import OTHER_NSAID_CONTRAS
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from ..utils.helpers import html_attr_detail
+from ..utils.helpers import add_indicator_badge_and_samepage_link, wrap_in_samepage_links_anchor
 from .helpers import TrtDictStr, get_str_attrs
 from .services import (
     aids_colchicine_ckd_contra,
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
     from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
-    from ..labs.models import BaselineCreatinine, Urate
+    from ..labs.models import BaselineCreatinine, Hlab5801, Urate
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
@@ -184,7 +184,7 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} ov
         """Method that interprets the allopurinol_allergy attribute and returns a str explanation
         of the impact of it on a patient's gout."""
 
-        Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
+        Subject_the, subject_the, pos = self.get_str_attrs("Subject_the", "subject_the", "pos")
         if self.allopurinol_allergy:
             if self.allopurinolhypersensitivity:
                 allergy_str = self.allopurinolhypersensitivity_interp
@@ -193,8 +193,7 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} ov
 recommended for {subject_the}."
         return mark_safe(allergy_str)
 
-    @property
-    def allopurinol_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+    def allopurinol_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of allopurinol contraindications."""
         contra_dict = {}
         if self.allopurinol_allergy:
@@ -218,29 +217,22 @@ recommended for {subject_the}."
 and it should always be stopped immediately and the healthcare provider contacted.",
         }
 
-    @cached_property
-    def allopurinol_info_dict(self) -> str:
+    def allopurinol_info_dict(self, samepage_links: bool = True) -> str:
         if self.xoi_ckd_dose_reduction:
             info_dict = {
-                "Dosing-CKD": mark_safe(
-                    "Dose has been reduced due to <a class='samepage-link' \
-href='#ckd'>chronic kidney disease</a>"
-                )
+                "Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links),
             }
             info_dict.update(self.allopurinol_info())
         else:
             info_dict = self.allopurinol_info()
         if self.hepatitis:
-            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning(samepage_links=samepage_links)})
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
         if not getattr(self, "hlab5801", None) and not self.hlab5801_contra:
             info_dict.update(
                 {
-                    "Warning-HLA-B*5801": mark_safe(
-                        "<a class='samepage-link' href='#hlab5801'>HLA-B*5801</a> status is \
-unknown. Consider checking it before starting allopurinol."
-                    )
+                    "Warning-HLA-B*5801": self.hlab5801_unknown_warning(samepage_links=samepage_links),
                 }
             )
         return info_dict
@@ -397,9 +389,8 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
     def celecoxib_info(cls):
         return cls.nsaid_info()
 
-    @cached_property
-    def celecoxib_info_dict(self) -> str:
-        return self.nsaids_info_dict
+    def celecoxib_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def chf(self) -> Union["MedHistory", bool]:
@@ -415,7 +406,9 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
 
     @property
     def ckd_detail(self) -> str:
-        return html_attr_detail(self, "ckd", self.ckddetail.explanation if self.ckddetail else "CKD")
+        return add_indicator_badge_and_samepage_link(
+            self, "ckd", self.ckddetail.explanation if self.ckddetail else "CKD"
+        )
 
     @property
     def ckd_interp(self) -> str:
@@ -530,21 +523,31 @@ verapamil, quinidine)"
         else:
             return medhistorys_get(self.user.medhistorys_qs, CVDiseases.values)
 
-    @cached_property
-    def cvdiseases_febuxostat_interp(self) -> str | None:
+    def cvdiseases_febuxostat_interp(self, samepage_links: bool = True) -> str | None:
         (subject_the_pos, gender_pos) = self.get_str_attrs("subject_the_pos", "gender_pos")
         if self.cvdiseases:
             if self.febuxostat_cvdiseases_contra:
                 return mark_safe(
-                    f"Febuxostat is contraindicated because of {subject_the_pos} <a class='samepage-link' \
-target'_next' href='#cvdiseases'>cardiovascular disease</a> and the UltAid settings are set to contraindicate \
-febuxostat in this scenario."
+                    format_lazy(
+                        """Febuxostat is contraindicated because of {} {} and the \
+UltAid settings are set to contraindicate febuxostat in this scenario.""",
+                        subject_the_pos,
+                        "<a class='samepage-link' target'_next' href='#cvdiseases'>cardiovascular disease</a>"
+                        if samepage_links
+                        else "cardiovascular disease",
+                    )
                 )
             else:
                 return mark_safe(
-                    f"Because of {subject_the_pos} <a class='samepage-link' target'_next' href='#cvdiseases'>\
-cardiovascular disease</a>, febuxostat should be used cautiously and {gender_pos} treatment for \
-cardiovascular disease prevention should be optimized."
+                    format_lazy(
+                        """Because of {} {}, febuxostat should be used cautiously and {} treatment for \
+cardiovascular disease prevention should be optimized.""",
+                        subject_the_pos,
+                        "<a class='samepage-link' target'_next' href='#cvdiseases'>cardiovascular disease</a>"
+                        if samepage_links
+                        else "cardiovascular disease",
+                        gender_pos,
+                    )
                 )
 
     @cached_property
@@ -630,9 +633,8 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
     def diclofenac_info(cls):
         return cls.nsaid_info()
 
-    @cached_property
-    def diclofenac_info_dict(self) -> str:
-        return self.nsaids_info_dict
+    def diclofenac_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -644,6 +646,17 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
                 defaulttrtsettings=self.defaulttrtsettings,
             )
             == Contraindications.DOSEADJ
+        )
+
+    @classmethod
+    def dose_reduced_for_ckd_info(cls, samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """Dose has been reduced due to {}.""",
+                "<a class='samepage-link' href='#ckd'>chronic kidney disease</a>"
+                if samepage_links
+                else "chronic kidney disease",
+            )
         )
 
     @cached_property
@@ -665,7 +678,7 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
 
     @property
     def erosions_detail(self) -> str:
-        return html_attr_detail(self, "erosions")
+        return add_indicator_badge_and_samepage_link(self, "erosions")
 
     @cached_property
     def erosions_interp(self) -> str:
@@ -690,12 +703,14 @@ most commonly visualized on x-rays."
         or self.medallergys.all()."""
         return medallergy_attr(Treatments.FEBUXOSTAT, self)
 
-    @property
-    def febuxostat_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+    def febuxostat_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of febuxostat contraindications."""
         contra_dict = {}
         if self.febuxostat_cvdiseases_contra:
-            contra_dict["Cardiovascular Disease"] = ("cvdiseases", self.cvdiseases_febuxostat_interp)
+            contra_dict["Cardiovascular Disease"] = (
+                "cvdiseases",
+                self.cvdiseases_febuxostat_interp(samepage_links=samepage_links),
+            )
         if self.febuxostat_allergy:
             contra_dict["Allergy"] = ("medallergys", self.febuxostat_allergy)
         if self.xoiinteraction:
@@ -723,24 +738,20 @@ most commonly visualized on x-rays."
 and it should always be stopped immediately and the healthcare provider contacted.",
         }
 
-    @cached_property
-    def febuxostat_info_dict(self) -> str:
+    def febuxostat_info_dict(self, samepage_links: bool = True) -> str:
         if self.xoi_ckd_dose_reduction:
-            info_dict = {
-                "Dosing-CKD": mark_safe(
-                    "Dose has been reduced due to <a class='samepage-link' \
-href='#ckd'>chronic kidney disease</a>"
-                )
-            }
+            info_dict = {"Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links)}
             info_dict.update(self.febuxostat_info())
         else:
             info_dict = self.febuxostat_info()
         if self.hepatitis:
-            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning()})
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning(samepage_links=samepage_links)})
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
         if self.cvdiseases:
-            info_dict.update({"Warning-Cardiovascular Disease": self.cvdiseases_febuxostat_interp})
+            info_dict.update(
+                {"Warning-Cardiovascular Disease": self.cvdiseases_febuxostat_interp(samepage_links=samepage_links)}
+            )
         return info_dict
 
     @cached_property
@@ -935,10 +946,15 @@ monitoring of {gender_pos} LFTs is appropriate."
         return mark_safe(main_str)
 
     @classmethod
-    def hepatitis_warning(cls) -> str:
+    def hepatitis_warning(cls, samepage_links: bool = True) -> str:
         return mark_safe(
-            "Liver function test abnormalities are common and should be \
-monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or cirrhosis</a>."
+            format_lazy(
+                """Liver function test abnormalities are common and should be \
+monitored closely with {}.""",
+                "<a class='samepage-link' href='#hepatitis'>hepatitis or cirrhosis</a>"
+                if samepage_links
+                else "hepatitis or cirrhosis",
+            )
         )
 
     @cached_property
@@ -957,7 +973,7 @@ monitored closely with <a class='samepage-link' href='#hepatitis'>hepatitis or c
     def hlab5801_contra_interp(self) -> str:
         """Method that interprets the hlab5801_contra attribute and returns a str explanation."""
         Subject_the, gender_ref = self.get_str_attrs("Subject_the", "gender_ref")
-        hlab5801 = getattr(self, "hlab5801", None)
+        hlab5801 = self.get_hlab5801()
         if self.hlab5801_contra:
             if hlab5801 and hlab5801.value:
                 return mark_safe(
@@ -970,10 +986,19 @@ and as a result, allopurinol should not be the first line ULT treatment for {gen
 gene, but the HLA-B*58:01 genotype is unknown. It is recommended to check this prior to starting \
 allopurinol.</strong>"
                 )
-        elif hlab5801 and not hlab5801.value:
+        elif hlab5801 and hlab5801.value is False:
             return mark_safe(f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>.")
         else:
             return mark_safe(f" <strong>{Subject_the} has not had testing for the HLA-B*5801 gene</strong>.")
+
+    def get_hlab5801(self) -> Union["Hlab5801", None]:
+        if hasattr(self, "user") and getattr(self, "user", False):
+            return self.user.hlab5801
+        else:
+            return getattr(self, "hlab5801", None)
+
+    def get_hlab5801_value(self) -> bool | None:
+        return self.get_hlab5801().value if self.get_hlab5801() else None
 
     @cached_property
     def hlab5801_interp(self) -> str:
@@ -991,6 +1016,15 @@ starting allopurinol.""",
         main_str += self.hlab5801_contra_interp
         return mark_safe(main_str)
 
+    @classmethod
+    def hlab5801_unknown_warning(self, samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """{} status is unknown. Consider checking it before starting allopurinol.""",
+                wrap_in_samepage_links_anchor("hlab5801", "HLA-B*5801") if samepage_links else "HLA-B*5801",
+            )
+        )
+
     @cached_property
     def hypertension(self) -> Union["MedHistory", bool]:
         """Method that returns Hypertension object from self.medhistorys_qs or
@@ -1005,7 +1039,7 @@ starting allopurinol.""",
 
     @property
     def hyperuricemia_detail(self) -> str:
-        return html_attr_detail(self, "hyperuricemia")
+        return add_indicator_badge_and_samepage_link(self, "hyperuricemia")
 
     @cached_property
     def hyperuricemic(self) -> bool | None:
@@ -1073,9 +1107,8 @@ contraindication to NSAIDs from this perspective."
         info_dict.update({"Availability": "Over the counter"})
         return info_dict
 
-    @cached_property
-    def ibuprofen_info_dict(self) -> str:
-        info_dict = self.nsaids_info_dict
+    def ibuprofen_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.nsaids_info_dict(samepage_links=samepage_links)
         info_dict.update({"Availability": "Over the counter"})
         return info_dict
 
@@ -1087,9 +1120,8 @@ contraindication to NSAIDs from this perspective."
     def indomethacin_info(cls):
         return cls.nsaid_info()
 
-    @cached_property
-    def indomethacin_info_dict(self) -> str:
-        return self.nsaids_info_dict
+    def indomethacin_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def is_patient(self) -> bool:
@@ -1128,9 +1160,8 @@ these medications."
     def meloxicam_info(cls):
         return cls.nsaid_info()
 
-    @cached_property
-    def meloxicam_info_dict(self) -> str:
-        return self.nsaids_info_dict
+    def meloxicam_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def menopause(self) -> Union["MedHistory", bool]:
@@ -1160,9 +1191,8 @@ these medications."
         info_dict.update({"Availability": "Over the counter"})
         return info_dict
 
-    @cached_property
-    def naproxen_info_dict(self) -> str:
-        info_dict = self.nsaids_info_dict
+    def naproxen_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.nsaids_info_dict(samepage_links=samepage_links)
         info_dict.update({"Availability": "Over the counter"})
         return info_dict
 
@@ -1254,15 +1284,18 @@ these medications."
 rash, fluid retention, and decreased kidney function",
         }
 
-    @cached_property
-    def nsaids_info_dict(self) -> str:
+    def nsaids_info_dict(self, samepage_links: bool = True) -> str:
         info_dict = self.nsaid_info()
         if self.age > 65 and self.nsaids_recommended and not self.nsaids_contraindicated:
             info_dict.update(
                 {
                     "Warning-Age": mark_safe(
-                        "NSAIDs have a higher risk of side effects and adverse events in individuals \
-<a class='samepage-link' href='#age'>over age 65</a>."
+                        format_lazy(
+                            """NSAIDs have a higher risk of side effects and adverse events in individuals {}.""",
+                            "<a class='samepage-link' href='#age'>over age 65</a>"
+                            if samepage_links
+                            else "over age 65",
+                        )
                     )
                 }
             )
@@ -1406,8 +1439,7 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         else:
             raise ValueError("probenecid_ckd_contra_interp should not be called if probenecid_ckd_contra is False.")
 
-    @property
-    def probenecid_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+    def probenecid_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of probenecid contraindications."""
         contra_dict = {}
         if self.probenecid_allergy:
@@ -1430,8 +1462,7 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
             "Warning-Urate Kidney Stones": "Increases risk of uric acid kidney stones.",
         }
 
-    @cached_property
-    def probenecid_info_dict(self) -> str:
+    def probenecid_info_dict(self, samepage_links: bool = True) -> str:
         info_dict = self.probenecid_info()
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
@@ -1610,18 +1641,18 @@ monitor {gender_pos} blood sugars closely and seek medical advice if they are pe
 
     @property
     def tophi_detail(self) -> str:
-        return html_attr_detail(self, "tophi")
+        return add_indicator_badge_and_samepage_link(self, "tophi")
 
-    @cached_property
-    def tophi_interp(self) -> str:
+    def tophi_interp(self, samepage_links: bool = True) -> str:
         """Method that interprets the tophi attribute and returns a str explanation."""
         Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
 
         main_str = format_lazy(
-            """Like <a class='samepage-link' href='#erosions'>erosions</a>, tophi are a sign of advanced \
+            """Like {}, tophi are a sign of advanced \
 gout and are associated with more severe disease. Tophi are actually little clumps of \
 <a target='_blank' href={}>uric acid</a> in and around joints. They require more aggressive \
 treatment with ULT in order to eliminate them. If left untreated, they can cause permanent joint damage.""",
+            f"{wrap_in_samepage_links_anchor('erosions', 'erosions')}",
             reverse("labs:about-urate"),
         )
         if self.tophi:
@@ -1712,7 +1743,7 @@ aggressively with ULT."
 
     @property
     def uratestones_detail(self) -> str:
-        return html_attr_detail(self, "uratestones", "Uric acid kidney stones")
+        return add_indicator_badge_and_samepage_link(self, "uratestones", "Uric acid kidney stones")
 
     @property
     def uratestones_interp(self) -> str:
@@ -1798,11 +1829,11 @@ See a rheumatologist for further evaluation."
     def treatment_dose_adjustment(self, trt: Treatments) -> "Decimal":
         return self.options[trt]["dose_adj"]
 
-    def treatment_dosing_dict(self, trt: Treatments, samepage_link: bool = False) -> dict[str, str]:
+    def treatment_dosing_dict(self, trt: Treatments, samepage_links: bool = False) -> dict[str, str]:
         """Returns a dictionary of the dosing for a given treatment."""
         dosing_dict = {}
         dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
-        info_dict = getattr(self, f"{trt.lower()}_info_dict")
+        info_dict = getattr(self, f"{trt.lower()}_info_dict")(samepage_links=samepage_links)
         for key, val in info_dict.items():
             dosing_dict.update({key: val})
         return dosing_dict
@@ -1814,9 +1845,9 @@ See a rheumatologist for further evaluation."
         except KeyError as exc:
             raise KeyError(f"{trt} not in {self} options.") from exc
 
-    def treatment_not_an_option_dict(self, trt: Treatments) -> tuple[str, dict]:
+    def treatment_not_an_option_dict(self, trt: Treatments, samepage_links: bool = True) -> tuple[str, dict]:
         """Returns a dictionary of the contraindications for a given treatment."""
-        return getattr(self, f"{trt.lower()}_contra_dict")
+        return getattr(self, f"{trt.lower()}_contra_dict")(samepage_links=samepage_links)
 
 
 class FlarePpxMixin(GoutHelperBaseModel):

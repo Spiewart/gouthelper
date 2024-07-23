@@ -447,6 +447,16 @@ class HyperuricemiaForm(MedHistoryForm):
             self.value
         ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have an elevated serum uric acid \
 (greater than 9.0 mg/dL)?"
+        if self.patient and hasattr(self.patient, "hyperuricemia_urates") and self.patient.hyperuricemia_urates:
+            list_of_urate_strs = [
+                mark_safe(f"{urate.value} {urate.get_units_display()} on {urate.date.strftime('%-m/%d/%y')}")
+                for urate in self.patient.hyperuricemia_urates
+            ]
+            self.fields[self.value].help_text += mark_safe(
+                f"<br />{self.str_attrs['subject_the_pos']} serum uric acid has been at or higher than \
+this level {'in more than one instance' if len(list_of_urate_strs) > 1 else 'previously'}: \
+{(', ').join(map(str, list_of_urate_strs))}."
+            )
 
 
 class IbdForm(MHCheckForm):

@@ -18,7 +18,11 @@ from ..medhistorys.helpers import medhistory_attr, medhistorys_get_ckd_3_or_high
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
-from ..utils.helpers import html_attr_detail, link_to_2020_ACR_guidelines
+from ..utils.helpers import (
+    add_indicator_badge_and_samepage_link,
+    link_to_2020_ACR_guidelines,
+    wrap_in_samepage_links_anchor,
+)
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import FlareFreqs, FlareNums, Indications
 from .managers import UltManager
@@ -180,7 +184,9 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
 
     @property
     def ckd3_detail(self) -> str:
-        return html_attr_detail(self, "ckd3", self.ckddetail.explanation if self.ckddetail else "CKD")
+        return add_indicator_badge_and_samepage_link(
+            self, "ckd3", self.ckddetail.explanation if self.ckddetail else "CKD"
+        )
 
     @cached_property
     def conditional_indication(self) -> bool:
@@ -204,23 +210,25 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
     def conditional_indications_str_dict(samepage_links: bool = True) -> dict:
         return {
             "ckd3": (
-                "<a class='samepage-link' href='#ckd'>CKD</a> stage III or higher"
+                wrap_in_samepage_links_anchor(
+                    "ckd",
+                    "CKD",
+                )
+                + " stage III or higher"
                 if samepage_links
                 else "CKD stage III or higher"
             ),
             "hyperuricemia": (
-                "<a class='samepage-link' href='#hyperuricemia'>hyperuricemia</a>"
-                if samepage_links
-                else "hyperuricemia"
+                wrap_in_samepage_links_anchor("hyperuricemia", "hyperuricemia") if samepage_links else "hyperuricemia"
             ),
             "uratestones": (
-                "<a class='samepage-link' href='#uratestones'>uric acid kidney stones</a>"
+                wrap_in_samepage_links_anchor("uratestones", "uric acid kidney stones")
                 if samepage_links
                 else "uric acid kidney stones"
             ),
             "multipleflares": (
                 (
-                    "<a class='samepage-link' href='#multipleflares'>multiple flares</a>"
+                    wrap_in_samepage_links_anchor("multipleflares", "multiple flares")
                     if samepage_links
                     else "multiple flares"
                 ),
@@ -268,7 +276,7 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
                 """{} plus {}""",
                 self.indications_get_strs_with_links(conditional_indication_display_strs),
                 (
-                    "<a class='samepage-link' href='#firstflare'>first gout flare</a>"
+                    wrap_in_samepage_links_anchor("firstflare", "first gout flare")
                     if samepage_links
                     else "first gout flare"
                 ),
@@ -348,18 +356,18 @@ for it.{_get_contraindicated_interp_str()}"
 
     @property
     def erosions_detail(self) -> str:
-        return html_attr_detail(self, "erosions", "Erosions")
+        return add_indicator_badge_and_samepage_link(self, "erosions", "Erosions")
 
     @property
     def erosions_interp(self) -> str:
-        subject_the, pos, gender_pos = self.get_str_attrs("subject_the", "pos", "gender_pos")
+        subject_the, pos, gender_ref = self.get_str_attrs("subject_the", "pos", "gender_ref")
         erosions_interp_str = super().erosions_interp
         erosions_interp_str += "<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, \
 erosions are a sign of advanced gout and more severe disease. While they don't influence choice of \
 ULT, they necessitate aggressive gout treatment and are a strong indication for ULT."
         if self.erosions:
             erosions_interp_str += f" <strong>Because {subject_the} {pos} gouty erosions, \
-ULT is strongly recommended for {gender_pos}.</strong>"
+ULT is strongly recommended for {gender_ref}.</strong>"
         return mark_safe(erosions_interp_str)
 
     @cached_property
@@ -387,7 +395,7 @@ ULT is strongly recommended for {gender_pos}.</strong>"
 
     @property
     def firstflare_detail(self) -> str:
-        return html_attr_detail(self, "firstflare", "First Flare")
+        return add_indicator_badge_and_samepage_link(self, "firstflare", "First Flare")
 
     def firstflare_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, gender_pos, gender_subject = self.get_str_attrs(
@@ -491,7 +499,7 @@ exceptions. <strong>{_get_firstflare_interp()}</strong> <br> <br> {explanation_s
 
     @property
     def frequentflares_detail(self) -> str:
-        return html_attr_detail(self, "frequentflares", "Frequent Gout Flares")
+        return add_indicator_badge_and_samepage_link(self, "frequentflares", "Frequent Gout Flares")
 
     @property
     def frequentflares_interp(self) -> str:
@@ -672,7 +680,7 @@ for ULT, hyperuricemia is a conditional indication for ULT with a very low certa
                 """{} has {} <a href={}>conditional indication{}</a> for ULT: {}.""",
                 Gender_subject,
                 "multiple" if self.has_multiple_conditional_indications_for_ult else "a",
-                reverse("ults:about") + "#indicated",
+                reverse("ults:about") + "#conditional",
                 "s" if self.has_multiple_conditional_indications_for_ult else "",
                 self.get_conditional_indications_str(samepage_links=samepage_links),
             )
@@ -684,7 +692,7 @@ for ULT, hyperuricemia is a conditional indication for ULT with a very low certa
 , which is a <a href={}>contraindication</a> for ULT.""",
                     gender_subject,
                     (
-                        "<a class='samepage-link' href='#noflares'>never had a gout flare</a>"
+                        wrap_in_samepage_links_anchor("noflares", "never had a gout flare")
                         if samepage_links
                         else "never had a gout flare"
                     ),
@@ -697,8 +705,7 @@ conditions that don't put {} at risk for future flares or other complications re
 to gout or elevated <a href={}>uric acid</a> levels.""",
                     gender_subject,
                     (
-                        "<a class='samepage-link' href='#firstflare'>one gout \
-flare</a>"
+                        wrap_in_samepage_links_anchor("firstflare", "one gout flare")
                         if samepage_links
                         else "one gout flare"
                     ),
@@ -712,7 +719,7 @@ flare</a>"
                 """{} has {} <a href={}>strong indication</a>{} for ULT: {}.""",
                 Gender_subject,
                 "multiple" if self.has_multiple_strong_indications_for_ult else "a",
-                reverse("ults:about") + "#indicated",
+                reverse("ults:about") + "#strong",
                 "s" if self.has_multiple_strong_indications_for_ult else "",
                 self.get_strong_indications_strs_with_links(samepage_links=samepage_links),
             )
@@ -757,7 +764,7 @@ flare</a>"
 
     @property
     def multipleflares_detail(self) -> str:
-        return html_attr_detail(self, "multipleflares", "Multiple flares")
+        return add_indicator_badge_and_samepage_link(self, "multipleflares", "Multiple flares")
 
     def multipleflares_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, gender_pos, gender_subject = self.get_str_attrs(
@@ -797,7 +804,7 @@ ULT recommendation"
 
     @property
     def noflares_detail(self) -> str:
-        return html_attr_detail(self, "noflares", "No flares")
+        return add_indicator_badge_and_samepage_link(self, "noflares", "No flares")
 
     @property
     def noflares_interp(self) -> str:
@@ -834,18 +841,18 @@ or tophi with no preceding flares, which is quite rare."
         return {
             "erosions": format_lazy(
                 """gouty {}""",
-                "<a class='samepage-link' href='#erosions'>erosions</a>" if samepage_links else "erosions",
+                wrap_in_samepage_links_anchor("erosions", "erosions") if samepage_links else "erosions",
             ),
             "frequentflares": format_lazy(
                 """{}""",
                 (
-                    "<a class='samepage-link' href='#frequentflares'>frequent flares</a>"
+                    wrap_in_samepage_links_anchor("frequentflares", "frequent flares")
                     if samepage_links
                     else "frequent flares"
                 ),
             ),
             "tophi": format_lazy(
-                """{}""", "<a class='samepage-link' href='#tophi'>tophi</a>" if samepage_links else "tophi"
+                """{}""", wrap_in_samepage_links_anchor("tophi", "tophi") if samepage_links else "tophi"
             ),
         }
 

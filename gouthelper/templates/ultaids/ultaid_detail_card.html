@@ -62,7 +62,12 @@
       <div class="row">
         <div class="col">
           <h4 class="card-title">
-            <a href="{% url 'ultaids:about' %}">UltAid</a>: none
+            <a href="{% url 'ultaids:about' %}">UltAid</a>:
+            {% if marketing %}
+              get custom ULT recommendations for {{ object }}
+            {% else %}
+              none
+            {% endif %}
           </h4>
         </div>
         <div class="col-auto">
