@@ -21,7 +21,7 @@ class CreatinineProcessor:
         self.creatinines = creatinines
         labs_check_chronological_order_by_date_drawn(self.creatinines)
         self.baselinecreatinine = baselinecreatinine
-        # self.labs_creatinines_add_baselinecreatinine_to_new_objects()
+        # self.labs_creatinines_update_baselinecreatinine()
         self.aki_errors = {}
         self.creatinines_errors = {}
         self.baselinecreatinine_errors = {}

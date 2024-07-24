@@ -99,13 +99,17 @@ def labs_creatinine_is_at_baseline_eGFR(
     return not creatinine_eGFR < baseline_eGFR * 0.75
 
 
-def labs_creatinines_add_baselinecreatinine_to_new_objects(
+def labs_creatinines_update_baselinecreatinine(
     creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
     baselinecreatinine: Union["BaselineCreatinine", None],
 ) -> None:
-    for creatinine in creatinines:
-        if creatinine._state.adding:
-            creatinine.baselinecreatinine = baselinecreatinine
+    """This is required because there may be instances where creatinines already exist
+    but CKD +/- BaselineCreatinine are being added, at which point they may not have a
+    user assigned to their CKD related MedHistory and the reverse lookup will fail."""
+    if baselinecreatinine:
+        for creatinine in creatinines:
+            if creatinine.baselinecreatinine != baselinecreatinine:
+                creatinine.baselinecreatinine = baselinecreatinine
 
 
 def labs_creatinines_add_stage_to_new_objects(

@@ -22,7 +22,7 @@ class AkiForm(ModelFormKwargMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fieldset_div_kwargs.update({"css_class": "sub-form"})
+        self.fieldset_div_kwargs.update({"css_class": "sub-form samepage-link"})
         self.fields.update(
             {
                 "value": forms.TypedChoiceField(

@@ -27,7 +27,7 @@ from ...genders.tests.factories import GenderFactory
 from ...labs.forms import UrateFlareForm
 from ...labs.models import Urate
 from ...labs.tests.factories import CreatinineFactory, UrateFactory
-from ...medhistorydetails.choices import Stages
+from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import AnginaForm, CadForm, ChfForm, CkdForm, GoutForm, HeartattackForm, PvdForm, StrokeForm
 from ...medhistorys.lists import FLARE_MEDHISTORYS
@@ -422,6 +422,30 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         self.assertIn(
             "The AKI is marked as ongoing, but the creatinines suggest it is improving.",
             response.context_data["creatinine_formset"].errors[0]["__all__"],
+        )
+
+    def test__post_aki_on_dialysis_raises_ValidationError(self) -> None:
+        flare_data = flare_data_factory(otos={"aki": True})
+        flare_data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": True,
+                "dialysis_type": DialysisChoices.HEMODIALYSIS,
+                "dialysis_duration": DialysisDurations.LESSTHANSIX,
+            }
+        )
+        response = self.client.post(reverse("flares:create"), flare_data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("value", response.context_data["aki_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["aki_form"].errors["value"][0],
+        )
+        self.assertIn("dialysis", response.context_data["ckddetail_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["ckddetail_form"].errors["dialysis"][0],
         )
 
 
@@ -1007,6 +1031,32 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         for creatinine in creatinines:
             self.assertEqual(creatinine.aki, new_flare.aki)
             self.assertEqual(creatinine.user, self.psp)
+
+    def test__post_aki_on_dialysis_raises_ValidationError(self) -> None:
+        flare_data = flare_data_factory(user=self.psp, otos={"aki": True})
+        flare_data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": True,
+                "dialysis_type": DialysisChoices.HEMODIALYSIS,
+                "dialysis_duration": DialysisDurations.LESSTHANSIX,
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("value", response.context_data["aki_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["aki_form"].errors["value"][0],
+        )
+        self.assertIn("dialysis", response.context_data["ckddetail_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["ckddetail_form"].errors["dialysis"][0],
+        )
 
 
 class TestFlarePseudopatientDelete(TestCase):
@@ -2300,6 +2350,33 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         response = self.client.get(anon_psp_url)
         assert response.status_code == 200
 
+    def test__post_aki_on_dialysis_raises_ValidationError(self) -> None:
+        flare = self.psp.flare_set.first()
+        flare_data = flare_data_factory(user=self.psp, otos={"aki": True})
+        flare_data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": True,
+                "dialysis_type": DialysisChoices.HEMODIALYSIS,
+                "dialysis_duration": DialysisDurations.LESSTHANSIX,
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), flare_data
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("value", response.context_data["aki_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["aki_form"].errors["value"][0],
+        )
+        self.assertIn("dialysis", response.context_data["ckddetail_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["ckddetail_form"].errors["dialysis"][0],
+        )
+
 
 class TestFlareUpdate(TestCase):
     def setUp(self):
@@ -2561,3 +2638,28 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         flare.refresh_from_db()
         self.assertTrue(flare.aki)
         self.assertFalse(flare.aki.creatinine_set.exists())
+
+    def test__post_aki_on_dialysis_raises_ValidationError(self) -> None:
+        flare = create_flare()
+        flare_data = flare_data_factory(otos={"aki": True})
+        flare_data.update(
+            {
+                f"{MedHistoryTypes.CKD}-value": True,
+                "dialysis": True,
+                "dialysis_type": DialysisChoices.HEMODIALYSIS,
+                "dialysis_duration": DialysisDurations.LESSTHANSIX,
+            }
+        )
+        response = self.client.post(reverse("flares:update", kwargs={"pk": flare.pk}), flare_data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("value", response.context_data["aki_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["aki_form"].errors["value"][0],
+        )
+        self.assertIn("dialysis", response.context_data["ckddetail_form"].errors)
+        self.assertIn(
+            "If the patient is on",
+            response.context_data["ckddetail_form"].errors["dialysis"][0],
+        )

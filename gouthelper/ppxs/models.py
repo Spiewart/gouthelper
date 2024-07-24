@@ -387,60 +387,6 @@ not {} is experiencing symptoms that could be due to gout and require ULT adjust
         return self.urates_at_goal_within_last_month
 
     @property
-    def no_recent_urate_recommendation(self) -> dict[str, str]:
-        subject_the, tobe, subject_the_pos, Subject_the_pos, gender_pos = self.get_str_attrs(
-            "subject_the",
-            "tobe",
-            "subject_the_pos",
-            "Subject_the",
-            "gender_pos",
-        )
-        if self.recent_urate:
-            raise ValueError("Calling no_recent_urate_recommendation on a Ppx that has a recent urate.")
-        return {
-            f"Check {subject_the_pos} Uric Acid": mark_safe(
-                f"{Subject_the_pos} has not had \
-{gender_pos} uric acid checked in the last 3 months. GoutHelper (and any clinician) requires uric acid \
-monitoring to determine whether or not {subject_the} {tobe} <a class='samepage-link' href='#hyperuricemic'>\
-hyperuricemic</a> and needs flare prophylaxis."
-            )
-        }
-
-    @property
-    def no_semi_recent_urate_recommendation(self) -> dict[str, str]:
-        subject_the, tobe, subject_the_pos, Subject_the_pos, gender_pos, gender_subject = self.get_str_attrs(
-            "subject_the", "tobe", "subject_the_pos", "Subject_the_pos", "gender_pos", "gender_subject"
-        )
-        if self.semi_recent_urate:
-            raise ValueError("Calling no_semi_recent_urate_recommendation on a Ppx that has a semi-recent urate.")
-        return {
-            f"Check {subject_the_pos} Uric Acid": mark_safe(
-                f"{Subject_the_pos} has not had {gender_pos} uric acid \
-checked in the last 6 months. GoutHelper recommends checking {subject_the_pos} serum uric acid, as whether or \
-not {subject_the} {tobe} <a class='samepage-link' href='#hyperuricemic'>hyperuricemic</a> is needed \
-to determine if {gender_subject} should be on flare prophylaxis."
-            )
-        }
-
-    @property
-    def not_at_goal_long_term_str(self) -> str:
-        pos, gender_subject = self.get_str_attrs("pos", "gender_subject")
-        return mark_safe(
-            format_lazy(
-                """Per {}, {} {} not been at goal uric acid ({}) for six months \
-            or longer. """,
-                (
-                    "<a class='samepage-link' href='#urates'>GoutHelper's records</a>"
-                    if self.has_urates
-                    else "GoutHelper's records"
-                ),
-                gender_subject,
-                pos,
-                self.goalurate_get_display,
-            )
-        )
-
-    @property
     def not_on_or_starting_ult(self) -> bool:
         return not self.on_ult and not self.starting_ult
 
@@ -481,16 +427,20 @@ of ULT but who need their ULT dose adjusted due to recurrent gout flares or hype
         Subject_the, tobe, tobe_neg, subject_the_pos = self.get_str_attrs(
             "Subject_the", "tobe", "tobe_neg", "subject_the_pos"
         )
-        on_ult_str = f"<strong>{Subject_the} {tobe if self.on_ult else tobe_neg} on urate-lowering \
-therapy</strong> "
+        ult_status_str = f"<strong>{Subject_the} {tobe if self.on_ult else tobe_neg} on urate-lowering \
+therapy</strong>"
         if self.starting_ult:
-            on_ult_str += f"and is still in the initial 'titration' phase where the dose is being adjusted to reach \
-{subject_the_pos} goal uric acid. This is the phase when ACR recommends flare prophylaxis and it lasts until the \
-patient has been at goal uric acid six months or longer."
+            ult_status_str += f" and is still in the initial 'titration' phase where the dose is being adjusted \
+to reach {subject_the_pos} goal uric acid. This is the phase when ACR recommends flare prophylaxis and it \
+lasts until the patient has been at goal uric acid six months or longer."
+        elif self.on_ult:
+            ult_status_str += " and has been on a stable long-term dose. The only potential indications \
+for prophylaxis during this stage of treatment are for individuals who are having gout flares or who have \
+again become hyperuricemic."
         else:
-            on_ult_str += "and has been on a stable long-term dose. The only potential indications for prophylaxis \
-during this stage of treatment are for individuals who are having gout flares or who have again become hyperuricemic."
-        return mark_safe(on_ult_str)
+            ult_status_str += ". Gout flare prophylaxis is not indicated for individuals who are not on or \
+starting ULT."
+        return mark_safe(ult_status_str)
 
     @cached_property
     def recent_urate(self) -> bool:
@@ -507,8 +457,7 @@ during this stage of treatment are for individuals who are having gout flares or
                 sorted_by_date=True,
             )
 
-    @property
-    def recommendations(self) -> None:
+    def recommendations(self, samepage_links: bool = True) -> None:
         """Method that interprets the Ppx's information and returns a dictionary of
         recommendations for display in templates."""
 

@@ -55,20 +55,26 @@
         <a class="btn btn-primary" href="{% url 'flares:about' %}">About</a>
       </div>
     {% else %}
-      <h4 class="card-title">
-        <a href="{% url 'flares:about' %}">Flares</a>: none
-      </h4>
-      {% if object|is_pseudopatient %}
-        <a type="button"
-           class="btn btn-primary"
-           href="{% url 'flares:pseudopatient-create' username=object.username %}?next={{ request.path }}"
-           role="button">Create</a>
-      {% else %}
-        <a type="button"
-           class="btn btn-primary"
-           href="{% url 'flares:create' %}?next={{ request.path }}"
-           role="button">Create</a>
-      {% endif %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'flares:about' %}">Flares</a>: none
+          </h4>
+        </div>
+        <div class="col-auto">
+          {% if object|is_pseudopatient %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flares:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flares:create' %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
+        </div>
+      </div>
     {% endif %}
   </div>
 </div>

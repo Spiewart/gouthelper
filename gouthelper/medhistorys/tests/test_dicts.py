@@ -1,126 +1,111 @@
 from django.test import TestCase  # type: ignore
 
-from ...flareaids.models import FlareAid
 from ...flares.models import Flare
 from ...flares.tests.factories import create_flare
-from ...medhistorys.lists import FLARE_MEDHISTORYS
-from ...ppxaids.models import PpxAid
+from ...medhistorys.lists import FLARE_MEDHISTORYS, PPX_MEDHISTORYS, ULTAID_MEDHISTORYS
 from ...ultaids.models import UltAid
-from ...ults.models import Ult
+from ...ultaids.tests.factories import create_ultaid
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
-from ..choices import MedHistoryTypes
-from ..dicts import ULTAID_MEDHISTORYS, MedHistoryTypesAids
+from ..dicts import MedHistoryTypesAids, get_dict_of_aid_tuple_of_model_and_medhistorytypes
 
 
 class TestGetMedHistorytypeAids(TestCase):
-    # Write tests for each MedHistoryType calling MedHistoryTypesAids and
-    # testing that it returns a dict with the MedHistoryType as the key and the
-    # aid types, per medhistorys/lists.py, as the value.
-    def test__get_medhistorytypes_aid_dict_angina(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.ANGINA).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.ANGINA, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.ANGINA)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(Flare, aid_list)
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertIn(UltAid, aid_list)
-        self.assertEqual(len(aid_list), 4)
+    def setUp(self):
+        self.patient = create_psp(plus=True)
+        self.patient_ultaid = create_ultaid(user=self.patient)
+        self.user_mhtype_aids = MedHistoryTypesAids(ULTAID_MEDHISTORYS, self.patient)
+        self.flare = create_flare()
+        self.flare_mhtype_aids = MedHistoryTypesAids(FLARE_MEDHISTORYS, self.flare)
 
-    def test__get_medhistorytypes_aid_dict_anticoagulation(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.ANTICOAGULATION).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.ANTICOAGULATION, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.ANTICOAGULATION)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertEqual(len(aid_list), 2)
+    def test__init__sets_mhtypes(self):
+        self.assertEqual(self.user_mhtype_aids.mhtypes, ULTAID_MEDHISTORYS)
+        self.assertEqual(self.flare_mhtype_aids.mhtypes, FLARE_MEDHISTORYS)
 
-    def test__get_medhistorytypes_aid_dict_bleed(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.BLEED).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.BLEED, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.BLEED)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertEqual(len(aid_list), 2)
+    def test__init__sets_related_object(self):
+        self.assertEqual(self.user_mhtype_aids.related_object, self.patient)
+        self.assertEqual(self.flare_mhtype_aids.related_object, self.flare)
 
-    def test__get_medhistorytypes_aid_dict_cad(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.CAD).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.CAD, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.CAD)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(Flare, aid_list)
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertIn(UltAid, aid_list)
-        self.assertEqual(len(aid_list), 4)
+    def test__init__sets_dict_of_aid_tuple_of_model_and_medhistorytypes(self):
+        self.assertEqual(
+            self.user_mhtype_aids.dict_of_aid_tuple_of_model_and_medhistorytypes,
+            get_dict_of_aid_tuple_of_model_and_medhistorytypes(),
+        )
+        self.assertEqual(
+            self.flare_mhtype_aids.dict_of_aid_tuple_of_model_and_medhistorytypes,
+            get_dict_of_aid_tuple_of_model_and_medhistorytypes(),
+        )
 
-    def test__get_medhistorytypes_aid_dict_chf(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.CHF).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.CHF, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.CHF)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(Flare, aid_list)
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertIn(UltAid, aid_list)
-        self.assertEqual(len(aid_list), 4)
+    def test__init_sets_aid_attr_and_aid_medhistorys(self):
+        self.assertEqual(self.user_mhtype_aids.UltAid, UltAid)
+        self.assertEqual(self.user_mhtype_aids.ULTAID_MEDHISTORYS, ULTAID_MEDHISTORYS)
+        self.assertEqual(self.flare_mhtype_aids.Flare, Flare)
+        self.assertEqual(self.flare_mhtype_aids.FLARE_MEDHISTORYS, FLARE_MEDHISTORYS)
 
-    def test__get_medhistorytypes_aid_dict_ckd(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.CKD).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.CKD, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.CKD)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(Flare, aid_list)
-        self.assertIn(FlareAid, aid_list)
-        self.assertIn(PpxAid, aid_list)
-        self.assertIn(UltAid, aid_list)
-        self.assertIn(Ult, aid_list)
-        self.assertEqual(len(aid_list), 5)
+    def test__mhtype_in_related_objects_medhistorys(self) -> None:
+        for mhtype in ULTAID_MEDHISTORYS:
+            self.assertTrue(self.user_mhtype_aids.mhtype_in_related_objects_medhistorys(mhtype, UltAid))
+        for mhtype in PPX_MEDHISTORYS:
+            if mhtype not in ULTAID_MEDHISTORYS:
+                self.assertFalse(self.user_mhtype_aids.mhtype_in_related_objects_medhistorys(mhtype, UltAid))
+        for mhtype in FLARE_MEDHISTORYS:
+            self.assertTrue(self.flare_mhtype_aids.mhtype_in_related_objects_medhistorys(mhtype, Flare))
+        for mhtype in ULTAID_MEDHISTORYS:
+            if mhtype not in FLARE_MEDHISTORYS:
+                self.assertFalse(self.flare_mhtype_aids.mhtype_in_related_objects_medhistorys(mhtype, Flare))
 
-    def test__get_medhistorytypes_aid_dict_hepatitis(self):
-        aid_dict = MedHistoryTypesAids(MedHistoryTypes.HEPATITIS).get_medhistorytypes_aid_dict()
-        self.assertTrue(isinstance(aid_dict, dict))
-        self.assertIn(MedHistoryTypes.HEPATITIS, aid_dict)
-        aid_list = aid_dict.get(MedHistoryTypes.HEPATITIS)
-        self.assertTrue(isinstance(aid_list, list))
-        self.assertIn(UltAid, aid_list)
-        self.assertEqual(len(aid_list), 1)
+    def test__related_object_is_or_has_aid_type(self) -> None:
+        self.assertTrue(self.user_mhtype_aids.related_object_is_or_has_aid_type("ultaid", UltAid))
+        self.assertFalse(self.user_mhtype_aids.related_object_is_or_has_aid_type("flare", Flare))
+        self.assertTrue(self.flare_mhtype_aids.related_object_is_or_has_aid_type("flare", Flare))
+        self.assertFalse(self.flare_mhtype_aids.related_object_is_or_has_aid_type("ultaid", UltAid))
+        user_ultaid_mhtype_aids = MedHistoryTypesAids(ULTAID_MEDHISTORYS, self.patient_ultaid)
+        with self.assertRaises(ValueError):
+            user_ultaid_mhtype_aids.related_object_is_or_has_aid_type("ultaid", UltAid)
+        no_related_object_mhtype_aids = MedHistoryTypesAids(ULTAID_MEDHISTORYS)
+        with self.assertRaises(ValueError):
+            no_related_object_mhtype_aids.related_object_is_or_has_aid_type("ultaid", UltAid)
 
-    def test__get_medhistorytypes_aid_dict_from_related_object_with_flare(self):
-        for _ in range(5):
-            flare = create_flare(user=create_psp())
-            aid_dict = MedHistoryTypesAids(
-                FLARE_MEDHISTORYS, related_object=flare
-            ).get_medhistorytypes_aid_dict_from_related_object()
-            for medhistorytype in FLARE_MEDHISTORYS:
-                self.assertIn(medhistorytype, aid_dict)
-                aid_list = aid_dict.get(medhistorytype)
-                self.assertIn(Flare, aid_list)
-            for medhistorytype in ULTAID_MEDHISTORYS:
-                if medhistorytype not in FLARE_MEDHISTORYS:
-                    self.assertNotIn(medhistorytype, aid_dict)
-                else:
-                    self.assertIn(medhistorytype, aid_dict)
-                    aid_list = aid_dict.get(medhistorytype)
-                    self.assertIn(Flare, aid_list)
+    def test__related_object_error_check(self) -> None:
+        self.assertIsNone(self.user_mhtype_aids.related_object_error_check())
+        self.assertIsNone(self.flare_mhtype_aids.related_object_error_check())
+        user_ultaid_mhtype_aids = MedHistoryTypesAids(ULTAID_MEDHISTORYS, self.patient_ultaid)
+        with self.assertRaises(ValueError):
+            user_ultaid_mhtype_aids.related_object_error_check()
+        no_related_object_mhtype_aids = MedHistoryTypesAids(ULTAID_MEDHISTORYS)
+        with self.assertRaises(ValueError):
+            no_related_object_mhtype_aids.related_object_error_check()
 
-    def test__get_medhistorytypes_aid_dict_from_related_object_with_patient(self):
-        for _ in range(5):
-            flare = create_flare(user=create_psp())
-            aid_dict = MedHistoryTypesAids(
-                FLARE_MEDHISTORYS, related_object=Pseudopatient.objects.flares_qs().filter(pk=flare.user.pk).get()
-            ).get_medhistorytypes_aid_dict_from_related_object()
-            for medhistorytype in FLARE_MEDHISTORYS:
-                self.assertIn(medhistorytype, aid_dict)
-                aid_list = aid_dict.get(medhistorytype)
-                self.assertTrue(isinstance(aid_list, list))
-                self.assertIn(Flare, aid_list)
+    def test__mhtype_in_aid_medhistorys(self) -> None:
+        for mhtype in ULTAID_MEDHISTORYS:
+            self.assertTrue(self.user_mhtype_aids.mhtype_in_aid_medhistorys(mhtype, "ultaid"))
+        for mhtype in PPX_MEDHISTORYS:
+            if mhtype not in ULTAID_MEDHISTORYS:
+                self.assertFalse(self.user_mhtype_aids.mhtype_in_aid_medhistorys(mhtype, "ultaid"))
+        for mhtype in FLARE_MEDHISTORYS:
+            self.assertTrue(self.flare_mhtype_aids.mhtype_in_aid_medhistorys(mhtype, "flare"))
+        for mhtype in ULTAID_MEDHISTORYS:
+            if mhtype not in FLARE_MEDHISTORYS:
+                self.assertFalse(self.flare_mhtype_aids.mhtype_in_aid_medhistorys(mhtype, "flare"))
+
+    def test__related_object_is_or_has_flare(self) -> None:
+        flare = create_flare()
+        flare_mhtype_aids = MedHistoryTypesAids(FLARE_MEDHISTORYS, flare)
+        self.assertTrue(flare_mhtype_aids.related_object_is_or_has_flare)
+        self.assertFalse(self.user_mhtype_aids.related_object_is_or_has_flare)
+        create_flare(user=self.patient)
+        user_with_flare_qs = Pseudopatient.objects.flares_qs().filter(pk=self.patient.pk).first()
+        user_with_flare_qs_mhtype_aids = MedHistoryTypesAids(FLARE_MEDHISTORYS, user_with_flare_qs)
+        self.assertTrue(user_with_flare_qs_mhtype_aids.related_object_is_or_has_flare)
+
+    def test__mhtype_in_related_object_aid(self) -> None:
+        for mhtype in ULTAID_MEDHISTORYS:
+            self.assertTrue(self.user_mhtype_aids.mhtype_in_related_object_aid(mhtype))
+        for mhtype in PPX_MEDHISTORYS:
+            if mhtype not in ULTAID_MEDHISTORYS:
+                self.assertFalse(self.user_mhtype_aids.mhtype_in_related_object_aid(mhtype))
+        for mhtype in FLARE_MEDHISTORYS:
+            self.assertTrue(self.flare_mhtype_aids.mhtype_in_related_object_aid(mhtype))
+        for mhtype in ULTAID_MEDHISTORYS:
+            if mhtype not in FLARE_MEDHISTORYS:
+                self.assertFalse(self.flare_mhtype_aids.mhtype_in_related_object_aid(mhtype))

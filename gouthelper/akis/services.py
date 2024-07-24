@@ -5,9 +5,9 @@ from django.utils.functional import cached_property
 
 from ..labs.helpers import (
     labs_check_chronological_order_by_date_drawn,
-    labs_creatinines_add_baselinecreatinine_to_new_objects,
     labs_creatinines_add_stage_to_new_objects,
     labs_creatinines_are_improving,
+    labs_creatinines_update_baselinecreatinine,
 )
 from .choices import Statuses
 from .helpers import akis_get_status_from_creatinines
@@ -33,7 +33,7 @@ class AkiProcessor:
         self.creatinines = creatinines
         labs_check_chronological_order_by_date_drawn(self.creatinines)
         self.baselinecreatinine = baselinecreatinine
-        labs_creatinines_add_baselinecreatinine_to_new_objects(self.creatinines, self.baselinecreatinine)
+        labs_creatinines_update_baselinecreatinine(self.creatinines, self.baselinecreatinine)
         self.stage = stage
         labs_creatinines_add_stage_to_new_objects(self.creatinines, self.stage)
         self.aki_errors = {}

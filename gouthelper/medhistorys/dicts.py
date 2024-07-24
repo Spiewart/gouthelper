@@ -121,12 +121,14 @@ def get_dict_of_aid_tuple_of_model_and_medhistorytypes() -> dict["AidTypes", lis
     }
 
 
-class MedHistoryTypeAidsBase:
+class MedHistoryTypesAids:
     def __init__(
         self,
+        mhtypes: list[MedHistoryTypes] | MedHistoryTypes,
         related_object: Any | None = None,
         dict_of_aid_tuple_of_model_and_medhistorytypes: dict["AidTypes", list[MedHistoryTypes]] | None = None,
     ):
+        self.mhtypes = mhtypes if isinstance(mhtypes, list) else [mhtypes]
         self.related_object = related_object
         self.dict_of_aid_tuple_of_model_and_medhistorytypes = (
             dict_of_aid_tuple_of_model_and_medhistorytypes or get_dict_of_aid_tuple_of_model_and_medhistorytypes()
@@ -136,27 +138,34 @@ class MedHistoryTypeAidsBase:
             setattr(self, f"{aid_attr.upper()}_MEDHISTORYS", model_medhistorytypes_tuple[1])
 
     def mhtype_in_related_objects_medhistorys(self, mhtype: MedHistoryTypes, aid_type: "AidTypes") -> bool:
-        if not self.related_object:
-            raise ValueError("related_object must be provided")
+        self.related_object_error_check()
         aid_name = aid_type.__name__.lower()
         if not hasattr(self, f"related_object_is_or_has_{aid_name}"):
             return self.related_object_is_or_has_aid_type(aid_name, aid_type) and self.mhtype_in_aid_medhistorys(
                 mhtype, aid_name
             )
         else:
-            return getattr(self, f"related_object_is_or_has_{aid_name}")(mhtype) and self.mhtype_in_aid_medhistorys(
+            return getattr(self, f"related_object_is_or_has_{aid_name}") and self.mhtype_in_aid_medhistorys(
                 mhtype, aid_name
             )
 
     def related_object_is_or_has_aid_type(self, aid_name: "AidNames", aid_type: "AidTypes") -> bool:
-        if not self.related_object:
-            raise ValueError("related_object must be provided")
+        self.related_object_error_check()
         return getattr(self.related_object, aid_name, None) or isinstance(self.related_object, aid_type)
+
+    def related_object_error_check(self) -> None:
+        if not self.related_object or (
+            getattr(self.related_object, "user", False) and self.related_object.user != self.related_object
+        ):
+            raise ValueError(
+                "Method must be called with a related object that either does not have a user or IS a user"
+            )
 
     def mhtype_in_aid_medhistorys(self, mhtype: MedHistoryTypes, aid_name: "AidNames") -> bool:
         return mhtype in getattr(self, f"{aid_name.upper()}_MEDHISTORYS")
 
-    def related_object_has_flare(self, mhtype: MedHistoryTypes) -> bool:
+    @property
+    def related_object_is_or_has_flare(self) -> bool:
         return (
             getattr(self.related_object, "flare", None)
             and self.related_object.flare
@@ -165,7 +174,7 @@ class MedHistoryTypeAidsBase:
             or getattr(self.related_object, "flares_qs", None)
             and self.related_object.flares_qs
             or isinstance(self.related_object, getattr(self, "Flare"))
-        ) and mhtype in FLARE_MEDHISTORYS
+        )
 
     def mhtype_in_related_object_aid(self, mhtype: MedHistoryTypes) -> bool:
         return next(
@@ -176,64 +185,3 @@ class MedHistoryTypeAidsBase:
             ),
             False,
         )
-
-    def get_list_of_aid_types_for_medhistorytype(
-        self,
-        mhtype: MedHistoryTypes,
-    ) -> list["AidTypes"]:
-        if not self.related_object:
-            raise ValueError("related_object must be provided")
-        aid_list = []
-        for aid_type, _ in self.dict_of_aid_tuple_of_model_and_medhistorytypes.values():
-            if self.mhtype_in_related_objects_medhistorys(mhtype, aid_type):
-                aid_list.append(aid_type)
-        return aid_list
-
-    def get_medhistorytype_aid_list(
-        self,
-        mhtype: MedHistoryTypes,
-    ) -> list["AidTypes",]:
-        aid_list = []
-        for model_medhistorytypes_tuple in self.dict_of_aid_tuple_of_model_and_medhistorytypes.values():
-            if mhtype in model_medhistorytypes_tuple[1]:
-                aid_list.append(model_medhistorytypes_tuple[0])
-        return aid_list
-
-
-class MedHistoryTypeAids(MedHistoryTypeAidsBase):
-    def __init__(
-        self,
-        mhtype: MedHistoryTypes,
-        related_object: Any | None = None,
-    ):
-        self.mhtype = mhtype
-        super().__init__(related_object=related_object)
-
-
-class MedHistoryTypesAids(MedHistoryTypeAidsBase):
-    def __init__(
-        self,
-        mhtypes: list[MedHistoryTypes] | MedHistoryTypes,
-        related_object: Any | None = None,
-    ):
-        self.mhtypes = mhtypes if isinstance(mhtypes, list) else [mhtypes]
-        super().__init__(related_object=related_object)
-
-    def get_medhistorytypes_aid_dict(
-        self,
-    ) -> dict[MedHistoryTypes, list["AidTypes"],]:
-        """Returns a dict of lists of all models that use the MedHistoryTypes model."""
-        aid_dict = {}
-        for mhtype in self.mhtypes:
-            aid_dict[mhtype] = self.get_medhistorytype_aid_list(mhtype)
-        return aid_dict
-
-    def get_medhistorytypes_aid_dict_from_related_object(
-        self,
-    ) -> dict[MedHistoryTypes, list["AidTypes"],]:
-        """Returns a dict of lists of all models that use the MedHistoryTypes model
-        that are or are related to the related_object."""
-        aid_dict = {}
-        for mhtype in self.mhtypes:
-            aid_dict[mhtype] = self.get_list_of_aid_types_for_medhistorytype(mhtype)
-        return aid_dict

@@ -1092,11 +1092,11 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 mh_obj = self.get_mh_obj(mhtype)
                 form_kwargs = {"patient": self.user, "request_user": self.request_user, "str_attrs": self.str_attrs}
                 if mhtype == MedHistoryTypes.CKD:
-                    form_kwargs.update({"ckddetail": self.ckddetail})
+                    form_kwargs.update({"ckddetail": self.ckddetail, "sub-form": True})
                     if self.ckddetail:
                         self.ckddetail_mh_post_pop(ckd=mh_obj)
                 elif mhtype == MedHistoryTypes.GOUT:
-                    form_kwargs.update({"goutdetail": self.goutdetail})
+                    form_kwargs.update({"goutdetail": self.goutdetail, "sub-form": True})
                     if self.goutdetail:
                         try:
                             self.goutdetail_mh_post_pop(gout=mh_obj)

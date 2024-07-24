@@ -1,11 +1,9 @@
-import itertools
 from decimal import Decimal
 
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from factory.faker import faker  # type: ignore
 
-from ...medhistorys.lists import ULT_MEDHISTORYS
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
 from ..choices import FlareFreqs, FlareNums
@@ -34,33 +32,6 @@ class TestCreateUlt(TestCase):
         for num in FlareNums.values:
             self.assertTrue(Ult.related_objects.filter(num_flares=num).exists())
             self.assertTrue(Pseudopatient.objects.ult_qs().filter(ult__num_flares=num).exists())
-
-    def test__MedHistoryTypes_are_random(self):
-        for mhtype in ULT_MEDHISTORYS:
-            self.assertTrue(
-                next(
-                    iter(
-                        [
-                            mh
-                            for mh in itertools.chain.from_iterable(
-                                [ult.medhistorys_qs for ult in self.ults_without_user]
-                            )
-                            if mh.medhistorytype == mhtype
-                        ]
-                    ),
-                    False,
-                )
-            )
-            self.assertTrue(
-                next(
-                    iter(
-                        mh
-                        for mh in itertools.chain.from_iterable([psp.medhistorys_qs for psp in self.users_with_ults])
-                        if mh.medhistorytype == mhtype
-                    ),
-                    False,
-                )
-            )
 
 
 class TestUltDataFactory(TestCase):

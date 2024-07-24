@@ -1,5 +1,5 @@
 from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
+from crispy_forms.layout import HTML, Div, Field, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 from django.urls import reverse_lazy  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
@@ -51,27 +51,30 @@ started dialysis?"
                     Div(
                         Div(
                             Div(
-                                "dialysis",
-                                css_class="col",
+                                Div(
+                                    Field("dialysis"),
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="dialysis",
                             ),
-                            css_class="row",
-                            css_id="dialysis",
-                        ),
-                        Div(
                             Div(
-                                "dialysis_type",
-                                css_class="col",
+                                Div(
+                                    "dialysis_type",
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="dialysis_type",
                             ),
-                            css_class="row",
-                            css_id="dialysis_type",
-                        ),
-                        Div(
                             Div(
-                                "dialysis_duration",
-                                css_class="col",
+                                Div(
+                                    "dialysis_duration",
+                                    css_class="col",
+                                ),
+                                css_class="row",
+                                css_id="dialysis_duration",
                             ),
-                            css_class="row",
-                            css_id="dialysis_duration",
+                            css_id="dialysis-subform",
                         ),
                         Div(
                             Div(

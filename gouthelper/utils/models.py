@@ -381,9 +381,8 @@ anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a 
         or self.medhistorys.all()."""
         return medhistory_attr(MedHistoryTypes.CAD, self)
 
-    @cached_property
-    def celecoxib_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def celecoxib_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def celecoxib_info(cls):
@@ -486,8 +485,7 @@ beyond the capabilities of this tool to manage safely."
             "Interactions": cls.colchicine_interactions().capitalize(),
         }
 
-    @cached_property
-    def colchicine_info_dict(self) -> str:
+    def colchicine_info_dict(self, samepage_links: bool = True) -> str:
         info_dict = self.colchicine_info()
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
@@ -499,8 +497,7 @@ beyond the capabilities of this tool to manage safely."
 macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibitors (cyclosporine, \
 verapamil, quinidine)"
 
-    @property
-    def colchicine_contra_dict(self) -> dict[str, Any | list[Any] | None]:
+    def colchicine_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
         """Method that returns a dict of colchicine contraindications."""
         contra_dict = {}
         if self.colchicine_allergy:
@@ -625,9 +622,8 @@ certainly possible to unmask or precipitate diabetes in non-diabetic individuals
 
         return mark_safe(main_str)
 
-    @cached_property
-    def diclofenac_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def diclofenac_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def diclofenac_info(cls):
@@ -993,12 +989,14 @@ allopurinol.</strong>"
 
     def get_hlab5801(self) -> Union["Hlab5801", None]:
         if hasattr(self, "user") and getattr(self, "user", False):
-            return self.user.hlab5801
+            return getattr(self.user, "hlab5801", None)
         else:
             return getattr(self, "hlab5801", None)
 
-    def get_hlab5801_value(self) -> bool | None:
-        return self.get_hlab5801().value if self.get_hlab5801() else None
+    @cached_property
+    def hlab5801_value(self) -> bool | None:
+        hlab5801 = self.get_hlab5801()
+        return hlab5801.value if hlab5801 else None
 
     @cached_property
     def hlab5801_interp(self) -> str:
@@ -1097,9 +1095,8 @@ NSAIDs are contraindicated for {gender_ref}."
 contraindication to NSAIDs from this perspective."
         return mark_safe(main_str)
 
-    @cached_property
-    def ibuprofen_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def ibuprofen_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def ibuprofen_info(cls):
@@ -1112,9 +1109,8 @@ contraindication to NSAIDs from this perspective."
         info_dict.update({"Availability": "Over the counter"})
         return info_dict
 
-    @cached_property
-    def indomethacin_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def indomethacin_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def indomethacin_info(cls):
@@ -1152,9 +1148,8 @@ these medications."
         else:
             main_str += f"<br> <br> {Subject_the} doesn't have any medication allergies."
 
-    @cached_property
-    def meloxicam_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def meloxicam_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def meloxicam_info(cls):
@@ -1170,20 +1165,18 @@ these medications."
         return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
 
     @cached_property
-    def methylprednisolone_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.steroids_contra_dict[1]
+    def methylprednisolone_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def methylprednisolone_info(cls) -> str:
         return cls.steroid_info()
 
-    @cached_property
-    def methylprednisolone_info_dict(self) -> str:
-        return self.steroid_info_dict
+    def methylprednisolone_info_dict(self, samepage_links: bool = True) -> str:
+        return self.steroid_info_dict(samepage_links=samepage_links)
 
-    @cached_property
-    def naproxen_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.nsaids_contra_dict[1]
+    def naproxen_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def naproxen_info(cls):
@@ -1239,8 +1232,7 @@ these medications."
             return True
         return False
 
-    @cached_property
-    def nsaids_contra_dict(self) -> dict[str, str, Any | list[Any] | None]:
+    def nsaids_contra_dict(self, samepage_links: bool = True) -> dict[str, str, Any | list[Any] | None]:
         """Method that returns a dict of NSAID contraindications.
 
         Returns:
@@ -1389,17 +1381,15 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         or self.medhistorys.all()."""
         return medhistory_attr(OTHER_NSAID_CONTRAS, self)
 
-    @cached_property
-    def prednisone_contra_dict(self) -> dict[str, Any | list[Any] | None]:
-        return self.steroids_contra_dict[1]
+    def prednisone_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1](samepage_links=samepage_links)
 
     @classmethod
     def prednisone_info(cls) -> str:
         return cls.steroid_info
 
-    @cached_property
-    def prednisone_info_dict(self) -> str:
-        return self.steroid_info_dict
+    def prednisone_info_dict(self, samepage_links: bool = True) -> str:
+        return self.steroid_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def probenecid_allergy(self) -> list["MedAllergy"] | None:
@@ -1576,8 +1566,7 @@ and as such shouldn't be prescribed probenecid."
             return ", ".join([str(allergy.treatment.lower()) for allergy in self.steroid_allergy])
         return None
 
-    @cached_property
-    def steroids_contra_dict(self) -> dict[str, str, Any | list[Any] | None]:
+    def steroids_contra_dict(self, samepage_links: bool = True) -> dict[str, str, Any | list[Any] | None]:
         """Method that returns a dict of corticosteroid contraindications.
 
         Returns:
@@ -1605,26 +1594,31 @@ and as such shouldn't be prescribed probenecid."
             "Side Effects": "Hyperglycemia, insomnia, mood swings, increased appetite",
         }
 
-    @cached_property
-    def steroid_info_dict(self):
+    def steroid_info_dict(self, samepage_links: bool = True):
         info_dict = self.steroid_info()
         if self.diabetes:
-            info_dict.update({"Warning-Diabetes": self.steroid_warning})
+            info_dict.update({"Warning-Diabetes": self.steroid_warning(samepage_links=samepage_links)})
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
         return info_dict
 
-    @cached_property
-    def steroid_warning(self) -> str | None:
+    def steroid_warning(self, samepage_links: bool = True) -> str | None:
         """Method that returns a warning str if the object has an associated
         Diabetes MedHistory object."""
         Subject_the, pos, Gender_subject, gender_pos = self.get_str_attrs(
             "Subject_the", "pos", "Gender_subject", "gender_pos"
         )
         return mark_safe(
-            f"{Subject_the} {pos} <a class='samepage-link' href='#diabetes'>diabetes</a> and could \
-can experience severe hyperglycemia (elevated blood sugar) when taking steroids. {Gender_subject} should \
-monitor {gender_pos} blood sugars closely and seek medical advice if they are persistently elevated."
+            format_lazy(
+                """{} {} {} and could can experience severe hyperglycemia (elevated blood sugar) \
+when taking steroids. {} should monitor {} blood sugars closely and seek medical advice if they \
+are persistently elevated.""",
+                Subject_the,
+                pos,
+                wrap_in_samepage_links_anchor("diabetes", "diabetes") if samepage_links else "diabetes",
+                Gender_subject,
+                gender_pos,
+            )
         )
 
     @cached_property

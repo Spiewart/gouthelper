@@ -9,6 +9,8 @@ from django.core.exceptions import ValidationError  # pylint: disable=e0401 # ty
 from django.http import Http404, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
+from django.utils.html import mark_safe  # pylint: disable=e0401 # type: ignore
+from django.utils.text import format_lazy  # pylint: disable=e0401 # type: ignore
 from django.views.generic import (  # pylint: disable=e0401 # type: ignore
     CreateView,
     DeleteView,
@@ -35,7 +37,7 @@ from ..labs.helpers import (
 from ..labs.models import Creatinine
 from ..medhistorys.choices import MedHistoryTypes
 from ..users.models import Pseudopatient
-from ..utils.helpers import get_str_attrs
+from ..utils.helpers import get_str_attrs, wrap_in_samepage_links_anchor
 from ..utils.views import LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin
 from .dicts import (
     LAB_FORMSETS,
@@ -101,7 +103,9 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
     def post_process_aki(self) -> None:
         creatinine_formsets = self.lab_formsets["creatinine"][0]
         aki_form, aki, status = self.get_aki_form_value_and_status()
-        if labs_formset_has_one_or_more_valid_labs(creatinine_formsets):
+        if self.aki_on_dialysis(aki=aki):
+            return
+        elif labs_formset_has_one_or_more_valid_labs(creatinine_formsets):
             ckd = self.get_ckd()
             baselinecreatinine = self.get_baselinecreatinine() if ckd else None
             stage = self.get_stage(ckd)
@@ -184,6 +188,36 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
         if out_of_bounds_error and not self.errors_bool:
             self.errors_bool = True
         return out_of_bounds_error
+
+    def aki_on_dialysis(self, aki: bool) -> None:
+        dialysis = self.medhistory_detail_forms["ckddetail"].cleaned_data.get("dialysis", None)
+        if aki and dialysis:
+            aki_error = ValidationError(
+                message=mark_safe(
+                    self.get_aki_dialysis_error_message(
+                        dialysis=wrap_in_samepage_links_anchor("dialysis-subform", "dialysis"), aki="AKI"
+                    ),
+                )
+            )
+            dialysis_error = ValidationError(
+                message=mark_safe(
+                    self.get_aki_dialysis_error_message(
+                        dialysis="dialysis",
+                        aki=wrap_in_samepage_links_anchor("aki-form", "AKI"),
+                    )
+                )
+            )
+            self.oto_forms["aki"].add_error("value", aki_error)
+            self.medhistory_detail_forms["ckddetail"].add_error("dialysis", dialysis_error)
+            self.set_errors_bool_True()
+
+    def get_aki_dialysis_error_message(self, dialysis: str, aki: str):
+        return format_lazy(
+            """If the patient is on {}, {} should not have an {}.""",
+            dialysis,
+            self.str_attrs.get("gender_subject"),
+            aki,
+        )
 
     def post_process_urate_check(self) -> None:
         urate_form, urate_val = self.get_urate_form_and_value()
