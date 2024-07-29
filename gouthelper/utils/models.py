@@ -1963,7 +1963,7 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
     @cached_property
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
-        return age_calc(date_of_birth=self.dateofbirth.value)
+        return age_calc(date_of_birth=self.dateofbirth.value) if hasattr(self, "dateofbirth") else None
 
     def get_dated_urates(self):
         return urates_dated_qs().filter(user=self)

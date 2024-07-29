@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     pseudopatient_create_view,
+    pseudopatient_delete_view,
     pseudopatient_detail_view,
     pseudopatient_flare_create_view,
     pseudopatient_list_view,
@@ -18,7 +19,7 @@ urlpatterns = [
     path(
         "pseudopatients/create/<uuid:flare>/", view=pseudopatient_flare_create_view, name="pseudopatient-flare-create"
     ),
-    path("pseudopatients/delete/<str:username>/", view=user_delete_view, name="pseudopatient-delete"),
+    path("pseudopatients/delete/<str:username>/", view=pseudopatient_delete_view, name="pseudopatient-delete"),
     path(
         "pseudopatients/provider-create/<str:username>/",
         view=pseudopatient_create_view,

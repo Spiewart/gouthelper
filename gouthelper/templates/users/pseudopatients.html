@@ -6,44 +6,58 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1>{{ view.kwargs|get_key:"username"|capfirst }}'s Pseudopatients</h1>
+      <h1>GoutPatients</h1>
     </div>
+    <div class="col-auto align-items-center d-flex justify-content-end">
+      {% if user == request.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'account_email' %}"
+           role="button">E-Mail</a>
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'users:delete' %}"
+           role="button">Delete Account</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
     <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
-         href=""
-         role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg"
          href="{% url 'users:provider-pseudopatient-create' request.user.username %}"
-         role="button">Create</a>
+         role="button">New GoutPatient</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      <h2>{{ user }}</h2>
     </div>
   </div>
 {% endblock heading %}
 {% block content %}
   <main role="main">
     <div class="container bodytainer">
-      {% for object in object_list %}
-        <div class="card spacious-cards">
-          <div class="card-header"></div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col">
-                <h3 class="card-title">
-                  <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ object }}</a>
-                </h3>
-              </div>
-              <div class="col-auto align-items-center d-flex justify-content-end">
-                <a type="button"
-                   class="btn btn-primary btn-lg"
-                   href="{% url 'users:pseudopatient-delete' object.username %}"
-                   role="button">Delete</a>
+      <hr size="3" color="dark" />
+      {% if object_list %}
+        {% for object in object_list %}
+          <div class="card spacious-cards">
+            <div class="card-header"></div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col">
+                  <h3 class="card-title">
+                    <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ object }}</a>
+                  </h3>
+                </div>
+                <div class="col-auto align-items-center d-flex justify-content-end">
+                  <a type="button"
+                     class="btn btn-primary btn-lg"
+                     href="{% url 'users:pseudopatient-delete' object.username %}"
+                     role="button">Delete</a>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      {% endfor %}
-      {% if object_list %}
+        {% endfor %}
         {% if page_obj %}
           <div class="pagination">
             <span class="step-links">
@@ -59,6 +73,8 @@
             </span>
           </div>
         {% endif %}
+      {% else %}
+        <p>No GoutPatients found.</p>
       {% endif %}
     </div>
   </main>

@@ -6,7 +6,11 @@ from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...users.models import Pseudopatient
-from ..selectors import pseudopatient_count_for_provider_with_todays_date_in_username, pseudopatient_qs
+from ..selectors import (
+    annotate_pseudopatient_queryset_with_age,
+    filter_pseudopatient_queryset_by_provider_and_date_username,
+    pseudopatient_qs,
+)
 from .factories import create_psp
 from .test_helpers import create_pseudopatient
 
@@ -54,7 +58,9 @@ class TestPseudopatientCountForProviderWithTodaysDateInUsername(TestCase):
     def test__returns_zero(self):
         """Test that the count is zero when no pseudopatients exist."""
         self.assertEqual(
-            pseudopatient_count_for_provider_with_todays_date_in_username(self.provider_username),
+            filter_pseudopatient_queryset_by_provider_and_date_username(
+                Pseudopatient.objects.all(), self.provider_username
+            ),
             0,
         )
 
@@ -63,6 +69,23 @@ class TestPseudopatientCountForProviderWithTodaysDateInUsername(TestCase):
         for i in range(1, 4):
             create_pseudopatient(self.provider_username, i)
             self.assertEqual(
-                pseudopatient_count_for_provider_with_todays_date_in_username(self.provider_username),
+                filter_pseudopatient_queryset_by_provider_and_date_username(
+                    Pseudopatient.objects.all(), self.provider_username
+                ),
                 i,
             )
+
+
+class TestAnnotatePseudopatientQuerySetWithAge(TestCase):
+    def setUp(self):
+        self.pseudopatient = create_psp()
+
+    def test__qs_returns_correctly(self):
+        """Test that the pseudopatient_qs returns the correct QuerySet."""
+        qs = Pseudopatient.objects.filter(username=self.pseudopatient.username).select_related("dateofbirth")
+        assert isinstance(qs, QuerySet)
+        with self.assertNumQueries(1):
+            qs = annotate_pseudopatient_queryset_with_age(qs)
+            qs = qs.get()
+            assert isinstance(qs, Pseudopatient)
+            assert qs.age == self.pseudopatient.age

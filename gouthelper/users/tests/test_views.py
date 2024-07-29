@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import unquote
 
 import pytest
 from django.conf import settings
@@ -31,12 +32,14 @@ from ...medhistorys.models import Menopause
 from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.models import PseudopatientProfile
 from ...treatments.choices import Treatments
+from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import Roles
 from ..forms import PseudopatientForm, UserAdminChangeForm
 from ..models import Pseudopatient, User
 from ..views import (
     PseudopatientCreateView,
+    PseudopatientDeleteView,
     PseudopatientFlareCreateView,
     PseudopatientListView,
     PseudopatientUpdateView,
@@ -154,6 +157,7 @@ class TestPseudopatientCreateView(TestCase):
         # Test that the view throws an error if a female between ages 40 and 60 doesn't have menopause data
         data.update({"gender-value": Genders.FEMALE})
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
+        forms_print_response_errors(response)
         assert response.status_code == 200
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"] == [
             _(
@@ -403,7 +407,6 @@ class TestPseudopatientFlareCreateView(TestCase):
         flare, response, _ = self.return_flare_response_user("GET")
         assert response.status_code == 200
         assert "age" in response.context
-        print(flare.dateofbirth)
         assert response.context["age"] == flare.age
         assert "dateofbirth_form" not in response.context
         assert "gender_form" not in response.context
@@ -506,12 +509,8 @@ class TestPseudopatientDetailView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
+        self.provider_pseudopatient = create_psp(provider=self.provider)
+        self.admin_pseudopatient = create_psp(provider=self.admin)
         self.anon_pseudopatient = create_psp()
 
     def test__rules_provider_can_see_own_pseudopatient(self):
@@ -558,7 +557,7 @@ class TestPseudopatientDetailView(TestCase):
         )
         assert response.status_code == 302
         url = reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
-        assert response.url == f"/accounts/login/?next={url}"
+        assert unquote(response.url) == f"/accounts/login/?next={url}"
 
     def test__rules_admin_can_see_anonymous_pseudopatient(self):
         """Test that an Admin can see an Anonymous Pseudopatient's detail."""
@@ -880,7 +879,7 @@ menopause status to evaluate their flare."
         assert not Menopause.objects.filter(user=psp).exists()
 
 
-class TestUserDeleteView(TestCase):
+class TestPseudopatientDeleteView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
@@ -891,32 +890,25 @@ class TestUserDeleteView(TestCase):
         self.anon_pseudopatient = create_psp()
 
     def test__get_success_message(self):
-        view = UserDeleteView()
-        view.object = self.provider
+        view = PseudopatientDeleteView()
         request = self.rf.get("/fake-url/")
         view.request = request
-        assert view.get_success_message(cleaned_data={}) == _("User successfully deleted")
         view.object = self.provider_pseudopatient
         assert view.get_success_message(cleaned_data={}) == _("Pseudopatient successfully deleted")
 
     def test__get_success_url(self):
-        view = UserDeleteView()
-        view.object = self.provider
+        view = PseudopatientDeleteView()
         request = self.rf.get("/fake-url/")
-        request.user = self.provider
         view.request = request
-        assert view.get_success_url() == reverse("contents:home")
         request.user = self.provider
         view.object = self.provider_pseudopatient
         assert view.get_success_url() == reverse("users:pseudopatients", kwargs={"username": self.provider.username})
 
     def test__get_object(self):
-        view = UserDeleteView()
+        view = PseudopatientDeleteView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {}
-        assert view.get_object() == self.provider
         view.kwargs = {"username": self.provider_pseudopatient.username}
         assert view.get_object() == self.provider_pseudopatient
 
@@ -941,7 +933,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_provider_cannot_delete_admins_pseudopatient(self):
         """Test that a Provider cannot delete an Admin's Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
@@ -965,7 +957,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_provider_cannot_delete_anonymous_pseudopatient(self):
         """Test that a Provider cannot delete an Anonymous Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.anon_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
@@ -989,7 +981,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_admin_can_delete_own_pseudopatient(self):
         """Test that an Admin can delete his or her own Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
@@ -1011,7 +1003,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_admin_cannot_delete_providers_pseudopatient(self):
         """Test that an Admin cannot delete a Provider's Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.provider_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
@@ -1035,7 +1027,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_admin_cannot_delete_anonymous_pseudopatient(self):
         """Test that an Admin cannot delete an Anonymous Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.anon_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
@@ -1059,7 +1051,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_patient_cannot_delete_provider_pseudopatient(self):
         """Test that a Patient cannot delete a Provider's Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.provider_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
@@ -1073,7 +1065,7 @@ class TestUserDeleteView(TestCase):
 
     def test__rules_patient_cannot_delete_admin_pseudopatient(self):
         """Test that a Patient cannot delete an Admin's Pseudopatient."""
-        view = UserDeleteView
+        view = PseudopatientDeleteView
         kwargs = {"username": self.admin_pseudopatient.username}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
@@ -1084,6 +1076,57 @@ class TestUserDeleteView(TestCase):
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
+
+    def test__rules_patient_can_delete_self(self):
+        """Test that a Patient can delete his or her own User."""
+        view = UserDeleteView
+
+        request = self.rf.get(f"users/{self.patient.username}/")
+
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
+
+        request.user = self.patient
+        assert view.as_view()(request)
+
+        request = self.rf.post(f"users/{self.patient.username}/")
+
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
+
+        request.user = self.patient
+        assert view.as_view()(request)
+
+
+class TestUserDeleteView(TestCase):
+    def setUp(self):
+        self.rf = RequestFactory()
+        self.provider = UserFactory()
+        self.patient = UserFactory(role=Roles.PATIENT)
+        self.admin = UserFactory(role=Roles.ADMIN)
+
+    def test__get_success_message(self):
+        view = UserDeleteView()
+        view.object = self.provider
+        request = self.rf.get("/fake-url/")
+        view.request = request
+        assert view.get_success_message(cleaned_data={}) == _("User successfully deleted")
+
+    def test__get_success_url(self):
+        view = UserDeleteView()
+        view.object = self.provider
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        assert view.get_success_url() == reverse("contents:home")
+
+    def test__get_object(self):
+        view = UserDeleteView()
+        request = self.rf.get("/fake-url/")
+        request.user = self.provider
+        view.request = request
+        view.kwargs = {}
+        assert view.get_object() == self.provider
 
     def test__rules_provider_can_delete_self(self):
         """Test that a Provider can delete his or her own User."""

@@ -278,6 +278,11 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHel
     paginate_by = 5
     permission_required = "users.can_view_provider_list"
 
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["user"] = self.request.user
+        return context
+
     def get_permission_object(self):
         """Returns the object the permission is being checked against. For this view,
         that is the username kwarg indicating which Provider the view is trying to create
@@ -287,7 +292,11 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHel
     # Overwrite get_queryset() to return Patient objects filtered by their PseudopatientProfile provider field
     # Fetch only Pseudopatients where the provider is equal to the requesting User (Provider)
     def get_queryset(self):
-        return Pseudopatient.objects.filter(pseudopatientprofile__provider=self.request.user).order_by("modified")
+        return (
+            Pseudopatient.objects.select_related("pseudopatientprofile__provider")
+            .filter(pseudopatientprofile__provider=self.request.user)
+            .order_by("modified")
+        )
 
 
 pseudopatient_list_view = PseudopatientListView.as_view()
@@ -297,33 +306,38 @@ class UserDeleteView(
     LoginRequiredMixin, AutoPermissionRequiredMixin, GoutHelperUserDetailMixin, SuccessMessageMixin, DeleteView
 ):
     model = User
-    success_message = _("User successfully deleted")
+
+    def get_success_message(self, cleaned_data):
+        return _("User successfully deleted")
+
+    def get_success_url(self):
+        return reverse("contents:home")
+
+    def get_object(self):
+        return self.request.user
+
+
+user_delete_view = UserDeleteView.as_view()
+
+
+class PseudopatientDeleteView(UserDeleteView):
+    model = Pseudopatient
 
     def form_valid(self, form):
         self.remove_patient_from_session(self.object, delete=True)
         return super().form_valid(form)
 
+    def get_object(self):
+        return Pseudopatient.objects.get(username=self.kwargs.get("username", None))
+
     def get_success_message(self, cleaned_data):
-        if self.object.role == Roles.PSEUDOPATIENT:
-            return _("Pseudopatient successfully deleted")
-        else:
-            return _("User successfully deleted")
+        return _("Pseudopatient successfully deleted")
 
     def get_success_url(self):
-        if self.object != self.request.user:
-            return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})
-        else:
-            return reverse("contents:home")
-
-    def get_object(self):
-        username = self.kwargs.get("username", None)
-        if username:
-            return User.objects.filter(role=Roles.PSEUDOPATIENT).get(username=username)
-        else:
-            return self.request.user
+        return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})
 
 
-user_delete_view = UserDeleteView.as_view()
+pseudopatient_delete_view = PseudopatientDeleteView.as_view()
 
 
 class UserDetailView(LoginRequiredMixin, AutoPermissionRequiredMixin, DetailView):

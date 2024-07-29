@@ -17,8 +17,25 @@ def age_calc(date_of_birth: "date") -> int:
     Returns:
         age or None: age integer object or None
     """
-    age = datetime.today().year - date_of_birth.year
-    return age
+    return num_years(check_for_datetime_and_convert_to_date(date_of_birth))
+
+
+def check_for_datetime_and_convert_to_date(date_or_datetime: Union["date", datetime]) -> "date":
+    if isinstance(date_or_datetime, datetime):
+        return date_or_datetime.date()
+    return date_or_datetime
+
+
+def num_years(begin: "date", end: "date" = None):
+    # https://stackoverflow.com/questions/765797/convert-timedelta-to-years
+
+    if end is None:
+        end = datetime.now().date()
+    number_of_years = int((end - begin).days / 365.2425)
+    if begin > yearsago(number_of_years, end):
+        return number_of_years - 1
+    else:
+        return number_of_years
 
 
 def dateofbirths_get_nsaid_contra(
@@ -43,13 +60,15 @@ def dateofbirths_get_nsaid_contra(
         return None
 
 
-def yearsago(years, from_date=None):
+def yearsago(years, from_date=None, use_datetime: bool = True):
     """Method that takes an age, or number of years, and
     returns a date of birth string. If no from_date is provided,
     the current date is used. Adjusts for leap years."""
     # https://stackoverflow.com/questions/765797/convert-timedelta-to-years
     if from_date is None:
         from_date = datetime.now()
+    if not use_datetime:
+        from_date = from_date.date()
     try:
         return from_date.replace(year=from_date.year - years)
     except ValueError:

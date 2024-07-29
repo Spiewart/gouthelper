@@ -57,7 +57,7 @@ class DateOfBirthForm(ModelFormKwargMixin, OneToOneForm):
             except ValueError:
                 pass
             else:
-                return yearsago(value)
+                return yearsago(value, use_datetime=False)
 
 
 class DateOfBirthFormOptional(DateOfBirthForm):

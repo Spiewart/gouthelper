@@ -25,6 +25,7 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
+from ...profiles.helpers import get_provider_alias
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
@@ -134,6 +135,9 @@ def create_and_set_pseudopatientprofile(
                 provider=provider
                 if isinstance(provider, User)
                 else UserFactory(role=Roles.PROVIDER)
+                if provider
+                else None,
+                provider_alias=get_provider_alias(provider, age=psp.age, gender=psp.gender.value)
                 if provider
                 else None,
             )
@@ -253,10 +257,11 @@ def set_psp_gender_attr(
     if gender is not None and gender is False:
         psp.gender = None
     else:
-        if menopause:
-            gender = Genders.FEMALE
-        elif gender is None:
-            gender = Genders(GenderFactory.stub().value)
+        if gender is None:
+            if menopause:
+                gender = Genders.FEMALE
+            else:
+                gender = Genders(GenderFactory.stub().value)
         psp.gender = create_psp_gender(gender, psp)
 
 
@@ -279,6 +284,13 @@ def create_psp(
         dateofbirth=dateofbirth,
         menopause=menopause,
     )
+    if dateofbirth is None:
+        dateofbirth = DateOfBirthFactory.build()
+    if gender is None:
+        gender_kwargs = {}
+        if menopause:
+            gender_kwargs["value"] = Genders.FEMALE
+        gender = GenderFactory.build(**gender_kwargs)
     psp = PseudopatientFactory()
     set_psp_dateofbirth_attr(dateofbirth, psp)
     set_psp_ethnicity_attr(ethnicity, psp)

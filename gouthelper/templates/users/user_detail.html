@@ -9,27 +9,20 @@
 {% block content %}
   <div class="container">
     <div class="row">
-      <div class="col-sm-12">
-        <h2>{{ object.username }}</h2>
+      <div class="col">
+        <h1>{{ object.username }}</h1>
         {% if object.name %}<p>{{ object.name }}</p>{% endif %}
       </div>
-    </div>
-    {% if object == request.user %}
-      <!-- Action buttons -->
-      <div class="row">
-        <div class="col-sm-12">
-          <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
-          <a class="btn btn-primary"
+      {% if object == request.user %}
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <a class="btn btn-primary btn-lg spacious-buttons"
              href="{% url 'account_email' %}"
              role="button">E-Mail</a>
-          <a class="btn btn-primary"
-             href="{% url 'users:pseudopatients' object.username %}"
-             role="button">Pseudo-Patients</a>
-          <a class="btn btn-primary" href="{% url 'users:delete' %}" role="button">Delete Account</a>
-          <!-- Your Stuff: Custom user template urls -->
+          <a class="btn btn-primary btn-lg spacious-buttons"
+             href="{% url 'users:delete' %}"
+             role="button">Delete Account</a>
         </div>
-      </div>
-      <!-- End Action buttons -->
-    {% endif %}
+      {% endif %}
+    </div>
   </div>
 {% endblock content %}

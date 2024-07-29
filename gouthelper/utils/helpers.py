@@ -301,25 +301,39 @@ def get_str_attrs(
     return str_attrs
 
 
-def shorten_date_for_str(date: datetime, abbrev_last_week: bool = False, show_time: bool = False) -> str:
+def shorten_date_for_str(
+    date: "date", abbrev_last_week: bool = False, show_time: bool = False, month_abbrev: bool = False
+) -> str:
     """Method that takes a datetime object and returns a shortened str that is more amenable to presentation in
     length-limited HTML snippets."""
     # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
-    if abbrev_last_week and date >= timezone.now() - timedelta(days=7):
+    if abbrev_last_week and date >= (timezone.now() - timedelta(days=7)).date():
         if show_time:
             return f"{date.strftime('%a-%-I:%M%p')}"
         else:
             return f"{date.strftime('%a')}"
     elif date.year == timezone.now().year:
         if show_time:
-            return f"{date.strftime('%-m/%d-%-I:%M%p')}"
+            if month_abbrev:
+                return f"{date.strftime('%b %-d-%-I:%M%p')}"
+            else:
+                return f"{date.strftime('%-m/%d-%-I:%M%p')}"
         else:
-            return f"{date.strftime('%-m/%d')}"
+            if month_abbrev:
+                return f"{date.strftime('%b %-d')}"
+            else:
+                return f"{date.strftime('%-m/%d')}"
     else:
         if show_time:
-            return f"{date.strftime('%-m/%d/%y-%-I:%M%p')}"
+            if month_abbrev:
+                return f"{date.strftime('%b %-d, %Y-%-I:%M%p')}"
+            else:
+                return f"{date.strftime('%-m/%d/%y-%-I:%M%p')}"
         else:
-            return f"{date.strftime('%-m/%d/%y')}"
+            if month_abbrev:
+                return f"{date.strftime('%b %-d, %Y')}"
+            else:
+                return f"{date.strftime('%-m/%d/%y')}"
 
 
 def wrap_with_html_badge(text: str, badge_type: str) -> str:

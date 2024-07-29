@@ -6,6 +6,7 @@ from django import forms  # type: ignore
 from django.contrib.auth import forms as admin_forms
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from django_recaptcha.fields import ReCaptchaField
 
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import (
@@ -81,6 +82,10 @@ class UserSignupForm(SignupForm):
     Default fields will be added automatically.
     Check UserSocialSignupForm for accounts created from social.
     """
+
+    captcha = ReCaptchaField()
+
+    field_order = ["email", "username", "password1", "password2", "captcha"]
 
 
 class UserSocialSignupForm(SocialSignupForm):

@@ -1,8 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
-from django.utils import timezone  # type: ignore
+from django.db.models import Prefetch, Q  # pylint:disable=E0401  # type: ignore
 
 from ..flares.selectors import flares_prefetch, most_recent_flare_prefetch
 from ..labs.selectors import urates_prefetch
@@ -144,16 +143,4 @@ def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
         medhistorys_prefetch(),
         medallergys_prefetch(),
         urates_prefetch(),
-    )
-
-
-def pseudopatient_count_for_provider_with_todays_date_in_username(provider_username: str) -> "QuerySet":
-    return (
-        apps.get_model("users.Pseudopatient")
-        .objects.select_related("pseudopatientprofile__provider")
-        .filter(
-            pseudopatientprofile__provider__username=provider_username,
-            username__startswith=f"{provider_username} [{timezone.now().date().strftime('%-m-%-d-%y')}:",
-        )
-        .count()
     )

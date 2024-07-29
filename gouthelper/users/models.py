@@ -8,6 +8,7 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from ..genders.helpers import get_gender_abbreviation
 from ..utils.helpers import shorten_date_for_str
 from ..utils.models import GoutHelperPatientModel
 from .choices import Roles
@@ -48,25 +49,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
     )
 
     def get_absolute_url(self) -> str:
-        """Get URL for user's detail view.
-
-        Returns:
-            str: URL for user detail."""
-        if self.role == Roles.PSEUDOPATIENT:
-            return reverse("users:pseudopatient-detail", kwargs={"username": self.username})
-        else:
-            return reverse("users:detail", kwargs={"username": self.username})
-
-    def __str__(self) -> str:
-        """Unicode representation of User."""
-        if self.role == Roles.PSEUDOPATIENT:
-            if self.profile and self.profile.provider:
-                return f"GoutPatient {self.username[len(self.profile.provider.username):]}"
-            else:
-                return (
-                    f"GoutPatient [{shorten_date_for_str(date=self.created, abbrev_last_week=True, show_time=True)}]"
-                )
-        return super().__str__()
+        return reverse("users:detail", kwargs={"username": self.username})
 
     @cached_property
     def profile(self):
@@ -157,9 +140,24 @@ class Pseudopatient(GoutHelperPatientModel, User):
             "view": view_user,
         }
 
+    def get_absolute_url(self) -> str:
+        """Get URL for user's detail view.
+
+        Returns:
+            str: URL for user detail."""
+        return reverse("users:pseudopatient-detail", kwargs={"username": self.username})
+
     @cached_property
     def profile(self):
         return getattr(self, "pseudopatientprofile", None)
+
+    @cached_property
+    def provider(self) -> User | None:
+        return self.profile.provider if self.profile else None
+
+    @cached_property
+    def provider_alias(self) -> str | None:
+        return self.pseudopatientprofile.provider_alias
 
     @classmethod
     def list_of_related_aid_models(cls):
@@ -171,3 +169,11 @@ class Pseudopatient(GoutHelperPatientModel, User):
         if not self.pk and hasattr(self, "base_role"):
             self.role = self.base_role
         return super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        post_fix = f" #{self.provider_alias}" if self.provider_alias else ""
+        return (
+            f"{self.age}{get_gender_abbreviation(self.gender.value)} "
+            f"[{shorten_date_for_str(date=self.created.date(), month_abbrev=True)}]"
+            f"{post_fix}"
+        )

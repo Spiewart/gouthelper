@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Union
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.core.exceptions import ValidationError  # type: ignore
+from django.db import transaction  # type: ignore
 from django.db.models import Model  # type: ignore
 from django.forms import ModelForm  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
@@ -21,8 +22,8 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.dicts import MedHistoryTypesAids
 from ..medhistorys.helpers import medhistorys_get, medhistorys_get_default_medhistorytype
 from ..medhistorys.models import Gout
+from ..profiles.helpers import get_provider_alias
 from ..profiles.models import PseudopatientProfile
-from ..users.helpers import create_pseudopatient_username_for_new_user_for_provider
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
 from ..utils.helpers import (
@@ -481,14 +482,14 @@ class GoutHelperEditMixin:
                 self.query_object.ckd.value if self.query_object and getattr(self.query_object, "ckd", False) else None
             )
 
-    def post_get_dateofbirth_form(self) -> Union["DateOfBirthForm", None]:
+    def get_dateofbirth_form(self) -> Union["DateOfBirthForm", None]:
         return self.oto_forms["dateofbirth"] if self.oto_forms and not self.user else None
 
-    def post_get_gender_form(self) -> Union["GenderForm", None]:
+    def get_gender_form(self) -> Union["GenderForm", None]:
         return self.oto_forms["gender"] if self.oto_forms and not self.user else None
 
-    def post_get_dateofbirth(self) -> Union["DateOfBirth", None]:
-        dateofbirth_form = self.post_get_dateofbirth_form()
+    def post_get_dateofbirth_value(self) -> Union["DateOfBirth", None]:
+        dateofbirth_form = self.get_dateofbirth_form()
 
         if dateofbirth_form and hasattr(dateofbirth_form, "cleaned_data") and "value" in dateofbirth_form.cleaned_data:
             return dateofbirth_form.cleaned_data["value"]
@@ -499,8 +500,12 @@ class GoutHelperEditMixin:
                 else None
             )
 
-    def post_get_gender(self) -> Union["Gender", None]:
-        gender_form = self.post_get_gender_form()
+    def post_get_age_value(self) -> int | None:
+        dateofbirth_value = self.post_get_dateofbirth_value()
+        return age_calc(dateofbirth_value) if dateofbirth_value else None
+
+    def post_get_gender_value(self) -> Union["Gender", None]:
+        gender_form = self.get_gender_form()
         if gender_form and hasattr(gender_form, "cleaned_data") and "value" in gender_form.cleaned_data:
             return gender_form.cleaned_data["value"]
         else:
@@ -1273,11 +1278,11 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             )
 
     def post_process_menopause(self) -> None:
-        gender = self.post_get_gender()
+        gender = self.post_get_gender_value()
         if gender == Genders.FEMALE:
             ckd = self.post_get_ckd()
-            dateofbirth = self.post_get_dateofbirth()
-            if not dateofbirth and not ckd:
+            age = self.post_get_age_value()
+            if not age and not ckd:
                 dateofbirth_error = ValidationError(
                     "GoutHelper needs to know the date of birth for females without CKD."
                 )
@@ -1287,7 +1292,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 self.oto_forms["dateofbirth"].add_error("value", dateofbirth_error)
                 self.errors_bool = True
                 return
-            age = age_calc(dateofbirth)
+            age = age
             if age >= 40 and age < 60:
                 menopause_value = self.medhistory_forms[f"{MedHistoryTypes.MENOPAUSE}"].cleaned_data.get(
                     f"{MedHistoryTypes.MENOPAUSE}-value", None
@@ -1318,14 +1323,14 @@ menopause status to evaluate their flare."
     ) -> None:
         """Method to process the CkdDetailForm and BaselineCreatinineForm
         as part of the post() method."""
-        dateofbirth_form = self.post_get_dateofbirth_form()
-        gender_form = self.post_get_gender_form()
+        dateofbirth_form = self.get_dateofbirth_form()
+        gender_form = self.get_gender_form()
         ckddet_form, bc_form, errors = CkdDetailFormProcessor(
             ckd=ckd,
             ckddetail_form=self.medhistory_detail_forms["ckddetail"],
             baselinecreatinine_form=self.medhistory_detail_forms["baselinecreatinine"],
-            dateofbirth=dateofbirth_form if dateofbirth_form else self.post_get_dateofbirth(),
-            gender=gender_form if gender_form is not None else self.post_get_gender(),
+            dateofbirth=dateofbirth_form if dateofbirth_form else self.get_dateofbirth_value(),
+            gender=gender_form if gender_form is not None else self.get_gender_value(),
         ).process()
         if bc_form:
             self.baselinecreatinine_form_post_process()
@@ -1666,19 +1671,30 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to facilitate creating Users."""
 
-        def create_user_for_provider() -> Pseudopatient:
-            self.form.instance.username = create_pseudopatient_username_for_new_user_for_provider(
-                provider_username=self.provider
-            )
-            new_goutpatient = self.form.save()
+        def create_pseudopatient() -> Pseudopatient:
+            with transaction.atomic():
+                self.form.instance.username = uuid.uuid4().hex[:30]
+                new_goutpatient = self.form.save()
             return new_goutpatient
 
+        def create_pseudopatientprofile() -> None:
+            with transaction.atomic():
+                PseudopatientProfile.objects.create(
+                    user=self.object,
+                    provider=self.request.user if self.provider else None,
+                    provider_alias=(
+                        get_provider_alias(
+                            provider=self.provider,
+                            age=self.post_get_age_value(),
+                            gender=self.post_get_gender_value(),
+                        )
+                        if self.provider
+                        else None
+                    ),
+                )
+
         if self.create_view:  # pylint: disable=W0125
-            if self.provider:
-                self.object = create_user_for_provider()
-            else:
-                self.form.instance.username = uuid.uuid4().hex[:30]
-                self.object = self.form.save()
+            self.object = create_pseudopatient()
         self.user = self.object
         self.form_valid_process_related_objects()
         # Save the OneToOne related models
@@ -1698,11 +1714,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         if self.lab_formsets:
             self.form_valid_save_and_delete_labs()
         if self.create_view:  # pylint: disable=W0125
-            # Create a PseudopatientProfile for the Pseudopatient
-            PseudopatientProfile.objects.create(
-                user=self.object,
-                provider=self.request.user if self.provider else None,  # pylint: disable=W0125
-            )
+            create_pseudopatientprofile()
         return HttpResponseRedirect(self.get_success_url())
 
     def form_valid_process_related_objects(self) -> None:
@@ -1818,7 +1830,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         that is the username kwarg indicating which Provider the view is trying to create
         a Pseudopatient for."""
         if self.create_view:  # pylint: disable=W0125
-            return self.provider
+            return self.provider_username
         else:
             return self.object
 
@@ -1866,9 +1878,17 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         raise Continue
 
     @cached_property
-    def provider(self) -> str | None:
+    def provider_username(self) -> str | None:
         """Method that returns the username kwarg from the url."""
         return self.kwargs.get("username", None)
+
+    @cached_property
+    def provider(self) -> User | None:
+        return (
+            self.request.user
+            if self.provider_username and self.request.user.username == self.provider_username
+            else None
+        )
 
     @cached_property
     def user(self) -> User | None:
