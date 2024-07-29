@@ -17,7 +17,7 @@ def get_provider_alias(
     provider: "User",
     age: int,
     gender: "Genders",
-) -> int:
+) -> int | None:
     todays_date = timezone.now().date()
 
     queryset = annotate_pseudopatient_queryset_with_age(
@@ -37,4 +37,4 @@ def get_provider_alias(
         gender__value=gender,
     ).count()
 
-    return alias_conflicts
+    return alias_conflicts if alias_conflicts else None

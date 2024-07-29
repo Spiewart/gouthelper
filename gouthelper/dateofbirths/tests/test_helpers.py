@@ -14,7 +14,7 @@ pytestmark = pytest.mark.django_db
 
 class TestAgeCalc(TestCase):
     def test__age_calc(self):
-        self.assertEqual(age_calc(DateOfBirthFactory(value=timezone.now() - timedelta(days=21 * 365.25)).value), 21)
+        self.assertEqual(age_calc(DateOfBirthFactory(value=timezone.now() - timedelta(days=365.3 * 21)).value), 21)
 
 
 class TestDateOfBirthsGetNsaidContra(TestCase):

@@ -10,14 +10,14 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..genders.helpers import get_gender_abbreviation
 from ..utils.helpers import shorten_date_for_str
-from ..utils.models import GoutHelperPatientModel
+from ..utils.models import GoutHelperModel, GoutHelperPatientModel
 from .choices import Roles
 from .helpers import get_user_change
 from .managers import AdminManager, GoutHelperUserManager, PatientManager, ProviderManager, PseudopatientManager
 from .rules import change_user, delete_user, view_user
 
 
-class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
+class User(RulesModelMixin, GoutHelperModel, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
     """
     Default custom user model for GoutHelper.
     If adding fields that need to be filled at user signup,
@@ -38,6 +38,7 @@ class User(RulesModelMixin, TimeStampedModel, AbstractUser, metaclass=RulesModel
         }
 
     Roles = Roles
+
     # First and last name do not cover name patterns around the globe
     name = CharField(_("Name of User"), blank=True, max_length=255)
     first_name = None  # type: ignore
@@ -171,9 +172,14 @@ class Pseudopatient(GoutHelperPatientModel, User):
         return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        post_fix = f" #{self.provider_alias}" if self.provider_alias else ""
-        return (
+        pre_fix = (
             f"{self.age}{get_gender_abbreviation(self.gender.value)} "
-            f"[{shorten_date_for_str(date=self.created.date(), month_abbrev=True)}]"
-            f"{post_fix}"
+            if self.age and hasattr(self, "gender")
+            else f"{self.provider}'s GoutPatient "
+            if self.provider
+            else "GoutPatient "
         )
+
+        post_fix = f" #{self.provider_alias}" if self.provider_alias else ""
+
+        return f"{pre_fix}" f"[{shorten_date_for_str(date=self.created.date(), month_abbrev=True)}]" f"{post_fix}"

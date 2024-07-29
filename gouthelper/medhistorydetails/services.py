@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
@@ -66,7 +67,13 @@ class CkdDetailFormProcessor:
 
     @cached_property
     def age(self) -> int | None:
-        return age_calc(self.dateofbirth) if self.dateofbirth else None
+        return (
+            age_calc(self.dateofbirth)
+            if self.dateofbirth and isinstance(self.dateofbirth, (date, datetime))
+            else self.dateofbirth
+            if self.dateofbirth
+            else None
+        )
 
     @property
     def baselinecreatinine_initial(self) -> Decimal | None:

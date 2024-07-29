@@ -9,15 +9,15 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("ultaids", "0001_initial"),
-        ("defaults", "0001_initial"),
+        ("medallergys", "0002_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="ultaidsettings",
+            model_name="medallergy",
             name="ultaid",
-            field=models.OneToOneField(
-                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="ultaids.ultaid"
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="ultaids.ultaid"
             ),
         ),
     ]

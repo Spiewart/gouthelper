@@ -8,24 +8,24 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("medhistorys", "0001_initial"),
-        ("ppxs", "0001_initial"),
-        ("ppxaids", "0001_initial"),
+        ("ultaids", "0001_initial"),
+        ("medhistorys", "0002_initial"),
+        ("ults", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
             model_name="medhistory",
-            name="ppx",
+            name="ult",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="ppxs.ppx"
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="ults.ult"
             ),
         ),
         migrations.AddField(
             model_name="medhistory",
-            name="ppxaid",
+            name="ultaid",
             field=models.ForeignKey(
-                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="ppxaids.ppxaid"
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="ultaids.ultaid"
             ),
         ),
     ]

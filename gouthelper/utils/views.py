@@ -24,6 +24,7 @@ from ..medhistorys.helpers import medhistorys_get, medhistorys_get_default_medhi
 from ..medhistorys.models import Gout
 from ..profiles.helpers import get_provider_alias
 from ..profiles.models import PseudopatientProfile
+from ..users.choices import Roles
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
 from ..utils.helpers import (
@@ -1672,9 +1673,9 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
         """Overwritten to facilitate creating Users."""
 
         def create_pseudopatient() -> Pseudopatient:
-            with transaction.atomic():
-                self.form.instance.username = uuid.uuid4().hex[:30]
-                new_goutpatient = self.form.save()
+            self.form.instance.username = uuid.uuid4().hex[:30]
+            self.form.instance.role = Roles.PSEUDOPATIENT
+            new_goutpatient = self.form.save()
             return new_goutpatient
 
         def create_pseudopatientprofile() -> None:

@@ -9,20 +9,20 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("ethnicitys", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("akis", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="historicalethnicity",
+            model_name="historicalaki",
             name="history_user",
             field=models.ForeignKey(
                 null=True, on_delete=django.db.models.deletion.SET_NULL, related_name="+", to=settings.AUTH_USER_MODEL
             ),
         ),
         migrations.AddField(
-            model_name="historicalethnicity",
+            model_name="historicalaki",
             name="user",
             field=models.ForeignKey(
                 blank=True,
@@ -34,34 +34,23 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddField(
-            model_name="ethnicity",
+            model_name="aki",
             name="user",
-            field=models.OneToOneField(
+            field=models.ForeignKey(
                 blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
             ),
         ),
         migrations.AddConstraint(
-            model_name="ethnicity",
+            model_name="aki",
             constraint=models.CheckConstraint(
-                check=models.Q(
-                    (
-                        "value__in",
-                        [
-                            "African American",
-                            "Caucasian American",
-                            "East African",
-                            "Han Chinese",
-                            "Hispanic",
-                            "Hmong",
-                            "Korean",
-                            "Native American",
-                            "Other",
-                            "Pacific Islander",
-                            "Thai",
-                        ],
-                    )
-                ),
-                name="ethnicitys_ethnicity_value_valid",
+                check=models.Q(("user__isnull", False), ("user__isnull", True), _connector="OR"),
+                name="akis_aki_user_ppx_exclusive",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="aki",
+            constraint=models.CheckConstraint(
+                check=models.Q(("status__in", ["ongoing", "improving", "resolved"])), name="akis_aki_status_is_valid"
             ),
         ),
     ]

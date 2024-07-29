@@ -84,8 +84,6 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
     REQ_OTOS = FLARE_REQ_OTOS
     MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
 
-    # TODO: refactor dispatch to prevent calling on a flare with a FlareAid
-
     @cached_property
     def flare(self) -> Flare | None:
         flare_kwarg = self.kwargs.get("flare", None)

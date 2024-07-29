@@ -26,7 +26,7 @@ def check_for_datetime_and_convert_to_date(date_or_datetime: Union["date", datet
     return date_or_datetime
 
 
-def num_years(begin: "date", end: "date" = None):
+def num_years(begin: "date", end: Union["date", None] = None):
     # https://stackoverflow.com/questions/765797/convert-timedelta-to-years
 
     if end is None:

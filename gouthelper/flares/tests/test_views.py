@@ -966,12 +966,12 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         prov_psp = create_psp(provider=provider)
         prov_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
         next_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
-        prov_psp_redirect_url = quote(f"{reverse('account_login')}?next={next_url}")
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={next_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         admin_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
         redirect_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
-        admin_psp_redirect_url = quote(f"{reverse('account_login')}?next={redirect_url}")
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient
         anon_psp = create_psp()
         anon_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": anon_psp.username})
@@ -1151,11 +1151,11 @@ class TestFlarePseudopatientDelete(TestCase):
         prov_psp_url = reverse(
             "flares:pseudopatient-delete", kwargs={"username": self.prov_psp.username, "pk": self.prov_psp_flare.pk}
         )
-        prov_psp_redirect_url = quote(f"{reverse('account_login')}?next={prov_psp_url}")
+        prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_psp_url}"
         admin_psp_url = reverse(
             "flares:pseudopatient-delete", kwargs={"username": self.admin_psp.username, "pk": self.admin_psp_flare.pk}
         )
-        admin_psp_redirect_url = quote(f"{reverse('account_login')}?next={admin_psp_url}")
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={admin_psp_url}"
         anon_psp_url = reverse(
             "flares:pseudopatient-delete", kwargs={"username": self.anon_psp.username, "pk": self.anon_psp_flare.pk}
         )
@@ -1406,10 +1406,10 @@ class TestFlarePseudopatientDetail(TestCase):
         admin_psp_url = reverse(
             "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
         )
-        redirect_url = quote(
-            reverse("flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk})
+        redirect_url = reverse(
+            "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
         )
-        admin_psp_redirect_url = quote(f"{reverse('account_login')}?next={redirect_url}")
+        admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient + Flare
         anon_psp = create_psp()
         anon_psp_flare = create_flare(user=anon_psp)

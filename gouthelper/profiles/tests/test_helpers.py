@@ -11,7 +11,7 @@ class TestCreateProviderAlias(TestCase):
 
     def test__creates_provider_alias__no_conflicts(self):
         alias = get_provider_alias(provider=self.provider, age=20, gender=Genders.FEMALE)
-        self.assertEqual(alias, 0)
+        self.assertIsNone(alias)
 
     def test__creates_provider_alias__conflict(self):
         psp = create_psp(

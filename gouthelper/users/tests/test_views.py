@@ -169,7 +169,7 @@ menopause status to evaluate their flare."
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
         response = self.client.post(reverse("users:pseudopatient-create"), data=data)
         assert response.status_code == 302
-        assert Pseudopatient.objects.last().menopause
+        assert Pseudopatient.objects.order_by("created").last().menopause
 
     def test__post_with_provider_no_provider_kwarg(self):
         """Test that the view's post() method creates a Pseudopatient with
@@ -399,7 +399,7 @@ class TestPseudopatientFlareCreateView(TestCase):
             response = self.client.get(
                 reverse("users:pseudopatient-flare-create", kwargs={"flare": flare.pk}), data=data
             )
-        pseudopatient = Pseudopatient.objects.last()
+        pseudopatient = Pseudopatient.objects.order_by("created").last()
         return flare, response, pseudopatient
 
     def test__get_context_data(self):
@@ -488,6 +488,7 @@ class TestPseudopatientFlareCreateView(TestCase):
         flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
         flareaid_medhistory_count = flareaid.medhistory_set.exclude(medhistorytype__in=FLARE_MEDHISTORYS).count()
         _, _, user = self.return_flare_response_user(flare=flare)
+
         assert user.medhistory_set.count() == flareaid_medhistory_count + (
             flare_medhistory_count if flare_has_gout_medhistory else flare_medhistory_count + 1
         )

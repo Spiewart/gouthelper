@@ -1358,10 +1358,9 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         assert response.status_code == 200
 
     def test__post_updates_medhistorys(self):
-        psp = Pseudopatient.objects.last()
         for mh in FLAREAID_MEDHISTORYS:
-            setattr(self, f"{mh}_bool", psp.medhistory_set.filter(medhistorytype=mh).exists())
-        data = flareaid_data_factory(psp)
+            setattr(self, f"{mh}_bool", self.psp.medhistory_set.filter(medhistorytype=mh).exists())
+        data = flareaid_data_factory(self.psp)
         data.update(
             {
                 **{
@@ -1382,13 +1381,14 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             == f"{reverse('flareaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
         )
         for mh in [mh for mh in FLAREAID_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
-            self.assertEqual(psp.medhistory_set.filter(medhistorytype=mh).exists(), not getattr(self, f"{mh}_bool"))
+            self.assertEqual(
+                self.psp.medhistory_set.filter(medhistorytype=mh).exists(), not getattr(self, f"{mh}_bool")
+            )
 
     def test__post_updates_medallergys(self):
-        psp = Pseudopatient.objects.last()
         for ma in FlarePpxChoices.values:
-            setattr(self, f"{ma}_bool", psp.medallergy_set.filter(treatment=ma).exists())
-        data = flareaid_data_factory(psp)
+            setattr(self, f"{ma}_bool", self.psp.medallergy_set.filter(treatment=ma).exists())
+        data = flareaid_data_factory(self.psp)
         data.update(
             {
                 **{f"medallergy_{ma}": not getattr(self, f"{ma}_bool") for ma in FlarePpxChoices.values},
@@ -1404,14 +1404,11 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             == f"{reverse('flareaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
         )
         for ma in FlarePpxChoices.values:
-            self.assertEqual(psp.medallergy_set.filter(treatment=ma).exists(), not getattr(self, f"{ma}_bool"))
+            self.assertEqual(self.psp.medallergy_set.filter(treatment=ma).exists(), not getattr(self, f"{ma}_bool"))
 
     def test__post_creates_medhistorydetails(self):
         """Test that the view creates the User's MedHistoryDetails objects."""
-        # Create user without ckd
-        psp = create_psp()
-        create_flareaid(user=psp)
-        self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.CKD).exists())
         data = {
             # Steal some data from self.psp to create gender and dateofbirth
             "dateofbirth-value": age_calc(self.psp.dateofbirth.value),

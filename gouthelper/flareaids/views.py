@@ -23,7 +23,7 @@ from ..dateofbirths.models import DateOfBirth
 from ..flares.models import Flare
 from ..genders.models import Gender
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidEditMixin
+from ..utils.views import MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin
 from .dicts import (
     MEDALLERGY_FORMS,
     MEDHISTORY_DETAIL_FORMS,
@@ -56,23 +56,24 @@ class FlareAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.FLAREAID, tag=None)
 
 
-class FlareAidBase:
+class FlareAidEditBase(MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
     form_class = FlareAidForm
     model = FlareAid
+    sucess_message = "FlareAid created successfully."
+
     MEDALLERGY_FORMS = MEDALLERGY_FORMS
     MEDHISTORY_FORMS = MEDHISTORY_FORMS
     MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
     OTO_FORMS = OTO_FORMS
 
 
-class FlareAidCreate(FlareAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlareAidCreate(FlareAidEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View to create a new FlareAid without a user."""
 
     permission_required = "flareaids.can_add_flareaid"
-    success_message = "FlareAid successfully created."
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
@@ -145,7 +146,7 @@ class FlareAidDetail(FlareAidDetailBase):
         return FlareAid.related_objects.filter(pk=self.kwargs["pk"])
 
 
-class FlareAidPatientBase(FlareAidBase):
+class FlareAidPatientEditBase(FlareAidEditBase):
     class Meta:
         abstract = True
 
@@ -158,9 +159,7 @@ class FlareAidPatientBase(FlareAidBase):
         return Pseudopatient.objects.flareaid_qs().filter(username=username)
 
 
-class FlareAidPseudopatientCreate(
-    FlareAidPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View for creating a FlareAid for a patient."""
 
     permission_required = "flareaids.can_add_flareaid"
@@ -242,7 +241,7 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
 
 
 class FlareAidPseudopatientUpdate(
-    FlareAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
+    FlareAidPatientEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(user)s's FlareAid successfully updated."
 
@@ -262,9 +261,7 @@ class FlareAidPseudopatientUpdate(
             return self.form_valid()
 
 
-class FlareAidUpdate(
-    FlareAidBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
+class FlareAidUpdate(FlareAidEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a FlareAid"""
 
     success_message = "FlareAid successfully updated."

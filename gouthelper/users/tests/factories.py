@@ -166,10 +166,14 @@ def create_psp_dateofbirth(
             except IntegrityError:
                 return psp.dateofbirth
     elif isinstance(dateofbirth, DateOfBirth):
-        if dateofbirth.user != psp:
-            dateofbirth.user = psp
-            dateofbirth.save()
-        return dateofbirth
+        with transaction.atomic():
+            try:
+                if dateofbirth.user != psp:
+                    dateofbirth.user = psp
+                    dateofbirth.save()
+                return dateofbirth
+            except IntegrityError:
+                return psp.dateofbirth
     else:
         raise TypeError(f"Expected str, date, or DateOfBirth, got {type(dateofbirth)}")
 

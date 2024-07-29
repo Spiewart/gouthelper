@@ -311,6 +311,9 @@ class FlareDetail(FlareDetailBase):
 
 
 class FlarePatientEditBase(FlareEditBase):
+    class Meta:
+        abstract = True
+
     MEDHISTORY_FORMS = PATIENT_MEDHISTORY_FORMS
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS

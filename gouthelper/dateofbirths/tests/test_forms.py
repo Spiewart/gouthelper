@@ -29,14 +29,14 @@ class TestDateOfBirthForm(TestCase):
         """Test that clean_value converts an int age to a datetime object of that
         age's birthday."""
         # Create form with some valid data
-        form = DateOfBirthForm(data={"dateofbirth-value": age_calc(timezone.now() - timedelta(days=365.25 * 25))})
+        form = DateOfBirthForm(data={"dateofbirth-value": age_calc(timezone.now() - timedelta(days=365.3 * 25))})
         # Call form_valid to populate cleaned_data
         self.assertTrue(form.is_valid())
         now = timezone.now()
         day = now.day
         month = now.month
         self.assertEqual(
-            form.cleaned_data["value"].date(),
+            form.cleaned_data["value"],
             parser.parse(f"{now.year - 25}-{month}-{day}").date(),
         )
 

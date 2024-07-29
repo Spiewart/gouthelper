@@ -61,7 +61,6 @@ class TestPseudopatient(TestCase):
         )
 
     def test__str_with_provider_and_alias(self):
-        print(self.provider_psp_with_alias.provider_alias)
         self.assertEqual(
             str(self.provider_psp_with_alias),
             (
