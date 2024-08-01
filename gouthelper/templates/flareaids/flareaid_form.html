@@ -29,7 +29,7 @@
   {% else %}
     Create treatment recommendations for
     {% if view.related_object %}
-      {{ view.related_object }}.
+      the patient's ({{ view.related_object.age }}{{ view.related_object.gender_abbrev }}) gout flare ({{ view.related_object.dates }}).
     {% else %}
       {{ str_attrs.subject_the_pos }} gout flares.
     {% endif %}
@@ -38,10 +38,10 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flareaids:pseudopatient-update' view.kwargs.username %}">
+              action="{% url 'flareaids:pseudopatient-update' object.user.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}
@@ -50,7 +50,7 @@
       {% else %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flareaids:update' form.instance.pk %}">
+              action="{% url 'flareaids:update' object.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}
@@ -58,10 +58,10 @@
         </form>
       {% endif %}
     {% else %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flareaids:pseudopatient-create' view.kwargs.username %}">
+              action="{% url 'flareaids:pseudopatient-create' view.kwargs.pseudopatient %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}

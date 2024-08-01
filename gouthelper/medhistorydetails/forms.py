@@ -7,11 +7,11 @@ from django.utils.text import format_lazy  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE, YES_OR_NO_OR_UNKNOWN
 from ..medhistorydetails.choices import Stages
-from ..utils.helpers import get_str_attrs
+from ..utils.forms import ModelFormKwargMixin
 from .models import CkdDetail, GoutDetail
 
 
-class CkdDetailForm(forms.ModelForm):
+class CkdDetailForm(ModelFormKwargMixin, forms.ModelForm):
     """Form for CkdDetail model. Embeds BaselineCreatinine form
     within, so will need to be processed as well by the view."""
 
@@ -25,11 +25,6 @@ class CkdDetailForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.optional = False
         self.fields["dialysis"].required = False
@@ -42,6 +37,14 @@ class CkdDetailForm(forms.ModelForm):
 started dialysis?"
         )
         self.fields["stage"].required = False
+        self.fields["stage"].help_text = mark_safe(
+            self.fields["stage"].help_text
+            + (
+                f" If unsure, but {self.str_attrs['subject_the_pos']}"
+                " <a class='samepage-link' href=#baselinecreatinine>baseline creatinine</a> is known, enter "
+                "it below and GoutHelper will calculate the stage."
+            )
+        )
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -86,15 +89,17 @@ started dialysis?"
                         ),
                         Div(
                             Div(
-                                HTML(
-                                    """
-                                    {% load crispy_forms_tags %}
-                                    {% crispy baselinecreatinine_form %}
-                                    """
+                                Div(
+                                    HTML(
+                                        """
+                                        {% load crispy_forms_tags %}
+                                        {% crispy baselinecreatinine_form %}
+                                        """
+                                    ),
+                                    css_class="col",
                                 ),
-                                css_class="col",
+                                css_class="row",
                             ),
-                            css_class="row",
                             css_id="baselinecreatinine",
                         ),
                         css_id="ckddetail",
@@ -139,7 +144,7 @@ class CkdDetailOptionalForm(CkdDetailForm):
         self.optional = True
 
 
-class GoutDetailForm(forms.ModelForm):
+class GoutDetailForm(ModelFormKwargMixin, forms.ModelForm):
     """Form for GoutDetail model. Embeds Urate forms within,
     so will need to be processed as well by the view."""
 
@@ -155,17 +160,12 @@ class GoutDetailForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
+        super().__init__(*args, **kwargs)
         self.goalurate = (
             self.patient.goalurate.get_goal_urate_display()
             if self.patient and hasattr(self.patient, "goalurate")
             else "6.0 mg/dL"
         )
-        super().__init__(*args, **kwargs)
         self.fields["flaring"].initial = None
         self.fields["flaring"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["flaring"].help_text = format_lazy(

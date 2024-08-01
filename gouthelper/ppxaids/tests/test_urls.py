@@ -29,29 +29,34 @@ class TestPpxAidUrls(TestCase):
     def test_pseudopatient_create(self):
         """Test that the pseudopatient create url is correct."""
         self.assertEqual(
-            reverse("ppxaids:pseudopatient-create", kwargs={"username": self.user_ppxaid.user.username}),
-            f"/ppxaids/{self.user_ppxaid.user.username}/create/",
+            reverse("ppxaids:pseudopatient-create", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
+            f"/ppxaids/goutpatient-create/{self.user_ppxaid.user.pk}/",
         )
         assert (
-            resolve(f"/ppxaids/{self.user_ppxaid.user.username}/create/").view_name == "ppxaids:pseudopatient-create"
+            resolve(f"/ppxaids/goutpatient-create/{self.user_ppxaid.user.pk}/").view_name
+            == "ppxaids:pseudopatient-create"
         )
 
     def test_pseudopatient_detail(self):
         """Test that the pseudopatient detail url is correct."""
         self.assertEqual(
-            reverse("ppxaids:pseudopatient-detail", kwargs={"username": self.user_ppxaid.user.username}),
-            f"/ppxaids/{self.user_ppxaid.user.username}/",
+            reverse("ppxaids:pseudopatient-detail", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
+            f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/",
         )
-        assert resolve(f"/ppxaids/{self.user_ppxaid.user.username}/").view_name == "ppxaids:pseudopatient-detail"
+        assert (
+            resolve(f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/").view_name
+            == "ppxaids:pseudopatient-detail"
+        )
 
     def test_pseudopatient_update(self):
         """Test that the pseudopatient update url is correct."""
         self.assertEqual(
-            reverse("ppxaids:pseudopatient-update", kwargs={"username": self.user_ppxaid.user.username}),
-            f"/ppxaids/{self.user_ppxaid.user.username}/update/",
+            reverse("ppxaids:pseudopatient-update", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
+            f"/ppxaids/goutpatient-update/{self.user_ppxaid.user.pk}/",
         )
         assert (
-            resolve(f"/ppxaids/{self.user_ppxaid.user.username}/update/").view_name == "ppxaids:pseudopatient-update"
+            resolve(f"/ppxaids/goutpatient-update/{self.user_ppxaid.user.pk}/").view_name
+            == "ppxaids:pseudopatient-update"
         )
 
     def test_update_url(self):

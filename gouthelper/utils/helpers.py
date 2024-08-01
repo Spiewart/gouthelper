@@ -73,7 +73,7 @@ class TrtDictStr:
                 and self.treatment == Treatments.COLCHICINE
                 and self.freq2_val == Freqs.ONCE
             ):
-                trt_str += f" ({'2 tabs' if self.dose2 == ColchicineDoses.ONEPOINTTWO else '1 tab'})"
+                trt_str += f" ({'2 tabs' if Decimal(self.dose2) == ColchicineDoses.ONEPOINTTWO else '1 tab'})"
             else:
                 trt_str += f"{self.trttype} {self.treatment} {self.freq2.lower()} for {self.duration2}"
             trt_str += f", then {self.dose3} mg"
@@ -82,7 +82,7 @@ class TrtDictStr:
                 and self.treatment == Treatments.COLCHICINE
                 and self.freq3_val == Freqs.ONCE
             ):
-                trt_str += f" ({'1 tabs' if self.dose3 == ColchicineDoses.POINTSIX else '1/2 tab'}) an hour \
+                trt_str += f" ({'1 tab' if Decimal(self.dose3) == ColchicineDoses.POINTSIX else '1/2 tab'}) an hour \
 after the first dose"
             else:
                 trt_str += f" {self.freq3.lower()} for {self.duration3}"
@@ -307,7 +307,12 @@ def shorten_date_for_str(
     """Method that takes a datetime object and returns a shortened str that is more amenable to presentation in
     length-limited HTML snippets."""
     # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
-    if abbrev_last_week and date >= (timezone.now() - timedelta(days=7)).date():
+    if date == timezone.now().date():
+        if show_time:
+            return f"{date.strftime('%-I:%M%p')}"
+        else:
+            return "Today"
+    elif abbrev_last_week and date >= (timezone.now() - timedelta(days=7)).date():
         if show_time:
             return f"{date.strftime('%a-%-I:%M%p')}"
         else:

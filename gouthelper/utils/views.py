@@ -62,24 +62,24 @@ class PatientSessionMixin:
         return context
 
     def add_patient_to_session(self, patient: Pseudopatient | User) -> None:
-        self.request.session.update({"patient": str(patient), "username": patient.username})
+        self.request.session.update({"patient": str(patient), "pk": str(patient.pk)})
         if not self.request.session.get("recent_patients", None):
             self.request.session["recent_patients"] = []
-        if patient.username not in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]:
-            self.request.session["recent_patients"].append(tuple([str(patient), patient.username]))
-        elif patient.username != self.request.session["recent_patients"][0][1]:
+        if str(patient.pk) not in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]:
+            self.request.session["recent_patients"].append(tuple([str(patient), str(patient.pk)]))
+        elif str(patient.pk) != self.request.session["recent_patients"][0][1]:
             self.request.session["recent_patients"].remove(
                 next(
                     iter(
                         [
                             recent_patient
                             for recent_patient in self.request.session["recent_patients"]
-                            if recent_patient[1] == patient.username
+                            if recent_patient[1] == str(patient.pk)
                         ]
                     )
                 )
             )
-            self.request.session["recent_patients"].insert(0, tuple([str(patient), patient.username]))
+            self.request.session["recent_patients"].insert(0, tuple([str(patient), str(patient.pk)]))
 
     def remove_patient_from_session(
         self,
@@ -87,11 +87,11 @@ class PatientSessionMixin:
         delete: bool = False,
     ) -> None:
         self.request.session.pop("patient", None)
-        self.request.session.pop("username", None)
+        self.request.session.pop("pk", None)
         if (
             delete
             and self.request.session.get("recent_patients", None)
-            and patient.username in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]
+            and str(patient.pk) in [recent_patient[1] for recent_patient in self.request.session["recent_patients"]]
         ):
             self.request.session["recent_patients"].remove(
                 next(
@@ -99,7 +99,7 @@ class PatientSessionMixin:
                         [
                             recent_patient
                             for recent_patient in self.request.session["recent_patients"]
-                            if recent_patient[1] == patient.username
+                            if recent_patient[1] == str(patient.pk)
                         ]
                     )
                 )
@@ -213,6 +213,7 @@ class GoutHelperEditMixin:
         messages.success(self.request, self.get_success_message(self.form.cleaned_data))
         if self.request.htmx:
             return kwargs.get("htmx")
+
         return HttpResponseRedirect(self.get_success_url())
 
     def form_valid_set_aid_obj_relations(
@@ -286,14 +287,10 @@ class GoutHelperEditMixin:
             kwargs["medallergys"] = self.medallergy_forms.keys()
         kwargs.update(
             {
-                "patient": self.object if isinstance(self.object, User) else self.user,
-                "request_user": self.request_user,
-                "str_attrs": self.str_attrs,
+                **self.subform_kwargs,
                 "related_object": self.related_object if self.related_object else None,
             }
         )
-        if self.create_view:
-            kwargs.update({"instance": self.object})
         return kwargs
 
     def get_http_response_redirect(self) -> HttpResponseRedirect:
@@ -329,7 +326,7 @@ class GoutHelperEditMixin:
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
         if next_url:
-            next_url += f"#{self.object_attr}"
+            next_url += f"#{self.object_attr}-card"
             return next_url
         else:
             return super().get_success_url() + "?updated=True"
@@ -345,7 +342,8 @@ class GoutHelperEditMixin:
                 messages.error(request, exc.args[0])
                 return HttpResponseRedirect(
                     reverse(
-                        f"{self.model.__name__.lower()}s:pseudopatient-create", kwargs={"username": kwargs["username"]}
+                        f"{self.model.__name__.lower()}s:pseudopatient-create",
+                        kwargs={"pseudopatient": kwargs["pseudopatient"]},
                     )
                 )
             else:
@@ -356,17 +354,17 @@ class GoutHelperEditMixin:
             except AttributeError as exc:
                 messages.error(request, exc)
                 return HttpResponseRedirect(
-                    reverse("users:pseudopatient-update", kwargs={"username": self.user.username})
+                    reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
                 )
             if self.create_view:
                 model_name = self.model.__name__
                 if model_name != "Flare" and self.model.objects.filter(user=self.user).exists():
                     messages.error(request, f"{self.user} already has a {model_name}. Please update it instead.")
                     return HttpResponseRedirect(
-                        reverse(f"{model_name.lower()}s:pseudopatient-update", kwargs={"username": self.user.username})
+                        reverse(f"{model_name.lower()}s:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
                     )
         elif getattr(self.object, "user", None) and not isinstance(self.object, User):
-            kwargs = {"username": self.object.user.username}
+            kwargs = {"pseudopatient": self.object.user.pk}
             if self.model.__name__.lower() == "flare":
                 kwargs["pk"] = self.object.pk
             return HttpResponseRedirect(
@@ -551,6 +549,14 @@ class GoutHelperEditMixin:
                         rel_obj_list.append(rel_obj)
             return rel_obj_list
 
+    @property
+    def subform_kwargs(self) -> dict[str, Any]:
+        return {
+            "patient": self.user,
+            "request_user": self.request_user,
+            "str_attrs": self.str_attrs,
+        }
+
     @classmethod
     def get_related_objects_attrs(cls) -> list[str]:
         return list_of_possible_related_object_attrs()
@@ -640,12 +646,12 @@ class GoutHelperEditMixin:
     def user(self) -> User | None:
         """Method that returns the User object from the username kwarg
         and sets the user attr on the view."""
-        username = self.kwargs.get("username", None)
-        if username:
+        pseudopatient = self.kwargs.get("pseudopatient", None)
+        if pseudopatient:
             if hasattr(self, "get_user_queryset"):
-                return self.get_user_queryset(username).get()
+                return self.get_user_queryset(pseudopatient=pseudopatient).get()
             else:
-                return self.get_queryset().get(username=username)
+                return self.get_queryset().get(id=pseudopatient)
         else:
             return None
 
@@ -824,11 +830,7 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                 else getattr(self, f"{lab}_formset_qs").none()
             ),
             "prefix": lab,
-            "form_kwargs": {
-                "patient": self.user,
-                "request_user": self.request_user,
-                "str_attrs": self.str_attrs,
-            },
+            "form_kwargs": self.subform_kwargs,
         }
         if self.request.method == "POST":
             formset_kwargs.update({"data": self.request.POST})
@@ -1001,15 +1003,14 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             form_str = f"{mhtype}_form"
             if form_str not in kwargs:
                 mh_obj = self.get_mh_obj(mhtype)
-                form_kwargs = {"str_attrs": self.str_attrs, "patient": self.user, "request_user": self.request_user}
                 if mhtype == MedHistoryTypes.CKD:
-                    form_kwargs.update({"ckddetail": self.ckddetail, "sub-form": True})
+                    extra_kwargs = {"ckddetail": self.ckddetail, "sub-form": True}
                     self.ckddetail_mh_context(
                         kwargs=kwargs,
                         mh_obj=mh_obj,
                     )
                 elif mhtype == MedHistoryTypes.GOUT:
-                    form_kwargs.update({"goutdetail": self.goutdetail, "sub-form": True})
+                    extra_kwargs = {"goutdetail": self.goutdetail, "sub-form": True}
                     if self.goutdetail:
                         try:
                             self.goutdetail_mh_context(kwargs=kwargs, mh_obj=mh_obj)
@@ -1021,17 +1022,21 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                             else mh_form(
                                 instance=mh_obj,
                                 initial={f"{mhtype}-value": True},
-                                **form_kwargs,
+                                **self.subform_kwargs,
+                                **extra_kwargs,
                             )
                         )
                         continue
+                else:
+                    extra_kwargs = {}
                 kwargs[form_str] = (
                     mh_form
                     if isinstance(mh_form, ModelForm)
                     else mh_form(
                         instance=mh_obj,
                         initial=self.get_mh_initial(mhtype, mh_obj),
-                        **form_kwargs,
+                        **self.subform_kwargs,
+                        **extra_kwargs,
                     )
                 )
 
@@ -1050,9 +1055,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     if isinstance(ckddetail_form, ModelForm)
                     else ckddetail_form(
                         instance=ckddetail_i,
-                        patient=self.user,
-                        request_user=self.request_user,
-                        str_attrs=self.str_attrs,
+                        **self.subform_kwargs,
                     )
                 )
             if "baselinecreatinine_form" not in kwargs:
@@ -1063,9 +1066,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     if isinstance(bc_form, ModelForm)
                     else bc_form(
                         instance=bc_i,
-                        patient=self.user,
-                        request_user=self.request_user,
-                        str_attrs=self.str_attrs,
+                        **self.subform_kwargs,
                     )
                 )
 
@@ -1083,9 +1084,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 if isinstance(goutdetail_form, ModelForm)
                 else goutdetail_form(
                     instance=goutdetail_i,
-                    patient=self.user,
-                    request_user=self.request_user,
-                    str_attrs=self.str_attrs,
+                    **self.subform_kwargs,
                 )
             )
             if hasattr(mh_obj, "user") and mh_obj.user:
@@ -1098,11 +1097,11 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 mh_obj = self.get_mh_obj(mhtype)
                 form_kwargs = {"patient": self.user, "request_user": self.request_user, "str_attrs": self.str_attrs}
                 if mhtype == MedHistoryTypes.CKD:
-                    form_kwargs.update({"ckddetail": self.ckddetail, "sub-form": True})
+                    extra_kwargs = {"ckddetail": self.ckddetail, "sub-form": True}
                     if self.ckddetail:
                         self.ckddetail_mh_post_pop(ckd=mh_obj)
                 elif mhtype == MedHistoryTypes.GOUT:
-                    form_kwargs.update({"goutdetail": self.goutdetail, "sub-form": True})
+                    extra_kwargs = {"goutdetail": self.goutdetail, "sub-form": True}
                     if self.goutdetail:
                         try:
                             self.goutdetail_mh_post_pop(gout=mh_obj)
@@ -1117,10 +1116,13 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                                     ),
                                     initial={f"{mhtype}-value": True},
                                     **form_kwargs,
+                                    **extra_kwargs,
                                 )
                             }
                         )
                         continue
+                else:
+                    extra_kwargs = {}
                 self.medhistory_forms.update(
                     {
                         mhtype: mh_form(
@@ -1128,6 +1130,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                             instance=(mh_obj if mh_obj else self.get_modelform_model(self.medhistory_forms[mhtype])()),
                             initial=({f"{mhtype}-value": self.get_mh_initial(mhtype, mh_obj)}),
                             **form_kwargs,
+                            **extra_kwargs,
                         )
                     }
                 )
@@ -1143,24 +1146,19 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         else:
             ckddetail = CkdDetail()
             bc = BaselineCreatinine()
-        form_kwargs = {
-            "patient": self.user,
-            "request_user": self.request_user,
-            "str_attrs": self.str_attrs,
-        }
         self.medhistory_detail_forms.update(
             {
                 "ckddetail": self.medhistory_detail_forms["ckddetail"](
                     self.request.POST,
                     instance=ckddetail,
-                    **form_kwargs,
+                    **self.subform_kwargs,
                 )
             }
         )
         self.medhistory_detail_forms.update(
             {
                 "baselinecreatinine": self.medhistory_detail_forms["baselinecreatinine"](
-                    self.request.POST, instance=bc, **form_kwargs
+                    self.request.POST, instance=bc, **self.subform_kwargs
                 )
             }
         )
@@ -1179,9 +1177,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 "goutdetail": self.medhistory_detail_forms["goutdetail"](
                     self.request.POST,
                     instance=gd,
-                    patient=self.user,
-                    request_user=self.request_user,
-                    str_attrs=self.str_attrs,
+                    **self.subform_kwargs,
                 )
             }
         )
@@ -1344,7 +1340,7 @@ menopause status to evaluate their flare."
         baselinecreatinine_form = self.medhistory_detail_forms["baselinecreatinine"]
         if hasattr(baselinecreatinine_form.instance, "to_save"):
             self.mhdets_2_save.append(baselinecreatinine_form)
-        elif hasattr(baselinecreatinine_form, "to_delete"):
+        elif hasattr(baselinecreatinine_form.instance, "to_delete"):
             self.mhdets_2_remove.append(baselinecreatinine_form)
 
     def ckddetail_form_post_process(self) -> None:

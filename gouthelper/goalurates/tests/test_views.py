@@ -216,7 +216,7 @@ class TestGoalUrateDetail(TestCase):
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_gu.pk)
         assert response.status_code == 302
-        assert response.url == reverse("goalurates:pseudopatient-detail", kwargs={"username": user_gu.user.username})
+        assert response.url == reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": user_gu.user.pk})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.goalurate.pk}).get_queryset()
@@ -262,7 +262,7 @@ class TestGoalUrateUpdate(TestCase):
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_gu.pk)
         assert response.status_code == 302
-        assert response.url == reverse("goalurates:pseudopatient-update", kwargs={"username": user_gu.user.username})
+        assert response.url == reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": user_gu.user.pk})
 
     def test__get_form_kwargs(self):
         view = self.view()
@@ -358,27 +358,27 @@ class TestGoalUratePseudopatientCreate(TestCase):
         create_goalurate(user=self.anon_psp)
         # Create a request and set the user to the provider
         request = self.factory.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         # Set the request's user
         request.user = self.anon
         # Instantiate the view
         view = self.view()
         # Set up the view
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         # Add messaging middleware
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
         MessageMiddleware(dummy_get_response).process_request(request)
         # Call the dispatch method
-        response = view.dispatch(request, username=self.anon_psp.username)
+        response = view.dispatch(request, pseudopatient=self.anon_psp.pk)
         # Assert that dispatch() set the object attr on the view
         self.assertTrue(hasattr(view, "object"))
         self.assertTrue(isinstance(view.object, GoalUrate))
         # Assert that dispatch() redirected to the DetailView
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
-            response.url, reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
+            response.url, reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk})
         )
 
     def test__get_context_data_medhistorys(self):
@@ -391,7 +391,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
                 request.user = self.anon
             request.htmx = False
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for mh in user.medhistory_set.all():
@@ -416,7 +416,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         """Test the get_permission_object() method for the view."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -427,10 +427,10 @@ class TestGoalUratePseudopatientCreate(TestCase):
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         view = self.view()
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
         self.assertTrue(isinstance(qs, User))
@@ -442,7 +442,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         request.htmx = False
         request.user = self.anon
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -451,7 +451,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
         # Create some fake data for a User's FlareAid
         data = goalurate_data_factory()
         response = self.client.post(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username}), data=data
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -468,7 +468,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
-                reverse("goalurates:pseudopatient-create", kwargs={"username": psp.username}), data=data
+                reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data
             )
             assert response.status_code == 302
             for mh in [mh for mh in medhistorys if mh.medhistorytype in GOALURATE_MEDHISTORYS]:
@@ -489,7 +489,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
-                reverse("goalurates:pseudopatient-create", kwargs={"username": psp.username}), data=data
+                reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data
             )
             assert response.status_code == 302
             if psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).exists():
@@ -505,7 +505,7 @@ class TestGoalUratePseudopatientCreate(TestCase):
             data[f"{mh}-value"] = ""
 
         response = self.client.post(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username}), data=data
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk}), data=data
         )
         assert response.status_code == 200
         # Assert that the form is returned with errors
@@ -518,28 +518,28 @@ class TestGoalUratePseudopatientCreate(TestCase):
         # Test that a user who isn't logged in can't create a GoalUrate for a Pseudopatient
         # with a provider
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/{self.prov_psp.username}/create/")
+        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/goutpatient-create/{self.prov_psp.pk}/")
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/{self.admin_psp.username}/create/")
+        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/goutpatient-create/{self.admin_psp.pk}/")
         # Test that anyone can create a GoalUrate for a Pseudopatient without a provider
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         self.client.force_login(self.provider)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         self.client.force_login(self.admin)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
 
@@ -547,11 +547,11 @@ class TestGoalUratePseudopatientCreate(TestCase):
         # if that provider is his or her self
         self.client.force_login(self.provider)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 403)
 
@@ -559,11 +559,11 @@ class TestGoalUratePseudopatientCreate(TestCase):
         # if that provider is his or her self
         self.client.force_login(self.admin)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 403)
 
@@ -593,22 +593,22 @@ class TestGoalUratePseudopatientDetail(TestCase):
         gu = GoalUrate.objects.filter(user__isnull=False).first()
         view = self.view()
         request = self.factory.get("/fake-url/")
-        view.setup(request, username=gu.user.username)
+        view.setup(request, pseudopatient=gu.user.pk)
         assert not hasattr(gu, "medhistorys_qs")
-        view.assign_goalurate_attrs_from_user(goalurate=gu, user=goalurate_user_qs(gu.user.username).get())
+        view.assign_goalurate_attrs_from_user(goalurate=gu, user=goalurate_user_qs(gu.user.pk).get())
         assert hasattr(gu, "medhistorys_qs")
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to CreateView
         if the user doesn't have a GoalUrate."""
         response = self.client.get(
-            reverse("goalurates:pseudopatient-detail", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         # Test that dispatch redirects to the pseudopatient-create FlareAid view when the user doesn't have a FlareAid
         self.assertRedirects(
-            self.client.get(reverse("goalurates:pseudopatient-detail", kwargs={"username": self.empty_psp.username})),
-            reverse("goalurates:pseudopatient-create", kwargs={"username": self.empty_psp.username}),
+            self.client.get(reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.empty_psp.pk})),
+            reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.empty_psp.pk}),
         )
 
     def test__get_context_data(self):
@@ -616,7 +616,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon
         view = self.view()
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         view.object = view.get_object()
         context = view.get_context_data()
         assert "patient" in context
@@ -626,7 +626,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         """Test that the get_object() method sets the user attribute."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         view.get_object()
         assert hasattr(view, "user")
         assert view.user == self.anon_psp
@@ -636,7 +636,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         doesn't have a FlareAid."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
 
@@ -646,8 +646,8 @@ class TestGoalUratePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon
         view = self.view()
-        view.setup(request, username=self.anon_psp.username)
-        view.dispatch(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
+        view.dispatch(request, pseudopatient=self.anon_psp.pk)
         pm_obj = view.get_permission_object()
         assert pm_obj == view.object
 
@@ -655,7 +655,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         """Test the get_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         with self.assertNumQueries(2):
             qs = view.get_queryset().get()
         assert qs == self.anon_psp
@@ -682,7 +682,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         view.object = view.get_object()
 
         # Call get() and assert that the goal_urate is 5 after calling get()
@@ -707,7 +707,7 @@ class TestGoalUratePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/?updated=True")
         request.user = self.anon
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         view.object = view.get_object()
 
         # Call get() and assert that the goal_urate is still six
@@ -747,7 +747,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         redirects to the DetailView if a User already has a GoalUrate."""
         # Create a request and set the user to the provider
         request = self.factory.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         # Set the request's user
         request.htmx = False
@@ -755,12 +755,12 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # Instantiate the view
         view = self.view()
         # Set up the view
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         # Add messaging and session middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
         MessageMiddleware(dummy_get_response).process_request(request)
         # Call the dispatch method
-        response = view.dispatch(request, username=self.anon_psp.username)
+        response = view.dispatch(request, pseudopatient=self.anon_psp.pk)
         # Assert that dispatch() set the object attr on the view
         self.assertTrue(hasattr(view, "object"))
         self.assertEqual(view.object, self.anon_psp.goalurate)
@@ -770,18 +770,18 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         """Test that the dispatch() method redirects to the CreateView if the user
         doesn't have a GoalUrate."""
         request = self.factory.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.empty_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.empty_psp.pk})
         )
         request.user = self.anon
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         # Add messaging and session middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
         MessageMiddleware(dummy_get_response).process_request(request)
-        response = view.dispatch(request, username=self.empty_psp.username)
+        response = view.dispatch(request, pseudopatient=self.empty_psp.pk)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
-            response.url, reverse("goalurates:pseudopatient-create", kwargs={"username": self.empty_psp.username})
+            response.url, reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.empty_psp.pk})
         )
 
     def test__get_context_data_medhistorys(self):
@@ -796,7 +796,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             # Add messaging and session middleware to the request
             SessionMiddleware(dummy_get_response).process_request(request)
             MessageMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             if not hasattr(user, "goalurate"):
                 assert response.status_code == 302
@@ -829,7 +829,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # Instantiate the view
         view = self.view()
         # Set up the view
-        view.setup(request, username=self.anon_psp.username)
+        view.setup(request, pseudopatient=self.anon_psp.pk)
         # Call the get_object() method on the view and set the return value
         obj = view.get_object()
         # Assert that the view's user attr was set
@@ -840,7 +840,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # Do the above again except test that get_object returns a DoesNotExist when
         # the user doesn't have a GoalUrate
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
 
@@ -848,7 +848,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         """Test the get_permission_object() method for the view."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         view = self.view()
         view.setup(request, **kwargs)
         view.object = self.anon_psp.goalurate
@@ -860,10 +860,10 @@ class TestGoalUratePseudopatientUpdate(TestCase):
 
         goalurate = self.anon_psp.goalurate
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         view = self.view()
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         with self.assertNumQueries(2):
             qs = qs.get()
@@ -878,7 +878,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         request.htmx = False
         request.user = self.anon
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.anon_psp.username}
+        kwargs = {"pseudopatient": self.anon_psp.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -890,7 +890,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
-                reverse("goalurates:pseudopatient-update", kwargs={"username": psp.username}), data=data
+                reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data
             )
             assert response.status_code == 302
             if hasattr(psp, "goalurate"):
@@ -905,7 +905,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
                     else:
                         assert MedHistory.objects.filter(user=psp, medhistorytype=mh).exists()
             else:
-                assert response.url == reverse("goalurates:pseudopatient-create", kwargs={"username": psp.username})
+                assert response.url == reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": psp.pk})
 
     def test__post_updates_goalurates_to_correct_recommendations(self):
         """Test that the post() method correctly creates GoalUrates with the correct recommendations."""
@@ -914,7 +914,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             if psp.pseudopatientprofile.provider:
                 self.client.force_login(psp.pseudopatientprofile.provider)
             response = self.client.post(
-                reverse("goalurates:pseudopatient-update", kwargs={"username": psp.username}), data=data
+                reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data
             )
             assert response.status_code == 302
             if hasattr(psp, "goalurate"):
@@ -924,7 +924,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
                 else:
                     assert psp.goalurate.goal_urate == GoalUrates.SIX
             else:
-                assert response.url == reverse("goalurates:pseudopatient-create", kwargs={"username": psp.username})
+                assert response.url == reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": psp.pk})
 
     def test__post_returns_errors(self):
         """Test that the post() method returns errors if the form is invalid."""
@@ -934,7 +934,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
             data[f"{mh}-value"] = ""
 
         response = self.client.post(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username}), data=data
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk}), data=data
         )
         assert response.status_code == 200
         # Assert that the form is returned with errors
@@ -947,28 +947,28 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # Test that a user who isn't logged in can't update a GoalUrate for a Pseudopatient
         # with a provider
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/{self.prov_psp.username}/update/")
+        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/goutpatient-update/{self.prov_psp.pk}/")
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/{self.admin_psp.username}/update/")
+        self.assertEqual(response.url, f"/accounts/login/?next=/goalurates/goutpatient-update/{self.admin_psp.pk}/")
         # Test that anyone can update a GoalUrate for a Pseudopatient without a provider
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         self.client.force_login(self.provider)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         self.client.force_login(self.admin)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.anon_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.anon_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
 
@@ -976,11 +976,11 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # if that provider is his or her self
         self.client.force_login(self.provider)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 403)
 
@@ -988,10 +988,10 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         # if that provider is his or her self
         self.client.force_login(self.admin)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.admin_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk})
         )
         self.assertEqual(response.status_code, 200)
         response = self.client.get(
-            reverse("goalurates:pseudopatient-update", kwargs={"username": self.prov_psp.username})
+            reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.prov_psp.pk})
         )
         self.assertEqual(response.status_code, 403)

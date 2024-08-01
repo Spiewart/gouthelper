@@ -15,11 +15,11 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'flares:pseudopatient-update' username=object.user.username pk=object.pk %}"
+           href="{% url 'flares:pseudopatient-update' object.user.pk object.pk %}"
            role="button">Update</a>
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'flares:pseudopatient-delete' username=object.user.username pk=object.pk %}"
+           href="{% url 'flares:pseudopatient-delete' object.user.pk object.pk %}"
            role="button">Delete</a>
       {% else %}
         <a type="button"

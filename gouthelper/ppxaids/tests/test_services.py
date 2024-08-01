@@ -86,7 +86,7 @@ class TestPpxAidMethods(TestCase):
         if not hasattr(ppxaid.user.ckd, "baselinecreatinine"):
             BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
         ppxaidsettings = PpxAidSettingsFactory(user=ppxaid.user)
-        qs = ppxaid_user_qs(username=ppxaid.user.username)
+        qs = ppxaid_user_qs(pseudopatient=ppxaid.user.pk)
         with self.assertNumQueries(4):
             # QuerySet is 3 queries because the user has a ppxaidsettings
             qs = qs.get()

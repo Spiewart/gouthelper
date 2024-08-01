@@ -146,7 +146,7 @@ class TestUltDetail(TestCase):
         request.user = ult.user
         response = self.view.as_view()(request, pk=ult.pk)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
+        self.assertEqual(response.url, reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": ult.user.pk}))
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.ult.pk}).get_queryset()
@@ -212,7 +212,7 @@ class TestUltPseudopatientCreate(TestCase):
         view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         SessionMiddleware(dummy_get_response).process_request(request)
 
@@ -226,10 +226,10 @@ class TestUltPseudopatientCreate(TestCase):
         create_ult(user=self.user)
         self.client.force_login(self.user)
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": self.user.username}), follow=True
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), follow=True
         )
         self.assertEqual(view.user, self.user)
-        self.assertRedirects(response, reverse("ults:pseudopatient-update", kwargs={"username": self.user.username}))
+        self.assertRedirects(response, reverse("ults:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         # Check that the response message is correct
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
@@ -239,9 +239,9 @@ class TestUltPseudopatientCreate(TestCase):
         empty_user = create_psp(dateofbirth=False, ethnicity=False, gender=False)
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": empty_user.pk}), follow=True
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -278,7 +278,7 @@ class TestUltPseudopatientCreate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -362,7 +362,7 @@ class TestUltPseudopatientCreate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -386,7 +386,7 @@ class TestUltPseudopatientCreate(TestCase):
     def test__get_user_queryset(self):
         for pseudopatient in Pseudopatient.objects.all():
             with self.assertNumQueries(4):
-                kwargs = {"username": pseudopatient.username}
+                kwargs = {"pseudopatient": pseudopatient.pk}
                 qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                 self.assertTrue(isinstance(qs, QuerySet))
                 qs_obj = qs.first()
@@ -421,7 +421,7 @@ class TestUltPseudopatientCreate(TestCase):
                     request.user = user.profile.provider  # type: ignore
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -433,7 +433,7 @@ class TestUltPseudopatientCreate(TestCase):
             if not hasattr(user, "ult"):
                 data = ult_data_factory(user=self.user)
                 response = self.client.post(
-                    reverse("ults:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+                    reverse("ults:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), data=data
                 )
                 forms_print_response_errors(response)
                 assert response.status_code == 302
@@ -458,13 +458,13 @@ class TestUltPseudopatientCreate(TestCase):
                     }
                 )
                 response = self.client.post(
-                    reverse("ults:pseudopatient-create", kwargs={"username": user.username}), data=data
+                    reverse("ults:pseudopatient-create", kwargs={"pseudopatient": user.pk}), data=data
                 )
                 forms_print_response_errors(response)
                 assert response.status_code == 302
                 assert (
                     response.url
-                    == f"{reverse('ults:pseudopatient-detail', kwargs={'username': user.username})}?updated=True"
+                    == f"{reverse('ults:pseudopatient-detail', kwargs={'pseudopatient': user.pk})}?updated=True"
                 )
                 for mh in [mh for mh in ULT_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
                     self.assertEqual(user.medhistory_set.filter(medhistorytype=mh).exists(), not user_mh_dict[mh])
@@ -486,12 +486,10 @@ class TestUltPseudopatientCreate(TestCase):
             },
         )
 
-        response = self.client.post(reverse("ults:pseudopatient-create", kwargs={"username": psp.username}), data=data)
+        response = self.client.post(reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data)
         forms_print_response_errors(response)
         assert response.status_code == 302
-        assert (
-            response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
-        )
+        assert response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'pseudopatient': psp.pk})}?updated=True"
 
         self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
         ckd = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.CKD)
@@ -516,12 +514,10 @@ class TestUltPseudopatientCreate(TestCase):
             }
         )
 
-        response = self.client.post(reverse("ults:pseudopatient-create", kwargs={"username": psp.username}), data=data)
+        response = self.client.post(reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data)
         forms_print_response_errors(response)
         assert response.status_code == 302
-        assert (
-            response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
-        )
+        assert response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'pseudopatient': psp.pk})}?updated=True"
 
         self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
         self.assertFalse(CkdDetail.objects.filter(medhistory=psp.ckd).exists())
@@ -543,7 +539,7 @@ class TestUltPseudopatientCreate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("ults:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), data=data
         )
         assert response.status_code == 200
 
@@ -562,7 +558,7 @@ class TestUltPseudopatientCreate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("ults:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), data=data
         )
         assert response.status_code == 200
 
@@ -575,44 +571,44 @@ class TestUltPseudopatientCreate(TestCase):
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         # Test that any User can create an anonymous Pseudopatient's Ult
-        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"username": psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}))
         assert response.status_code == 200
         # Test that an anonymous User can't create a Provider's Ult
-        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"username": provider_psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"pseudopatient": provider_psp.pk}))
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
         # Test that an anonymous User can't create an Admin's Ult
-        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"username": admin_psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}))
         # Test that a Provider can create his or her own Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         # Test that a Provider can create an anonymous Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         self.client.force_login(admin)
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": admin_psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 200
         # Test that only a Pseudopatient's Provider can add their Ult if they have a Provider
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": provider_psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": provider_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(provider)
         # Test that a Provider can't create another provider's Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": admin_psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
         # Test that an Admin can create an anonymous Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
 
@@ -629,7 +625,7 @@ class TestUltPseudopatientDetail(TestCase):
 
     def test__assign_ult_attrs_from_user(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
-            user = ult_user_qs(username=ult.user.username).get()
+            user = ult_user_qs(pseudopatient=ult.user.pk).get()
             ult = user.ult
             self.assertFalse(getattr(ult, "dateofbirth"))
             self.assertFalse(getattr(ult, "gender"))
@@ -646,7 +642,7 @@ class TestUltPseudopatientDetail(TestCase):
     def test__dispatch(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
             view = self.view()
-            kwargs = {"username": ult.user.username}
+            kwargs = {"pseudopatient": ult.user.pk}
             request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=kwargs))
             request.user = ult.user
             view.setup(request, **kwargs)
@@ -662,7 +658,7 @@ class TestUltPseudopatientDetail(TestCase):
         # is lacking a Ult
         user_without_ult = create_psp()
         view = self.view()
-        kwargs = {"username": user_without_ult.username}
+        kwargs = {"pseudopatient": user_without_ult.pk}
         request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=kwargs))
         request.user = user_without_ult
         view.setup(request, **kwargs)
@@ -680,7 +676,7 @@ class TestUltPseudopatientDetail(TestCase):
         user_with_ult = Ult.objects.filter(user__isnull=False).first().user
         user_with_ult.dateofbirth.delete()
         view = self.view()
-        kwargs = {"username": user_with_ult.username}
+        kwargs = {"pseudopatient": user_with_ult.pk}
         request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=kwargs))
         request.user = user_with_ult
         view.setup(request, **kwargs)
@@ -695,14 +691,14 @@ class TestUltPseudopatientDetail(TestCase):
 
     def test__get(self):
         ult = Ult.objects.filter(user__isnull=False).select_related("user").last()
-        response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"username": ult.user.username}))
+        response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": ult.user.pk}))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context_data["patient"], ult.user)
 
     def test__get_permission_object(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
             view = self.view()
-            view.kwargs = {"username": ult.user.username}
+            view.kwargs = {"pseudopatient": ult.user.pk}
             request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=view.kwargs))
             request.user = ult.user
             view.setup(request, **view.kwargs)
@@ -712,7 +708,7 @@ class TestUltPseudopatientDetail(TestCase):
     def test__get_queryset(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
             with self.assertNumQueries(3):
-                qs = self.view(kwargs={"username": ult.user.username}).get_queryset()
+                qs = self.view(kwargs={"pseudopatient": ult.user.pk}).get_queryset()
                 self.assertTrue(isinstance(qs, QuerySet))
                 qs_obj = qs.first()
                 self.assertTrue(isinstance(qs_obj, Pseudopatient))
@@ -739,7 +735,7 @@ class TestUltPseudopatientDetail(TestCase):
     def test__get_object(self):
         for user in Pseudopatient.objects.ult_qs().all():
             view = self.view()
-            view.kwargs = {"username": user.username}
+            view.kwargs = {"pseudopatient": user.pk}
             request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=view.kwargs))
             request.user = user
             view.setup(request, **view.kwargs)
@@ -748,7 +744,7 @@ class TestUltPseudopatientDetail(TestCase):
 
     def test__view_works(self):
         for user in Pseudopatient.objects.ult_qs().all():
-            response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"username": user.username}))
+            response = self.client.get(reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": user.pk}))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.context_data["patient"], user)
 
@@ -789,7 +785,7 @@ class TestUltPseudopatientUpdate(TestCase):
         view when the user doesn't have the required 1to1 related models."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
 
         view.setup(request, **kwargs)
@@ -802,11 +798,11 @@ class TestUltPseudopatientUpdate(TestCase):
         # Create a user without a Ult and assert that the view redirects to the user's create view
         self.client.force_login(self.user_without_ult)
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": self.user_without_ult.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": self.user_without_ult.pk}),
             follow=True,
         )
         self.assertRedirects(
-            response, reverse("ults:pseudopatient-create", kwargs={"username": self.user_without_ult.username})
+            response, reverse("ults:pseudopatient-create", kwargs={"pseudopatient": self.user_without_ult.pk})
         )
         # Check that the response message is correct
         message = list(response.context.get("messages"))[0]
@@ -817,9 +813,9 @@ class TestUltPseudopatientUpdate(TestCase):
         empty_user = create_psp(dateofbirth=False, ethnicity=False, gender=False)
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse("ults:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
+            reverse("ults:pseudopatient-create", kwargs={"pseudopatient": empty_user.pk}), follow=True
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -856,7 +852,7 @@ class TestUltPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -940,7 +936,7 @@ class TestUltPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -967,7 +963,7 @@ class TestUltPseudopatientUpdate(TestCase):
         for pseudopatient in Pseudopatient.objects.select_related("ult").all():
             if hasattr(pseudopatient, "ult"):
                 with self.assertNumQueries(3):
-                    kwargs = {"username": pseudopatient.username}
+                    kwargs = {"pseudopatient": pseudopatient.pk}
                     qs = self.view(kwargs=kwargs).get_user_queryset(**kwargs)
                     self.assertTrue(isinstance(qs, QuerySet))
                     qs_obj = qs.first()
@@ -1002,7 +998,7 @@ class TestUltPseudopatientUpdate(TestCase):
                     request.user = user.profile.provider  # type: ignore
                 else:
                     request.user = self.anon_user
-                kwargs = {"username": user.username}
+                kwargs = {"pseudopatient": user.pk}
                 SessionMiddleware(dummy_get_response).process_request(request)
                 response = self.view.as_view()(request, **kwargs)
                 assert response.status_code == 200
@@ -1026,12 +1022,10 @@ class TestUltPseudopatientUpdate(TestCase):
             }
         )
 
-        response = self.client.post(reverse("ults:pseudopatient-update", kwargs={"username": psp.username}), data=data)
+        response = self.client.post(reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
         forms_print_response_errors(response)
         assert response.status_code == 302
-        assert (
-            response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
-        )
+        assert response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'pseudopatient': psp.pk})}?updated=True"
 
         self.assertTrue(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
         ckd = MedHistory.objects.get(user=psp, medhistorytype=MedHistoryTypes.CKD)
@@ -1057,12 +1051,10 @@ class TestUltPseudopatientUpdate(TestCase):
             }
         )
 
-        response = self.client.post(reverse("ults:pseudopatient-update", kwargs={"username": psp.username}), data=data)
+        response = self.client.post(reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
         forms_print_response_errors(response)
         assert response.status_code == 302
-        assert (
-            response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'username': psp.username})}?updated=True"
-        )
+        assert response.url == f"{reverse('ults:pseudopatient-detail', kwargs={'pseudopatient': psp.pk})}?updated=True"
 
         self.assertFalse(MedHistory.objects.filter(user=psp, medhistorytype=MedHistoryTypes.CKD).exists())
         self.assertFalse(CkdDetail.objects.filter(medhistory=psp.ckd).exists())
@@ -1084,7 +1076,7 @@ class TestUltPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("ults:pseudopatient-update", kwargs={"username": self.user.username}), data=data
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}), data=data
         )
         assert response.status_code == 200
 
@@ -1106,44 +1098,44 @@ class TestUltPseudopatientUpdate(TestCase):
         admin_psp = create_psp(provider=admin)
         create_ult(user=admin_psp)
         # Test that any User can create an anonymous Pseudopatient's Ult
-        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"username": psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}))
         assert response.status_code == 200
         # Test that an anonymous User can't create a Provider's Ult
-        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"username": provider_psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"pseudopatient": provider_psp.pk}))
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
         # Test that an anonymous User can't create an Admin's Ult
-        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"username": admin_psp.username}))
+        response = self.client.get(reverse("ults:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk}))
         # Test that a Provider can create his or her own Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         # Test that a Provider can create an anonymous Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         self.client.force_login(admin)
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": admin_psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 200
         # Test that only a Pseudopatient's Provider can add their Ult if they have a Provider
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": provider_psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": provider_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(provider)
         # Test that a Provider can't create another provider's Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": admin_psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
         # Test that an Admin can create an anonymous Pseudopatient's Ult
         response = self.client.get(
-            reverse("ults:pseudopatient-update", kwargs={"username": psp.username}),
+            reverse("ults:pseudopatient-update", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
 

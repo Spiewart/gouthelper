@@ -17,7 +17,9 @@ urlpatterns = [
     path("create/", UltCreate.as_view(), name="create"),
     path("<uuid:pk>/", UltDetail.as_view(), name="detail"),
     path("update/<uuid:pk>/", UltUpdate.as_view(), name="update"),
-    path("<str:username>/create/", UltPseudopatientCreate.as_view(), name="pseudopatient-create"),
-    path("<str:username>/", view=UltPseudopatientDetail.as_view(), name="pseudopatient-detail"),
-    path("<str:username>/update/", UltPseudopatientUpdate.as_view(), name="pseudopatient-update"),
+    path("goutpatient-create/<uuid:pseudopatient>/", UltPseudopatientCreate.as_view(), name="pseudopatient-create"),
+    path(
+        "goutpatient-detail/<uuid:pseudopatient>/", view=UltPseudopatientDetail.as_view(), name="pseudopatient-detail"
+    ),
+    path("goutpatient-update/<uuid:pseudopatient>/", UltPseudopatientUpdate.as_view(), name="pseudopatient-update"),
 ]

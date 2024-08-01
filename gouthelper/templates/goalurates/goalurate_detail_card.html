@@ -7,7 +7,7 @@
         <div class="col">
           <h4>
             {% if goalurate.user %}
-              <!-- djlint:off --><a href="{% url 'goalurates:pseudopatient-detail' goalurate.user.username %}"><!-- djlint:on -->
+              <!-- djlint:off --><a href="{% url 'goalurates:pseudopatient-detail' goalurate.user.pk %}"><!-- djlint:on -->
             {% else %}
               <a href="{% url 'goalurates:detail' goalurate.pk %}">
               {% endif %}
@@ -33,7 +33,7 @@
         </div>
         {% if goalurate.user %}
           <a class="btn btn-primary"
-             href="{% url 'goalurates:pseudopatient-update' goalurate.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+             href="{% url 'goalurates:pseudopatient-update' goalurate.user.pk %}?next={{ object.get_absolute_url }}">Update</a>
         {% else %}
           <a class="btn btn-primary"
              href="{% url 'goalurates:update' goalurate.pk %}?next={{ object.get_absolute_url }}">Update</a>
@@ -50,7 +50,7 @@
         {% if object|is_pseudopatient %}
           <div class="col-auto align-items-center d-flex justify-content-end">
             <a class="btn btn-primary"
-               href="{% url 'goalurates:pseudopatient-create' object.username %}">Create</a>
+               href="{% url 'goalurates:pseudopatient-create' object.pk %}">Create</a>
           </div>
         {% else %}
           <div class="col-auto align-items-center d-flex justify-content-end">

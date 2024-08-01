@@ -25,6 +25,7 @@ class GoalUrateForm(
             "goal_urate",
             "medhistorys",
             "ultaid",
+            "user",
         )
 
     def __init__(self, *args, **kwargs):

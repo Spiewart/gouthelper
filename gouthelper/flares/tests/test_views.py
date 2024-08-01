@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 from decimal import Decimal
 from urllib.parse import quote
@@ -465,7 +466,7 @@ class TestFlareDetail(TestCase):
         response = self.view.as_view()(request, pk=user_f.pk)
         assert response.status_code == 302
         assert response.url == reverse(
-            "flares:pseudopatient-detail", kwargs={"username": user_f.user.username, "pk": user_f.pk}
+            "flares:pseudopatient-detail", kwargs={"pseudopatient": user_f.user.pk, "pk": user_f.pk}
         )
 
     def test__get_queryset(self):
@@ -532,7 +533,7 @@ class TestFlarePseudopatientCreate(TestCase):
         # Create a fake request
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view(request=request, kwargs=kwargs)
         view.set_forms()
 
@@ -552,9 +553,9 @@ class TestFlarePseudopatientCreate(TestCase):
         empty_user = create_psp(dateofbirth=False)
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse("flares:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": empty_user.pk}), follow=True
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -564,11 +565,11 @@ class TestFlarePseudopatientCreate(TestCase):
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
         self.assertTrue(isinstance(qs, User))
@@ -586,7 +587,7 @@ class TestFlarePseudopatientCreate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             assert "age" in response.context_data
@@ -604,7 +605,7 @@ class TestFlarePseudopatientCreate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for mh in user.medhistory_set.all():
@@ -647,7 +648,7 @@ class TestFlarePseudopatientCreate(TestCase):
         """Test the get_permission_object() method for the view."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -663,7 +664,7 @@ class TestFlarePseudopatientCreate(TestCase):
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -673,7 +674,7 @@ class TestFlarePseudopatientCreate(TestCase):
         # Create some fake data for a User's FlareAid
         data = flare_data_factory(self.user)
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -700,7 +701,7 @@ class TestFlarePseudopatientCreate(TestCase):
 
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -732,7 +733,7 @@ class TestFlarePseudopatientCreate(TestCase):
 
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -759,7 +760,7 @@ class TestFlarePseudopatientCreate(TestCase):
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -779,7 +780,7 @@ class TestFlarePseudopatientCreate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -801,7 +802,7 @@ class TestFlarePseudopatientCreate(TestCase):
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 200
@@ -831,7 +832,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 200
         forms_print_response_errors(response)
@@ -869,7 +870,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -907,7 +908,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -948,7 +949,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -964,17 +965,17 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         # Create a Provider and Admin, each with their own Pseudopatient
         provider = UserFactory()
         prov_psp = create_psp(provider=provider)
-        prov_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
-        next_url = reverse("flares:pseudopatient-create", kwargs={"username": prov_psp.username})
+        prov_psp_url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": prov_psp.pk})
+        next_url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": prov_psp.pk})
         prov_psp_redirect_url = f"{reverse('account_login')}?next={next_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
-        admin_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
-        redirect_url = reverse("flares:pseudopatient-create", kwargs={"username": admin_psp.username})
+        admin_psp_url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk})
+        redirect_url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk})
         admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient
         anon_psp = create_psp()
-        anon_psp_url = reverse("flares:pseudopatient-create", kwargs={"username": anon_psp.username})
+        anon_psp_url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": anon_psp.pk})
         # Test that an anonymous user who is not logged in can't see any Pseudopatient
         # with a provider but can see the anonymous Pseudopatient
         self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
@@ -1007,7 +1008,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         # Create a Flare with CKD
         flare_data = flare_data_factory(user=self.psp, otos={"aki": True})
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), flare_data
         )
         self.assertEqual(response.status_code, 302)
 
@@ -1019,7 +1020,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         # Create Flare data with creatinines
         flare_data = flare_data_factory(user=self.psp, creatinines=[Decimal("2.0"), Decimal("2.0")])
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), flare_data
         )
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
@@ -1044,7 +1045,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             }
         )
         response = self.client.post(
-            reverse("flares:pseudopatient-create", kwargs={"username": self.psp.username}), flare_data
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), flare_data
         )
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 200)
@@ -1083,7 +1084,7 @@ class TestFlarePseudopatientDelete(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.provider
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
         view.dispatch(request)
         assert hasattr(view, "user")
         assert view.user == self.prov_psp
@@ -1094,7 +1095,7 @@ class TestFlarePseudopatientDelete(TestCase):
         """Test that the get_object() method for the view sets the user attr and returns the object."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
         flare = view.get_object()
         assert hasattr(view, "user")
         assert view.user == self.prov_psp
@@ -1104,11 +1105,11 @@ class TestFlarePseudopatientDelete(TestCase):
         """Test that the get_object() method for the view raises a 404 if the User or Flare doesn't exist."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
-        view.kwargs["username"] = "fake-username"
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
+        view.kwargs["pseudopatient"] = uuid.uuid4()
         with self.assertRaises(Http404):
             view.get_object()
-        view.kwargs["username"] = self.prov_psp.username
+        view.kwargs["pseudopatient"] = self.prov_psp.pk
         view.kwargs["pk"] = 999
         with self.assertRaises(Http404):
             view.get_object()
@@ -1118,7 +1119,7 @@ class TestFlarePseudopatientDelete(TestCase):
         view's object, which must have already been set."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
         view.object = self.prov_psp_flare
         assert view.get_permission_object() == self.prov_psp_flare
 
@@ -1126,17 +1127,17 @@ class TestFlarePseudopatientDelete(TestCase):
         """Test that the get_success_url() method returns the correct url."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
         view.object = self.prov_psp_flare
         assert view.get_success_url() == reverse(
-            "flares:pseudopatient-list", kwargs={"username": self.prov_psp.username}
+            "flares:pseudopatient-list", kwargs={"pseudopatient": self.prov_psp.pk}
         )
 
     def test__get_queryset(self):
         """Test that the get_queryset() method returns the correct QuerySet."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.prov_psp.username, pk=self.prov_psp_flare.pk)
+        view.setup(request, pseudopatient=self.prov_psp.pk, pk=self.prov_psp_flare.pk)
         qs = view.get_queryset()
         assert isinstance(qs, QuerySet)
         user = qs.get()
@@ -1149,15 +1150,15 @@ class TestFlarePseudopatientDelete(TestCase):
         """Test that django-rules permissions are set correctly and working for the view."""
         # Create a Provider and Admin, each with their own Pseudopatient + Flare
         prov_psp_url = reverse(
-            "flares:pseudopatient-delete", kwargs={"username": self.prov_psp.username, "pk": self.prov_psp_flare.pk}
+            "flares:pseudopatient-delete", kwargs={"pseudopatient": self.prov_psp.pk, "pk": self.prov_psp_flare.pk}
         )
         prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_psp_url}"
         admin_psp_url = reverse(
-            "flares:pseudopatient-delete", kwargs={"username": self.admin_psp.username, "pk": self.admin_psp_flare.pk}
+            "flares:pseudopatient-delete", kwargs={"pseudopatient": self.admin_psp.pk, "pk": self.admin_psp_flare.pk}
         )
         admin_psp_redirect_url = f"{reverse('account_login')}?next={admin_psp_url}"
         anon_psp_url = reverse(
-            "flares:pseudopatient-delete", kwargs={"username": self.anon_psp.username, "pk": self.anon_psp_flare.pk}
+            "flares:pseudopatient-delete", kwargs={"pseudopatient": self.anon_psp.pk, "pk": self.anon_psp_flare.pk}
         )
         anon_psp_redirect_url = f"{reverse('account_login')}?next={anon_psp_url}"
         # Test that an anonymous user who is not logged in can't delete anything
@@ -1192,12 +1193,12 @@ class TestFlarePseudopatientDelete(TestCase):
         response = self.client.post(
             reverse(
                 "flares:pseudopatient-delete",
-                kwargs={"username": self.prov_psp.username, "pk": self.prov_psp_flare.pk},
+                kwargs={"pseudopatient": self.prov_psp.pk, "pk": self.prov_psp_flare.pk},
             )
         )
         assert response.status_code == 302
         assert not Flare.objects.filter(user=self.prov_psp).exists()
-        assert response.url == reverse("flares:pseudopatient-list", kwargs={"username": self.prov_psp.username})
+        assert response.url == reverse("flares:pseudopatient-list", kwargs={"pseudopatient": self.prov_psp.pk})
 
 
 class TestFlarePseudopatientDetail(TestCase):
@@ -1219,11 +1220,11 @@ class TestFlarePseudopatientDetail(TestCase):
         flare = Flare.objects.filter(user=self.psp).last()
         view = self.view()
         request = self.factory.get("/fake-url/")
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         assert not getattr(flare, "dateofbirth")
         assert not getattr(flare, "gender")
         assert not hasattr(flare, "medhistorys_qs")
-        view.assign_flare_attrs_from_user(flare=flare, user=flares_user_qs(self.psp.username, flare.pk).get())
+        view.assign_flare_attrs_from_user(flare=flare, user=flares_user_qs(self.psp.pk, flare.pk).get())
         assert getattr(flare, "dateofbirth") == self.psp.dateofbirth
         assert getattr(flare, "gender") == self.psp.gender
         assert hasattr(flare, "medhistorys_qs")
@@ -1234,7 +1235,7 @@ class TestFlarePseudopatientDetail(TestCase):
         response = self.client.get(
             reverse(
                 "flares:pseudopatient-detail",
-                kwargs={"username": self.psp.username, "pk": self.psp.flare_set.first().pk},
+                kwargs={"pseudopatient": self.psp.pk, "pk": self.psp.flare_set.first().pk},
             )
         )
         self.assertEqual(response.status_code, 200)
@@ -1245,10 +1246,10 @@ class TestFlarePseudopatientDetail(TestCase):
             self.client.get(
                 reverse(
                     "flares:pseudopatient-detail",
-                    kwargs={"username": self.psp.username, "pk": self.psp.flare_set.first().pk},
+                    kwargs={"pseudopatient": self.psp.pk, "pk": self.psp.flare_set.first().pk},
                 ),
             ),
-            reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}),
+            reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}),
         )
 
     def test__dispatch_sets_object_attr(self):
@@ -1257,7 +1258,7 @@ class TestFlarePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=flare.pk)
+        view.setup(request, pseudopatient=self.psp.pk, pk=flare.pk)
         view.dispatch(request)
         assert hasattr(view, "object")
         assert view.object == flare
@@ -1266,7 +1267,7 @@ class TestFlarePseudopatientDetail(TestCase):
         """Test that the get_object() method sets the user attribute."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
         view.get_object()
         assert hasattr(view, "user")
         assert view.user == self.psp
@@ -1276,7 +1277,7 @@ class TestFlarePseudopatientDetail(TestCase):
         User QuerySet to the Flare object."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
         flare = view.get_object()
         assert hasattr(flare, "dateofbirth")
         assert getattr(flare, "dateofbirth") == view.user.dateofbirth
@@ -1289,11 +1290,11 @@ class TestFlarePseudopatientDetail(TestCase):
         """Test that get_object() raises a 404 if the User or the Flare doesn't exist."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
-        view.kwargs["username"] = "fake-username"
+        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
+        view.kwargs["pseudopatient"] = uuid.uuid4()
         with self.assertRaises(Http404):
             view.get_object()
-        view.kwargs["username"] = self.psp.username
+        view.kwargs["pseudopatient"] = self.psp.pk
         view.kwargs["pk"] = 999
         with self.assertRaises(Http404):
             view.get_object()
@@ -1302,7 +1303,7 @@ class TestFlarePseudopatientDetail(TestCase):
         """Test that the get_object() method returns the Flare object."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
+        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
         flare = view.get_object()
         assert isinstance(flare, Flare)
         assert flare == self.psp.flare_set.first()
@@ -1313,8 +1314,8 @@ class TestFlarePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=self.psp.flare_set.first().pk)
-        view.dispatch(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
+        view.dispatch(request, pseudopatient=self.psp.pk)
         pm_obj = view.get_permission_object()
         assert pm_obj == view.object
 
@@ -1324,7 +1325,7 @@ class TestFlarePseudopatientDetail(TestCase):
         flare = self.psp.flare_set.first()
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username, pk=flare.pk)
+        view.setup(request, pseudopatient=self.psp.pk, pk=flare.pk)
         with CaptureQueriesContext(connection) as queries:
             qs = view.get_queryset().get()
         assert qs == self.psp
@@ -1357,7 +1358,7 @@ class TestFlarePseudopatientDetail(TestCase):
             diagnosed=False,
             urate=None,
         )
-        flare.update_aid(qs=flares_user_qs(psp.username, flare.pk))
+        flare.update_aid(qs=flares_user_qs(psp.pk, flare.pk))
         flare.refresh_from_db()
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
         self.assertEqual(flare.prevalence, Prevalences.LOW)
@@ -1377,14 +1378,14 @@ class TestFlarePseudopatientDetail(TestCase):
         self.assertEqual(flare.prevalence, Prevalences.LOW)
         # Call the view with the ?updated=True query parameter to test that it doesn't update the Flare
         self.client.get(
-            reverse("flares:pseudopatient-detail", kwargs={"username": psp.username, "pk": flare.pk}) + "?updated=True"
+            reverse("flares:pseudopatient-detail", kwargs={"pseudopatient": psp.pk, "pk": flare.pk}) + "?updated=True"
         )
         flare.refresh_from_db()
         # Assert that the flare has an unchanged likelihood and prevalence
         self.assertEqual(flare.likelihood, Likelihoods.UNLIKELY)
         self.assertEqual(flare.prevalence, Prevalences.LOW)
         # Call the view with the ?updated=True query parameter to test that it updates the Flare
-        self.client.get(reverse("flares:pseudopatient-detail", kwargs={"username": psp.username, "pk": flare.pk}))
+        self.client.get(reverse("flares:pseudopatient-detail", kwargs={"pseudopatient": psp.pk, "pk": flare.pk}))
         flare.refresh_from_db()
         # Assert that the flare has an updated likelihood and prevalence
         self.assertEqual(flare.likelihood, Likelihoods.LIKELY)
@@ -1397,24 +1398,24 @@ class TestFlarePseudopatientDetail(TestCase):
         prov_psp = create_psp(provider=provider)
         prov_psp_flare = create_flare(user=prov_psp)
         prov_psp_url = reverse(
-            "flares:pseudopatient-detail", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+            "flares:pseudopatient-detail", kwargs={"pseudopatient": prov_psp.pk, "pk": prov_psp_flare.pk}
         )
         prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_psp_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         admin_psp_flare = create_flare(user=admin_psp)
         admin_psp_url = reverse(
-            "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+            "flares:pseudopatient-detail", kwargs={"pseudopatient": admin_psp.pk, "pk": admin_psp_flare.pk}
         )
         redirect_url = reverse(
-            "flares:pseudopatient-detail", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+            "flares:pseudopatient-detail", kwargs={"pseudopatient": admin_psp.pk, "pk": admin_psp_flare.pk}
         )
         admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient + Flare
         anon_psp = create_psp()
         anon_psp_flare = create_flare(user=anon_psp)
         anon_psp_url = reverse(
-            "flares:pseudopatient-detail", kwargs={"username": anon_psp.username, "pk": anon_psp_flare.pk}
+            "flares:pseudopatient-detail", kwargs={"pseudopatient": anon_psp.pk, "pk": anon_psp_flare.pk}
         )
         # Test that an anonymous user who is not logged in can't see any Pseudopatient
         # with a provider but can see the anonymous Pseudopatient
@@ -1467,7 +1468,7 @@ class TestFlarePseudopatientList(TestCase):
         request.user = self.provider
         # Create a view
         view = self.view()
-        kwargs = {"username": self.psp.username}
+        kwargs = {"pseudopatient": self.psp.pk}
         # Setup the view
         view.setup(request, **kwargs)
         # Call dispatch
@@ -1486,8 +1487,8 @@ class TestFlarePseudopatientList(TestCase):
         # Create a view
         view = self.view()
         # Set the user with the qs so that the related queries are populated on the user
-        view.user = flares_user_qs(self.psp.username).get()
-        kwargs = {"username": self.psp.username}
+        view.user = flares_user_qs(self.psp.pk).get()
+        kwargs = {"pseudopatient": self.psp.pk}
         # Setup the view
         view.setup(request, **kwargs)
         # Call the get() method
@@ -1507,12 +1508,12 @@ class TestFlarePseudopatientList(TestCase):
         # Create a view
         view = self.view()
         # Set the user with the qs so that the related queries are populated on the user
-        view.user = flares_user_qs(self.psp.username).get()
-        kwargs = {"username": self.psp.username}
+        view.user = flares_user_qs(self.psp.pk).get()
+        kwargs = {"pseudopatient": self.psp.pk}
         # Setup the view
         view.setup(request, **kwargs)
         # Call the get_context_data() method
-        qs = flares_user_qs(self.psp.username).get()
+        qs = flares_user_qs(self.psp.pk).get()
         view.object_list = qs.flares_qs
         context = view.get_context_data(**kwargs)
         # Assert that the context has the correct keys
@@ -1533,8 +1534,8 @@ class TestFlarePseudopatientList(TestCase):
         request = RequestFactory().get("/fake-url/")
         request.user = self.anon_user
         view = self.view()
-        view.setup(request, username=self.psp.username)
-        view.dispatch(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
+        view.dispatch(request, pseudopatient=self.psp.pk)
         pm_obj = view.get_permission_object()
         assert pm_obj == view.user
 
@@ -1543,7 +1544,7 @@ class TestFlarePseudopatientList(TestCase):
         request = RequestFactory().get("/fake-url/")
         request.user = self.anon_user
         view = self.view()
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         qs = view.get_queryset()
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
@@ -1557,17 +1558,17 @@ class TestFlarePseudopatientList(TestCase):
         # Create a Provider and Admin, each with their own Pseudopatient
         provider = UserFactory()
         prov_psp = create_psp(provider=provider)
-        prov_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": prov_psp.username})
-        redirect_url = quote(reverse("flares:pseudopatient-list", kwargs={"username": prov_psp.username}))
+        prov_psp_url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": prov_psp.pk})
+        redirect_url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": prov_psp.pk})
         prov_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
-        admin_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": admin_psp.username})
-        redirect_url = quote(reverse("flares:pseudopatient-list", kwargs={"username": admin_psp.username}))
+        admin_psp_url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": admin_psp.pk})
+        redirect_url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": admin_psp.pk})
         admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient
         anon_psp = create_psp()
-        anon_psp_url = reverse("flares:pseudopatient-list", kwargs={"username": anon_psp.username})
+        anon_psp_url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": anon_psp.pk})
         # Test that an anonymous user who is not logged in can't see any Pseudopatient
         # with a provider but can see the anonymous Pseudopatient
         self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
@@ -1635,12 +1636,10 @@ class TestFlarePseudopatientUpdate(TestCase):
         # Test that the view redirects to the user update view
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse(
-                "flares:pseudopatient-update", kwargs={"username": empty_user.username, "pk": empty_user_Flare.pk}
-            ),
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk, "pk": empty_user_Flare.pk}),
             follow=True,
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -1661,7 +1660,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username, "pk": flare.pk}
+            kwargs = {"pseudopatient": user.pk, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             assert "flare" in response.context_data
@@ -1704,7 +1703,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username, "pk": flare.pk}
+            kwargs = {"pseudopatient": user.pk, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             assert "age" in response.context_data
@@ -1739,7 +1738,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username, "pk": flare.pk}
+            kwargs = {"pseudopatient": user.pk, "pk": flare.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for mh in user.medhistory_set.all():
@@ -1784,7 +1783,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         request.user = self.anon_user
         view = self.view(request=request)
         # Create kwargs for view
-        kwargs = {"username": self.user.username, "pk": self.user.flare_set.first().pk}
+        kwargs = {"pseudopatient": self.user.pk, "pk": self.user.flare_set.first().pk}
         # Setup the view
         view.setup(request, **kwargs)
         view.set_forms()
@@ -1808,7 +1807,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             request = self.factory.get("/fake-url/")
             request.user = self.anon_user
             # Create a fake kwargs dict
-            kwargs = {"username": flare.user.username, "pk": flare.pk}
+            kwargs = {"pseudopatient": flare.user.pk, "pk": flare.pk}
             # Create the view
             view = self.view(request=request)
             # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
@@ -1834,14 +1833,14 @@ class TestFlarePseudopatientUpdate(TestCase):
         flareless_user = create_psp()
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": flareless_user.username, "pk": 1}
+        kwargs = {"pseudopatient": flareless_user.pk, "pk": 1}
         view = self.view(request=request)
         view.setup(request, **kwargs)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
         # Create a flare for the user
         flare = create_flare(user=flareless_user)
-        kwargs = {"username": flareless_user.username, "pk": flare.pk}
+        kwargs = {"pseudopatient": flareless_user.pk, "pk": flare.pk}
         view = self.view(request=request)
         view.setup(request, **kwargs)
         view.object = view.get_object()
@@ -1853,7 +1852,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.user
         flare = self.user.flare_set.first()
-        kwargs = {"username": self.user.username, "pk": flare.pk}
+        kwargs = {"pseudopatient": self.user.pk, "pk": flare.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -1868,11 +1867,11 @@ class TestFlarePseudopatientUpdate(TestCase):
         flare.urate = UrateFactory(user=self.user)
         flare.save()
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.user.username, "pk": self.user.flare_set.first().pk}
+        kwargs = {"pseudopatient": self.user.pk, "pk": self.user.flare_set.first().pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         with CaptureQueriesContext(connection) as queries:
             qs = qs.get()
@@ -1906,7 +1905,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             request.user = user.profile.provider if user.profile.provider else self.anon_user
             # Call the view and get the object
             view = self.view()
-            view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.setup(request, **{"pseudopatient": user.pk, "pk": flare.pk})
             view.set_forms()
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
@@ -1942,7 +1941,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             request.user = user.profile.provider if user.profile.provider else self.anon_user
             # Call the view and get the object
             view = self.view()
-            view.setup(request, **{"username": user.username, "pk": flare.pk})
+            view.setup(request, **{"pseudopatient": user.pk, "pk": flare.pk})
             view.set_forms()
             view.object = view.get_object()
             # Create a onetoone_forms dict with the method for testing against
@@ -2008,7 +2007,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
         flare = self.user.flare_set.first()
-        kwargs = {"username": self.user.username, "pk": flare.pk}
+        kwargs = {"pseudopatient": self.user.pk, "pk": flare.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -2025,7 +2024,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             data = flare_data_factory(user=user, flare=flare)
             # Call the view
             response = self.client.post(
-                reverse("flares:pseudopatient-update", kwargs={"username": user.username, "pk": flare.pk}), data=data
+                reverse("flares:pseudopatient-update", kwargs={"pseudopatient": user.pk, "pk": flare.pk}), data=data
             )
             forms_print_response_errors(response)
             assert response.status_code == 302
@@ -2063,7 +2062,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         )
         # Call the view
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.user.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2088,7 +2087,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         )
         # Call the view
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.user.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2114,7 +2113,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         )
         # Call the view
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.user.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.user.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2139,7 +2138,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}), data=data
         )
         assert response.status_code == 200
         forms_print_response_errors(response)
@@ -2169,7 +2168,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}), data=data
         )
         assert response.status_code == 200
         forms_print_response_errors(response)
@@ -2208,7 +2207,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2243,7 +2242,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": flare.user.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": flare.user.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2283,7 +2282,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         )
         # Post the data
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), data=data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -2299,27 +2298,27 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         prov_psp = create_psp(provider=provider)
         prov_psp_flare = create_flare(user=prov_psp)
         prov_psp_url = reverse(
-            "flares:pseudopatient-update", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk}
+            "flares:pseudopatient-update", kwargs={"pseudopatient": prov_psp.pk, "pk": prov_psp_flare.pk}
         )
         prov_next_url = quote(
-            reverse("flares:pseudopatient-update", kwargs={"username": prov_psp.username, "pk": prov_psp_flare.pk})
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": prov_psp.pk, "pk": prov_psp_flare.pk})
         )
         prov_psp_redirect_url = f"{reverse('account_login')}?next={prov_next_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         admin_psp_flare = create_flare(user=admin_psp)
         admin_psp_url = reverse(
-            "flares:pseudopatient-update", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk}
+            "flares:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk, "pk": admin_psp_flare.pk}
         )
         admin_next_url = quote(
-            reverse("flares:pseudopatient-update", kwargs={"username": admin_psp.username, "pk": admin_psp_flare.pk})
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk, "pk": admin_psp_flare.pk})
         )
         admin_psp_redirect_url = f"{reverse('account_login')}?next={admin_next_url}"
         # Create an anonymous Pseudopatient + Flare
         anon_psp = create_psp()
         anon_psp_flare = create_flare(user=anon_psp)
         anon_psp_url = reverse(
-            "flares:pseudopatient-update", kwargs={"username": anon_psp.username, "pk": anon_psp_flare.pk}
+            "flares:pseudopatient-update", kwargs={"pseudopatient": anon_psp.pk, "pk": anon_psp_flare.pk}
         )
         # Test that an anonymous user who is not logged in can't see any Pseudopatient
         # with a provider but can see the anonymous Pseudopatient
@@ -2360,7 +2359,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             }
         )
         response = self.client.post(
-            reverse("flares:pseudopatient-update", kwargs={"username": self.psp.username, "pk": flare.pk}), flare_data
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}), flare_data
         )
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 200)
@@ -2432,7 +2431,7 @@ class TestFlareUpdate(TestCase):
         response = self.view.as_view()(request, pk=user_f.pk)
         assert response.status_code == 302
         assert response.url == reverse(
-            "flares:pseudopatient-update", kwargs={"username": user_f.user.username, "pk": user_f.pk}
+            "flares:pseudopatient-update", kwargs={"pseudopatient": user_f.user.pk, "pk": user_f.pk}
         )
 
     def test__get_context_data(self):

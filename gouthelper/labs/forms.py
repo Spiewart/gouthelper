@@ -12,7 +12,6 @@ from django.utils.translation import gettext_lazy as _  # type: ignore
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel
 from ..utils.forms import ModelFormKwargMixin, forms_make_custom_datetimefield
-from ..utils.helpers import get_str_attrs
 from .helpers import labs_baselinecreatinine_max_value, labs_urates_max_value
 from .models import BaselineCreatinine, Creatinine, Hlab5801, Urate
 
@@ -115,11 +114,6 @@ class BaselineCreatinineForm(BaseLabForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
         self.fields["value"].label = "Baseline Creatinine"
@@ -175,11 +169,6 @@ class Hlab5801Form(BaseLabForm):
         fields = ("value",)
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].choices = YES_OR_NO_OR_UNKNOWN
         self.fields["value"].initial = None
@@ -227,11 +216,6 @@ class UrateForm(LabForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].label = "Uric Acid (mg/dL)"
         self.fields["value"].decimal_places = 1
@@ -253,11 +237,6 @@ class UrateFlareForm(BaseLabForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         super().__init__(*args, **kwargs)
         self.fields["value"].required = False
         self.fields["value"].label = "Uric Acid Level"

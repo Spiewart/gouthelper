@@ -92,7 +92,7 @@ class TestFlareAidUserQuerySet(TestCase):
         )
 
     def test__queryset_returns_correctly(self):
-        queryset = flareaid_user_qs(self.user.username)
+        queryset = flareaid_user_qs(self.user.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first(), self.user)

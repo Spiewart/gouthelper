@@ -41,6 +41,8 @@ from .helpers import assign_ppx_attrs_from_user
 from .models import Ppx
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
     from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 
@@ -240,10 +242,10 @@ class PpxPatientBase(PpxBase):
     class Meta:
         abstract = True
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.ppx_qs().filter(username=username)
+        return Pseudopatient.objects.ppx_qs().filter(pk=pseudopatient)
 
     @cached_property
     def urate_formset_qs(self):
@@ -259,9 +261,6 @@ class PpxPseudopatientCreate(
     success_message = "%(user)s's Ppx successfully created."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Pseudopatient the view is trying to create
-        a Ppx for."""
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
@@ -300,7 +299,9 @@ class PpxPseudopatientDetail(PpxDetailBase):
             self.object = self.get_object()
         except Ppx.DoesNotExist as exc:
             messages.error(request, exc.args[0])
-            return HttpResponseRedirect(reverse("ppxs:pseudopatient-create", kwargs={"username": kwargs["username"]}))
+            return HttpResponseRedirect(
+                reverse("ppxs:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -312,7 +313,7 @@ class PpxPseudopatientDetail(PpxDetailBase):
         return self.render_to_response(context)
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ppx_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.ppx_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> Ppx:
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201
@@ -330,9 +331,6 @@ class PpxPseudopatientUpdate(
     success_message = "%(user)ss's Ppx successfully updated."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a Ppx for."""
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:

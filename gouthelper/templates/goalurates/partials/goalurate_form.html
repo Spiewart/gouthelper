@@ -12,15 +12,15 @@
 {% endblock header %}
 {% block content %}
   {% if form.instance.created %}
-    {% if view.kwargs.username %}
+    {% if view.kwargs.pseudopatient %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'goalurates:pseudopatient-update' view.kwargs.username %}">
+            action="{% url 'goalurates:pseudopatient-update' form.instance.pk %}">
         {% csrf_token %}
         {% crispy form %}
         <a type="button"
            class="btn btn-primary btn-lg"
-           hx-post="{% url 'goalurates:pseudopatient-update' view.kwargs.username %}"
+           hx-post="{% url 'goalurates:pseudopatient-update' form.instance.pk %}"
            hx-target="#goalurate"
            hx-trigger="click"
            role="button">Update</a>
@@ -40,15 +40,15 @@
       </form>
     {% endif %}
   {% else %}
-    {% if view.kwargs.username %}
+    {% if view.kwargs.pseudopatient %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'goalurates:pseudopatient-create' view.kwargs.username %}">
+            action="{% url 'goalurates:pseudopatient-create' view.kwargs.pseudopatient %}">
         {% csrf_token %}
         {% crispy form %}
         <a type="button"
            class="btn btn-primary btn-lg"
-           hx-post="{% url 'goalurates:pseudopatient-create' view.kwargs.username %}"
+           hx-post="{% url 'goalurates:pseudopatient-create' view.kwargs.pseudopatient %}"
            hx-target="#goalurate"
            hx-trigger="click"
            role="button">Create</a>

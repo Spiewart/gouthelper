@@ -16,7 +16,7 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'ults:pseudopatient-update' username=object.user.username %}"
+           href="{% url 'ults:pseudopatient-update' pseudopatient=object.user.pk %}"
            role="button">Update</a>
       {% else %}
         <a type="button"
@@ -63,16 +63,14 @@
                 <b><u>{{ object.get_indication_display }}</u></b>
               </h3>
               <p class="card-text">{{ object.get_indication_interp }}</p>
-              {% if object.user or object.indicated %}
+              {% if object.indicated %}
                 <hr size="3" color="dark" />
                 <div id="ultaid">
                   <div id="row">
                     <div id="col flex-fill d-flex justify-content-center">
                       {% if object.user %}
-                        {% if object.indicated or object.user.ultaid %}
-                          {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.user.ultaid marketing=True %}
-                        {% endif %}
-                      {% elif object.indicated %}
+                        {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.user.ultaid marketing=True %}
+                      {% else %}
                         {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.ultaid marketing=True %}
                       {% endif %}
                     </div>

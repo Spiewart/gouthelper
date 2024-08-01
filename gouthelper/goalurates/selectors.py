@@ -45,6 +45,6 @@ def goalurate_userless_qs(pk: "UUID") -> "QuerySet":
     return goalurate_userless_relations(apps.get_model("goalurates.GoalUrate").objects.filter(pk=pk))
 
 
-def goalurate_user_qs(username: str) -> "QuerySet":
+def goalurate_user_qs(pseudopatient: str) -> "QuerySet":
     """Queryset for GoalUrate object for a given user."""
-    return goalurate_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))
+    return goalurate_user_relations(apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient))

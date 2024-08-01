@@ -39,7 +39,7 @@ class TestPseudopatient(TestCase):
     def test_pseudopatient_get_absolute_url(self):
         self.assertEqual(
             self.psp.get_absolute_url(),
-            f"/users/pseudopatients/{self.psp.username}/",
+            f"/users/pseudopatients/{self.psp.pk}/",
         )
 
     def test__str__without_provider(self):

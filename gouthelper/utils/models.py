@@ -11,6 +11,7 @@ from django.utils.text import format_lazy
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
 from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
+from ..genders.helpers import get_gender_abbreviation
 from ..goalurates.choices import GoalUrates
 from ..goalurates.helpers import goalurates_get_object_goal_urate
 from ..labs.helpers import (
@@ -148,7 +149,7 @@ class GoutHelperBaseModel(GoalUrateMixin):
         """Method that returns the age of the object's user if it exists."""
         if hasattr(self, "user") and self.user and self.user.dateofbirth:
             return age_calc(date_of_birth=self.user.dateofbirth.value)
-        elif hasattr(self, "dateofbirth"):
+        elif hasattr(self, "dateofbirth") and self.dateofbirth:
             return age_calc(date_of_birth=self.dateofbirth.value)
         return None
 
@@ -835,6 +836,15 @@ contraindicated."
         else:
             main_str += f" <strong>{Subject_the} {pos_neg_past} a gastric bypass</strong>."
         return mark_safe(main_str)
+
+    @cached_property
+    def gender_abbrev(self) -> str | None:
+        """Method that returns the age of the object's user if it exists."""
+        if hasattr(self, "user") and self.user and self.user.gender:
+            return get_gender_abbreviation(gender=self.user.gender.value)
+        elif hasattr(self, "gender") and self.gender:
+            return get_gender_abbreviation(gender=self.gender.value)
+        return None
 
     @classmethod
     def get_list_of_onetoone_fields(cls) -> list[str]:

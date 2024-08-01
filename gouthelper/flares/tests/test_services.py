@@ -120,7 +120,7 @@ class TestFlareMethods(TestCase):
         self.assertIsNone(flare.gender)
         flare.dateofbirth = flare.user.dateofbirth
         flare.gender = flare.user.gender
-        decisionaid = FlareDecisionAid(qs=flares_user_qs(username=flare.user.username, flare_pk=flare.pk))
+        decisionaid = FlareDecisionAid(qs=flares_user_qs(pseudopatient=flare.user.pk, flare_pk=flare.pk))
         self.assertIsNone(decisionaid.flare.dateofbirth)
         self.assertIsNone(decisionaid.flare.gender)
         self.assertEqual(decisionaid.dateofbirth, flare.user.dateofbirth)

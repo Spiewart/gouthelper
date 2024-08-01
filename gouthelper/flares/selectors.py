@@ -138,12 +138,12 @@ def flare_userless_qs(pk: "UUID") -> "QuerySet":
     return flare_userless_relations(apps.get_model("flares.Flare").objects.filter(pk=pk))
 
 
-def flares_user_qs(username: str, flare_pk: Union["UUID", None] = None) -> "QuerySet":
+def flares_user_qs(pseudopatient: str, flare_pk: Union["UUID", None] = None) -> "QuerySet":
     """QuerySet for a Pseudopatient and all the necessary related objects to
     create or update a Flare. If a flare_pk is provided, the Flare object will
     be fetched and added to the QuerySet."""
 
     return flare_user_relations(
-        apps.get_model("users.Pseudopatient").objects.filter(username=username),
+        apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient),
         flare_pk,
     )

@@ -19,7 +19,7 @@ urlpatterns = [
     path(
         "pseudopatients/create/<uuid:flare>/", view=pseudopatient_flare_create_view, name="pseudopatient-flare-create"
     ),
-    path("pseudopatients/delete/<str:username>/", view=pseudopatient_delete_view, name="pseudopatient-delete"),
+    path("pseudopatients/delete/<uuid:pseudopatient>/", view=pseudopatient_delete_view, name="pseudopatient-delete"),
     path(
         "pseudopatients/provider-create/<str:username>/",
         view=pseudopatient_create_view,
@@ -30,8 +30,8 @@ urlpatterns = [
         view=pseudopatient_flare_create_view,
         name="provider-pseudopatient-flare-create",
     ),
-    path("pseudopatients/<str:username>/", view=pseudopatient_detail_view, name="pseudopatient-detail"),
-    path("pseudopatients/<str:username>/update/", view=pseudopatient_update_view, name="pseudopatient-update"),
+    path("pseudopatients/<uuid:pseudopatient>/", view=pseudopatient_detail_view, name="pseudopatient-detail"),
+    path("pseudopatients/<uuid:pseudopatient>/update/", view=pseudopatient_update_view, name="pseudopatient-update"),
     path("<str:username>/pseudopatients/", view=pseudopatient_list_view, name="pseudopatients"),
     path("~redirect/", view=user_redirect_view, name="redirect"),
     path("~update/", view=user_update_view, name="update"),

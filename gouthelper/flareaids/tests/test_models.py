@@ -86,7 +86,7 @@ class TestFlareAid(TestCase):
     def test__related_flare_with_user(self):
         user_flareaid = create_flareaid(user=True)
         user_flare = create_flare(user=user_flareaid.user)
-        user = flares_user_qs(username=user_flareaid.user.username, flare_pk=user_flare.pk).get()
+        user = flares_user_qs(pseudopatient=user_flareaid.user.pk, flare_pk=user_flare.pk).get()
         flareaid = user.flareaid
         flare = user.flare_qs[0]
         self.assertEqual(flareaid.related_flare, flare)

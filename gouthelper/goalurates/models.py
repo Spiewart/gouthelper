@@ -108,7 +108,7 @@ individuals who have erosions. This results in the treatment being slightly more
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("goalurates:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("goalurates:detail", kwargs={"pk": self.pk})
 
@@ -148,7 +148,7 @@ risk of gout."
         depending on whether or not tophi or erosions are present."""
         if not qs:
             if self.user:
-                qs = Pseudopatient.objects.goalurate_qs().get(username=self.user.username)
+                qs = Pseudopatient.objects.goalurate_qs().get(pk=self.user.pk)
             else:
                 qs = GoalUrate.related_objects.get(pk=self.pk)
         updated = False

@@ -518,59 +518,60 @@ class TestPseudopatientDetailView(TestCase):
         """Test that a Provider can see his or her own Pseudopatient's detail."""
         self.client.force_login(self.provider)
         assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         )
 
     def test__rules_provider_cannot_see_admin_pseudopatient(self):
         """Test that a Provider cannot see an Admin's Pseudopatient's detail."""
         self.client.force_login(self.provider)
         response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.admin_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.admin_pseudopatient.pk})
         )
+        print(Pseudopatient.objects.get(pk=self.admin_pseudopatient.pk))
         assert response.status_code == 403
 
     def test__rules_provider_can_see_anonymous_pseudopatient(self):
         """Test that a Provider can see an Anonymous Pseudopatient's detail."""
         self.client.force_login(self.provider)
         assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
         )
 
     def test__rules_admin_can_see_own_pseudopatient(self):
         """Test that an Admin can see his or her own Pseudopatient's detail."""
         self.client.force_login(self.admin)
         assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.admin_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.admin_pseudopatient.pk})
         )
 
     def test__rules_admin_cannot_see_provider_pseudopatient(self):
         """Test that an Admin cannot see a Provider's Pseudopatient's detail."""
         self.client.force_login(self.admin)
         response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         )
         assert response.status_code == 403
 
     def test__rules_anonymous_cannot_see_provider_pseudopatient(self):
         """Test that an Anonymous User cannot see a Provider's Pseudopatient's detail."""
         response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         )
         assert response.status_code == 302
-        url = reverse("users:pseudopatient-detail", kwargs={"username": self.provider_pseudopatient.username})
+        url = reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         assert unquote(response.url) == f"/accounts/login/?next={url}"
 
     def test__rules_admin_can_see_anonymous_pseudopatient(self):
         """Test that an Admin can see an Anonymous Pseudopatient's detail."""
         self.client.force_login(self.admin)
         assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
         )
 
     def test__rules_anonymous_can_see_anonymous_pseudopatient(self):
         """Test that an Anonymous User can see an Anonymous Pseudopatient's detail."""
         assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"username": self.anon_pseudopatient.username})
+            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
         )
 
 
@@ -704,7 +705,7 @@ class TestPseudopatientUpdateView(TestCase):
         request.user = self.provider
         view.request = request
         SessionMiddleware(dummy_get_response).process_request(request)
-        view.kwargs = {"username": self.psp.username}
+        view.kwargs = {"pseudopatient": self.psp.pk}
         view.dispatch(request, **view.kwargs)
         assert view.object == self.psp
 
@@ -716,7 +717,7 @@ class TestPseudopatientUpdateView(TestCase):
         request.user = self.provider
         view.request = request
         SessionMiddleware(dummy_get_response).process_request(request)
-        view.kwargs = {"username": self.psp.username}
+        view.kwargs = {"pseudopatient": self.psp.pk}
         view.dispatch(request, **view.kwargs)
         assert view.get_permission_object() == self.psp
 
@@ -727,7 +728,7 @@ class TestPseudopatientUpdateView(TestCase):
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {"username": self.female.username}
+        view.kwargs = {"pseudopatient": self.female.pk}
         with self.assertNumQueries(2):
             qs = view.get_queryset().get()
             assert qs == self.female
@@ -772,7 +773,7 @@ class TestPseudopatientUpdateView(TestCase):
         """Tests that the required context data is passed to the template."""
         # Log in the provider
         self.client.force_login(self.provider)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.female.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.female.pk}))
         assert response.status_code == 200
         assert f"{MedHistoryTypes.GOUT}_form" not in response.context
         assert "dateofbirth_form" in response.context
@@ -788,25 +789,23 @@ class TestPseudopatientUpdateView(TestCase):
     def test__rules(self):
         """Test rules for the PseudopatientUpdateView."""
         # Anonymous User cannot update a Pseudopatient with a provider or a patient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
         assert response.status_code == 302
-        response = self.client.post(
-            reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username})
-        )
+        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
         assert response.status_code == 302
         # Provider can log in and update his or her own Pseudopatient
         self.client.force_login(self.provider)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
         assert response.status_code == 200
         # Provider cannot update another Provider's Pseudopatient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
         assert response.status_code == 403
         # Admin can log in and update his or her own Pseudopatient
         self.client.force_login(self.admin)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.admin_psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
         assert response.status_code == 200
         # Admin cannot update another Provider's Pseudopatient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}))
+        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
         assert response.status_code == 403
 
     def test__post(self):
@@ -836,9 +835,7 @@ class TestPseudopatientUpdateView(TestCase):
         }
         # Test that the view returns a ValidationError when the user is a woman aged 40-60
         # and the menopause form is not filled out
-        response = self.client.post(
-            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
-        )
+        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
         assert response.status_code == 200
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"]
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"][
@@ -850,12 +847,10 @@ menopause status to evaluate their flare."
         # Update menopause value
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
         # Test that view runs post() without errors and redirects to the Pseudopatient DetailView
-        response = self.client.post(
-            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
-        )
+        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
         assert response.status_code == 302
         assert (
-            response.url == reverse("users:pseudopatient-detail", kwargs={"username": psp.username}) + "?updated=True"
+            response.url == reverse("users:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}) + "?updated=True"
         )
         # Need to delete both gout and goutdetail cached_properties because they are used
         # to fetch one another and will not be updated otherwise
@@ -873,9 +868,7 @@ menopause status to evaluate their flare."
         assert psp.menopause
         # Test that menopause can be deleted
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": False})
-        response = self.client.post(
-            reverse("users:pseudopatient-update", kwargs={"username": psp.username}), data=data
-        )
+        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
         assert response.status_code == 302
         assert not Menopause.objects.filter(user=psp).exists()
 
@@ -910,7 +903,7 @@ class TestPseudopatientDeleteView(TestCase):
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {"username": self.provider_pseudopatient.username}
+        view.kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
         assert view.get_object() == self.provider_pseudopatient
 
     def test__rules_provider_can_delete_own_pseudopatient(self):
@@ -919,23 +912,23 @@ class TestPseudopatientDeleteView(TestCase):
         user = auth.get_user(self.client)
         assert user.is_authenticated
         initial_response = self.client.get(
-            reverse("users:pseudopatient-delete", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-delete", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         )
         assert initial_response.status_code == 200
 
         confirm_response = self.client.post(
-            reverse("users:pseudopatient-delete", kwargs={"username": self.provider_pseudopatient.username})
+            reverse("users:pseudopatient-delete", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
         )
 
         assert confirm_response.status_code == 302
         assert confirm_response.url == f"/users/{self.provider.username}/pseudopatients/"
 
-        assert not Pseudopatient.objects.filter(username=self.provider_pseudopatient.username).exists()
+        assert not Pseudopatient.objects.filter(pk=self.provider_pseudopatient.pk).exists()
 
     def test__rules_provider_cannot_delete_admins_pseudopatient(self):
         """Test that a Provider cannot delete an Admin's Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.admin_pseudopatient.username}
+        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
@@ -959,7 +952,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_provider_cannot_delete_anonymous_pseudopatient(self):
         """Test that a Provider cannot delete an Anonymous Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.anon_pseudopatient.username}
+        kwargs = {"pseudopatient": self.anon_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
@@ -983,7 +976,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_admin_can_delete_own_pseudopatient(self):
         """Test that an Admin can delete his or her own Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.admin_pseudopatient.username}
+        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
@@ -1005,7 +998,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_admin_cannot_delete_providers_pseudopatient(self):
         """Test that an Admin cannot delete a Provider's Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.provider_pseudopatient.username}
+        kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
@@ -1029,7 +1022,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_admin_cannot_delete_anonymous_pseudopatient(self):
         """Test that an Admin cannot delete an Anonymous Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.anon_pseudopatient.username}
+        kwargs = {"pseudopatient": self.anon_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
@@ -1053,7 +1046,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_patient_cannot_delete_provider_pseudopatient(self):
         """Test that a Patient cannot delete a Provider's Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.provider_pseudopatient.username}
+        kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
@@ -1067,7 +1060,7 @@ class TestPseudopatientDeleteView(TestCase):
     def test__rules_patient_cannot_delete_admin_pseudopatient(self):
         """Test that a Patient cannot delete an Admin's Pseudopatient."""
         view = PseudopatientDeleteView
-        kwargs = {"username": self.admin_pseudopatient.username}
+        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
         request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
@@ -1287,7 +1280,9 @@ class TestUserDetailView(TestCase):
         request.user = self.provider_pseudopatient
         response = view(request, **kwargs)
         assert response.status_code == 302
-        assert response.url == reverse("users:pseudopatient-detail", kwargs=kwargs)
+        assert response.url == reverse(
+            "users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk}
+        )
 
     def test_not_authenticated(self):
         request = self.rf.get("/fake-url/")

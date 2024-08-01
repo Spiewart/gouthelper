@@ -281,7 +281,7 @@ href={}>goal uric acid</a>.""",
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("ultaids:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("ultaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ultaids:detail", kwargs={"pk": self.pk})
 

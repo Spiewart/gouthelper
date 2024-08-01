@@ -82,9 +82,9 @@ def pseudopatient_qs(username: str) -> "QuerySet":
     )
 
 
-def pseudopatient_profile_qs(username: str) -> "QuerySet":
+def pseudopatient_profile_qs(pseudopatient: str) -> "QuerySet":
     return pseudopatient_onetoone_relations(
-        apps.get_model("users.Pseudopatient").objects.filter(username=username)
+        apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient)
     ).prefetch_related(
         most_recent_flare_prefetch(),
         medhistorys_prefetch(),
@@ -93,10 +93,10 @@ def pseudopatient_profile_qs(username: str) -> "QuerySet":
     )
 
 
-def pseudopatient_profile_update_qs(username: str) -> "QuerySet":
+def pseudopatient_profile_update_qs(pseudopatient: str) -> "QuerySet":
     return pseudopatient_profile_onetoone_relations(
         apps.get_model("users.Pseudopatient")
-        .objects.filter(username=username)
+        .objects.filter(pk=pseudopatient)
         .prefetch_related(pseudopatient_profile_medhistory_prefetch())
     )
 

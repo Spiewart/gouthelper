@@ -54,6 +54,7 @@ from .models import Flare
 
 if TYPE_CHECKING:
     from decimal import Decimal
+    from uuid import UUID
 
     from django.db.models import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
@@ -290,8 +291,6 @@ class FlareDetail(FlareDetailBase):
 
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        # Check if the object has a User and if there is no username in the kwargs,
-        # redirect to the username url
         if self.object.user:
             return HttpResponseRedirect(self.object.get_absolute_url())
         else:
@@ -318,11 +317,11 @@ class FlarePatientEditBase(FlareEditBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
         return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
-            username=username
+            pk=pseudopatient
         )
 
     def get_success_message(self, cleaned_data) -> str:
@@ -364,14 +363,14 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["patient"] = Pseudopatient.objects.get(username=self.kwargs["username"])
+        context["patient"] = self.user
         return context
 
     def get_permission_object(self):
         return self.user
 
     def get_queryset(self):
-        return Pseudopatient.objects.flares_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.flares_qs().filter(pk=self.kwargs["pseudopatient"])
 
 
 class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -403,7 +402,7 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessM
         try:
             self.user: User = self.get_queryset().get()
         except User.DoesNotExist as exc:
-            raise Http404(f"User with username {self.kwargs['username']} does not exist.") from exc
+            raise Http404("GoutPatient does not exist.") from exc
         try:
             flare: Flare = self.user.flare_qs[0]
         except IndexError as exc:
@@ -414,10 +413,10 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessM
         return self.object
 
     def get_success_url(self) -> str:
-        return reverse("flares:pseudopatient-list", kwargs={"username": self.object.user.username})
+        return reverse("flares:pseudopatient-list", kwargs={"pseudopatient": self.object.user.pk})
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
 
 
 class FlarePseudopatientDetail(FlareDetailBase):
@@ -437,7 +436,7 @@ class FlarePseudopatientDetail(FlareDetailBase):
             self.object = self.get_object()
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -454,13 +453,13 @@ class FlarePseudopatientDetail(FlareDetailBase):
         return flare
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> Flare:
         try:
             self.user: User = self.get_queryset().get()
         except User.DoesNotExist as exc:
-            raise Http404(f"User with username {self.kwargs['username']} does not exist.") from exc
+            raise Http404("GoutPatient does not exist.") from exc
         try:
             flare: Flare = self.user.flare_qs[0]
         except IndexError as exc:

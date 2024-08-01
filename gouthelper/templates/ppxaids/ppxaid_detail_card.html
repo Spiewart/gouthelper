@@ -7,7 +7,7 @@
         <div class="col">
           <h4 class="card-title">
             {% if ppxaid.user %}
-              <!-- djlint:off --><a href="{% url 'ppxaids:pseudopatient-detail' ppxaid.user.username %}"><!-- djlint:on -->
+              <!-- djlint:off --><a href="{% url 'ppxaids:pseudopatient-detail' ppxaid.user.pk %}"><!-- djlint:on -->
             {% else %}
               <a href="{% url 'ppxaids:detail' ppxaid.pk %}">
               {% endif %}
@@ -50,7 +50,7 @@
           </div>
         </div>
         {% if ppxaid.user %}
-          <a href="{% url 'ppxaids:pseudopatient-update' ppxaid.user.username %}?next={{ request.path }}"
+          <a href="{% url 'ppxaids:pseudopatient-update' ppxaid.user.pk %}?next={{ request.path }}"
              class="btn btn-primary">Update</a>
         {% else %}
           <a href="{% url 'ppxaids:update' ppxaid.pk %}?next={{ request.path }}"
@@ -68,7 +68,7 @@
         <div class="col-auto">
           <a type="button"
              class="btn btn-primary"
-             href="{% url 'ppxaids:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+             href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
              role="button">Create</a>
         </div>
       </div>

@@ -33,6 +33,7 @@ class UltAidForm(
             "gender",
             "hlab5801",
             "ethnicity",
+            "user",
         )
 
     def __init__(self, *args, **kwargs):

@@ -146,7 +146,7 @@ class Pseudopatient(GoutHelperPatientModel, User):
 
         Returns:
             str: URL for user detail."""
-        return reverse("users:pseudopatient-detail", kwargs={"username": self.username})
+        return reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.pk})
 
     @cached_property
     def profile(self):

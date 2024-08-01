@@ -23,7 +23,7 @@ from ..ethnicitys.models import Ethnicity
 from ..genders.models import Gender
 from ..ults.models import Ult
 from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperAidEditMixin
+from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
 from .dicts import (
     MEDALLERGY_FORMS,
     MEDHISTORY_DETAIL_FORMS,
@@ -36,6 +36,8 @@ from .forms import UltAidForm
 from .models import UltAid
 
 if TYPE_CHECKING:
+    from uuid import UUID  # type: ignore
+
     from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models import QuerySet  # type: ignore
 
@@ -155,10 +157,10 @@ class UltAidPatientBase(UltAidBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.ultaid_qs().filter(username=username)
+        return Pseudopatient.objects.ultaid_qs().filter(pk=pseudopatient)
 
 
 class UltAidPseudopatientCreate(
@@ -186,7 +188,7 @@ class UltAidPseudopatientCreate(
             return self.form_valid()
 
 
-class UltAidPseudopatientDetail(UltAidDetailBase):
+class UltAidPseudopatientDetail(UltAidDetailBase, PatientSessionMixin):
     """DetailView for UltAids that have a user."""
 
     def dispatch(self, request, *args, **kwargs):
@@ -198,11 +200,11 @@ class UltAidPseudopatientDetail(UltAidDetailBase):
         except UltAid.DoesNotExist as exc:
             messages.error(request, exc.args[0])
             return HttpResponseRedirect(
-                reverse("ultaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
+                reverse("ultaids:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
             )
         except (DateOfBirth.DoesNotExist, Ethnicity.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
@@ -239,7 +241,7 @@ class UltAidPseudopatientDetail(UltAidDetailBase):
         return ultaid
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ultaid_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.ultaid_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> UltAid:
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore

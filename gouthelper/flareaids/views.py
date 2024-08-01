@@ -36,6 +36,9 @@ from .forms import FlareAidForm
 from .models import FlareAid
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
+    # type: ignore
     from django.db.models import QuerySet  # type: ignore
 
     User = get_user_model()
@@ -153,10 +156,10 @@ class FlareAidPatientEditBase(FlareAidEditBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flareaid_qs().filter(username=username)
+        return Pseudopatient.objects.flareaid_qs().filter(pk=pseudopatient)
 
 
 class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -166,9 +169,6 @@ class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMix
     success_message = "%(user)s's FlareAid successfully created."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
@@ -201,11 +201,11 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         except FlareAid.DoesNotExist as exc:
             messages.error(request, exc.args[0])
             return HttpResponseRedirect(
-                reverse("flareaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
+                reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
             )
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -228,7 +228,7 @@ class FlareAidPseudopatientDetail(FlareAidDetailBase):
         return flareaid
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.flareaid_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.flareaid_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> FlareAid:
         self.user: "User" = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore

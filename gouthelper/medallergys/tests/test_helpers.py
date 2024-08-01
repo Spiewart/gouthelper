@@ -26,9 +26,9 @@ class TestMedAllergyAttr(TestCase):
     def test__medallergys_qs(self):
         """Test the method when the objects have a medallergys_qs attribute"""
         ppxaid_mas = ppxaid_userless_qs(pk=self.ppxaid.pk).get()
-        user_ppxaid_mas = ppxaid_user_qs(username=self.user.username).get()
+        user_ppxaid_mas = ppxaid_user_qs(pseudopatient=self.user.pk).get()
         empty_ppxaid_mas = ppxaid_userless_qs(pk=self.empty_ppxaid.pk).get()
-        empty_user_ppxaid_mas = ppxaid_user_qs(username=self.empty_user.username).get()
+        empty_user_ppxaid_mas = ppxaid_user_qs(pseudopatient=self.empty_user.pk).get()
         with self.assertNumQueries(0):
             for trt in self.trt_mas:
                 if trt in NsaidChoices.values:

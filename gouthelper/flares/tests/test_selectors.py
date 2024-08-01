@@ -143,7 +143,7 @@ class TestFlaresUserQuerySet(TestCase):
         """Test that the flares_user_qs() returns the correct QuerySet"""
         for psp in self.psps:
             with CaptureQueriesContext(connection) as queries:
-                qs = flares_user_qs(psp.username, psp.flare_set.last().pk).get()
+                qs = flares_user_qs(psp.pk, psp.flare_set.last().pk).get()
             if qs.flare_qs[0].aki:
                 self.assertEqual(len(queries.captured_queries), 5)
                 self.assertTrue(hasattr(qs.flare_qs[0].aki, "creatinines_qs"))
@@ -163,7 +163,7 @@ class TestFlaresUserQuerySet(TestCase):
         number of queries."""
         for psp in Pseudopatient.objects.flares_qs().all():
             with self.assertNumQueries(4):
-                qs = flares_user_qs(psp.username).get()
+                qs = flares_user_qs(psp.pk).get()
                 self.assertTrue(isinstance(qs, Pseudopatient))
                 self.assertTrue(getattr(qs, "dateofbirth", None))
                 self.assertTrue(getattr(qs, "gender", None))

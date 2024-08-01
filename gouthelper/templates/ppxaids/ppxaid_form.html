@@ -36,10 +36,10 @@
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'ppxaids:pseudopatient-update' view.kwargs.username %}">
+              action="{% url 'ppxaids:pseudopatient-update' object.user.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}
@@ -48,7 +48,7 @@
       {% else %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'ppxaids:update' form.instance.pk %}">
+              action="{% url 'ppxaids:update' object.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}
@@ -56,10 +56,10 @@
         </form>
       {% endif %}
     {% else %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'ppxaids:pseudopatient-create' view.kwargs.username %}">
+              action="{% url 'ppxaids:pseudopatient-create' view.kwargs.pseudopatient %}">
           {% csrf_token %}
           {% crispy form %}
           {% include '_next_inputs.html' %}

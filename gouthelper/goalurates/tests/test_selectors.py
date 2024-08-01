@@ -32,7 +32,7 @@ class TestGoalUrateUserQuerySet(TestCase):
 
     def test_goalurate_user_qs(self):
         """Test that the goalurate_user_qs returns a queryset."""
-        qs = goalurate_user_qs(self.user_goalurate.user.username)
+        qs = goalurate_user_qs(self.user_goalurate.user.pk)
         self.assertIsInstance(qs, QuerySet)
         with self.assertNumQueries(2):
             qs = qs.get()

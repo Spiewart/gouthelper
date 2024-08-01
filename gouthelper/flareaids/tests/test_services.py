@@ -70,7 +70,7 @@ class TestFlareAidMethods(TestCase):
         for fa in self.fas_user:
             custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
+                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
             self.assertEqual(len(context.captured_queries), 4)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
             if hasattr(fa.user, "gender"):
@@ -92,7 +92,7 @@ class TestFlareAidMethods(TestCase):
         on the service class in order to avoid saving a FlareAid with a user as well as
         onetoones that violate the model CheckConstraint (i.e. dateofbirth, gender)."""
         for fa in self.fas_user:
-            fa_user = flareaid_user_qs(username=fa.user.username).get()
+            fa_user = flareaid_user_qs(pseudopatient=fa.user.pk).get()
             fa = fa_user.flareaid
             fa.dateofbirth = fa.user.dateofbirth
             fa.gender = fa.user.gender if hasattr(fa.user, "gender") else None
@@ -113,7 +113,7 @@ class TestFlareAidMethods(TestCase):
         for fa in self.fas_user:
             custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username).get())
+                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk).get())
             self.assertEqual(len(context.captured_queries), 4)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
             if hasattr(fa.user, "gender"):
@@ -157,7 +157,7 @@ class TestFlareAidMethods(TestCase):
         by the FlareAid or it's users default_trts."""
         fa = FlareAid.objects.filter(user__isnull=False).last()
         custom_colchicine_default = DefaultColchicineFlareFactory(user=fa.user)
-        da = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
+        da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
         self.assertEqual(len(da.default_trts), 9)
         self.assertIn(custom_colchicine_default, da.default_trts)
 
@@ -189,7 +189,7 @@ class TestFlareAidMethods(TestCase):
         """Test that the default_medhistorys property returns a QuerySet of DefaultMedHistorys
         that is correct and filtered by trttype=FLARE and the FlareAid or it's users medhistorys."""
         for fa in self.fas_user:
-            da = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
+            da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
             custom_default = DefaultMedHistoryFactory(
                 user=fa.user,
                 medhistorytype=random.choice(
@@ -299,7 +299,7 @@ class TestFlareAidMethods(TestCase):
     def test__save_decisionaid_dict_to_decisionaid_saves(self):
         """Test that the _save_decisionaid_dict_to_decisionaid method saves the decisionaid field as a JSON string.
         Also test that the decisionaid field is an empty dict, as this is the default for the field."""
-        fa_user = flareaid_user_qs(username=FlareAid.objects.filter(user__isnull=False).last().user.username).get()
+        fa_user = flareaid_user_qs(pseudopatient=FlareAid.objects.filter(user__isnull=False).last().user.pk).get()
         fa = fa_user.flareaid
         da = FlareAidDecisionAid(qs=fa_user)
         da_dict = da._create_decisionaid_dict()  # pylint: disable=w0212, line-too-long # noqa: E501
@@ -329,7 +329,7 @@ class TestFlareAidMethods(TestCase):
     def test__update(self):
         """Test that update works by checking that it populates the FlareAid's decisionaid field."""
         fa = FlareAid.objects.filter(user__isnull=False).last()
-        da = FlareAidDecisionAid(qs=flareaid_user_qs(username=fa.user.username))
+        da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
         self.assertFalse(fa.decisionaid)
         da._update()  # pylint: disable=w0212
         fa.refresh_from_db()

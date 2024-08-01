@@ -47,7 +47,7 @@ class TestPpxAidForm(TestCase):
         # Test that dateofbirth and gender are not included in the form
         # when there is a user.
         user = create_psp()
-        response = self.client.get(reverse("ppxaids:pseudopatient-create", kwargs={"username": user.username}))
+        response = self.client.get(reverse("ppxaids:pseudopatient-create", kwargs={"pseudopatient": user.pk}))
         self.assertNotIn("dateofbirth-value", response.rendered_content)
         self.assertNotIn("gender-value", response.rendered_content)
         self.assertIn("""<label class="form-label">Cardiovascular Diseases</label>""", response.rendered_content)

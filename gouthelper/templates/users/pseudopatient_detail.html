@@ -14,11 +14,11 @@
     <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'users:pseudopatient-update' object.username %}"
+         href="{% url 'users:pseudopatient-update' object.pk %}"
          role="button">Update</a>
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'users:pseudopatient-delete' object.username %}"
+         href="{% url 'users:pseudopatient-delete' object.pk %}"
          role="button">Delete</a>
     </div>
   </div>

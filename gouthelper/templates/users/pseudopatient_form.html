@@ -32,10 +32,14 @@
 {% endblock subheading %}
 {% block content %}
   <main class="container">
+    <hr size="3" color="dark" />
+    <u><strong>All GoutPatients are assumed to have a history of gout.</strong></u> If the patient doesn't have a history of gout
+    and it's unclear if the symptoms are due to gout, create a <a href="{% url 'flares:create' %}">Flare</a> instead.
+    This can always be converted into a GoutPatient.
     {% if form.instance.created and request.user.is_authenticated %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'users:pseudopatient-update' object.username %}">
+            action="{% url 'users:pseudopatient-update' object.pk %}">
         {% csrf_token %}
         {% crispy form %}
         {% include '_submit_button.html' %}

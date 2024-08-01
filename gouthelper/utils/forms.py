@@ -395,34 +395,37 @@ def forms_helper_insert_other_nsaid_contras(layout: "Layout", subject_the: str =
         Div(
             Div(
                 Div(
-                    HTML(
-                        """
-                        <label for="" class=" form-label">
-                        Other Contraindications to NSAIDs </label>
-                        """
-                    ),
-                    Div(),
                     Div(
                         HTML(
-                            f"""What other contraindications to NSAIDs (non-steroidal anti-inflammatory drugs) \
-does {subject_the} have?
+                            """
+                            <label for="" class=" form-label">
+                            Other Contraindications to NSAIDs </label>
                             """
                         ),
-                        css_id="hint_id_other_nsaid_contras",
-                        css_class="form-text",
+                        Div(),
+                        Div(
+                            HTML(
+                                f"""What other contraindications to NSAIDs (non-steroidal anti-inflammatory drugs) \
+    does {subject_the} have?
+                                """
+                            ),
+                            css_id="hint_id_other_nsaid_contras",
+                            css_class="form-text",
+                        ),
+                        css_class="mb-3",
+                        css_id="div_id_other_nsaid_contras",
                     ),
-                    css_class="mb-3",
-                    css_id="div_id_other_nsaid_contras",
+                    css_class="col",
                 ),
-                css_class="col",
+                css_class="row",
+                css_id="other_nsaid_contras",
             ),
-            css_class="row",
-            css_id="other_nsaid_contras",
+            css_class="sub-form",
         ),
     )
     sub_sub_len = len(layout[layout_len - 1][sub_len - 1])
     for contra in OTHER_NSAID_CONTRAS:
-        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
+        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][0][1].append(
             Div(
                 HTML(
                     f"""

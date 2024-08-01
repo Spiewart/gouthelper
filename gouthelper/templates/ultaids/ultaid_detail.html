@@ -23,7 +23,7 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'ultaids:pseudopatient-update' username=object.user.username %}"
+           href="{% url 'ultaids:pseudopatient-update' pseudopatient=object.user.pk %}"
            role="button">Update</a>
       {% else %}
         <a type="button"
@@ -106,7 +106,7 @@
                   {% if patient %}
                     <a type="button"
                        class="btn btn-primary btn-lg"
-                       hx-get="{% url 'goalurates:pseudopatient-create' username=patient.username %}"
+                       hx-get="{% url 'goalurates:pseudopatient-create' pseudopatient=patient.pk %}"
                        hx-target="#goalurate"
                        hx-trigger="click"
                        role="button">Create GoalUrate</a>

@@ -23,7 +23,7 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'ppxaids:pseudopatient-update' username=object.user.username %}"
+           href="{% url 'ppxaids:pseudopatient-update' pseudopatient=object.user.pk %}"
            role="button">Update</a>
       {% else %}
         <a type="button"
@@ -65,7 +65,7 @@
                   <h3 class="card-title">Ppx</h3>
                   <p>Is prophylaxis indicated for {{ str_attrs.subject_the }}?</p>
                   {% if object.user %}
-                    <a href="{% url 'ppxs:pseudopatient-create' object.user.username %}?next={{ request.path }}"
+                    <a href="{% url 'ppxs:pseudopatient-create' object.user.pk %}?next={{ request.path }}"
                        class="btn btn-primary spacious-buttons">Create Ppx</a>
                   {% else %}
                     <a href="{% url 'ppxs:ppxaid-create' object.pk %}?next={{ request.path }}"
@@ -87,9 +87,9 @@
                     Dose is too low for treatment of gout flares, use
                     {% if patient %}
                       {% if patient.flareaid %}
-                        <a href="{% url 'flareaids:pseudopatient-detail' view.kwargs.username %}">FlareAid</a>
+                        <a href="{% url 'flareaids:pseudopatient-detail' view.kwargs.pseudopatient %}">FlareAid</a>
                       {% else %}
-                        <a href="{% url 'flareaids:pseudopatient-create' view.kwargs.username %}">FlareAid</a>
+                        <a href="{% url 'flareaids:pseudopatient-create' view.kwargs.pseudopatient %}">FlareAid</a>
                       {% endif %}
                     {% else %}
                       <a href="{% url 'flareaids:create' %}">FlareAid</a>

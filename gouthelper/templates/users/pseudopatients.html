@@ -15,7 +15,7 @@
            href="{% url 'account_email' %}"
            role="button">E-Mail</a>
         <a type="button"
-           class="btn btn-primary btn-lg spacious-buttons"
+           class="btn btn-primary btn-lg"
            href="{% url 'users:delete' %}"
            role="button">Delete Account</a>
       {% endif %}
@@ -38,20 +38,20 @@
     <div class="container bodytainer">
       <hr size="3" color="dark" />
       {% if object_list %}
-        {% for object in object_list %}
+        {% for pseudopatient in object_list %}
           <div class="card spacious-cards">
             <div class="card-header"></div>
             <div class="card-body">
               <div class="row">
                 <div class="col">
                   <h3 class="card-title">
-                    <a href="{{ object.get_absolute_url }}" class="hyperlink">{{ object }}</a>
+                    <a href="{{ pseudopatient.get_absolute_url }}" class="hyperlink">{{ pseudopatient }}</a>
                   </h3>
                 </div>
                 <div class="col-auto align-items-center d-flex justify-content-end">
                   <a type="button"
                      class="btn btn-primary btn-lg"
-                     href="{% url 'users:pseudopatient-delete' object.username %}"
+                     href="{% url 'users:pseudopatient-delete' pseudopatient.pk %}"
                      role="button">Delete</a>
                 </div>
               </div>

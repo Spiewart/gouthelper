@@ -105,7 +105,7 @@ class TestPpxAidUserQuerySet(TestCase):
 
     def test__queryset_returns_correctly(self):
         with CaptureQueriesContext(connection) as queries:
-            queryset = ppxaid_user_qs(self.user_ppx.user.username)
+            queryset = ppxaid_user_qs(self.user_ppx.user.pk)
             self.assertIsInstance(queryset, QuerySet)
             queryset = queryset.get()
             self.assertEqual(queryset, self.user_ppx.user)

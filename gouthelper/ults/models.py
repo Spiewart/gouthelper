@@ -528,7 +528,7 @@ indication for ULT. <strong>{Subject_the} {pos if self.frequentflares else pos_n
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("ults:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ults:detail", kwargs={"pk": self.pk})
 
@@ -701,7 +701,7 @@ for ULT, hyperuricemia is a conditional indication for ULT with a very low certa
             elif self.one_flare_without_any_indication:
                 return format_lazy(
                     """{} has only had {}, which is a <a href={}>contraindication</a> for ULT in the absence of other \
-conditions that don't put {} at risk for future flares or other complications related \
+conditions that put {} at risk for future flares or other complications related \
 to gout or elevated <a href={}>uric acid</a> levels.""",
                     gender_subject,
                     (

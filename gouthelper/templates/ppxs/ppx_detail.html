@@ -16,7 +16,7 @@
       {% if object.user %}
         <a type="button"
            class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'ppxs:pseudopatient-update' username=object.user.username %}"
+           href="{% url 'ppxs:pseudopatient-update' pseudopatient=object.user.pk %}"
            role="button">Update</a>
       {% else %}
         <a type="button"
@@ -79,7 +79,7 @@
                           {% else %}
                             <a type="button"
                                class="btn btn-primary btn-lg"
-                               href="{% url 'ppxaids:pseudopatient-create' username=object.user.username %}?next={{ object.get_absolute_url }}"
+                               href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ object.get_absolute_url }}"
                                role="button">Create PpxAid</a>
                           {% endif %}
                         {% else %}
@@ -142,14 +142,14 @@
                         {% if not object.user.goalurate %}
                           <a type="button"
                              class="btn btn-primary btn-lg"
-                             hx-get="{% url 'goalurates:pseudopatient-create' username=object.user.username %}"
+                             hx-get="{% url 'goalurates:pseudopatient-create' pseudopatient=object.user.pk %}"
                              hx-target="#goalurate"
                              hx-trigger="click"
                              role="button">Create GoalUrate</a>
                         {% else %}
                           <a type="button"
                              class="btn btn-primary btn-lg"
-                             hx-get="{% url 'goalurates:pseudopatient-update' object.user.username %}"
+                             hx-get="{% url 'goalurates:pseudopatient-update' object.user.pk %}"
                              hx-target="#goalurate"
                              hx-trigger="click"
                              role="button">Update Goal Urate</a>

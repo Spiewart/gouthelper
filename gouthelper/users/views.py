@@ -196,8 +196,7 @@ class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
     """
 
     model = Pseudopatient
-    slug_field = "username"
-    slug_url_kwarg = "username"
+    pk_url_kwarg = "pseudopatient"
     form_class = PseudopatientForm
     permission_required = "users.can_edit_pseudopatient"
 
@@ -206,7 +205,7 @@ class PseudopatientUpdateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
     MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
 
     def get_queryset(self):
-        return pseudopatient_profile_update_qs(self.kwargs.get("username"))
+        return pseudopatient_profile_update_qs(self.kwargs.get("pseudopatient"))
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
@@ -229,8 +228,7 @@ pseudopatient_update_view = PseudopatientUpdateView.as_view()
 
 class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailMixin, DetailView):
     model = User
-    slug_field = "username"
-    slug_url_kwarg = "username"
+    pk_url_kwarg = "pseudopatient"
     template_name = "users/pseudopatient_detail.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -238,7 +236,7 @@ class PseudopatientDetailView(AutoPermissionRequiredMixin, GoutHelperUserDetailM
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        return pseudopatient_profile_qs(self.kwargs.get("username", None))
+        return pseudopatient_profile_qs(self.kwargs.get("pseudopatient", None))
 
     def get(self, request, *args, **kwargs):
         self.update_onetoones()
@@ -326,7 +324,7 @@ class PseudopatientDeleteView(UserDeleteView):
         return super().form_valid(form)
 
     def get_object(self):
-        return Pseudopatient.objects.get(username=self.kwargs.get("username", None))
+        return Pseudopatient.objects.get(pk=self.kwargs.get("pseudopatient", None))
 
     def get_success_message(self, cleaned_data):
         return _("Pseudopatient successfully deleted")
@@ -352,7 +350,7 @@ class UserDetailView(LoginRequiredMixin, AutoPermissionRequiredMixin, DetailView
         self.object = self.get_object()
         if self.object.role == Roles.PSEUDOPATIENT:
             return HttpResponseRedirect(
-                reverse("users:pseudopatient-detail", kwargs={"username": self.get_object().username})
+                reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.get_object().pk})
             )
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
@@ -388,7 +386,10 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
     permanent = False
 
     def get_redirect_url(self):
-        return reverse("users:detail", kwargs={"username": self.request.user.username})
+        if self.request.user.role == Roles.PROVIDER:
+            return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})
+        else:
+            return reverse("users:detail", kwargs={"username": self.request.user.username})
 
 
 user_redirect_view = UserRedirectView.as_view()

@@ -7,7 +7,7 @@
         <div class="col">
           <h4>
             {% if ult.user %}
-              <a href="{% url 'ults:pseudopatient-detail' ult.user.username %}">{{ ult }}</a>
+              <a href="{% url 'ults:pseudopatient-detail' ult.user.pk %}">{{ ult }}</a>
             {% else %}
               <a href="{% url 'ults:detail' ult.pk %}">{{ ult }}</a>
             {% endif %}
@@ -31,7 +31,7 @@
         <p class="card-text">{{ interpretation }}</p>
         {% if ult.user %}
           <a class="btn btn-primary"
-             href="{% url 'ults:pseudopatient-update' ult.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+             href="{% url 'ults:pseudopatient-update' ult.user.pk %}?next={{ object.get_absolute_url }}">Update</a>
         {% else %}
           <a class="btn btn-primary" href="{% url 'ults:detail' ult.pk %}">Details</a>
           <a class="btn btn-primary"
@@ -49,7 +49,7 @@
         <div class="col-auto">
           <a type="button"
              class="btn btn-primary"
-             href="{% url 'ults:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+             href="{% url 'ults:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
              role="button">Create</a>
         </div>
       </div>

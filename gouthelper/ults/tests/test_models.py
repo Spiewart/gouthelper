@@ -148,7 +148,7 @@ class TestUlt(TestCase):
     def test__get_absolute_url(self):
         for ult in self.ults:
             if ult.user:
-                self.assertEqual(ult.get_absolute_url(), f"/ults/{ult.user.username}/")
+                self.assertEqual(ult.get_absolute_url(), f"/ults/goutpatient-detail/{ult.user.pk}/")
             else:
                 self.assertEqual(self.ult_without_user.get_absolute_url(), f"/ults/{self.ult_without_user.pk}/")
 

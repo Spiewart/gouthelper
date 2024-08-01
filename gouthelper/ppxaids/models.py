@@ -143,7 +143,7 @@ class PpxAid(
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("ppxaids:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("ppxaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ppxaids:detail", kwargs={"pk": self.pk})
 
@@ -197,7 +197,7 @@ class PpxAid(
             PpxAid: PpxAid object."""
         if qs is None:
             if self.user:
-                qs = Pseudopatient.objects.ppxaid_qs().filter(username=self.user.username)
+                qs = Pseudopatient.objects.ppxaid_qs().filter(pk=self.user.pk)
             else:
                 qs = PpxAid.related_objects.filter(pk=self.pk)
         decisionaid = PpxAidDecisionAid(qs=qs)

@@ -22,13 +22,14 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
 from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date, shorten_date_for_str
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
-from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
+from .choices import LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .helpers import (
     flares_abnormal_duration,
     flares_calculate_prevalence_points,
     flares_common_joints,
     flares_diagnostic_rule_urate_high,
     flares_get_less_likelys,
+    flares_get_more_likelys,
     flares_uncommon_joints,
 )
 from .managers import FlareManager
@@ -119,6 +120,7 @@ class Flare(
     LessLikelys = LessLikelys
     LimitedJointChoices = LimitedJointChoices
     Likelihoods = Likelihoods
+    MoreLikelys = MoreLikelys
     Prevalences = Prevalences
 
     aki = models.OneToOneField(
@@ -232,6 +234,13 @@ monosodium urate crystals on polarized microscopy?"
         for a typical gout flare."""
         return flares_abnormal_duration(duration=self.duration, date_ended=self.date_ended)
 
+    @cached_property
+    def age(self) -> int | None:
+        age = super().age
+        if not age and getattr(self, "flare", False):
+            return self.flare.age
+        return age
+
     @classmethod
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return FLARE_MEDHISTORYS
@@ -306,11 +315,17 @@ to have gout, which doesn't apply to {subject_the}."
         # If the user has a positive crystal analysis but the likelihood is unlikely, that can be a sign
         # that there is some confusion or disagreement in the form fields.
         Subject_the, pos_past = self.get_str_attrs("Subject_the", "pos_past")
-        if self.crystal_analysis and self.likelihood != self.Likelihoods.LIKELY:
+        if self.crystal_analysis and self.diagnosed is not None and self.diagnosed is False:
             return mark_safe(
                 f"<strong>Something seems off</strong>. {Subject_the} {pos_past} a joint aspiration \
-and the synovial fluid contained monosodium urate which is the gold standard for diagnosing gout. \
-The likelihood of gout should be high."
+and the synovial fluid contained monosodium urate, which is the gold standard for diagnosing gout, \
+but the clinical diagnosis was not gout."
+            )
+        elif self.crystal_analysis and self.diagnosed is None:
+            return mark_safe(
+                f"<strong>Something seems off</strong>. {Subject_the} {pos_past} a joint aspiration \
+and the synovial fluid contained monosodium urate, which is the gold standard for diagnosing gout, \
+but the clinical diagnosis wasn't certain whether the symptoms were due to gout."
             )
         # If the user was diagnosed with gout but the likelihood is unlikely, it will be noted.
         elif self.diagnosed and self.likelihood == self.Likelihoods.UNLIKELY:
@@ -350,7 +365,7 @@ If monosodium urate crystals are present, the diagnosis of gout is confirmed. <b
 contained monosodium urate crystals</strong>, consistent with gout."
             if self.diagnosed:
                 crystal_analysis_str += f" The provider's diagnosis is correct, and {subject_the} has gout. \
-GoutHelper set the Flare likelihood to likely because the providers' opinion was supported by a synovial fluid \
+GoutHelper set the Flare likelihood to likely because the provider's opinion was supported by a synovial fluid \
 analysis that contained monosodium urate."
             elif self.diagnosed is not None and self.diagnosed is False:
                 crystal_analysis_str += " <strong>The provider disagreed with the synovial fluid \
@@ -620,9 +635,16 @@ symptoms were due to gout."
         mtp_str += " first metatarsophalangeal joint"
         return mtp_str
 
+    @cached_property
+    def gender_abbrev(self) -> str | None:
+        gender_abbrev = super().gender_abbrev
+        if not gender_abbrev and getattr(self, "flare", False):
+            return self.flare.gender_abbrev
+        return gender_abbrev
+
     def get_absolute_url(self):
         if self.user:
-            return reverse("flares:pseudopatient-detail", kwargs={"username": self.user.username, "pk": self.pk})
+            return reverse("flares:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk, "pk": self.pk})
         else:
             return reverse("flares:detail", kwargs={"pk": self.pk})
 
@@ -725,7 +747,7 @@ score."
         else:
             return ", ".join([joint.lower() for joint in joints])
 
-    @cached_property
+    @property
     def less_likelys(self) -> list[LessLikelys]:
         """Method that returns a list of the LessLikelys for a Flare."""
         return flares_get_less_likelys(
@@ -740,9 +762,19 @@ score."
         )
 
     @property
+    def more_likelys(self) -> list[MoreLikelys]:
+        return flares_get_more_likelys(
+            crystal_analysis=self.crystal_analysis,
+        )
+
+    @property
     def less_likelys_explanations(self) -> list[str]:
         """Method that returns a list of the LessLikelys explanations for a Flare."""
         return [self.get_less_likely_html_explanation(less_likely) for less_likely in self.less_likelys]
+
+    @property
+    def more_likelys_explanations(self) -> list[str]:
+        return [self.get_more_likely_html_explanation(more_likely) for more_likely in self.more_likelys]
 
     @classmethod
     def get_less_likely_html_id(cls, less_likely: LessLikelys) -> str:
@@ -780,6 +812,20 @@ score."
         else:
             raise ValueError("Unsupported LessLikelys")
 
+    @classmethod
+    def get_more_likely_html_id(cls, more_likely: MoreLikelys) -> str:
+        if more_likely == cls.MoreLikelys.CRYSTALS:
+            return "crystal_analysis"
+        else:
+            raise ValueError("Unsupported MoreLikelys")
+
+    @classmethod
+    def get_more_likely_html_explanation(cls, more_likely: MoreLikelys) -> str:
+        if more_likely == cls.MoreLikelys.CRYSTALS:
+            return cls.more_likely_crystals_explanation()
+        else:
+            raise ValueError("Unsupported MoreLikelys")
+
     @staticmethod
     def less_likely_demographics_explanation() -> str:
         return mark_safe("<a href='demographics'>Pre-menopausal females</a> without CKD typically do not get gout")
@@ -804,12 +850,25 @@ score."
     def less_likely_tooyoung_explanation() -> str:
         return mark_safe("Almost no one gets gout before <a href='#age'>age</a> 18")
 
+    @staticmethod
+    def more_likely_crystals_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """Positive {} is consistent with gout""",
+                "<a href='crystal_analysis'>crystal analysis</a>" if samepage_links else "crystal analysis",
+            )
+        )
+
     @property
     def less_likelys_str(self) -> str:
         """Method that returns a str of the LessLikelys for a Flare."""
         return ", ".join([less_likely.label.lower() for less_likely in self.less_likelys])
 
-    def likelihood_base_explanation(self) -> str:
+    @property
+    def more_likelys_str(self) -> str:
+        return ", ".join([more_likely.label.lower() for more_likely in self.more_likelys])
+
+    def likelihood_base_explanation(self, samepage_links: bool = True) -> str:
         subject_the_pos, subject_the = self.get_str_attrs("subject_the_pos", "subject_the")
         likelihood_exp_str = format_lazy(
             """<strong>The likelihood of gout for {} Flare is \
@@ -832,9 +891,9 @@ score."
                 crystal_proven_str = first_letter_lowercase(crystal_proven_str)
                 likelihood_exp_str += " Also, " + crystal_proven_str
         elif self.prevalence == self.Prevalences.MEDIUM:
-            likelihood_exp_str += " that was lowered due to: {self.less_likelys_str}."
+            likelihood_exp_str += f" that was raised due to: {self.more_likelys_str}."
         elif self.prevalence == self.Prevalences.LOW:
-            pass
+            likelihood_exp_str += f" that was raised due to: {self.more_likelys_str}."
         else:
             raise ValueError("Trying to explain a Flare likelihood without a prevalence")
         return mark_safe(likelihood_exp_str)

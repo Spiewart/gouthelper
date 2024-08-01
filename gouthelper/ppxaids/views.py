@@ -37,6 +37,8 @@ from .forms import PpxAidForm
 from .models import PpxAid
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.db.models import QuerySet  # type: ignore
 
 User = get_user_model()
@@ -128,8 +130,6 @@ class PpxAidDetail(PpxAidDetailBase):
 
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        # Check if the object has a User and if there is no username in the kwargs,
-        # redirect to the username url
         if self.object.user:
             return HttpResponseRedirect(self.object.get_absolute_url())
         else:
@@ -155,10 +155,10 @@ class PpxAidPatientBase(PpxAidBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.ppxaid_qs().filter(username=username)
+        return Pseudopatient.objects.ppxaid_qs().filter(pk=pseudopatient)
 
 
 class PpxAidPseudopatientCreate(
@@ -170,9 +170,6 @@ class PpxAidPseudopatientCreate(
     success_message = "%(user)s's PpxAid successfully created."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Pseudopatient the view is trying to create
-        a PpxAid for."""
         return self.user
 
     def get_success_message(self, cleaned_data) -> str:
@@ -205,11 +202,11 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
         except PpxAid.DoesNotExist as exc:
             messages.error(request, exc.args[0])
             return HttpResponseRedirect(
-                reverse("ppxaids:pseudopatient-create", kwargs={"username": kwargs["username"]})
+                reverse("ppxaids:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
             )
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -232,7 +229,7 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
         return ppxaid
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ppxaid_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.ppxaid_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> PpxAid:
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201
@@ -250,9 +247,6 @@ class PpxAidPseudopatientUpdate(
     success_message = "%(user)s's PpxAid successfully updated."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a PpxAid for."""
         return self.object
 
     def get_success_message(self, cleaned_data) -> str:

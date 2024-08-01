@@ -24,7 +24,7 @@ class TestGoalUrateMethods(TestCase):
         self.assertEqual(self.goal_urate.get_absolute_url(), f"/goalurates/{self.goal_urate.pk}/")
         self.assertEqual(
             self.user_goalurate.get_absolute_url(),
-            reverse("goalurates:pseudopatient-detail", kwargs={"username": self.user_goalurate.user.username}),
+            reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user_goalurate.user.pk}),
         )
 
     def test__str__(self):

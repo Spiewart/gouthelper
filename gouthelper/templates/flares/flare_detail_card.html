@@ -7,7 +7,7 @@
         <div class="col">
           <h4 class="card-title">
             {% if flare.user %}
-              <!-- djlint:off --><a href="{% url 'flares:pseudopatient-detail' flare.user.username flare.pk %}"><!-- djlint:on -->
+              <!-- djlint:off --><a href="{% url 'flares:pseudopatient-detail' flare.user.pk flare.pk %}"><!-- djlint:on -->
             {% else %}
               <a href="{% url 'flares:detail' flare.pk %}">
               {% endif %}
@@ -47,7 +47,7 @@
         </div>
         {% if flare.user %}
           <a class="btn btn-primary"
-             href="{% url 'flares:pseudopatient-update' flare.user.username flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
+             href="{% url 'flares:pseudopatient-update' flare.user.pk flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
         {% else %}
           <a class="btn btn-primary"
              href="{% url 'flares:update' flare.pk %}?next={{ object.get_absolute_url }}">Update</a>
@@ -65,7 +65,7 @@
           {% if object|is_pseudopatient %}
             <a type="button"
                class="btn btn-primary"
-               href="{% url 'flares:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+               href="{% url 'flares:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
                role="button">Create</a>
           {% else %}
             <a type="button"

@@ -17,6 +17,10 @@ class LessLikelys(TextChoices):
     NEGCRYSTALS = 5, _("Joint aspiration did not have urate crystals")
 
 
+class MoreLikelys(TextChoices):
+    POSCRYSTALS = 0, _("Joint aspiration had urate crystals")
+
+
 class LimitedJointChoices(TextChoices):
     MTP1R = "MTP1R", _("Right big toe")
     MTP1L = "MTP1L", _("Left big toe")

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Union
 from ..genders.choices import Genders
 from ..medhistorys.choices import CVDiseases, MedHistoryTypes
 from ..medhistorys.helpers import medhistorys_get
-from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
+from .choices import LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .lists import COMMON_GOUT_JOINTS
 
 if TYPE_CHECKING:
@@ -115,6 +115,16 @@ def flares_get_less_likelys(
     if crystal_analysis is not None and crystal_analysis is False:
         less_likelys.append(LessLikelys.NEGCRYSTALS)
     return less_likelys
+
+
+def flares_get_more_likelys(
+    crystal_analysis: bool | None,
+) -> list[MoreLikelys]:
+    """Return list of strings of more likelys for a Flare."""
+    more_likelys = []
+    if crystal_analysis is not None and crystal_analysis is True:
+        more_likelys.append(MoreLikelys.POSCRYSTALS)
+    return more_likelys
 
 
 def flares_calculate_likelihood(

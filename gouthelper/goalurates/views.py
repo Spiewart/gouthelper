@@ -21,6 +21,8 @@ from .forms import GoalUrateForm
 from .models import GoalUrate
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models import QuerySet  # type: ignore
 
@@ -141,8 +143,6 @@ class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
 class GoalUrateDetail(GoalUrateDetailBase):
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
-        # Check if the object has a User and if there is no username in the kwargs,
-        # redirect to the username url
         if self.object.user:
             return HttpResponseRedirect(self.object.get_absolute_url())
         else:
@@ -168,8 +168,8 @@ class GoalUratePatientBase(GoalUrateBase):
     class Meta:
         abstract = True
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
-        return Pseudopatient.objects.goalurate_qs().filter(username=username)
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        return Pseudopatient.objects.goalurate_qs().filter(pk=pseudopatient)
 
 
 class GoalUratePseudopatientCreate(
@@ -186,9 +186,7 @@ class GoalUratePseudopatientCreate(
     success_message = "%(user)s's GoalUrate successfully created."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
+        # TODO: figure out if this is needed
         self.ultaid = None  # pylint: disable=W0201
         return self.user
 
@@ -213,7 +211,7 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
         except GoalUrate.DoesNotExist as exc:
             messages.error(request, exc.args[0])
             return HttpResponseRedirect(
-                reverse("goalurates:pseudopatient-create", kwargs={"username": kwargs["username"]})
+                reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
             )
         return super().dispatch(request, *args, **kwargs)
 
@@ -234,7 +232,7 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
         return goalurate
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.goalurate_qs().filter(username=self.kwargs["username"])
+        return Pseudopatient.objects.goalurate_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> GoalUrate:
         """Gets the GoalUrate, sets the user attr, and also transfers the user's
@@ -259,9 +257,6 @@ class GoalUratePseudopatientUpdate(
     success_message = "%(user)s's GoalUrate successfully updated."
 
     def get_permission_object(self):
-        """Returns the object the permission is being checked against. For this view,
-        that is the username kwarg indicating which Psuedopatient the view is trying to create
-        a FlareAid for."""
         self.ultaid = None  # pylint: disable=W0201
         return self.object
 

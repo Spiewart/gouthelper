@@ -32,27 +32,27 @@ class FlaresURLsTest(TestCase):
 
     def test_pseudopatient_create_url_resolves(self):
         psp = create_psp()
-        url = reverse("flares:pseudopatient-create", kwargs={"username": psp.username})
+        url = reverse("flares:pseudopatient-create", kwargs={"pseudopatient": psp.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientCreate)
 
     def test_pseudopatient_delete_url_resolves(self):
         flare = create_flare(user=True)
-        url = reverse("flares:pseudopatient-delete", kwargs={"username": flare.user.username, "pk": flare.pk})
+        url = reverse("flares:pseudopatient-delete", kwargs={"pseudopatient": flare.user.pk, "pk": flare.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientDelete)
 
     def test_pseudopatient_detail_url_resolves(self):
         flare = create_flare(user=True)
-        url = reverse("flares:pseudopatient-detail", kwargs={"username": flare.user.username, "pk": flare.pk})
+        url = reverse("flares:pseudopatient-detail", kwargs={"pseudopatient": flare.user.pk, "pk": flare.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientDetail)
 
     def test_pseudopatient_list_url_resolves(self):
         psp = create_psp()
-        url = reverse("flares:pseudopatient-list", kwargs={"username": psp.username})
+        url = reverse("flares:pseudopatient-list", kwargs={"pseudopatient": psp.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientList)
 
     def test_pseudopatient_update_url_resolves(self):
         flare = create_flare(user=True)
-        url = reverse("flares:pseudopatient-update", kwargs={"username": flare.user.username, "pk": flare.pk})
+        url = reverse("flares:pseudopatient-update", kwargs={"pseudopatient": flare.user.pk, "pk": flare.pk})
         self.assertEqual(resolve(url).func.view_class, FlarePseudopatientUpdate)
 
     def test_update_url_resolves(self):

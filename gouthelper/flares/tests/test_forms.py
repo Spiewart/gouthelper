@@ -60,7 +60,7 @@ class TestFlareForm(TestCase):
         user = create_psp(gender=Genders.FEMALE, dateofbirth=timezone.now() - timedelta(days=365 * 50))
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
-        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
+        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"pseudopatient": user.pk}))
         self.assertNotIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
 
     def test__gout_form_inserted(self):
@@ -69,7 +69,7 @@ class TestFlareForm(TestCase):
         user = create_psp()
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
-        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
+        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"pseudopatient": user.pk}))
         self.assertNotIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
 
     def test__clean(self):

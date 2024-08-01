@@ -100,7 +100,7 @@ class TestUltAidDecisionAid(TestCase):
 
     def test__init_with_ultaid_with_user(self):
         for ultaid in UltAid.objects.select_related("user").filter(user__isnull=False).all():
-            ultaid_qs = ultaid_user_qs(username=ultaid.user.username)
+            ultaid_qs = ultaid_user_qs(pseudopatient=ultaid.user.pk)
             user = ultaid_qs.get()
             ultaid = user.ultaid
             ultaid.medhistorys_qs = user.medhistorys_qs

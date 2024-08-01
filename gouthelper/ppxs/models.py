@@ -119,7 +119,7 @@ defaults to six months.
             pos,
             "" if self.at_goal_long_term else "not ",
             (
-                reverse("goalurates:pseudopatient-detail", kwargs={"username": self.user.username})
+                reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
                 if self.user
                 else reverse("goalurates:create")
             ),
@@ -149,7 +149,7 @@ defaults to six months.
             Subject_the_pos,
             "" if self.at_goal else "not ",
             (
-                reverse("goalurates:pseudopatient-detail", kwargs={"username": self.user.username})
+                reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
                 if self.user
                 else reverse("goalurates:create")
             ),
@@ -175,7 +175,7 @@ urate-lowering therapy (<a target='_next' href={}>ULT</a>). Long-term flare prev
 is not recommended. Instead, ULT should be utilized.""",
                     Subject_the,
                     (
-                        reverse("ults:pseudopatient-detail", kwargs={"username": self.user.username})
+                        reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
                         if self.user
                         else reverse("ults:create")
                     ),
@@ -275,7 +275,7 @@ Continued flare prophylaxis is recommended."
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("ppxs:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("ppxs:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ppxs:detail", kwargs={"pk": self.pk})
 
@@ -719,7 +719,7 @@ sustaining goal uric acid. GoutHelper defaults to 6 months, so {subject_the} doe
             Ppx: Ppx object."""
         if qs is None:
             if self.user:
-                qs = Pseudopatient.objects.ppx_qs().filter(username=self.user.username)
+                qs = Pseudopatient.objects.ppx_qs().filter(pk=self.user.pk)
             else:
                 qs = Ppx.related_objects.filter(pk=self.pk)
         decisionaid = PpxDecisionAid(qs=qs)

@@ -78,5 +78,5 @@ def ppxaid_userless_qs(pk: "UUID") -> "QuerySet":
     return ppxaid_userless_relations(apps.get_model("ppxaids.ppxaid").objects.filter(pk=pk))
 
 
-def ppxaid_user_qs(username: str) -> "QuerySet":
-    return ppxaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))
+def ppxaid_user_qs(pseudopatient: "UUID") -> "QuerySet":
+    return ppxaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient))

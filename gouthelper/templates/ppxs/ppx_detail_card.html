@@ -7,7 +7,7 @@
         <div class="col">
           <h4>
             {% if ppx.user %}
-              <!-- djlint:off --><a href="{% url 'ppxs:pseudopatient-detail' ppx.user.username %}"><!-- djlint:on -->
+              <!-- djlint:off --><a href="{% url 'ppxs:pseudopatient-detail' ppx.user.pk %}"><!-- djlint:on -->
             {% else %}
               <a href="{% url 'ppxs:detail' ppx.pk %}">
               {% endif %}
@@ -37,7 +37,7 @@
         </div>
         {% if ppx.user %}
           <a class="btn btn-primary"
-             href="{% url 'ppxs:pseudopatient-update' ppx.user.username %}?next={{ object.get_absolute_url }}">Update</a>
+             href="{% url 'ppxs:pseudopatient-update' ppx.user.pk %}?next={{ object.get_absolute_url }}">Update</a>
         {% else %}
           <a class="btn btn-primary"
              href="{% url 'ppxs:update' ppx.pk %}?next={{ object.get_absolute_url }}">Update</a>
@@ -54,7 +54,7 @@
         <div class="col-auto">
           <a type="button"
              class="btn btn-primary"
-             href="{% url 'ppxs:pseudopatient-create' username=object.username %}?next={{ request.path }}"
+             href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
              role="button">Create</a>
         </div>
       </div>

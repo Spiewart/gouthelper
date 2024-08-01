@@ -100,7 +100,7 @@ class CkdDetail(MedHistoryDetail):
         choices=Stages.choices,
         help_text=mark_safe(
             "What <a href='https://www.kidney.org/sites/default/files/01 \
--10-7278_HBG_Ckd_Stages_Flyer_GFR.gif' target='_blank'>stage</a> CKD??"
+-10-7278_HBG_Ckd_Stages_Flyer_GFR.gif' target='_blank'>stage</a> CKD?"
         ),
         verbose_name=_("CKD Stage"),
     )

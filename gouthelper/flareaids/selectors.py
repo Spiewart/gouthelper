@@ -78,5 +78,5 @@ def flareaid_userless_qs(pk: "UUID") -> "QuerySet":
     return flareaid_userless_relations(apps.get_model("flareaids.FlareAid").objects.filter(pk=pk))
 
 
-def flareaid_user_qs(username: str) -> "QuerySet":
-    return flareaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))
+def flareaid_user_qs(pseudopatient: str) -> "QuerySet":
+    return flareaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient))

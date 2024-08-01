@@ -45,9 +45,9 @@ class TestMedHistoryAttr(TestCase):
     def test__medhistorys_qs(self):
         """Test the function when the object has a medhistorys_qs attr."""
         ppxaid_userless = ppxaid_userless_qs(self.ppxaid.pk).get()
-        ppxaid_user = ppxaid_user_qs(self.user.username).get()
+        ppxaid_user = ppxaid_user_qs(self.user.pk).get()
         empty_ppxaid_userless = ppxaid_userless_qs(self.empty_ppxaid.pk).get()
-        empty_ppxaid_user = ppxaid_user_qs(self.empty_user.username).get()
+        empty_ppxaid_user = ppxaid_user_qs(self.empty_user.pk).get()
         # Assert that the number of queries is 0 to make sure the method is using
         # the prefetch'ed related queryset, not implementing the default querysets
         with self.assertNumQueries(0):

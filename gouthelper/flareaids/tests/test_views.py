@@ -400,7 +400,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
         view = self.view()
-        view.setup(request=request, username=self.user.username)
+        view.setup(request=request, pseudopatient=self.user.pk)
         view.set_forms()
         view.object = view.get_object()
         form_kwargs = view.get_form_kwargs()
@@ -417,7 +417,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -429,12 +429,12 @@ class TestFlareAidPseudopatientCreate(TestCase):
         create_flareaid(user=self.user)
         self.client.force_login(self.user)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.user.username}), follow=True
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), follow=True
         )
         self.assertEqual(view.user, self.user)
         self.assertRedirects(
             response,
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.user.username}),
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}),
         )
         # Check that the response message is correct
         message = list(response.context.get("messages"))[0]
@@ -444,9 +444,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
         empty_user = create_psp(dateofbirth=False, ethnicity=False, gender=False)
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": empty_user.username}), follow=True
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": empty_user.pk}), follow=True
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -456,11 +456,11 @@ class TestFlareAidPseudopatientCreate(TestCase):
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
         self.assertTrue(isinstance(qs, User))
@@ -479,7 +479,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             assert "age" in response.context_data
@@ -497,7 +497,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for mh in user.medhistory_set.all():
@@ -565,7 +565,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for ma in user.medallergy_set.filter(Q(treatment__in=FlarePpxChoices.values)).all():
@@ -595,7 +595,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         """Test the get_permission_object() method for the view."""
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -611,7 +611,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -621,7 +621,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         # Create some fake data for a User's FlareAid
         data = flareaid_data_factory(self.user)
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.user.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.user.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
@@ -644,7 +644,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         }
         mh_diff = medhistory_diff_obj_data(self.psp, data, FLAREAID_MEDHISTORYS)
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         # (+) 1 because the view also creates a Gout MedHistory for the User behind the scenes
@@ -667,7 +667,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertFalse(MedHistory.objects.filter(user=self.psp, medhistorytype=MedHistoryTypes.DIABETES).exists())
@@ -688,7 +688,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         }
         # Call the view with the data
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertTrue(MedAllergy.objects.filter(user=self.psp).exists())
@@ -713,7 +713,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"medallergy_{Treatments.PREDNISONE}": "",
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertFalse(MedAllergy.objects.filter(user=self.psp).exists())
@@ -733,7 +733,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertTrue(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
@@ -767,7 +767,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertFalse(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
@@ -781,7 +781,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             if user.profile.provider:
                 self.client.force_login(user.profile.provider)
             response = self.client.post(
-                reverse("flareaids:pseudopatient-create", kwargs={"username": user.username}), data=data
+                reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": user.pk}), data=data
             )
             forms_print_response_errors(response)
             assert response.status_code == 302
@@ -837,7 +837,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 200
         assert "form" in response.context_data
@@ -854,7 +854,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 200
         assert "ckddetail_form" in response.context_data
@@ -869,46 +869,46 @@ class TestFlareAidPseudopatientCreate(TestCase):
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         # Test that any User can create an anonymous Pseudopatient's FlareAid
-        response = self.client.get(reverse("flareaids:pseudopatient-create", kwargs={"username": psp.username}))
+        response = self.client.get(reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": psp.pk}))
         assert response.status_code == 200
         # Test that an anonymous User can't create a Provider's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": provider_psp.username})
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": provider_psp.pk})
         )
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
         # Test that an anonymous User can't create an Admin's FlareAid
-        response = self.client.get(reverse("flareaids:pseudopatient-create", kwargs={"username": admin_psp.username}))
+        response = self.client.get(reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}))
         # Test that a Provider can create his or her own Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         # Test that a Provider can create an anonymous Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         self.client.force_login(admin)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 200
         # Test that only a Pseudopatient's Provider can add their FlareAid if they have a Provider
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": provider_psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": provider_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(provider)
         # Test that a Provider can't create another provider's Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": admin_psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
         # Test that an Admin can create an anonymous Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": psp.username}),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
 
@@ -926,20 +926,20 @@ class TestFlareAidPseudopatientDetail(TestCase):
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
         view when the user doesn't have the required 1to1 related models."""
-        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": self.psp.username}))
+        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.psp.pk}))
         self.assertEqual(response.status_code, 200)
         # Test that dispatch redirects to the pseudopatient-create FlareAid view when the user doesn't have a FlareAid
         self.assertRedirects(
-            self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": self.empty_psp.username})),
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.empty_psp.username}),
+            self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.empty_psp.pk})),
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.empty_psp.pk}),
         )
         self.psp.dateofbirth.delete()
         # Test that dispatch redirects to the User Update view when the user doesn't have a dateofbirth
         self.assertRedirects(
             self.client.get(
-                reverse("flareaids:pseudopatient-detail", kwargs={"username": self.psp.username}),
+                reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.psp.pk}),
             ),
-            reverse("users:pseudopatient-update", kwargs={"username": self.psp.username}),
+            reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}),
         )
 
     def test__assign_flareaid_attrs_from_user(self):
@@ -949,12 +949,12 @@ class TestFlareAidPseudopatientDetail(TestCase):
         flareaid = FlareAid.objects.get(user=self.psp)
         view = self.view()
         request = self.factory.get("/fake-url/")
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         assert not getattr(flareaid, "dateofbirth")
         assert not getattr(flareaid, "gender")
         assert not hasattr(flareaid, "medhistorys_qs")
         assert not hasattr(flareaid, "medallergys_qs")
-        view.assign_flareaid_attrs_from_user(flareaid=flareaid, user=flareaid_user_qs(self.psp.username).get())
+        view.assign_flareaid_attrs_from_user(flareaid=flareaid, user=flareaid_user_qs(self.psp.pk).get())
         assert getattr(flareaid, "dateofbirth") == self.psp.dateofbirth
         assert getattr(flareaid, "gender") == self.psp.gender
         assert hasattr(flareaid, "medhistorys_qs")
@@ -970,47 +970,47 @@ class TestFlareAidPseudopatientDetail(TestCase):
         admin_psp = create_psp(provider=admin)
         create_flareaid(user=admin_psp)
         # Test that any User can view an anonymous Pseudopatient's FlareAid
-        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}))
+        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}))
         assert response.status_code == 200
         # Test that an anonymous User can't view a Provider's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": provider_psp.username})
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": provider_psp.pk})
         )
         # 302 because PermissionDenied will redirect to the login page
         assert response.status_code == 302
         # Test that an anonymous User can't view an Admin's FlareAid
-        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": admin_psp.username}))
+        response = self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": admin_psp.pk}))
         assert response.status_code == 302
         # Test that a Provider can view their own Pseudoatient's FlareAid
         self.client.force_login(provider)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": provider_psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": provider_psp.pk}),
         )
         assert response.status_code == 200
         # Test that a Provider can view an anonymous Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         # Test that Provider can't view Admin's Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": admin_psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 403
         self.client.force_login(admin)
         # Test that an Admin can view their own Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": admin_psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": admin_psp.pk}),
         )
         assert response.status_code == 200
         # Test that an Admin can view an anonymous Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}),
         )
         assert response.status_code == 200
         # Test that Admin can't view Provider's Pseudopatient's FlareAid
         response = self.client.get(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": provider_psp.username}),
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": provider_psp.pk}),
         )
         assert response.status_code == 403
 
@@ -1018,7 +1018,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         """Test that the get_object() method sets the user attribute."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         view.get_object()
         assert hasattr(view, "user")
         assert view.user == self.psp
@@ -1028,7 +1028,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         doesn't have a FlareAid."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.empty_psp.username)
+        view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
 
@@ -1037,7 +1037,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         User QuerySet to the FlareAid object."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         flareaid = view.get_object()
         assert hasattr(flareaid, "dateofbirth")
         assert getattr(flareaid, "dateofbirth") == view.user.dateofbirth
@@ -1059,8 +1059,8 @@ class TestFlareAidPseudopatientDetail(TestCase):
         MessageMiddleware(dummy_get_response).process_request(request)
 
         view = self.view()
-        view.setup(request, username=self.psp.username)
-        view.dispatch(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
+        view.dispatch(request, pseudopatient=self.psp.pk)
         pm_obj = view.get_permission_object()
         assert pm_obj == view.object
 
@@ -1068,7 +1068,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         """Test the get_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
         view = self.view()
-        view.setup(request, username=self.psp.username)
+        view.setup(request, pseudopatient=self.psp.pk)
         with self.assertNumQueries(4):
             qs = view.get_queryset().get()
         assert qs == self.psp
@@ -1093,7 +1093,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         self.assertIn(Treatments.COLCHICINE, flareaid.options)
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE, user=psp)
         self.assertIn(medallergy, psp.medallergy_set.all())
-        self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}))
+        self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}))
         # This needs to be manually refetched from the db
         self.assertNotIn(Treatments.COLCHICINE, FlareAid.objects.get(user=psp).options)
 
@@ -1105,7 +1105,7 @@ class TestFlareAidPseudopatientDetail(TestCase):
         self.assertIn(Treatments.COLCHICINE, flareaid.options)
         medallergy = MedAllergyFactory(treatment=Treatments.COLCHICINE, user=psp)
         self.assertIn(medallergy, psp.medallergy_set.all())
-        self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"username": psp.username}) + "?updated=True")
+        self.client.get(reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}) + "?updated=True")
         # This needs to be manually refetched from the db
         self.assertIn(Treatments.COLCHICINE, FlareAid.objects.get(user=psp).options)
 
@@ -1145,7 +1145,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
         view = self.view()
-        view.setup(request=request, username=self.user.username)
+        view.setup(request=request, pseudopatient=self.user.pk)
         view.set_forms()
         view.object = None
         form_kwargs = view.get_form_kwargs()
@@ -1161,7 +1161,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = AnonymousUser()
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
         view.setup(request, **kwargs)
@@ -1178,9 +1178,9 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         create_flareaid(user=empty_user)
         self.client.force_login(empty_user)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": empty_user.username}), follow=True
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}), follow=True
         )
-        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"username": empty_user.username}))
+        self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
         self.assertEqual(
@@ -1190,17 +1190,17 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         user_no_flareaid = create_psp()
         self.client.force_login(user_no_flareaid)
         response = self.client.get(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": user_no_flareaid.username}), follow=True
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": user_no_flareaid.pk}), follow=True
         )
         self.assertRedirects(
-            response, reverse("flareaids:pseudopatient-create", kwargs={"username": user_no_flareaid.username})
+            response, reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": user_no_flareaid.pk})
         )
 
     def test__get_object(self):
         """Test get_object() method."""
 
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         view.setup(request, **kwargs)
         view_obj = view.get_object()
@@ -1211,17 +1211,17 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         # Repeat the test for a User w/o a FlareAid
         user_no_flareaid = create_psp()
         view = self.view()
-        view.setup(request, username=user_no_flareaid.username)
+        view.setup(request, pseudopatient=user_no_flareaid.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
 
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
         request = self.factory.get("/fake-url/")
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         view.setup(request, **kwargs)
-        qs = view.get_user_queryset(view.kwargs["username"])
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
         self.assertTrue(isinstance(qs, User))
@@ -1241,7 +1241,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             assert "age" in response.context_data
@@ -1256,7 +1256,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             request = self.factory.get("/fake-url/")
             request.user = self.anon_user if not user.profile.provider else user.profile.provider
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for mh in user.medhistory_set.all():
@@ -1321,7 +1321,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             else:
                 request.user = self.anon_user
             SessionMiddleware(dummy_get_response).process_request(request)
-            kwargs = {"username": user.username}
+            kwargs = {"pseudopatient": user.pk}
             response = self.view.as_view()(request, **kwargs)
             assert response.status_code == 200
             for ma in user.medallergy_set.filter(Q(treatment__in=FlarePpxChoices.values)).all():
@@ -1353,7 +1353,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
-        kwargs = {"username": self.user.username}
+        kwargs = {"pseudopatient": self.user.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
 
@@ -1372,13 +1372,13 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
-            == f"{reverse('flareaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
+            == f"{reverse('flareaids:pseudopatient-detail', kwargs={'pseudopatient': self.psp.pk})}?updated=True"
         )
         for mh in [mh for mh in FLAREAID_MEDHISTORYS if mh != MedHistoryTypes.CKD]:
             self.assertEqual(
@@ -1395,13 +1395,13 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
         assert (
             response.url
-            == f"{reverse('flareaids:pseudopatient-detail', kwargs={'username': self.psp.username})}?updated=True"
+            == f"{reverse('flareaids:pseudopatient-detail', kwargs={'pseudopatient': self.psp.pk})}?updated=True"
         )
         for ma in FlarePpxChoices.values:
             self.assertEqual(self.psp.medallergy_set.filter(treatment=ma).exists(), not getattr(self, f"{ma}_bool"))
@@ -1422,7 +1422,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertTrue(CkdDetail.objects.filter(medhistory=self.psp.ckd).exists())
@@ -1458,7 +1458,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
         }
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data
         )
         assert response.status_code == 302
         self.assertFalse(CkdDetail.objects.filter(medhistory=psp.ckd).exists())
@@ -1474,7 +1474,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             if hasattr(user, "profile") and user.profile.provider:
                 self.client.force_login(user.profile.provider)
             response = self.client.post(
-                reverse("flareaids:pseudopatient-update", kwargs={"username": user.username}), data=data
+                reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": user.pk}), data=data
             )
             forms_print_response_errors(response)
             assert response.status_code == 302
@@ -1530,7 +1530,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 200
@@ -1548,7 +1548,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
             }
         )
         response = self.client.post(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.psp.username}), data=data
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}), data=data
         )
         assert response.status_code == 200
         assert "ckddetail_form" in response.context_data
@@ -1560,19 +1560,19 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         provider = UserFactory()
         prov_psp = create_psp(provider=provider)
         create_flareaid(user=prov_psp)
-        prov_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": prov_psp.username})
-        next_url = reverse("flareaids:pseudopatient-update", kwargs={"username": prov_psp.username})
+        prov_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": prov_psp.pk})
+        next_url = reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": prov_psp.pk})
         prov_psp_redirect_url = f"{reverse('account_login')}?next={next_url}"
         admin = AdminFactory()
         admin_psp = create_psp(provider=admin)
         create_flareaid(user=admin_psp)
-        admin_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": admin_psp.username})
-        redirect_url = reverse("flareaids:pseudopatient-update", kwargs={"username": admin_psp.username})
+        admin_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk})
+        redirect_url = reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": admin_psp.pk})
         admin_psp_redirect_url = f"{reverse('account_login')}?next={redirect_url}"
         # Create an anonymous Pseudopatient + Flare
         anon_psp = create_psp()
         create_flareaid(user=anon_psp)
-        anon_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"username": anon_psp.username})
+        anon_psp_url = reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": anon_psp.pk})
         # Test that an anonymous user who is not logged in can't see any Pseudopatient
         # with a provider but can see the anonymous Pseudopatient
         self.assertRedirects(self.client.get(prov_psp_url), prov_psp_redirect_url)
@@ -1618,7 +1618,7 @@ class TestFlareAidDetail(TestCase):
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_fa.pk)
         assert response.status_code == 302
-        assert response.url == reverse("flareaids:pseudopatient-detail", kwargs={"username": user_fa.user.username})
+        assert response.url == reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": user_fa.user.pk})
 
     def test__get_queryset(self):
         qs = self.view(kwargs={"pk": self.flareaid.pk}).get_queryset()
@@ -1666,7 +1666,7 @@ class TestFlareAidUpdate(TestCase):
         request.user = AnonymousUser()
         response = self.view.as_view()(request, pk=user_fa.pk)
         assert response.status_code == 302
-        assert response.url == reverse("flareaids:pseudopatient-update", kwargs={"username": user_fa.user.username})
+        assert response.url == reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": user_fa.user.pk})
 
     def test__dispatch_returns_HttpResponse(self):
         """Test that the overwritten dispatch() method returns an HttpResponse."""

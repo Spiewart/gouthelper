@@ -32,6 +32,7 @@ class FlareAidForm(
             "gender",
             "medallergys",
             "medhistorys",
+            "user",
         )
 
     def __init__(self, *args, **kwargs):

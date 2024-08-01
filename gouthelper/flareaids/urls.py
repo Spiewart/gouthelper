@@ -18,7 +18,15 @@ urlpatterns = [
     path("<uuid:pk>/", FlareAidDetail.as_view(), name="detail"),
     path("update/<uuid:pk>/", FlareAidUpdate.as_view(), name="update"),
     path("flare/<uuid:flare>/create", FlareAidCreate.as_view(), name="flare-create"),
-    path("<str:username>/create/", FlareAidPseudopatientCreate.as_view(), name="pseudopatient-create"),
-    path("<str:username>/", view=FlareAidPseudopatientDetail.as_view(), name="pseudopatient-detail"),
-    path("<str:username>/update/", FlareAidPseudopatientUpdate.as_view(), name="pseudopatient-update"),
+    path(
+        "goutpatient-create/<uuid:pseudopatient>/", FlareAidPseudopatientCreate.as_view(), name="pseudopatient-create"
+    ),
+    path(
+        "goutpatient-detail/<uuid:pseudopatient>/",
+        view=FlareAidPseudopatientDetail.as_view(),
+        name="pseudopatient-detail",
+    ),
+    path(
+        "goutpatient-update/<uuid:pseudopatient>/", FlareAidPseudopatientUpdate.as_view(), name="pseudopatient-update"
+    ),
 ]

@@ -28,6 +28,8 @@ from .forms import UltForm
 from .models import Ult
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.contrib.auth import get_user_model  # type: ignore
     from django.db.models import QuerySet  # type: ignore
 
@@ -128,10 +130,10 @@ class UltPatientBase(UltBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.ult_qs().filter(username=username)
+        return Pseudopatient.objects.ult_qs().filter(pk=pseudopatient)
 
 
 class UltPseudopatientCreate(
@@ -155,8 +157,8 @@ class UltPseudopatientCreate(
         # Called by get_mh_initial method in GoutHelperAidMixin
         return True if mh_object or self.user.hyperuricemia_urates else None
 
-    def get_user_queryset(self, username: str) -> "QuerySet[Any]":
-        qs = super().get_user_queryset(username)
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        qs = super().get_user_queryset(pseudopatient=pseudopatient)
         return qs.prefetch_related(hyperuricemia_urates_prefetch())
 
     def post(self, request, *args, **kwargs):
@@ -170,6 +172,8 @@ class UltPseudopatientCreate(
 class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
     """DetailView for Ults that have a user."""
 
+    pk_url_kwarg = "pseudopatient"
+
     def dispatch(self, request, *args, **kwargs):
         """Redirects to the Ult CreateView if the user doesn't have a Ult. Also,
         redirects to the Pseudopatient UpdateView if the user doesn't have the required
@@ -178,10 +182,12 @@ class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
             self.object = self.get_object()
         except Ult.DoesNotExist as exc:
             messages.error(request, exc.args[0])
-            return HttpResponseRedirect(reverse("ults:pseudopatient-create", kwargs={"username": kwargs["username"]}))
+            return HttpResponseRedirect(
+                reverse("ults:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
+            )
         except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"username": self.user.username}))
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
@@ -209,9 +215,12 @@ class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
         return ult
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ult_qs().filter(username=self.kwargs["username"])
+        print("getting queryset")
+        print(self.kwargs)
+        return Pseudopatient.objects.ult_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> Ult:
+        print("getting object")
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore
         try:
             ult: Ult = self.user.ult

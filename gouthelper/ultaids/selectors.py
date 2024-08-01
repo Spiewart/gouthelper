@@ -80,5 +80,5 @@ def ultaid_userless_qs(pk: "UUID") -> "QuerySet":
     return ultaid_userless_relations(apps.get_model("ultaids.UltAid").objects.filter(pk=pk))
 
 
-def ultaid_user_qs(username: str) -> "QuerySet":
-    return ultaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(username=username))
+def ultaid_user_qs(pseudopatient: "UUID") -> "QuerySet":
+    return ultaid_user_relations(apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient))

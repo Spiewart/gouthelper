@@ -38,7 +38,7 @@ class TestPpxAidMethods(TestCase):
         )
         self.assertEqual(
             self.user_ppxaid.get_absolute_url(),
-            f"/ppxaids/{self.user_ppxaid.user.username}/",
+            f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/",
         )
 
     def test__aid_medhistorys(self):

@@ -191,7 +191,7 @@ treatment is typically very short and the risk of bleeding is low."
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
@@ -319,7 +319,7 @@ treatment is typically very short and the risk of bleeding is low."
             FlareAid: FlareAid object."""
         if qs is None:
             if self.user:
-                qs = Pseudopatient.objects.flareaid_qs().filter(username=self.user.username)
+                qs = Pseudopatient.objects.flareaid_qs().filter(pk=self.user.pk)
             else:
                 qs = FlareAid.related_objects.filter(pk=self.pk)
         decisionaid = FlareAidDecisionAid(qs=qs)
