@@ -36,5 +36,9 @@ def get_provider_alias(
         age=age,
         gender__value=gender,
     ).count()
-
+    print("printing alias_conflicts")
+    print(alias_conflicts)
+    print(provider)
+    print(age)
+    print(gender)
     return alias_conflicts if alias_conflicts else None

@@ -25,10 +25,13 @@ class TestCreateProviderAlias(TestCase):
             provider=self.provider,
         )
         for _ in range(3):
-            create_psp(
-                provider=self.provider,
-                dateofbirth=psp.dateofbirth.value,
-                gender=Genders(psp.gender.value),
+            print(
+                create_psp(
+                    provider=self.provider,
+                    dateofbirth=psp.dateofbirth.value,
+                    gender=Genders(psp.gender.value),
+                )
             )
+        print(psp)
         alias = get_provider_alias(provider=self.provider, age=psp.age, gender=psp.gender.value)
         self.assertEqual(alias, 4)

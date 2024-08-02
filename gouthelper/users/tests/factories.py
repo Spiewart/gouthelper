@@ -224,7 +224,8 @@ def create_psp_gender(
     gender: Genders | None,
     psp: Pseudopatient,
 ) -> Ethnicity:
-    if gender is not None and (isinstance(gender, (str, Genders)) or gender in Genders.values):
+    print(gender)
+    if isinstance(gender, (str, Genders)) or gender in Genders.values:
         with transaction.atomic():
             try:
                 return GenderFactory(user=psp, value=gender)
@@ -234,7 +235,7 @@ def create_psp_gender(
                     psp.gender.full_clean()
                     psp.gender.save()
                 return psp.gender
-    elif gender is not None and isinstance(gender, Gender):
+    elif isinstance(gender, Gender):
         if gender.user != psp:
             gender.user = psp
             gender.save()
@@ -258,15 +259,14 @@ def set_psp_gender_attr(
     psp: Pseudopatient,
     menopause: bool = False,
 ) -> None:
-    if gender:
-        psp.gender = create_psp_gender(gender, psp)
-    elif gender is False:
+    if gender is False:
         psp.gender = None
     else:
-        if menopause:
-            gender = Genders.FEMALE
-        else:
-            gender = Genders(GenderFactory.stub().value)
+        if gender is None:
+            if menopause:
+                gender = Genders.FEMALE
+            else:
+                gender = Genders(GenderFactory.stub().value)
         psp.gender = create_psp_gender(gender, psp)
 
 
