@@ -93,7 +93,7 @@ class PseudopatientPlusFactory(PseudopatientFactory):
 
 
 def set_psp_dateofbirth_attr(
-    dateofbirth: DateOfBirth | date | None,
+    dateofbirth: DateOfBirth | date | None | bool,
     psp: Pseudopatient,
 ) -> None:
     if dateofbirth:
@@ -224,7 +224,7 @@ def create_psp_gender(
     gender: Genders | None,
     psp: Pseudopatient,
 ) -> Ethnicity:
-    if gender is not None and isinstance(gender, (str, Genders)):
+    if gender is not None and (isinstance(gender, (str, Genders)) or gender in Genders.values):
         with transaction.atomic():
             try:
                 return GenderFactory(user=psp, value=gender)
@@ -254,18 +254,19 @@ def set_psp_ethnicity_attr(
 
 
 def set_psp_gender_attr(
-    gender: Genders | None,
+    gender: Genders | None | bool | Gender,
     psp: Pseudopatient,
     menopause: bool = False,
 ) -> None:
-    if gender is not None and gender is False:
+    if gender:
+        psp.gender = create_psp_gender(gender, psp)
+    elif gender is False:
         psp.gender = None
     else:
-        if gender is None:
-            if menopause:
-                gender = Genders.FEMALE
-            else:
-                gender = Genders(GenderFactory.stub().value)
+        if menopause:
+            gender = Genders.FEMALE
+        else:
+            gender = Genders(GenderFactory.stub().value)
         psp.gender = create_psp_gender(gender, psp)
 
 
