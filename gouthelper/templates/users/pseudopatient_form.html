@@ -21,11 +21,11 @@
   {% if form.instance.created %}
     Update {{ form.instance }}'s general information.
   {% else %}
-    Start by telling us information about the patient
+    GoutHelper starts with baseline information about the
     {% if flare %}
-      ({{ age }} year old {{ gender|get_gender_display_value|lower }}), {{ str_attrs.gender_pos }}
+      patient ({{ age }} year old {{ gender|get_gender_display_value|lower }}), {{ str_attrs.gender_pos }}
     {% else %}
-      his or her
+      patient, his or her
     {% endif %}
     gout, and its related treatments.
   {% endif %}
@@ -33,9 +33,9 @@
 {% block content %}
   <main class="container">
     <hr size="3" color="dark" />
-    <u><strong>All GoutPatients are assumed to have a history of gout.</strong></u> If the patient doesn't have a history of gout
+    <!-- djlint:off --><span><strong>IMPORTANT:</strong> <u>All GoutPatients are assumed to have a history of gout.</u> If the patient doesn't have a history of gout<!-- djlint:on -->
     and it's unclear if the symptoms are due to gout, create a <a href="{% url 'flares:create' %}">Flare</a> instead.
-    This can always be converted into a GoutPatient.
+    <!-- djlint:off -->This can always be converted into a GoutPatient.<span><!-- djlint:on -->
     {% if form.instance.created and request.user.is_authenticated %}
       <form class="form-horizontal"
             method="post"

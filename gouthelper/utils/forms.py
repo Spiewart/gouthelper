@@ -316,33 +316,36 @@ def forms_helper_insert_medallergys(
         Div(
             Div(
                 Div(
-                    HTML(
-                        """
-                        <label class="form-label">
-                        Medication Allergies </label>
-                        """
-                    ),
-                    Div(css_class="row"),
                     Div(
                         HTML(
-                            f"""Does {subject_the} have an allergy to any of these medications?
+                            """
+                            <label class="form-label">
+                            Medication Allergies </label>
                             """
                         ),
-                        css_id="hint_id_medallergys",
-                        css_class="form-text",
+                        Div(css_class="row"),
+                        Div(
+                            HTML(
+                                f"""Does {subject_the} have an allergy to any of these medications?
+                                """
+                            ),
+                            css_id="hint_id_medallergys",
+                            css_class="form-text",
+                        ),
+                        css_class="mb-3",
+                        css_id="div_id_medallergys",
                     ),
-                    css_class="mb-3",
-                    css_id="div_id_medallergys",
+                    css_class="col",
                 ),
-                css_class="col",
+                css_class="row",
             ),
-            css_class="row",
             css_id="medallergys",
+            css_class="sub-form",
         ),
     )
     sub_sub_len = len(layout[layout_len - 1][sub_len - 1])
     for treatment in treatments:
-        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][1].append(
+        layout[layout_len - 1][sub_len - 1][sub_sub_len - 1][0][0][0][1].append(
             Div(
                 Div(
                     HTML(

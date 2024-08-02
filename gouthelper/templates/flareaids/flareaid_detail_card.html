@@ -77,32 +77,39 @@
             {% endif %}
           </h4>
           {% if flare %}
-            {% if flare.conditional %}{% endif %}
-          </div>
-          <div class="col-auto">
-            {% if object|is_pseudopatient %}
-              <a type="button"
-                 class="btn btn-primary"
-                 href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
-                 role="button">Create</a>
-            {% elif object.user %}
-              <a type="button"
-                 class="btn btn-primary"
-                 href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
-                 role="button">Create</a>
-            {% elif flare %}
-              <a type="button"
-                 class="btn btn-primary"
-                 href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ request.path }}"
-                 role="button">Create</a>
-            {% else %}
-              <a type="button"
-                 class="btn btn-primary"
-                 href="{% url 'flareaids:create' %}?next={{ request.path }}"
-                 role="button">Create</a>
+            {% if flare.likelihood_equivocal %}
+              <span><strong>WARNING:</strong> It's not certain these symptoms are due to gout. Gout treatment may not be appropriate
+              or effective for other conditions and could potentially be harmful.</span>
+            {% elif flare.likelihood_unlikely %}
+              <span><strong>WARNING:</strong> These symptoms are probably not due to gout. Treatments directed at the correct
+              diagnosis would be ideal.</span>
             {% endif %}
-          </div>
+          {% endif %}
         </div>
-      {% endif %}
-    </div>
+        <div class="col-auto">
+          {% if object|is_pseudopatient %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object.user %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif flare %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:create' %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
   </div>
+</div>

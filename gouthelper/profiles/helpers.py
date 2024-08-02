@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from ..dateofbirths.selectors import annotate_pseudopatient_queryset_with_age
 from ..users.models import Pseudopatient
+from ..users.selectors import pseudopatient_filter_age_gender
 
 if TYPE_CHECKING:
     from django.config.auth import get_user_model  # pylint:disable=E0401  # type: ignore
@@ -22,8 +23,8 @@ def get_provider_alias(
 
     queryset = annotate_pseudopatient_queryset_with_age(
         Pseudopatient.objects.select_related(
-            "dateofbirth__value",
-            "gender__value",
+            "dateofbirth",
+            "gender",
             "pseudopatientprofile__provider",
         ).filter(
             pseudopatientprofile__provider=provider,
@@ -32,13 +33,10 @@ def get_provider_alias(
     )
 
     # Count of related pseudopatients with the same age, gender, and created date
-    alias_conflicts = queryset.filter(
+    alias_conflicts = pseudopatient_filter_age_gender(
+        qs=queryset,
         age=age,
-        gender__value=gender,
+        gender=gender,
     ).count()
-    print("printing alias_conflicts")
-    print(alias_conflicts)
-    print(provider)
-    print(age)
-    print(gender)
-    return alias_conflicts if alias_conflicts else None
+
+    return alias_conflicts + 1

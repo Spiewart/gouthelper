@@ -291,7 +291,7 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHel
         return (
             Pseudopatient.objects.select_related("pseudopatientprofile__provider")
             .filter(pseudopatientprofile__provider=self.request.user)
-            .order_by("modified")
+            .order_by("-modified")
         )
 
 

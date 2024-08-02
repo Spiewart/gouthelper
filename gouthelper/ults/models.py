@@ -377,7 +377,7 @@ ULT is strongly recommended for {gender_ref}.</strong>"
             ("ckd", "Chronic Kidney Disease", self.ckd3, self.ckd_interp),
             ("erosions", "Erosions", self.erosions, self.erosions_interp),
             ("firstflare", "First Flare", self.firstflare, self.firstflare_interp),
-            ("frequentflares", "Frequent Flares", self.frequentflares, self.frequentflares_interp),
+            ("frequentflares", "Frequent Flares", self.frequentflares or False, self.frequentflares_interp),
             ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp),
             ("multipleflares", "Multiple Flares", self.multipleflares, self.multipleflares_interp),
             ("noflares", "No Flares", self.noflares, self.noflares_interp),
@@ -610,7 +610,7 @@ indication for ULT. <strong>{Subject_the} {pos if self.frequentflares else pos_n
         def _get_indication_interp_str() -> str:
             return (
                 f", and having had {gender_pos} first gout flare in this setting is {gender_pos} \
-only conditional indication for ULT."
+only conditional indication for ULT"
                 if self.has_conditional_indication_for_hyperuricemia_only
                 else (
                     (
@@ -760,7 +760,7 @@ to gout or elevated <a href={}>uric acid</a> levels.""",
         """Method that returns True if a Ult indicates the
         has only one flare per year but has a history of more than 1 gout flare,
         which is a conditional indication for ULT."""
-        return self.freq_flares and self.freq_flares == FlareFreqs.ONEORLESS and self.num_flares == FlareNums.TWOPLUS
+        return self.freq_flares == FlareFreqs.ONEORLESS and self.num_flares == FlareNums.TWOPLUS
 
     @property
     def multipleflares_detail(self) -> str:

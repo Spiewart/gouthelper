@@ -11,27 +11,33 @@ class TestCreateProviderAlias(TestCase):
 
     def test__creates_provider_alias__no_conflicts(self):
         alias = get_provider_alias(provider=self.provider, age=20, gender=Genders.FEMALE)
-        self.assertIsNone(alias)
+        self.assertEqual(alias, 1)
 
     def test__creates_provider_alias__conflict(self):
         psp = create_psp(
             provider=self.provider,
         )
         alias = get_provider_alias(provider=self.provider, age=psp.age, gender=psp.gender.value)
-        self.assertEqual(alias, 1)
+        self.assertEqual(alias, 2)
 
     def test__creates_provider_alias__multiple_conflicts(self):
         psp = create_psp(
             provider=self.provider,
         )
         for _ in range(3):
-            print(
-                create_psp(
-                    provider=self.provider,
-                    dateofbirth=psp.dateofbirth.value,
-                    gender=Genders(psp.gender.value),
-                )
+            create_psp(
+                provider=self.provider,
+                dateofbirth=psp.dateofbirth.value,
+                gender=Genders(psp.gender.value),
             )
-        print(psp)
+
         alias = get_provider_alias(provider=self.provider, age=psp.age, gender=psp.gender.value)
-        self.assertEqual(alias, 4)
+        self.assertEqual(alias, 5)
+        for x in range(10):
+            create_psp(
+                provider=self.provider,
+                dateofbirth=psp.dateofbirth.value,
+                gender=Genders(psp.gender.value),
+            )
+        alias = get_provider_alias(provider=self.provider, age=psp.age, gender=psp.gender.value)
+        self.assertEqual(alias, 15)

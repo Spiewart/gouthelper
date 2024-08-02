@@ -4,9 +4,11 @@ from django.db.models import QuerySet  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
+from ...dateofbirths.selectors import annotate_pseudopatient_queryset_with_age
+from ...genders.choices import Genders
 from ...medhistorys.choices import MedHistoryTypes
 from ...users.models import Pseudopatient
-from ..selectors import pseudopatient_qs
+from ..selectors import pseudopatient_filter_age_gender, pseudopatient_qs
 from .factories import create_psp
 
 pytestmark = pytest.mark.django_db
@@ -43,3 +45,30 @@ class TestPseudopatientQuerySet(TestCase):
             assert qs.ckd.ckddetail == self.pseudopatient.ckddetail
             assert qs.gout.goutdetail == self.pseudopatient.goutdetail
         assert len(queries) == 0
+
+
+class TestPseudopatientFilterAgeGender(TestCase):
+    def setUp(self):
+        self.pseudopatient = create_psp()
+        for _ in range(3):
+            create_psp()
+        for _ in range(3):
+            create_psp(
+                dateofbirth=self.pseudopatient.dateofbirth.value, gender=Genders(self.pseudopatient.gender.value)
+            )
+
+    def test__qs_returns_correctly(self):
+        qs = pseudopatient_filter_age_gender(
+            annotate_pseudopatient_queryset_with_age(
+                Pseudopatient.objects.select_related(
+                    "dateofbirth",
+                    "gender",
+                )
+            ),
+            age=self.pseudopatient.age,
+            gender=self.pseudopatient.gender.value,
+        )
+        self.assertEqual(
+            qs.count(),
+            4,
+        )

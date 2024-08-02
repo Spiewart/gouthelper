@@ -489,7 +489,6 @@ class GoutHelperEditMixin:
 
     def post_get_dateofbirth_value(self) -> Union["DateOfBirth", None]:
         dateofbirth_form = self.get_dateofbirth_form()
-
         if dateofbirth_form and hasattr(dateofbirth_form, "cleaned_data") and "value" in dateofbirth_form.cleaned_data:
             return dateofbirth_form.cleaned_data["value"]
         else:
@@ -1661,6 +1660,14 @@ class GoutHelperUserDetailMixin(PatientSessionMixin):
 class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
     """Overwritten to modify related models around a User, rather than
     a GoutHelper DecisionAid or TreatmentAid object. Also to create a user."""
+
+    def get_dateofbirth_form(self) -> "DateOfBirthForm":
+        """Overwritten to avoid returning None if there is a User as is the case for the non-User edit view."""
+        return self.oto_forms["dateofbirth"]
+
+    def get_gender_form(self) -> "GenderForm":
+        """Overwritten to avoid returning None if there is a User as is the case for the non-User edit view."""
+        return self.oto_forms["gender"]
 
     def gout_form_is_in_mhs_2_save(self) -> bool:
         return any([isinstance(mh, Gout) for mh in self.mhs_2_save])

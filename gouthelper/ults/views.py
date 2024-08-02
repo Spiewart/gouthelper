@@ -215,12 +215,9 @@ class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
         return ult
 
     def get_queryset(self) -> "QuerySet[Any]":
-        print("getting queryset")
-        print(self.kwargs)
         return Pseudopatient.objects.ult_qs().filter(pk=self.kwargs["pseudopatient"])
 
     def get_object(self, *args, **kwargs) -> Ult:
-        print("getting object")
         self.user: User = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore
         try:
             ult: Ult = self.user.ult

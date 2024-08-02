@@ -67,6 +67,6 @@ class TestPseudopatient(TestCase):
                 f"{self.provider_psp_with_alias.age}"
                 f"{get_gender_abbreviation(self.provider_psp_with_alias.gender.value)} "
                 f"[{shorten_date_for_str(date=self.psp.created.date(), month_abbrev=True)}]"
-                f" #{self.provider_psp_with_alias.provider_alias}"
+                f"#{self.provider_psp_with_alias.provider_alias}"
             ),
         )

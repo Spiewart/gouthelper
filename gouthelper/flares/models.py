@@ -974,28 +974,40 @@ been lowered due to:"
 
     @property
     def likelihood_interp(self):
-        if self.likelihood == Likelihoods.UNLIKELY:
+        if self.likelihood_unlikely:
             return "Gout isn't likely"
-        elif self.likelihood == Likelihoods.EQUIVOCAL:
+        elif self.likelihood_equivocal:
             return "Gout can't be ruled in or out"
-        elif self.likelihood == Likelihoods.LIKELY:
+        elif self.likelihood_likely:
             return "Gout is very likely"
         else:
             return "Flare hasn't been processed yet..."
 
     @property
     def likelihood_recommendation(self):
-        if self.likelihood == Likelihoods.UNLIKELY:
+        if self.likelihood_unlikely:
             return "Consider alternative causes of the symptoms."
-        elif self.likelihood == Likelihoods.EQUIVOCAL:
+        elif self.likelihood_equivocal:
             rec_str = "Medical evaluation is needed."
             if not self.urate:
                 rec_str += f" Check {self.get_str_attrs('subject_the_pos')[0]} serum uric acid."
             return rec_str
-        elif self.likelihood == Likelihoods.LIKELY:
+        elif self.likelihood_likely:
             return "Treat the gout!"
         else:
             return "Flare hasn't been processed yet..."
+
+    @property
+    def likelihood_likely(self) -> bool:
+        return self.likelihood == self.Likelihoods.LIKELY
+
+    @property
+    def likelihood_equivocal(self) -> bool:
+        return self.likelihood == self.Likelihoods.EQUIVOCAL
+
+    @property
+    def likelihood_unlikely(self) -> bool:
+        return self.likelihood == self.Likelihoods.UNLIKELY
 
     @property
     def monoarticular(self):

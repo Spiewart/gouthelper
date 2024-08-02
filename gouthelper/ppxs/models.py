@@ -650,12 +650,8 @@ until {} has been at goal uric acid ({} or lower) for 6 months.""",
     @cached_property
     def should_stop_ppx(self) -> bool:
         """Returns True if a Ppx/Patient should stop prophylaxis."""
-        return (
-            self.on_ppx
-            and (
-                self.at_goal_long_term
-                and ((not self.flaring and self.at_goal) or (self.flaring and self.recent_urate))
-            )
+        return self.on_ppx and (
+            (self.at_goal_long_term and ((not self.flaring and self.at_goal) or (self.flaring and self.recent_urate)))
             or self.not_on_or_starting_ult
         )
 

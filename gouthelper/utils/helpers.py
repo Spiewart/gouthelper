@@ -302,12 +302,16 @@ def get_str_attrs(
 
 
 def shorten_date_for_str(
-    date: "date", abbrev_last_week: bool = False, show_time: bool = False, month_abbrev: bool = False
+    date: "date",
+    abbrev_last_week: bool = False,
+    show_time: bool = False,
+    month_abbrev: bool = False,
+    show_today: bool = False,
 ) -> str:
     """Method that takes a datetime object and returns a shortened str that is more amenable to presentation in
     length-limited HTML snippets."""
     # https://stackoverflow.com/questions/31487732/simple-way-to-drop-milliseconds-from-python-datetime-datetime-object
-    if date == timezone.now().date():
+    if show_today and date == timezone.now().date():
         if show_time:
             return f"{date.strftime('%-I:%M%p')}"
         else:

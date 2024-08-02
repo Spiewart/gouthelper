@@ -221,10 +221,9 @@ def check_gender_age_menopause(
 
 
 def create_psp_gender(
-    gender: Genders | None,
+    gender: Genders | Gender | None,
     psp: Pseudopatient,
 ) -> Ethnicity:
-    print(gender)
     if isinstance(gender, (str, Genders)) or gender in Genders.values:
         with transaction.atomic():
             try:
@@ -237,8 +236,12 @@ def create_psp_gender(
                 return psp.gender
     elif isinstance(gender, Gender):
         if gender.user != psp:
-            gender.user = psp
-            gender.save()
+            with transaction.atomic():
+                try:
+                    gender.user = psp
+                    gender.save()
+                except IntegrityError:
+                    pass
         return gender
     else:
         raise TypeError(f"Expected str, Genders, or Gender, got {type(gender)}")

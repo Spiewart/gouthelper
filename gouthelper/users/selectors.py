@@ -12,6 +12,8 @@ from ..medhistorys.selectors import medhistorys_prefetch
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
+    from ..genders.choices import Genders
+
 
 def pseudopatient_lab_qs() -> "QuerySet":
     return apps.get_model("labs.Lab").objects.all()
@@ -143,4 +145,11 @@ def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
         medhistorys_prefetch(),
         medallergys_prefetch(),
         urates_prefetch(),
+    )
+
+
+def pseudopatient_filter_age_gender(qs: "QuerySet", age: int, gender: "Genders") -> "QuerySet":
+    return qs.filter(
+        age=age,
+        gender__value=gender,
     )

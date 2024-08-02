@@ -64,7 +64,8 @@
           <h4 class="card-title">
             <a href="{% url 'ultaids:about' %}">UltAid</a>:
             {% if marketing %}
-              get custom ULT recommendations for {{ object }}
+              get custom ULT recommendations
+              {% if object.user %}for {{ object.user }}{% endif %}
             {% else %}
               none
             {% endif %}

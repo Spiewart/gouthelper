@@ -180,6 +180,6 @@ class Pseudopatient(GoutHelperPatientModel, User):
             else "GoutPatient "
         )
 
-        post_fix = f" #{self.provider_alias}" if self.provider_alias else ""
+        post_fix = f"#{self.provider_alias}" if self.provider_alias and self.provider_alias > 1 else ""
 
         return f"{pre_fix}" f"[{shorten_date_for_str(date=self.created.date(), month_abbrev=True)}]" f"{post_fix}"

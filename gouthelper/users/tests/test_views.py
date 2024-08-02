@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from ...dateofbirths.forms import DateOfBirthForm
-from ...dateofbirths.helpers import yearsago
+from ...dateofbirths.helpers import age_calc, yearsago
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
 from ...flareaids.tests.factories import CustomFlareAidFactory
@@ -367,6 +367,51 @@ menopause status to evaluate their flare."
         with pytest.raises(PermissionDenied):
             view.as_view()(request)
 
+    def test__creates_pseudopatient_alias(self):
+        pseudopatient = create_psp()
+        for x in range(3):
+            create_psp(
+                provider=self.provider,
+                dateofbirth=pseudopatient.dateofbirth.value,
+                gender=Genders(pseudopatient.gender.value),
+            )
+        assert Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).count() == 3
+        last_pseudopatient_before_create = (
+            Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).order_by("created").last()
+        )
+        self.client.force_login(self.provider)
+        pseudopatient_form_data_factory()
+        data = {
+            "dateofbirth-value": age_calc(pseudopatient.dateofbirth.value),
+            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
+            "gender-value": Genders(pseudopatient.gender.value),
+            f"{MedHistoryTypes.GOUT}-value": True,
+            "flaring": True,
+            "at_goal": True,
+            "at_goal_long_term": True,
+            "on_ppx": False,
+            "on_ult": True,
+            "starting_ult": True,
+        }
+        if (
+            pseudopatient.gender == Genders.FEMALE
+            and age_calc(pseudopatient.dateofbirth.value) >= 40
+            and age_calc(pseudopatient.dateofbirth.value) <= 60
+        ):
+            data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True if not pseudopatient.menopause else False})
+        response = self.client.post(
+            reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        assert Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).count() == 4
+        newest_pseudopatient = (
+            Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).order_by("created").last()
+        )
+        assert newest_pseudopatient != last_pseudopatient_before_create
+        self.assertTrue(newest_pseudopatient.profile.provider_alias)
+        self.assertEqual(newest_pseudopatient.profile.provider_alias, 4)
+
 
 class TestPseudopatientFlareCreateView(TestCase):
     def setUp(self):
@@ -527,7 +572,6 @@ class TestPseudopatientDetailView(TestCase):
         response = self.client.get(
             reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.admin_pseudopatient.pk})
         )
-        print(Pseudopatient.objects.get(pk=self.admin_pseudopatient.pk))
         assert response.status_code == 403
 
     def test__rules_provider_can_see_anonymous_pseudopatient(self):

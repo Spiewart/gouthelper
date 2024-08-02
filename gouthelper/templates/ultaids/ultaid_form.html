@@ -32,7 +32,7 @@
     {% if view.related_object %}
       based on <a href={{ view.related_object.get_absolute_url }}>{{ view.related_object }}</a>.
     {% else %}
-      for {{ str_attrs.subject_the_pos }}.
+      for {{ str_attrs.subject_the }}.
     {% endif %}
   {% endif %}
 {% endblock subheading %}

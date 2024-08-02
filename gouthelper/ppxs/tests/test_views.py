@@ -989,6 +989,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         request = self.factory.get("/fake-url/")
         request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         kwargs = {"pseudopatient": self.user.pk}
         view = self.view()
         view.setup(request, **kwargs)
@@ -1101,6 +1102,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         else:
             request.user = self.anon_user
         SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
         kwargs = {"pseudopatient": user.pk}
         response = self.view.as_view()(request, **kwargs)
         assert response.status_code == 200
@@ -1109,7 +1111,7 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__get_context_data_urates(self):
         """Test that the context data includes the user's Urates."""
-        user = Pseudopatient.objects.first()
+        user = Pseudopatient.objects.select_related("ppx").exclude(ppx__isnull=True).first()
         UrateFactory.create_batch(2, user=user)
         request = self.factory.get("/fake-url/")
         if user.profile.provider:
