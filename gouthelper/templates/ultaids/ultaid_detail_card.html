@@ -82,6 +82,11 @@
                class="btn btn-primary"
                href="{% url 'ultaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
                role="button">Create</a>
+          {% elif object %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ultaids:ult-create' object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
           {% else %}
             <a type="button"
                class="btn btn-primary"

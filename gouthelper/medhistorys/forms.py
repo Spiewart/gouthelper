@@ -8,6 +8,7 @@ from django.utils.text import format_lazy  # type: ignore
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.forms import ModelFormKwargMixin
+from ..utils.links import get_citation_tophi_gout_education_society, get_link_gouty_arthropathy
 from .models import (
     Angina,
     Anticoagulation,
@@ -102,7 +103,7 @@ class AnticoagulationForm(MHCheckForm):
         self.fields[
             self.value
         ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} on \
-anticoagulation?"
+blood thinners (other than aspirin)?"
 
 
 class BleedForm(MHCheckForm):
@@ -113,10 +114,7 @@ class BleedForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Bleed"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had a major \
-bleed (GI, etc.)?"
+        self.fields[self.value].help_text = "History of major bleeding without truama?"
 
 
 class CadForm(MHCheckForm):
@@ -273,10 +271,11 @@ class ErosionsForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Erosions"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have gouty \
-erosions on x-ray?"
+        self.fields[self.value].help_text = (
+            f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have "
+            f"<a target='_blank' href={get_link_gouty_arthropathy()}>gouty erosions</a>"
+            " on x-ray?"
+        )
 
 
 class GastricbypassForm(MHCheckForm):
@@ -289,10 +288,7 @@ class GastricbypassForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Gastric Bypass"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had a gastric \
-bypass?"
+        self.fields[self.value].help_text = "Sleave, roux-en-y, or duodenal switch?"
 
 
 class GoutForm(MedHistoryForm):
@@ -467,10 +463,7 @@ class IbdForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Inflammatory Bowel Disease"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have a \
-history of inflammatory bowel disease?"
+        self.fields[self.value].help_text = "Crohn's disease or ulcerative colitis"
 
 
 class MenopauseForm(MedHistoryForm):
@@ -530,10 +523,7 @@ class PudForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Peptic Ulcer Disease"
-        self.fields[
-            self.value
-        ].help_text = f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had gastric or \
-other gastrointestinal ulcers?"
+        self.fields[self.value].help_text = "Peptic, gastric, or other gastroinestinal ulcers?"
 
 
 class PvdForm(MHCheckForm):
@@ -583,7 +573,7 @@ class TophiForm(MedHistoryForm):
         self.fields[
             self.value
         ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have gouty \
-tophi?"
+tophi? (Some {get_citation_tophi_gout_education_society()})"
 
 
 class UratestonesForm(MedHistoryForm):

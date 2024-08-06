@@ -56,9 +56,9 @@
           <div class="col">
             {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
             {% if object.user and object.user.ppx %}
-              {% include "ppxs/ppx_detail_card.html" with object=object.user.ppx %}
+              {% include "ppxs/ppx_detail_card.html" with ppx=object.user.ppx %}
             {% elif object.ppx %}
-              {% include "ppxs/ppx_detail_card.html" with object=object.ppx %}
+              {% include "ppxs/ppx_detail_card.html" with ppx=object.ppx %}
             {% else %}
               <div id="ppx-card" class="card spacious-cards">
                 <div class="card-body">

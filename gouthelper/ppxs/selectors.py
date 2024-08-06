@@ -6,6 +6,8 @@ from django.db.models import Prefetch, Q  # type: ignore
 from ..flares.selectors import flares_prefetch
 from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..ppxaids.selectors import medallergys_qs as ppxaid_medallergys_qs
+from ..ppxaids.selectors import medhistorys_qs as ppxaid_medhistorys_qs
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -44,8 +46,31 @@ def ppx_relations(qs: "QuerySet") -> "QuerySet":
     )
 
 
+def ppxaid_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ppxaid__medhistory_set",
+        queryset=ppxaid_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def ppxaid_medallergys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ppxaid__medallergy_set",
+        queryset=ppxaid_medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
 def ppx_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ppx_relations(qs).select_related("user")
+    return (
+        ppx_relations(qs)
+        .select_related("ppxaid", "user")
+        .prefetch_related(
+            ppxaid_medhistorys_prefetch(),
+            ppxaid_medallergys_prefetch(),
+        )
+    )
 
 
 def ppx_user_relations(qs: "QuerySet") -> "QuerySet":

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -16,7 +16,6 @@ from ..medhistorys.choices import Contraindications
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
-from ..users.models import Pseudopatient
 from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import (
     aids_dose_adjust_colchicine,
@@ -94,6 +93,8 @@ class FlareAid(
 
     objects = models.Manager()
     related_objects = FlareAidManager()
+    related_models: list[Literal["flare"]] = ["flare"]
+    decision_aid_service = FlareAidDecisionAid
 
     def __str__(self):
         if self.user:
@@ -116,9 +117,8 @@ class FlareAid(
     def aid_treatments(cls) -> list[FlarePpxChoices]:
         return FlarePpxChoices.values
 
-    @cached_property
     def anticoagulation_interp(self) -> str:
-        anticoag_str = super().anticoagulation_interp
+        anticoag_str = super().anticoagulation_interp()
         if self.anticoagulation:
             anticoag_str += " Exceptions are sometimes made to this rule for gout flares because the duration of \
 treatment is typically very short and the risk of bleeding is low."
@@ -170,23 +170,23 @@ treatment is typically very short and the risk of bleeding is low."
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the FlareAid to use in templates."""
         return [
-            ("age", "Age", True if self.age >= 65 else False, self.age_interp),
-            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
-            ("bleed", "Bleed", self.bleed, self.bleed_interp),
-            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            ("age", "Age", True if self.age >= 65 else False, self.age_interp()),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp()),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp()),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
             (
                 "colchicineinteraction",
                 "Colchicine Medication Interaction",
                 self.colchicineinteraction,
-                self.colchicineinteraction_interp,
+                self.colchicineinteraction_interp(),
             ),
-            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
-            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp),
-            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp),
-            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp),
-            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp),
-            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
-            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp()),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp()),
+            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp()),
+            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp()),
+            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp()),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp()),
+            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp()),
         ]
 
     def get_absolute_url(self):
@@ -307,20 +307,3 @@ treatment is typically very short and the risk of bleeding is low."
     @classmethod
     def trttype(cls) -> str:
         return TrtTypes.FLARE
-
-    def update_aid(self, qs: Union["FlareAid", "User", None] = None) -> "FlareAid":
-        """Updates FlareAid decisionaid JSON field field.
-
-        Args:
-            qs (FlareAid, User, optional): FlareAid or User object. Defaults to None. Should have related field objects
-            prefetched and select_related.
-
-        Returns:
-            FlareAid: FlareAid object."""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.flareaid_qs().filter(pk=self.user.pk)
-            else:
-                qs = FlareAid.related_objects.filter(pk=self.pk)
-        decisionaid = FlareAidDecisionAid(qs=qs)
-        return decisionaid._update()

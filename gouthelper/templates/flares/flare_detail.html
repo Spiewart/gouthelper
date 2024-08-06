@@ -206,7 +206,7 @@
                     {% if not flare.user.gender %}(<strong>2 points</strong>){% endif %}
                   {% else %}
                     {{ flare.gender|lower }}
-                    {% if not flare.gender %}(<strong>2 points</strong>){% endif %}
+                    {% if not flare.gender == "Male" %}(<strong>2 points</strong>){% endif %}
                   {% endif %}
                   {% if flare.menopause %}
                     , post-menopausal
@@ -309,6 +309,7 @@
       $('.collapse').each(function() {
         $(this).on('shown.bs.collapse', expand_control);
       });
+      check_for_and_expand_collapse();
     });
   </script>
 {% endblock inline_javascript %}

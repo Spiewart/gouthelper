@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -18,7 +18,6 @@ from ..medhistorys.lists import ULTAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import Treatments, TrtTypes, UltChoices
 from ..ultaids.services import UltAidDecisionAid
-from ..users.models import Pseudopatient
 from ..utils.helpers import wrap_in_anchor, wrap_in_samepage_links_anchor
 from ..utils.links import get_link_febuxostat_cv_risk
 from ..utils.models import GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
@@ -107,6 +106,8 @@ class UltAid(
 
     objects = models.Manager()
     related_objects = UltAidManager()
+    related_models: list[Literal["ult"]] = ["ult"]
+    decision_aid_service = UltAidDecisionAid
 
     def __str__(self):
         if self.user:
@@ -129,9 +130,8 @@ class UltAid(
     def aid_treatments(cls) -> list[Treatments]:
         return UltChoices.values
 
-    @property
     def ckd_interp(self) -> str:
-        ckd_str = super().ckd_interp
+        ckd_str = super().ckd_interp()
 
         (subject_the, gender_subject) = self.get_str_attrs("subject_the", "gender_subject")
 
@@ -160,7 +160,7 @@ in patients with CKD of unclear stage (severity).""",
             reverse("treatments:about-ult") + "#probenecid",
         )
         if self.probenecid_ckd_contra:
-            ckd_str += " " + self.probenecid_ckd_contra_interp
+            ckd_str += " " + self.probenecid_ckd_contra_interp()
 
         return mark_safe(ckd_str)
 
@@ -238,7 +238,7 @@ febuxostat should be used cautiously and {subject_the}'s treatment for preventio
 
     def erosions_interp(self, samepage_links: bool = True) -> str:
         subject_the, pos, gender_subject = self.get_str_attrs("subject_the", "pos", "gender_subject")
-        erosions_interp_str = super().erosions_interp
+        erosions_interp_str = super().erosions_interp()
         erosions_interp_str += str(
             format_lazy(
                 """<br> <br> Like {}, erosions \
@@ -257,7 +257,7 @@ href={}>goal uric acid</a>.""",
     def explanations(self, samepage_links: bool = True) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the UltAid to use in templates."""
         return [
-            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
             (
                 "cvdiseases",
                 "Cardiovascular Diseases",
@@ -265,17 +265,17 @@ href={}>goal uric acid</a>.""",
                 self.cvdiseases_interp(samepage_links=samepage_links),
             ),
             ("erosions", "Erosions", self.erosions, self.erosions_interp(samepage_links=samepage_links)),
-            ("hepatitis", "Hepatitis", self.hepatitis, self.hepatitis_interp),
-            ("hlab5801", "HLA-B*5801", self.hlab5801_value, self.hlab5801_interp),
-            ("medallergys", "Medication Allergies", self.medallergys, self.medallergys_interp),
-            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
+            ("hepatitis", "Hepatitis", self.hepatitis, self.hepatitis_interp()),
+            ("hlab5801", "HLA-B*5801", self.hlab5801_value, self.hlab5801_interp()),
+            ("medallergys", "Medication Allergies", self.medallergys, self.medallergys_interp()),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp()),
             ("tophi", "Tophi", self.tophi, self.tophi_interp(samepage_links=samepage_links)),
-            ("uratestones", "Urate Kidney Stones", self.uratestones, self.uratestones_interp),
+            ("uratestones", "Urate Kidney Stones", self.uratestones, self.uratestones_interp()),
             (
                 "xoiinteraction",
                 "Xanthine Oxidase Inhibitor Interaction",
                 self.xoiinteraction,
-                self.xoiinteraction_interp,
+                self.xoiinteraction_interp(),
             ),
         ]
 
@@ -289,7 +289,6 @@ href={}>goal uric acid</a>.""",
     def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
         return medallergy_attr(UltChoices.values, self)
 
-    @cached_property
     def medallergys_interp(self) -> str:
         """Method that interprets the medallergys attribute and returns a str explanation
         of the impact of it on a patient's gout."""
@@ -299,7 +298,7 @@ href={}>goal uric acid</a>.""",
         if self.medallergys:
             if self.allopurinol_allergy:
                 if self.allopurinolhypersensitivity:
-                    main_str += self.allopurinolhypersensitivity_interp
+                    main_str += self.allopurinolhypersensitivity_interp()
                 else:
                     main_str += f"<strong>{Subject_the} {pos} an allergy to allopurinol</strong>, so it's not \
 recommended for {subject_the}."
@@ -307,7 +306,7 @@ recommended for {subject_the}."
                 if self.allopurinol_allergy:
                     main_str += "<br> <br> "
                 if self.febuxostathypersensitivity:
-                    main_str += self.febuxostathypersensitivity_interp
+                    main_str += self.febuxostathypersensitivity_interp()
                 else:
                     main_str += f"<strong>{Subject_the} {pos} a medication allergy to febuxostat</strong>\
 , so it's not recommended for {subject_the}."
@@ -386,23 +385,6 @@ not recommended for {subject_the}."
     @classmethod
     def trttype(cls) -> str:
         return TrtTypes.ULT
-
-    def update_aid(self, qs: Union["UltAid", "User", None] = None) -> "UltAid":
-        """Updates UltAid decisionaid JSON  field.
-
-        Args:
-            qs (UltAid, User, optional): UltAid or User object. Defaults to None.
-            Should have related field objects prefetched and select_related.
-
-        Returns:
-            UltAid: UltAid object with decisionaid field updated ."""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.ultaid_qs().filter(username=self.user.username)
-            else:
-                qs = UltAid.related_objects.filter(pk=self.pk)
-        decisionaid = UltAidDecisionAid(qs=qs)
-        return decisionaid._update()  # pylint: disable=W0212 # type: ignore
 
     @cached_property
     def xoi_ckd_dose_reduction(self) -> bool:

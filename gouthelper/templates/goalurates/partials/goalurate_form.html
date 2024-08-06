@@ -15,12 +15,12 @@
     {% if view.kwargs.pseudopatient %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'goalurates:pseudopatient-update' form.instance.pk %}">
+            action="{% url 'goalurates:pseudopatient-update' object.user.pk %}">
         {% csrf_token %}
         {% crispy form %}
         <a type="button"
            class="btn btn-primary btn-lg"
-           hx-post="{% url 'goalurates:pseudopatient-update' form.instance.pk %}"
+           hx-post="{% url 'goalurates:pseudopatient-update' object.user.pk %}"
            hx-target="#goalurate"
            hx-trigger="click"
            role="button">Update</a>

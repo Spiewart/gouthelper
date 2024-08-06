@@ -309,7 +309,6 @@ class GoutDetailPpxForm(GoutDetailForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["at_goal"].help_text = self.fields["at_goal"].help_text + mark_safe(
-            "If you \
-want to enter values and dates for uric acids, you can do so \
+            " If you want to enter values and dates for uric acids, you can do so \
 <a href='#urate_formset_table'>below</a> and we will make this determination for you."
         )

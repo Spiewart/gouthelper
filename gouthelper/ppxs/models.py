@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal
 
 from django.conf import settings  # type: ignore
 from django.core.validators import MaxValueValidator, MinValueValidator  # type: ignore
@@ -17,11 +17,9 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..goalurates.helpers import goalurates_get_object_goal_urate
 from ..labs.helpers import labs_urate_within_90_days
 from ..labs.models import Urate
-from ..labs.selectors import urates_dated_qs
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
-from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .helpers import ppxs_check_urate_at_goal_discrepant
 from .managers import PpxManager
@@ -88,6 +86,8 @@ class Ppx(
 
     objects = models.Manager()
     related_objects = PpxManager()
+    related_models: list[Literal["ppxaid"]] = ["ppxaid"]
+    decision_aid_service = PpxDecisionAid
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -105,7 +105,6 @@ class Ppx(
     def at_goal_long_term(self) -> bool:
         return self.goutdetail.at_goal_long_term
 
-    @property
     def at_goal_long_term_interp(self) -> str:
         """Method that returns an explanation of the PPx's at_goal_long_term status."""
         (Subject_the, pos) = self.get_str_attrs("Subject_the", "pos")
@@ -136,7 +135,6 @@ defaults to six months.
             and self.urates_at_goal_long_term
         )
 
-    @property
     def at_goal_interp(self) -> str:
         """Method that returns an explanation of the PPx's at_goal status."""
         (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
@@ -255,16 +253,20 @@ Continued flare prophylaxis is recommended."
             }
 
     @cached_property
+    def dated_urates(self) -> list[Urate]:
+        return list(super().dated_urates)
+
+    @cached_property
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Returns a list of tuples containing information to display explanations in the PpxDetail template."""
         return [
-            ("at_goal", "At Goal Six Months or Longer", self.at_goal_long_term, self.at_goal_long_term_interp),
-            ("flaring", "Flaring", self.flaring, self.flaring_interp),
-            ("gout", "Gout", self.gout, self.gout_interp),
-            ("hyperuricemic", "Hyperuricemic", not self.at_goal, self.at_goal_interp),
-            ("on_ppx", "On Prophylaxis", self.on_ppx, self.on_ppx_interp),
-            ("on_ult", "On Urate-Lowering Therapy", self.on_ult, self.on_ult_interp),
-            ("starting_ult", "Starting Urate-Lowering Therapy", self.starting_ult, self.starting_ult_interp),
+            ("at_goal", "At Goal Six Months or Longer", self.at_goal_long_term, self.at_goal_long_term_interp()),
+            ("flaring", "Flaring", self.flaring, self.flaring_interp()),
+            ("gout", "Gout", self.gout, self.gout_interp()),
+            ("hyperuricemic", "Hyperuricemic", not self.at_goal, self.at_goal_interp()),
+            ("on_ppx", "On Prophylaxis", self.on_ppx, self.on_ppx_interp()),
+            ("on_ult", "On Urate-Lowering Therapy", self.on_ult, self.on_ult_interp()),
+            ("starting_ult", "Starting Urate-Lowering Therapy", self.starting_ult, self.starting_ult_interp()),
         ]
 
     @cached_property
@@ -278,10 +280,6 @@ Continued flare prophylaxis is recommended."
             return reverse("ppxs:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ppxs:detail", kwargs={"pk": self.pk})
-
-    def get_dated_urates(self):
-        kwargs = {"user": self.user} if self.user else {"ppx": self}
-        return urates_dated_qs().filter(**kwargs)
 
     @cached_property
     def goal_urate(self) -> "GoalUrates":
@@ -299,7 +297,6 @@ Continued flare prophylaxis is recommended."
         """Method that returns a bool indicating whether Ult is indicated."""
         return self.indication == Indications.INDICATED or self.indication == Indications.CONDITIONAL
 
-    @cached_property
     def flaring_interp(self) -> str:
         """Returns HTML-formatted str explaining the Ppx flaring attribute."""
         Subject_the, tobe, tobe_neg, subject_the = self.get_str_attrs("Subject_the", "tobe", "tobe_neg", "subject_the")
@@ -318,7 +315,6 @@ adjusted. This is {'' if self.on_ult and not self.starting_ult and self.flaring 
 for {subject_the}."
         )
 
-    @cached_property
     def gout_interp(self) -> str:
         """Returns HTML-formatted str explaining the gout attribute for the Ppx."""
         Subject_the, gender_pos, gender_subject, tobe = self.get_str_attrs(
@@ -347,7 +343,6 @@ therapy (<a href={}>ULT</a>) or having gout flares, as well as trends in {} seru
         else:
             return self.urates_qs if hasattr(self, "urates_qs") else self.urate_set.exists()
 
-    @cached_property
     def hyperuricemic_interp(self) -> str:
         """Returns HTML-formatted str explaining the hyperuricemic attribute for the Ppx."""
         Subject_the, subject_the, tobe, tobe_neg = self.get_str_attrs("Subject_the", "subject_the", "tobe", "tobe_neg")
@@ -397,7 +392,6 @@ not {} is experiencing symptoms that could be due to gout and require ULT adjust
         (Subject_the,) = self.get_str_attrs("Subject_the")
         return {"Prophylaxis Not Indicated": f"{Subject_the} does not have an indication for flare prophylaxis."}
 
-    @cached_property
     def on_ppx_interp(self) -> str:
         """Returns HTML-formatted str explaining the on_ppx attribute for the Ppx."""
         Subject_the, tobe, tobe_neg = self.get_str_attrs("Subject_the", "tobe", "tobe_neg")
@@ -421,7 +415,6 @@ of ULT but who need their ULT dose adjusted due to recurrent gout flares or hype
         attribute."""
         return self.goutdetail.on_ult if self.goutdetail else False  # pylint: disable=W0125, E1101
 
-    @property
     def on_ult_interp(self) -> str:
         """Returns HTML-formatted str explaining the on_ult field for the Ppx's GoutDetail."""
         Subject_the, tobe, tobe_neg, subject_the_pos = self.get_str_attrs(
@@ -448,12 +441,12 @@ starting ULT."
         in the last 3 months, False if not."""
         if hasattr(self, "urates_qs"):
             return labs_urate_within_90_days(
-                urates=self.urates_qs,
+                urates=self.dated_urates,
                 sorted_by_date=True,
             )
         else:
             return labs_urate_within_90_days(
-                urates=self.get_dated_urates(),
+                urates=self.dated_urates,
                 sorted_by_date=True,
             )
 
@@ -512,30 +505,20 @@ starting ULT."
     def semi_recent_urate(self) -> bool:
         """Method that returns True if the patient has had his or her uric acid checked
         in the last 6 months, False if not."""
-        if hasattr(self, "urates_qs"):
-            return (
-                True
-                if next(
-                    iter(
-                        [
-                            urate
-                            for urate in self.urates_qs
-                            if urate.date_drawn and urate.date_drawn > timezone.now() - timedelta(days=180)
-                        ]
-                    ),
-                    None,
-                )
-                else False
+        return (
+            True
+            if next(
+                iter(
+                    [
+                        urate
+                        for urate in self.dated_urates
+                        if urate.date_drawn and urate.date_drawn > timezone.now() - timedelta(days=180)
+                    ]
+                ),
+                None,
             )
-        else:
-            return (
-                self.get_dated_urates()
-                .filter(
-                    date__gte=timezone.now() - timedelta(days=180),
-                    date__lte=timezone.now(),
-                )
-                .exists()
-            )
+            else False
+        )
 
     @cached_property
     def should_check_urate(self) -> bool:
@@ -660,7 +643,6 @@ until {} has been at goal uric acid ({} or lower) for 6 months.""",
         """Returns True if a Ppx/Patient should update its urates."""
         return self.at_goal_urates_discrepant or self.at_goal_long_term_urates_discrepant
 
-    @property
     def starting_ult_interp(self) -> str:
         """Returns HTML-formatted str explaining the starting_ult field for the Ppx."""
         Subject_the, tobe, tobe_neg = self.get_str_attrs("Subject_the", "tobe", "tobe_neg")
@@ -704,23 +686,6 @@ sustaining goal uric acid. GoutHelper defaults to 6 months, so {subject_the} doe
     def __str__(self):
         return f"Ppx: {self.get_indication_display()}"
 
-    def update_aid(self, qs: Union["Ppx", None] = None) -> "Ppx":
-        """Updates the Ppx indication field.
-
-        Args:
-            decisionaid: PpxDecisionAid object
-            qs: Ppx object
-
-        Returns:
-            Ppx: Ppx object."""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.ppx_qs().filter(pk=self.user.pk)
-            else:
-                qs = Ppx.related_objects.filter(pk=self.pk)
-        decisionaid = PpxDecisionAid(qs=qs)
-        return decisionaid._update()  # pylint: disable=W0212
-
     @property
     def update_urates_recommendation(self) -> dict[str, str]:
         """Returns a dict of a recommendation."""
@@ -736,7 +701,7 @@ sustaining goal uric acid. GoutHelper defaults to 6 months, so {subject_the} doe
         at_goal_str = f"{Subject_the_pos} uric acid is reported as {'' if self.at_goal else 'not '}at \
 goal the last time it was checked and that {gender_subject} {pos} {'' if self.at_goal_long_term else 'not '}\
 been at goal uric acid for six months or longer, but "
-        if self.all_urates:
+        if self.dated_urates:
             at_goal_str += f"{gender_pos} reported uric acids indicate "
             if self.at_goal_urates_discrepant:
                 at_goal_str += f"{gender_subject} {tobe} {'not ' if self.at_goal else ''} \
@@ -845,19 +810,10 @@ generally continued until the uric acid has been at goal for six months or longe
             discrepant (i.e. hyperuricemic is True but the last urate was at goal),
             False if not.
         """
-        if self.goutdetail:  # pylint: disable=W0125
-            if hasattr(self, "urates_qs"):
-                if self.urates_qs:
-                    return ppxs_check_urate_at_goal_discrepant(
-                        urate=self.urates_qs[0],
-                        goutdetail=self.goutdetail,  # type: ignore
-                        goal_urate=self.goal_urate,
-                    )
-            elif self.urate_set.exists():
-                latest_urate = self.get_dated_urates().first()
-                return ppxs_check_urate_at_goal_discrepant(
-                    urate=latest_urate,
-                    goutdetail=self.goutdetail,  # type: ignore
-                    goal_urate=self.goal_urate,
-                )
+        if self.goutdetail and self.dated_urates:  # pylint: disable=W0125
+            return ppxs_check_urate_at_goal_discrepant(
+                urate=self.dated_urates[0],
+                goutdetail=self.goutdetail,  # type: ignore
+                goal_urate=self.goal_urate,
+            )
         return False

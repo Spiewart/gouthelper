@@ -106,7 +106,9 @@ class TestPpxAidMethods(TestCase):
         self.assertTrue(hasattr(decisionaid, "medallergys"))
         self.assertEqual(decisionaid.medallergys, qs.medallergys_qs)
         self.assertTrue(hasattr(decisionaid, "medhistorys"))
-        self.assertEqual(decisionaid.medhistorys, qs.medhistorys_qs)
+        self.assertEqual(
+            decisionaid.medhistorys, [mh for mh in qs.medhistorys_qs if mh.medhistorytype in PPXAID_MEDHISTORYS]
+        )
         self.assertTrue(hasattr(decisionaid, "baselinecreatinine"))
         self.assertEqual(decisionaid.baselinecreatinine, BaselineCreatinine.objects.get(medhistory=ppxaid.user.ckd))
         self.assertTrue(hasattr(decisionaid, "ckddetail"))

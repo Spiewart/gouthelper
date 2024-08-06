@@ -160,6 +160,7 @@
       $('.collapse').each(function() {
         $(this).on('shown.bs.collapse', expand_control);
       });
+      check_for_and_expand_collapse();
     });
   </script>
 {% endblock inline_javascript %}

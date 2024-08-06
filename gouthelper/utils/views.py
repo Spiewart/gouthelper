@@ -210,11 +210,32 @@ class GoutHelperEditMixin:
             self.object.update_aid(qs=self.user)
         else:
             self.object.update_aid(qs=self.object)
+        self.object.update_related_objects(qs=self.user if self.user else self.object)
         messages.success(self.request, self.get_success_message(self.form.cleaned_data))
         if self.request.htmx:
             return kwargs.get("htmx")
 
         return HttpResponseRedirect(self.get_success_url())
+
+    def form_valid_update_objects(self) -> None:
+        if self.user:
+            setattr(self.user, f"{self.object_attr}_qs", self.object)
+            self.object.update_aid(qs=self.user)
+            if hasattr(self.object, "related_models"):
+                for related_model in self.object.related_models():
+                    user_related_model = getattr(self.user, related_model, None)
+                    if user_related_model:
+                        user_related_model.update_aid(qs=user_related_model)
+        else:
+            self.object.update_aid(qs=self.object)
+            if self.related_object:
+                self.related_object.update_aid(qs=self.related_object)
+            else:
+                if hasattr(self.object, "related_models"):
+                    for related_model in self.object.related_models():
+                        related_object = getattr(self.object, related_model, None)
+                        if related_object:
+                            related_object.update_aid(qs=related_object)
 
     def form_valid_set_aid_obj_relations(
         self,
@@ -326,7 +347,7 @@ class GoutHelperEditMixin:
         """Overwritten to take optional next parameter from url"""
         next_url = self.request.POST.get("next", None)
         if next_url:
-            next_url += f"#{self.object_attr}-card"
+            next_url += f"?updated=True&related_object_id=#{self.object_attr}-card"
             return next_url
         else:
             return super().get_success_url() + "?updated=True"
@@ -541,7 +562,7 @@ class GoutHelperEditMixin:
             rel_obj_list.append(self.related_object)
             return rel_obj_list
         else:
-            for aid_type in self.get_related_objects_attrs():
+            for aid_type in self.object.related_models:
                 if hasattr(self.object, aid_type):
                     rel_obj = getattr(self.object, aid_type)
                     if rel_obj:
@@ -1402,10 +1423,12 @@ menopause status to evaluate their flare."
                     mh.update_set_date_and_save()
 
     def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
+        # TODO - Refactor this method
         for related_object in self.related_objects:
             related_object_attr = related_object.__class__.__name__.lower()
             if self.medhistory_needs_related_object_attr_update(mh, related_object, related_object_attr):
                 setattr(mh, related_object_attr, related_object)
+                self.add_mh_to_qs(mh, getattr(related_object, "medhistorys_qs", []), check=False)
 
     @staticmethod
     def medhistory_needs_related_object_attr_update(
@@ -1434,6 +1457,21 @@ menopause status to evaluate their flare."
             for mh in self.mhs_2_remove:
                 mh.update_set_date_and_save(commit=False)
                 mh.delete()
+                self.form_valid_remove_medhistory_from_related_objects(mh)
+
+    def form_valid_remove_medhistory_from_related_objects(self, mh: "MedHistory") -> None:
+        for related_object in self.related_objects:
+            if mh.medhistorytype in related_object.aid_medhistorys():
+                related_object_medhistory = next(
+                    iter(
+                        related_mh
+                        for related_mh in related_object.medhistorys_qs
+                        if related_mh.medhistorytype == mh.medhistorytype
+                    ),
+                    None,
+                )
+                if related_object_medhistory:
+                    related_object.medhistorys_qs.remove(related_object_medhistory)
 
     def form_valid_delete_medhistory_details(self) -> None:
         if self.mhdets_2_remove:

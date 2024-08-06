@@ -36,80 +36,80 @@
           </button>
         </div>
       </div>
-      <div class="collapse {% if show %}show{% endif %}mini-card-content"
-           id="flareaid-card_collapse">
-        <div class="row">
-          <div class="col">
-            {% if flareaid.recommendation %}
-              {% call_method flareaid 'treatment_dosing_dict' flareaid.recommendation.0 as dosing_dict %}
-              <ul>
-                {% for key, val in dosing_dict.items %}
-                  <li>
-                    <strong>{{ key }}</strong>: {{ val }}
-                  </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <ul>
-                <li>{{ flareaid.recommendation_is_none_str }}</li>
-              </ul>
-            {% endif %}
-          </div>
-        </div>
-        {% if flareaid.user %}
-          <a href="{% url 'flareaids:pseudopatient-update' flareaid.user.pk %}?next={{ request.path }}"
-             class="btn btn-primary">Update</a>
-        {% else %}
-          <a href="{% url 'flareaids:update' flareaid.pk %}?next={{ request.path }}"
-             class="btn btn-primary">Update</a>
-        {% endif %}
-        <a href="{% url 'flareaids:about' %}" class="btn btn-primary">About</a>
-      </div>
-    {% else %}
+      <!-- djlint:off --><div class="collapse {% if show %}show {% endif %}mini-card-content"
+      id="flareaid-card_collapse"><!-- djlint:on -->
       <div class="row">
         <div class="col">
-          <h4 class="card-title">
-            <a href="{% url 'flareaids:about' %}">FlareAid</a>:
-            {% if card_title %}
-              {{ card_title }}
-            {% else %}
-              none
-            {% endif %}
-          </h4>
-          {% if flare %}
-            {% if flare.likelihood_equivocal %}
-              <span><strong>WARNING:</strong> It's not certain these symptoms are due to gout. Gout treatment may not be appropriate
-              or effective for other conditions and could potentially be harmful.</span>
-            {% elif flare.likelihood_unlikely %}
-              <span><strong>WARNING:</strong> These symptoms are probably not due to gout. Treatments directed at the correct
-              diagnosis would be ideal.</span>
-            {% endif %}
-          {% endif %}
-        </div>
-        <div class="col-auto">
-          {% if object|is_pseudopatient %}
-            <a type="button"
-               class="btn btn-primary"
-               href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
-               role="button">Create</a>
-          {% elif object.user %}
-            <a type="button"
-               class="btn btn-primary"
-               href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
-               role="button">Create</a>
-          {% elif flare %}
-            <a type="button"
-               class="btn btn-primary"
-               href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ request.path }}"
-               role="button">Create</a>
+          {% if flareaid.recommendation %}
+            {% call_method flareaid 'treatment_dosing_dict' flareaid.recommendation.0 as dosing_dict %}
+            <ul>
+              {% for key, val in dosing_dict.items %}
+                <li>
+                  <strong>{{ key }}</strong>: {{ val }}
+                </li>
+              {% endfor %}
+            </ul>
           {% else %}
-            <a type="button"
-               class="btn btn-primary"
-               href="{% url 'flareaids:create' %}?next={{ request.path }}"
-               role="button">Create</a>
+            <ul>
+              <li>{{ flareaid.recommendation_is_none_str }}</li>
+            </ul>
           {% endif %}
         </div>
       </div>
-    {% endif %}
-  </div>
+      {% if flareaid.user %}
+        <a href="{% url 'flareaids:pseudopatient-update' flareaid.user.pk %}?next={{ request.path }}"
+           class="btn btn-primary">Update</a>
+      {% else %}
+        <a href="{% url 'flareaids:update' flareaid.pk %}?next={{ request.path }}"
+           class="btn btn-primary">Update</a>
+      {% endif %}
+      <a href="{% url 'flareaids:about' %}" class="btn btn-primary">About</a>
+    </div>
+  {% else %}
+    <div class="row">
+      <div class="col">
+        <h4 class="card-title">
+          <a href="{% url 'flareaids:about' %}">FlareAid</a>:
+          {% if card_title %}
+            {{ card_title }}
+          {% else %}
+            none
+          {% endif %}
+        </h4>
+        {% if flare %}
+          {% if flare.likelihood_equivocal %}
+            <span><strong>WARNING:</strong> It's not certain these symptoms are due to gout. Gout treatment may not be appropriate
+            or effective for other conditions and could potentially be harmful.</span>
+          {% elif flare.likelihood_unlikely %}
+            <span><strong>WARNING:</strong> These symptoms are probably not due to gout. Treatments directed at the correct
+            diagnosis would be ideal.</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="col-auto">
+        {% if object|is_pseudopatient %}
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
+             role="button">Create</a>
+        {% elif object.user %}
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+             role="button">Create</a>
+        {% elif flare %}
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'flareaids:flare-create' flare=object.pk %}?next={{ request.path }}"
+             role="button">Create</a>
+        {% else %}
+          <a type="button"
+             class="btn btn-primary"
+             href="{% url 'flareaids:create' %}?next={{ request.path }}"
+             role="button">Create</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
 </div>

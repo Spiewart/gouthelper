@@ -87,7 +87,7 @@ class TestPpx(TestCase):
         ppx = Ppx.objects.get(pk=self.ppx.pk)
 
         self.assertFalse(ppx.urates_at_goal)
-        del ppx.all_urates
+        del ppx.dated_urates
         del ppx.urates_at_goal
 
         for urate in self.urates:
@@ -99,7 +99,7 @@ class TestPpx(TestCase):
         self.latest_urate.value = Decimal("15.0")
         self.latest_urate.save()
 
-        del ppx.all_urates
+        del ppx.dated_urates
         del ppx.urates_at_goal
         ppx.refresh_from_db()
 
@@ -137,6 +137,7 @@ class TestPpx(TestCase):
         """Test the recent_urate property."""
         self.assertFalse(self.ppx.recent_urate)
         del self.ppx.recent_urate
+        del self.ppx.dated_urates
         delattr(self.ppx, "urates_qs")
 
         for urate in self.urates:
@@ -154,12 +155,15 @@ class TestPpx(TestCase):
 
         self.assertFalse(ppx.semi_recent_urate)
         del ppx.semi_recent_urate
+        del ppx.dated_urates
 
         UrateFactory(date_drawn=timezone.now() - timedelta(days=190), ppx=ppx)
         ppx.refresh_from_db()
         self.assertFalse(ppx.semi_recent_urate)
 
         del ppx.semi_recent_urate
+        del ppx.dated_urates
+
         UrateFactory(date_drawn=timezone.now() - timedelta(days=140), ppx=ppx)
         self.ppx.refresh_from_db()
         self.assertTrue(ppx.semi_recent_urate)
@@ -191,6 +195,7 @@ class TestPpx(TestCase):
             urate.save()
 
         del ppx.urates_discrepant
+        del ppx.dated_urates
         del ppx.goutdetail
         del ppx.gout
         ppx.refresh_from_db()
@@ -202,6 +207,7 @@ class TestPpx(TestCase):
         ppx.goutdetail.refresh_from_db()
 
         del ppx.urates_discrepant
+        del ppx.dated_urates
         del ppx.goutdetail
         del ppx.gout
 

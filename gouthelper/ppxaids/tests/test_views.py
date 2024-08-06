@@ -1068,7 +1068,7 @@ class TestPpxAidPseudopatientDetail(TestCase):
         if hasattr(qs, "gender"):
             assert qs.gender == self.psp.gender
         assert hasattr(qs, "medhistorys_qs")
-        psp_mhs = self.psp.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS).all()
+        psp_mhs = self.psp.medhistory_set.filter().all()
         for mh in qs.medhistorys_qs:
             assert mh in psp_mhs
         assert hasattr(qs, "medallergys_qs")

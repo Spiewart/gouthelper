@@ -65,8 +65,8 @@ class TestGoalUrateMethods(TestCase):
         goal_urate = create_goalurate(goal_urate=GoalUrates.FIVE, mhs=[MedHistoryTypes.TOPHI])
         self.assertEqual(goal_urate.goal_urate, GoalUrates.FIVE)
         goal_urate.medhistory_set.all().delete()
-        goal_urate.refresh_from_db()
         goal_urate.update_aid()
+        goal_urate.refresh_from_db()
         self.assertEqual(goal_urate.goal_urate, GoalUrates.SIX)
 
     def test__update_without_user_lowers_goal_urate_with_qs(self):

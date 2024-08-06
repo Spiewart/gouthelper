@@ -161,20 +161,20 @@ class TestFlareMethods(TestCase):
         self.assertEqual(self.flare.joints_str(), "right knee and left ankle")
 
     def test__likelihood_interp(self):
-        self.assertEqual(self.flare.likelihood_interp, "Flare hasn't been processed yet...")
+        self.assertEqual(self.flare.likelihood_interp(), "Flare hasn't been processed yet...")
         self.flare.likelihood = Likelihoods.UNLIKELY
         self.flare.save()
-        self.assertEqual(self.flare.likelihood_interp, "Gout isn't likely")
+        self.assertEqual(self.flare.likelihood_interp(), "Gout isn't likely")
         self.flare.likelihood = Likelihoods.EQUIVOCAL
         self.flare.save()
         self.assertEqual(
-            self.flare.likelihood_interp,
+            self.flare.likelihood_interp(),
             "Gout can't be ruled in or out",
         )
         self.flare.likelihood = Likelihoods.LIKELY
         self.flare.save()
         self.assertEqual(
-            self.flare.likelihood_interp,
+            self.flare.likelihood_interp(),
             "Gout is very likely",
         )
 

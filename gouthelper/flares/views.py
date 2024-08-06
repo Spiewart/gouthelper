@@ -296,7 +296,7 @@ class FlareDetail(FlareDetailBase):
         else:
             # Check if Flare is up to date and update if not update
             if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.object)
+                self.update_objects()
             return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -307,6 +307,11 @@ class FlareDetail(FlareDetailBase):
 
     def get_queryset(self) -> "QuerySet[Any]":
         return Flare.related_objects.filter(pk=self.kwargs["pk"])
+
+    def update_objects(self):
+        self.object.update_aid(qs=self.object)
+        if self.object.flareaid:
+            self.object.flareaid.update_aid(qs=self.object.flareaid)
 
 
 class FlarePatientEditBase(FlareEditBase):
@@ -341,9 +346,6 @@ class FlarePatientEditBase(FlareEditBase):
                 return self.errors
         else:
             return self.form_valid()
-
-    def compare_flare_dates_to_other_flares_for_user(self) -> None:
-        pass
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):

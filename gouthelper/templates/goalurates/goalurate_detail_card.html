@@ -50,14 +50,15 @@
         {% if object|is_pseudopatient %}
           <div class="col-auto align-items-center d-flex justify-content-end">
             <a class="btn btn-primary"
-               href="{% url 'goalurates:pseudopatient-create' object.pk %}">Create</a>
+               href="{% url 'goalurates:pseudopatient-create' object.pk %}?next={{ request.path }}">Create</a>
           </div>
         {% else %}
           <div class="col-auto align-items-center d-flex justify-content-end">
-            <a class="btn btn-primary" href="{% url 'goalurates:create' %}">Create</a>
+            <a class="btn btn-primary"
+               href="{% url 'goalurates:create' %}?next={{ request.path }}">Create</a>
           </div>
         {% endif %}
-      {% endif %}
-    </div>
+      </div>
+    {% endif %}
   </div>
 </div>

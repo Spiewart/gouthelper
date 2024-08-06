@@ -71,7 +71,7 @@ class TestAnticoagulationForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.ANTICOAGULATION}-value"].help_text,
-            "Is the patient on anticoagulation?",
+            "Is the patient on blood thinners (other than aspirin)?",
         )
         self.assertTrue(
             isinstance(
@@ -95,7 +95,7 @@ class TestBleedForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.BLEED}-value"].help_text,
-            "Has the patient had a major bleed (GI, etc.)?",
+            "History of major bleeding without truama?",
         )
         self.assertTrue(
             isinstance(
@@ -247,9 +247,9 @@ class TestErosionsForm(TestCase):
             form.fields[f"{MedHistoryTypes.EROSIONS}-value"].label,
             "Erosions",
         )
-        self.assertEqual(
+        self.assertIn(
+            "erosions",
             form.fields[f"{MedHistoryTypes.EROSIONS}-value"].help_text,
-            "Does the patient have gouty erosions on x-ray?",
         )
         self.assertTrue(
             isinstance(
@@ -273,7 +273,7 @@ class TestGastricbypassForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.GASTRICBYPASS}-value"].help_text,
-            "Has the patient had a gastric bypass?",
+            "Sleave, roux-en-y, or duodenal switch?",
         )
         self.assertTrue(
             isinstance(
@@ -451,7 +451,7 @@ class TestIbdForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.IBD}-value"].help_text,
-            "Does the patient have a history of inflammatory bowel disease?",
+            "Crohn's disease or ulcerative colitis",
         )
         self.assertTrue(
             isinstance(
@@ -569,9 +569,9 @@ class TestTophiForm(TestCase):
             form.fields[f"{MedHistoryTypes.TOPHI}-value"].label,
             "Tophi",
         )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.TOPHI}-value"].help_text,
+        self.assertIn(
             "Does the patient have gouty tophi?",
+            form.fields[f"{MedHistoryTypes.TOPHI}-value"].help_text,
         )
         self.assertTrue(
             isinstance(

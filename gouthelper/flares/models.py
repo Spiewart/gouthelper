@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal
 
 from django.conf import settings  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
@@ -36,6 +36,8 @@ from .managers import FlareManager
 from .services import FlareDecisionAid
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet  # type: ignore
+
     User = get_user_model()
 
 
@@ -227,6 +229,8 @@ monosodium urate crystals on polarized microscopy?"
 
     objects = models.Manager()
     related_objects = FlareManager()
+    related_models: list[Literal["flareaid"]] = ["flareaid"]
+    decision_aid_service = FlareDecisionAid
 
     @cached_property
     def abnormal_duration(self) -> bool:
@@ -267,9 +271,8 @@ monosodium urate crystals on polarized microscopy?"
             )
         return False
 
-    @cached_property
     def ckd_interp(self) -> str:
-        ckd_str = super().ckd_interp
+        ckd_str = super().ckd_interp()
 
         (Subject_the, subject_the, tobe) = self.get_str_attrs("Subject_the", "subject_the", "tobe")
 
@@ -346,7 +349,6 @@ but the likelihood of gout is unlikely."
 not having gout, but the likelihood of gout is high."
             )
 
-    @cached_property
     def crystal_analysis_interp(self) -> str:
         (Subject_the, subject_the, subject_the_pos, pos_past, pos_neg_past) = self.get_str_attrs(
             "Subject_the",
@@ -446,7 +448,6 @@ href='#crystal_analysis'>crystal analysis</a>.""",
             )
         )
 
-    @cached_property
     def cvdiseases_interp(self) -> str:
         subject_the, subject_the_pos, pos_neg, gender_pos, gender_subject = self.get_str_attrs(
             "subject_the", "subject_the_pos", "pos_neg", "gender_pos", "gender_subject"
@@ -479,7 +480,6 @@ doesn't get any extra points for {gender_pos} Diagnostic Rule score."
             return self.age >= 18
         return self.post_menopausal or self.premenopausal_with_ckd
 
-    @cached_property
     def demographic_risk_interp(self) -> str:
         (Subject_the,) = self.get_str_attrs("Subject_the")
         if (
@@ -519,7 +519,6 @@ gout</strong>, so GoutHelper adjusted the Flare likelihood to be lower."
         flare_str += f"{self.date_ended.strftime('%m/%d/%Y')}" if self.date_ended else "present"
         return flare_str
 
-    @cached_property
     def diagnosed_interp(self) -> str:
         """Method that returns a str interpretation of the diagnosed field."""
         subject_the_pos, subject_the, gender_pos = self.get_str_attrs("subject_the_pos", "subject_the", "gender_pos")
@@ -561,7 +560,6 @@ ruled out gout."
     def duration(self) -> timedelta:
         return calculate_duration(date_started=self.date_started, date_ended=self.date_ended)
 
-    @cached_property
     def duration_interp(self) -> str:
         """Method that returns a str interpretation of the duration field."""
 
@@ -594,17 +592,17 @@ and as such GoutHelper did not adjust the likelihood that these symptoms were du
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the Flare to use in templates."""
         return [
-            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
-            ("crystal_analysis", "Crystal Analysis", self.crystal_analysis, self.crystal_analysis_interp),
-            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
-            ("demographics", "Demographic Risk", self.demographic_risk, self.demographic_risk_interp),
-            ("diagnosed", "Clinician Diagnosis", self.diagnosed, self.diagnosed_interp),
-            ("duration", "Duration", self.abnormal_duration, self.duration_interp),
-            ("redness", "Erythema", self.redness, self.redness_interp),
-            ("gout", "Gout Diagnosis", self.gout, self.gout_interp),
-            ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp),
-            ("joints", "Joints", self.joints, self.joints_interp),
-            ("onset", "Onset", self.onset, self.onset_interp),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
+            ("crystal_analysis", "Crystal Analysis", self.crystal_analysis, self.crystal_analysis_interp()),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp()),
+            ("demographics", "Demographic Risk", self.demographic_risk, self.demographic_risk_interp()),
+            ("diagnosed", "Clinician Diagnosis", self.diagnosed, self.diagnosed_interp()),
+            ("duration", "Duration", self.abnormal_duration, self.duration_interp()),
+            ("redness", "Erythema", self.redness, self.redness_interp()),
+            ("gout", "Gout Diagnosis", self.gout, self.gout_interp()),
+            ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp()),
+            ("joints", "Joints", self.joints, self.joints_interp()),
+            ("onset", "Onset", self.onset, self.onset_interp()),
         ]
 
     @cached_property
@@ -648,6 +646,11 @@ symptoms were due to gout."
         else:
             return reverse("flares:detail", kwargs={"pk": self.pk})
 
+    def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":
+        """Overwritten to pass the flare_pk kwarg to the flares_qs manager."""
+        model_name = self._meta.model_name
+        return getattr(Pseudopatient.objects, f"{model_name}_qs")(flare_pk=self.pk).get()
+
     def gout_interp(self):
         """Method that returns a str interpretation of the gout cached_property."""
         (Subject_the,) = self.get_str_attrs("Subject_the")
@@ -668,7 +671,6 @@ This does not affect the Diagnostic Rule score."
         in the hyperuricemic range (>= 6 mg/dL) and False if not."""
         return flares_diagnostic_rule_urate_high(self.urate)
 
-    @cached_property
     def hyperuricemia_interp(self) -> str:
         """Method that returns a str interpretation of the hyperuricemia field."""
         (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
@@ -714,7 +716,6 @@ common location for gout flares. Involvement of the 1st MTP joint(s) adds 2.5 po
 To the Diagnostic Rule score."
             return joints_str
 
-    @property
     def joints_interp(self):
         """Method that returns a str interpretation of the joints field."""
         (Subject_the_pos,) = self.get_str_attrs("Subject_the_pos")
@@ -972,7 +973,6 @@ been lowered due to:"
         else:
             return f"The likelihood of gout for {self} has not been calculated yet."
 
-    @property
     def likelihood_interp(self):
         if self.likelihood_unlikely:
             return "Gout isn't likely"
@@ -1021,7 +1021,6 @@ been lowered due to:"
 , which argues against the diagnosis of gout. As a result, GoutHelper reduced the likelihood that {subject_the_pos} \
 symptoms were due to gout."
 
-    @cached_property
     def onset_interp(self) -> str:
         """Method that returns a str interpretation of the onset field."""
         (Subject_the,) = self.get_str_attrs("Subject_the")
@@ -1087,7 +1086,6 @@ gout and should probably just be treated as such."
             urate=self.urate,
         )
 
-    @cached_property
     def redness_interp(self) -> str:
         """Method that returns a str interpretation of the redness field."""
 
@@ -1155,18 +1153,3 @@ started treatment early (immediately at flare onset), it may have resolved the s
         """Method that returns a str of the joints of a Flare that are
         NOT in COMMON_GOUT_JOINTS."""
         return self.stringify_joints([getattr(LimitedJointChoices, joint) for joint in self.uncommon_joints])
-
-    def update_aid(self, qs: Union["Flare", "User", None] = None) -> "Flare":
-        """Updates Flare prevalence and likelihood fields.
-
-        args:
-            qs: Flare object with attached qs to use for updating prevalence and likelihood
-
-        returns: [Flare]: [Flare object]"""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.flares_qs(flare_pk=self.pk).get()
-            else:
-                qs = Flare.related_objects.get(pk=self.pk)
-        decisionaid = FlareDecisionAid(qs=qs)
-        return decisionaid._update()  # pylint: disable=W0212

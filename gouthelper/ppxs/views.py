@@ -96,7 +96,7 @@ class PpxBase:
             at_goal_six_months = labs_urate_formset_at_goal_for_six_months(
                 ordered_urate_formset=ordered_urate_formset, goal_urate=goal_urate
             )
-            if not at_goal and at_goal_within_last_month:
+            if not at_goal and at_goal is not None and at_goal_within_last_month:
                 (subject_the, gender_subject, gender_pos) = (
                     self.str_attrs.get("subject_the"),
                     self.str_attrs.get("gender_subject"),
@@ -225,7 +225,7 @@ class PpxDetail(PpxDetailBase):
         else:
             # Check if Ppx is up to date and update if not update
             if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.object)
+                self.update_objects()
             return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -236,6 +236,11 @@ class PpxDetail(PpxDetailBase):
 
     def get_queryset(self) -> "QuerySet[Any]":
         return Ppx.related_objects.filter(pk=self.kwargs["pk"])
+
+    def update_objects(self):
+        self.object.update_aid(qs=self.object)
+        if self.object.ppxaid:
+            self.object.ppxaid.update_aid(qs=self.object.ppxaid)
 
 
 class PpxPatientBase(PpxBase):

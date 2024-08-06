@@ -1105,6 +1105,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         MessageMiddleware(dummy_get_response).process_request(request)
         kwargs = {"pseudopatient": user.pk}
         response = self.view.as_view()(request, **kwargs)
+        forms_print_response_errors(response)
         assert response.status_code == 200
         assert "patient" in response.context_data
         assert response.context_data["patient"] == user

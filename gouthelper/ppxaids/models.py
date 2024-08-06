@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -86,6 +86,8 @@ class PpxAid(
 
     objects = models.Manager()
     related_objects = PpxAidManager()
+    related_models: list[Literal["ppx"]] = ["ppx"]
+    decision_aid_service = PpxAidDecisionAid
 
     def __str__(self):
         if self.user:
@@ -122,23 +124,23 @@ class PpxAid(
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Returns a list of tuples to use as explanations for the FlareAid Detail template."""
         return [
-            ("age", "Age", True if self.age >= 65 else False, self.age_interp),
-            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp),
-            ("bleed", "Bleed", self.bleed, self.bleed_interp),
-            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp),
+            ("age", "Age", True if self.age >= 65 else False, self.age_interp()),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp()),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp()),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
             (
                 "colchicineinteraction",
                 "Colchicine Medication Interaction",
                 self.colchicineinteraction,
-                self.colchicineinteraction_interp,
+                self.colchicineinteraction_interp(),
             ),
-            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp),
-            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp),
-            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp),
-            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp),
-            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp),
-            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp),
-            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp()),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp()),
+            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp()),
+            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp()),
+            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp()),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp()),
+            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp()),
         ]
 
     def get_absolute_url(self):
@@ -185,23 +187,6 @@ class PpxAid(
     @classmethod
     def trttype(cls) -> str:
         return TrtTypes.PPX
-
-    def update_aid(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
-        """Updates PpxAid decisionaid JSON field field.
-
-        Args:
-            qs (PpxAid, User, optional): PpxAid object. Defaults to None.
-            Should have related field objects prefetched and select_related.
-
-        Returns:
-            PpxAid: PpxAid object."""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.ppxaid_qs().filter(pk=self.user.pk)
-            else:
-                qs = PpxAid.related_objects.filter(pk=self.pk)
-        decisionaid = PpxAidDecisionAid(qs=qs)
-        return decisionaid._update()
 
     def get_update_qs_from_users_objects(self) -> Pseudopatient:
         pass

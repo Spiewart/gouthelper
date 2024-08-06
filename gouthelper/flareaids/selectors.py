@@ -4,6 +4,7 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
+from ..flares.selectors import medhistorys_qs as flares_medhistorys_qs
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
@@ -51,8 +52,16 @@ def flareaid_relations(qs: "QuerySet") -> "QuerySet":
     )
 
 
+def flare_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "flare__medhistory_set",
+        queryset=flares_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
 def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return flareaid_relations(qs).select_related("flare", "user")
+    return flareaid_relations(qs).select_related("flare", "user").prefetch_related(flare_medhistorys_prefetch())
 
 
 def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":

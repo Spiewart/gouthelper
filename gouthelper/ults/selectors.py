@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
+from django.db.models import Prefetch  # type: ignore
 
 from ..flares.selectors import flares_prefetch
 from ..medhistorys.lists import ULT_MEDHISTORYS
+from ..ultaids.selectors import medhistorys_qs as ultaid_medhistorys_qs
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
-        .objects.filter(Q(medhistorytype__in=ULT_MEDHISTORYS))
+        .objects.filter(medhistorytype__in=ULT_MEDHISTORYS)
         .select_related("ckddetail", "baselinecreatinine")
     ).all()
 
@@ -35,8 +36,16 @@ def ult_relations(qs: "QuerySet") -> "QuerySet":
     ).prefetch_related(medhistorys_prefetch())
 
 
+def ultaid_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ultaid__medhistory_set",
+        queryset=ultaid_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
 def ult_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ult_relations(qs=qs).select_related("user")
+    return ult_relations(qs=qs).select_related("ultaid", "user").prefetch_related(ultaid_medhistorys_prefetch())
 
 
 def ult_user_relations(qs: "QuerySet") -> "QuerySet":

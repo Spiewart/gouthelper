@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.core.validators import MaxValueValidator, MinValueValidator  # type: ignore
@@ -17,7 +17,6 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.helpers import medhistory_attr, medhistorys_get_ckd_3_or_higher
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..users.models import Pseudopatient
 from ..utils.helpers import (
     add_indicator_badge_and_samepage_link,
     link_to_2020_ACR_guidelines,
@@ -137,6 +136,8 @@ class Ult(
 
     objects = models.Manager()
     related_objects = UltManager()
+    related_models: list[Literal["ultaid"]] = ["ultaid"]
+    decision_aid_service = UltDecisionAid
 
     def __str__(self):
         return f"Ult: {self.get_indication_display()}"
@@ -145,8 +146,8 @@ class Ult(
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return ULT_MEDHISTORYS
 
-    def get_ckd_interp(self, samepage_links: bool = True) -> str:
-        ckd_interp_str = super().ckd_interp
+    def ckd_interp(self, samepage_links: bool = True) -> str:
+        ckd_interp_str = super().ckd_interp()
 
         ckd_interp_str += "<br> <br> CKD by itself is not an indication for ULT. However, \
 patients who have their first gout flare and have CKD stage III or higher are \
@@ -163,7 +164,7 @@ indications for ULT, including {self.ckddetail.explanation if self.ckddetail els
 .</strong>"
             else:
                 ckd_interp_str += f" {Subject_the} {pos} multiple conditional \
-indications for ULT ({self.conditional_indications_str}), but not CKD stage III \
+indications for ULT ({self.get_conditional_indications_str(samepage_links=samepage_links)}), but not CKD stage III \
 or higher in the setting of {gender_pos} first flare."
         elif self.strong_indication:
             Subject_the, pos, gender_subject = self.get_str_attrs("Subject_the", "pos", "gender_subject")
@@ -328,7 +329,6 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
     def contraindicated(self) -> bool:
         return self.zero_flares_without_indication or self.one_flare_without_any_indication
 
-    @cached_property
     def contraindicated_interp(self) -> str:
         Subject_the, subject_the, gender_subject = self.get_str_attrs(
             "Subject_the",
@@ -358,10 +358,9 @@ for it.{_get_contraindicated_interp_str()}"
     def erosions_detail(self) -> str:
         return add_indicator_badge_and_samepage_link(self, "erosions", "Erosions")
 
-    @property
     def erosions_interp(self) -> str:
         subject_the, pos, gender_ref = self.get_str_attrs("subject_the", "pos", "gender_ref")
-        erosions_interp_str = super().erosions_interp
+        erosions_interp_str = super().erosions_interp()
         erosions_interp_str += "<br> <br> Like <a class='samepage-link' href='#tophi'>tophi</a>, \
 erosions are a sign of advanced gout and more severe disease. While they don't influence choice of \
 ULT, they necessitate aggressive gout treatment and are a strong indication for ULT."
@@ -374,15 +373,15 @@ ULT is strongly recommended for {gender_ref}.</strong>"
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Returns a list of tuples containing information to display explanations in the UltDetail template."""
         return [
-            ("ckd", "Chronic Kidney Disease", self.ckd3, self.ckd_interp),
-            ("erosions", "Erosions", self.erosions, self.erosions_interp),
-            ("firstflare", "First Flare", self.firstflare, self.firstflare_interp),
-            ("frequentflares", "Frequent Flares", self.frequentflares or False, self.frequentflares_interp),
-            ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp),
-            ("multipleflares", "Multiple Flares", self.multipleflares, self.multipleflares_interp),
-            ("noflares", "No Flares", self.noflares, self.noflares_interp),
-            ("tophi", "Tophi", self.tophi, self.tophi_interp),
-            ("uratestones", "Uric Acid Kidney Stones", self.uratestones, self.uratestones_interp),
+            ("ckd3", "Chronic Kidney Disease Stage III or Higher", self.ckd3, self.ckd_interp()),
+            ("erosions", "Erosions", self.erosions, self.erosions_interp()),
+            ("firstflare", "First Flare", self.firstflare, self.firstflare_interp()),
+            ("frequentflares", "Frequent Flares", self.frequentflares or False, self.frequentflares_interp()),
+            ("hyperuricemia", "Hyperuricemia", self.hyperuricemia, self.hyperuricemia_interp()),
+            ("multipleflares", "Multiple Flares", self.multipleflares, self.multipleflares_interp()),
+            ("noflares", "No Flares", self.noflares, self.noflares_interp()),
+            ("tophi", "Tophi", self.tophi, self.tophi_interp()),
+            ("uratestones", "Uric Acid Kidney Stones", self.uratestones, self.uratestones_interp()),
         ]
 
     @cached_property
@@ -461,7 +460,7 @@ for ULT."
                         base_str
                         + f", does not have any associated conditions conditionally \
 indicating ULT in the setting of {gender_pos} first flare, but has other conditional indications \
-for ULT ({self.conditional_indications_str})."
+for ULT ({self.get_conditional_indications_str(samepage_links=samepage_links)})."
                     )
                 else:
                     return (
@@ -501,7 +500,6 @@ exceptions. <strong>{_get_firstflare_interp()}</strong> <br> <br> {explanation_s
     def frequentflares_detail(self) -> str:
         return add_indicator_badge_and_samepage_link(self, "frequentflares", "Frequent Gout Flares")
 
-    @property
     def frequentflares_interp(self) -> str:
         Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
 
@@ -806,7 +804,6 @@ ULT recommendation"
     def noflares_detail(self) -> str:
         return add_indicator_badge_and_samepage_link(self, "noflares", "No flares")
 
-    @property
     def noflares_interp(self) -> str:
         (Subject_the,) = self.get_str_attrs("Subject_the")
         return mark_safe(
@@ -866,24 +863,7 @@ or tophi with no preceding flares, which is quite rare."
             )
         )
 
-    def update_aid(self, qs: Union["Ult", "User", None] = None) -> "Ult":
-        """Updates Ult indication field.
-
-        Args:
-            qs (Ult, User, optional): Ult or User object. Defaults to None.
-            Should have related medhistorys prefetched as medhistorys_qs.
-
-        Returns:
-            Ult: Ult object."""
-        if qs is None:
-            if self.user:
-                qs = Pseudopatient.objects.ultaid_qs().filter(username=self.user.username)
-            else:
-                qs = Ult.related_objects.filter(pk=self.pk)
-        decisionaid = UltDecisionAid(qs=qs)
-        return decisionaid._update()  # pylint: disable=W0212 # type: ignore
-
-    def get_uratestones_interp(self, samepage_links: bool = True) -> str:
+    def uratestones_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, pos_neg, gender_pos, gender_subject = self.get_str_attrs(
             "Subject_the", "pos", "pos_neg", "gender_pos", "gender_subject"
         )
@@ -906,7 +886,7 @@ setting of {gender_pos} first flare, including \
                     )
                     else (
                         f", but has other conditional indications for ULT (\
-{self.conditional_indications_str})"
+{self.get_conditional_indications_str(samepage_links=samepage_links)})"
                     )
                     if self.conditional_indication
                     else (

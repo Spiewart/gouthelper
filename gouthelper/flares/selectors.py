@@ -106,13 +106,7 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
             "user",
             "urate",
         )
-        .prefetch_related(creatinines_prefetch())
-    )
-
-
-def flare_and_flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return flare_userless_relations(qs).prefetch_related(
-        flareaid_medhistory_prefetch(), flareaid_medallergy_prefetch()
+        .prefetch_related(creatinines_prefetch(), flareaid_medhistory_prefetch(), flareaid_medallergy_prefetch())
     )
 
 

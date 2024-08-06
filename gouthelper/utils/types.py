@@ -34,6 +34,17 @@ class FormModelDict(TypedDict):
     model: type["Model"]
 
 
+Aids = Union[
+    "FlareAid",
+    "Flare",
+    "GoalUrate",
+    "PpxAid",
+    "Ppx",
+    "UltAid",
+    "Ult",
+]
+
+
 AidTypes = Union[
     type["FlareAid"],
     type["Flare"],

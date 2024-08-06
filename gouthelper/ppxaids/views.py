@@ -24,7 +24,7 @@ from ..genders.models import Gender
 from ..ppxs.models import Ppx
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
-from ..utils.views import GoutHelperAidEditMixin
+from ..utils.views import MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin
 from .dicts import (
     MEDALLERGY_FORMS,
     MEDHISTORY_DETAIL_FORMS,
@@ -59,25 +59,26 @@ class PpxAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.PPXAID, tag=None)
 
 
-class PpxAidBase:
+class PpxAidEditBase(MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
-    model = PpxAid
     form_class = PpxAidForm
+    model = PpxAid
+    success_message = "PpxAid successfully created."
+
     MEDALLERGY_FORMS = MEDALLERGY_FORMS
     MEDHISTORY_FORMS = MEDHISTORY_FORMS
     MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
     OTO_FORMS = OTO_FORMS
 
 
-class PpxAidCreate(PpxAidBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class PpxAidCreate(PpxAidEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new PpxAid instance.
     """
 
     permission_required = "ppxaids.can_add_ppxaid"
-    success_message = "PpxAid successfully created."
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -148,7 +149,7 @@ class PpxAidDetail(PpxAidDetailBase):
         return PpxAid.related_objects.filter(pk=self.kwargs["pk"])
 
 
-class PpxAidPatientBase(PpxAidBase):
+class PpxAidPatientBase(PpxAidEditBase):
     class Meta:
         abstract = True
 
@@ -161,9 +162,7 @@ class PpxAidPatientBase(PpxAidBase):
         return Pseudopatient.objects.ppxaid_qs().filter(pk=pseudopatient)
 
 
-class PpxAidPseudopatientCreate(
-    PpxAidPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class PpxAidPseudopatientCreate(PpxAidPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View for creating a PpxAid for a patient."""
 
     permission_required = "ppxaids.can_add_ppxaid"
@@ -241,9 +240,7 @@ class PpxAidPseudopatientDetail(PpxAidDetailBase):
         return ppxaid
 
 
-class PpxAidPseudopatientUpdate(
-    PpxAidPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
+class PpxAidPseudopatientUpdate(PpxAidPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     success_message = "%(user)s's PpxAid successfully updated."
 
     def get_permission_object(self):
@@ -262,7 +259,7 @@ class PpxAidPseudopatientUpdate(
             return self.form_valid()
 
 
-class PpxAidUpdate(PpxAidBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class PpxAidUpdate(PpxAidEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a PpxAid"""
 
     success_message = "PpxAid successfully updated."

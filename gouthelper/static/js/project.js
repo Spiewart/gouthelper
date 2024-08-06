@@ -80,6 +80,56 @@ function update_plus(id) {
   }
 }
 
+function get_id_in_hyperlink() {
+  // function that checks for query parameters in the URL
+  var url = window.location.href;
+  // get url query parameter
+  var query_parametrs = url.split('?');
+  // get the related_object_id query parameter
+  var last_url_segment = query_parametrs[query_parametrs.length - 1];
+  // get the id from the last_url_segment
+  var id = last_url_segment.split('#');
+  return id[1];
+}
+
+function get_collapse_id_from_hyperlink_id(hyperlink_id) {
+  // function that gets the collapse id from the hyperlink id
+  //swap out - for _ in hyperlink_id
+  var collapse_id = hyperlink_id.replace('-', '_');
+  return collapse_id + '_collapse';
+}
+
+function check_if_id_collapse_hidden(id) {
+  // function that checks if the collapse with id=id is hidden
+  var collapse = $('#' + id);
+  if (collapse.hasClass('show')) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+function expand_collapse_for_id_if_hidden() {
+  hyperlink_id = get_id_in_hyperlink();
+  console.log(hyperlink_id);
+  // check if there is a hyperlink id
+  if (hyperlink_id) {
+    console.log('hyperlink_id found');
+    // function that expands the collapse with id=id if it is hidden
+    collapse_id = get_collapse_id_from_hyperlink_id(hyperlink_id);
+    if (check_if_id_collapse_hidden(collapse_id)) {
+      console.log('hidden');
+      $('#' + collapse_id).collapse('show');
+    }
+  }
+}
+
+function check_for_and_expand_collapse() {
+  // function that checks for query parameters in the URL
+  var id = get_id_in_hyperlink();
+  expand_collapse_for_id_if_hidden(id);
+}
+
 // function that checks whether or not CKD is checked and hides/shows dialysis/stage fields as appropriate
 function CKD_checker(dob_optional, gender_optional, patient = false) {
   // function that checks whether CKD is checked or not, shows dialysis and stage fields or hides/empties them

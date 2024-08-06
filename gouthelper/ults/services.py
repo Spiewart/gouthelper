@@ -10,7 +10,7 @@ from .choices import FlareFreqs, FlareNums, Indications
 if TYPE_CHECKING:
     from ..medhistorydetails.models import CkdDetail
     from ..medhistorys.models import MedHistory
-    from ..ults.models import Ult
+    from .models import Ult
 
 User = get_user_model()
 

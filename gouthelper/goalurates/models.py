@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -11,10 +11,10 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..users.models import Pseudopatient
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import GoalUrates
 from .managers import GoalUrateManager
+from .services import GoalUrateDecisionAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -80,6 +80,8 @@ class GoalUrate(
 
     objects = models.Manager()
     related_objects = GoalUrateManager()
+    related_models = ["ult"]
+    decision_aid_service = GoalUrateDecisionAid
 
     def __str__(self):
         return f"Goal Urate: {self.get_goal_urate_display()}"
@@ -88,7 +90,6 @@ class GoalUrate(
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
         return GOALURATE_MEDHISTORYS
 
-    @cached_property
     def erosions_interp(self) -> str:
         Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
         return mark_safe(
@@ -102,8 +103,8 @@ individuals who have erosions. This results in the treatment being slightly more
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the Flare to use in templates."""
         return [
-            ("erosions", "Erosions", self.erosions, self.erosions_interp),
-            ("tophi", "Tophi", self.tophi, self.tophi_interp),
+            ("erosions", "Erosions", self.erosions, self.erosions_interp()),
+            ("tophi", "Tophi", self.tophi, self.tophi_interp()),
         ]
 
     def get_absolute_url(self):
@@ -130,8 +131,7 @@ individuals who have erosions. This results in the treatment being slightly more
             interp_str += f" This is the standard goal for individuals without {erosions_str} or {tophi_str}."
         return mark_safe(interp_str)
 
-    @cached_property
-    def tophi_interp(self) -> str:
+    def tophi_interp(self, samepage_links: bool = True) -> str:
         Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
         return mark_safe(
             f"<strong>{Subject_the} {pos if self.tophi else pos_neg} tophi</strong>, which are deposits \
@@ -139,29 +139,3 @@ of uric acid around the joints and in the body's soft tissues. Tophi indicate th
 burden of uric acid in his or her body, requiring more aggressive treatment to eliminate excess urate and \
 risk of gout."
         )
-
-    def update_aid(
-        self,
-        qs: Union["GoalUrate", "User", None] = None,
-    ) -> "GoalUrate":
-        """Method that sets the goal_urate
-        depending on whether or not tophi or erosions are present."""
-        if not qs:
-            if self.user:
-                qs = Pseudopatient.objects.goalurate_qs().get(pk=self.user.pk)
-            else:
-                qs = GoalUrate.related_objects.get(pk=self.pk)
-        updated = False
-        goalurate_medhistorys = [
-            medhistory for medhistory in qs.medhistorys_qs if medhistory.medhistorytype in self.aid_medhistorys()
-        ]
-        if goalurate_medhistorys and self.goal_urate != GoalUrates.FIVE:
-            self.goal_urate = GoalUrates.FIVE
-            updated = True
-        elif not goalurate_medhistorys and self.goal_urate != GoalUrates.SIX:
-            self.goal_urate = GoalUrates.SIX
-            updated = True
-        if updated:
-            self.full_clean()
-            self.save()
-        return self

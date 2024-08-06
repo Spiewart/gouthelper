@@ -298,7 +298,7 @@ def aids_hlab5801_contra(
         or (
             ethnicity
             and (ethnicitys_hlab5801_risk(ethnicity=ethnicity))
-            and not hlab5801
+            and hlab5801 is None
             and not ultaidsettings.allo_risk_ethnicity_no_hlab5801
         )
         or (not ethnicity and not hlab5801 and not ultaidsettings.allo_no_ethnicity_no_hlab5801)

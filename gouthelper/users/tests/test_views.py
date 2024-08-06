@@ -396,7 +396,7 @@ menopause status to evaluate their flare."
         if (
             pseudopatient.gender == Genders.FEMALE
             and age_calc(pseudopatient.dateofbirth.value) >= 40
-            and age_calc(pseudopatient.dateofbirth.value) <= 60
+            and age_calc(pseudopatient.dateofbirth.value) < 60
         ):
             data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True if not pseudopatient.menopause else False})
         response = self.client.post(

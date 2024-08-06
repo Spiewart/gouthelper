@@ -1,10 +1,9 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
+from django.db.models import Prefetch  # type: ignore
 
 from ..flares.selectors import flares_prefetch
-from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
@@ -26,11 +25,7 @@ def medallergys_prefetch() -> Prefetch:
 
 
 def medhistorys_qs() -> "QuerySet":
-    return (
-        apps.get_model("medhistorys.MedHistory")
-        .objects.filter(Q(medhistorytype__in=PPXAID_MEDHISTORYS))
-        .select_related("ckddetail", "baselinecreatinine")
-    ).all()
+    return (apps.get_model("medhistorys.MedHistory").objects.select_related("ckddetail", "baselinecreatinine")).all()
 
 
 def medhistorys_prefetch() -> Prefetch:
