@@ -191,10 +191,8 @@ class TestGoalUrateCreate(TestCase):
         response = self.client.post(reverse("goalurates:ppx-create", kwargs={"ppx": ppx.id}), data=data)
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
-        goal_urate = GoalUrate.objects.order_by("created").last()
-        self.assertTrue(goal_urate.ppx)
-        self.assertEqual(goal_urate.ppx, ppx)
-        ppx.refresh_from_db()
+        self.assertTrue(GoalUrate.objects.filter(ppx__id=ppx.pk).exists())
+        goal_urate = GoalUrate.objects.filter(ppx=ppx).get()
         self.assertEqual(ppx.goalurate, goal_urate)
 
 

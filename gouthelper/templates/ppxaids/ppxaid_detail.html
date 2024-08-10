@@ -55,25 +55,6 @@
           </h2>
           <div class="col">
             {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
-            {% if object.user and object.user.ppx %}
-              {% include "ppxs/ppx_detail_card.html" with ppx=object.user.ppx %}
-            {% elif object.ppx %}
-              {% include "ppxs/ppx_detail_card.html" with ppx=object.ppx %}
-            {% else %}
-              <div id="ppx-card" class="card spacious-cards">
-                <div class="card-body">
-                  <h3 class="card-title">Ppx</h3>
-                  <p>Is prophylaxis indicated for {{ str_attrs.subject_the }}?</p>
-                  {% if object.user %}
-                    <a href="{% url 'ppxs:pseudopatient-create' object.user.pk %}?next={{ request.path }}"
-                       class="btn btn-primary spacious-buttons">Create Ppx</a>
-                  {% else %}
-                    <a href="{% url 'ppxs:ppxaid-create' object.pk %}?next={{ request.path }}"
-                       class="btn btn-primary spacious-buttons">Create Ppx</a>
-                  {% endif %}
-                </div>
-              </div>
-            {% endif %}
           </div>
           {% if object.recommendation %}
             <div class="col">
@@ -101,6 +82,16 @@
             </div>
           {% endif %}
         </div>
+      </div>
+      <div id="ppx">
+        <hr size="3" color="dark" />
+        {% if object.user and object.user.ppx %}
+          {% include "ppxs/ppx_detail_card.html" with ppx=object.user.ppx %}
+        {% elif object.ppx %}
+          {% include "ppxs/ppx_detail_card.html" with ppx=object.ppx %}
+        {% else %}
+          {% include "ppxs/ppx_detail_card.html" with ppx=None marketing="Is flare prophylaxis recommended?" %}
+        {% endif %}
       </div>
       {% if object.recommendation %}
         {% include "treatments/partials/options.html" with options=object.options_without_rec trttype=object.trttype %}
@@ -130,3 +121,17 @@
     </div>
   </main>
 {% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $('.collapse').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+      check_for_and_expand_collapse();
+    });
+  </script>
+{% endblock inline_javascript %}

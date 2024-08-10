@@ -31,7 +31,7 @@
               <h5 class="card-title">
                 <b><u>{{ recommendation }}</u></b>
               </h5>
-              <p class="card-text">{{ explanation }}</p>
+              <p class="card-text stacked-column-p">{{ explanation }}</p>
             </div>
           {% endfor %}
         </div>
@@ -48,14 +48,36 @@
       <div class="row">
         <div class="col">
           <h4 class="card-title">
-            <a href="{% url 'ppxs:about' %}">Ppx</a>: none
+            <a href="{% url 'ppxs:about' %}">Ppx</a>:
+            {% if marketing %}
+              {{ marketing }}
+            {% else %}
+              none
+            {% endif %}
           </h4>
         </div>
         <div class="col-auto">
-          <a type="button"
-             class="btn btn-primary"
-             href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
-             role="button">Create</a>
+          {% if object|is_pseudopatient %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object.user %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:ppxaid-create' ppxaid=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:create' %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
         </div>
       </div>
     {% endif %}

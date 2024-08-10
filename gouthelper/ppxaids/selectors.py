@@ -1,9 +1,11 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch  # type: ignore
+from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
+from ..labs.selectors import urates_dated_qs
+from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
@@ -28,6 +30,30 @@ def medhistorys_qs() -> "QuerySet":
     return (apps.get_model("medhistorys.MedHistory").objects.select_related("ckddetail", "baselinecreatinine")).all()
 
 
+def ppx_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=PPX_MEDHISTORYS))
+        .select_related("goutdetail")
+    ).all()
+
+
+def ppx_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ppx__medhistory_set",
+        queryset=ppx_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def ppx_urates_prefetch() -> Prefetch:
+    return Prefetch(
+        "ppx__urate_set",
+        queryset=urates_dated_qs(),
+        to_attr="urates_qs",
+    )
+
+
 def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
@@ -47,7 +73,14 @@ def ppxaid_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ppxaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ppxaid_relations(qs).select_related("ppx", "user")
+    return (
+        ppxaid_relations(qs)
+        .select_related("ppx", "user")
+        .prefetch_related(
+            ppx_medhistorys_prefetch(),
+            ppx_urates_prefetch(),
+        )
+    )
 
 
 def ppxaid_user_relations(qs: "QuerySet") -> "QuerySet":

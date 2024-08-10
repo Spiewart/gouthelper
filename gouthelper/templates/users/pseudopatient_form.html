@@ -33,9 +33,9 @@
 {% block content %}
   <main class="container">
     <hr size="3" color="dark" />
-    <!-- djlint:off --><span><strong>IMPORTANT:</strong> <u>All GoutPatients are assumed to have a history of gout.</u> If the patient doesn't have a history of gout<!-- djlint:on -->
+    <!-- djlint:off --><span><strong>IMPORTANT:</strong> <u>All GoutPatients are assumed to have a history of gout.</u>{% if not flare %} If the patient doesn't have a history of gout<!-- djlint:on -->
     and it's unclear if the symptoms are due to gout, create a <a href="{% url 'flares:create' %}">Flare</a> instead.
-    <!-- djlint:off -->This can always be converted into a GoutPatient.<span><!-- djlint:on -->
+    <!-- djlint:off -->This can always be converted into a GoutPatient.{% endif %}<span><!-- djlint:on -->
     {% if form.instance.created and request.user.is_authenticated %}
       <form class="form-horizontal"
             method="post"

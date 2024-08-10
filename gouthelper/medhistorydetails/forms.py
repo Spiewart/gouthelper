@@ -212,10 +212,12 @@ class GoutDetailForm(ModelFormKwargMixin, forms.ModelForm):
         self.fields["on_ult"].initial = None
         self.fields["on_ult"].choices = YES_OR_NO_OR_NONE
         self.fields["on_ult"].required = True
-        self.fields[
-            "starting_ult"
-        ].help_text = f"Is {self.str_attrs.get('subject_the')} just starting ULT (urate-lowering therapy) or \
-{self.str_attrs.get('pos')} {self.str_attrs.get('gender_subject')} started ULT in the last 3 months?"
+        self.fields["starting_ult"].help_text = format_lazy(
+            """Is {} just starting ULT (urate-lowering therapy) or {} {} started ULT in the last 3 months?""",
+            self.str_attrs.get("subject_the"),
+            self.str_attrs.get("pos"),
+            self.str_attrs.get("gender_subject"),
+        )
         self.fields["starting_ult"].initial = None
         self.fields["starting_ult"].choices = YES_OR_NO_OR_NONE
         self.helper = FormHelper()

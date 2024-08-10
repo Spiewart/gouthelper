@@ -31,6 +31,8 @@ from .models import Pseudopatient
 from .selectors import pseudopatient_profile_qs, pseudopatient_profile_update_qs
 
 if TYPE_CHECKING:
+    from ..dateofbirths.forms import DateOfBirthForm
+    from ..genders.forms import GenderForm
     from ..medhistorys.models import MedHistory
 
 User = get_user_model()
@@ -92,6 +94,14 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
         context = super().get_context_data(**kwargs)
         context.update({"flare": self.flare})
         return context
+
+    def get_dateofbirth_form(self) -> "DateOfBirthForm":
+        """Overwritten to avoid returning None if there is a User as is the case for the non-User edit view."""
+        return self.oto_forms["dateofbirth"] if not self.flare else None
+
+    def get_gender_form(self) -> "GenderForm":
+        """Overwritten to avoid returning None if there is a User as is the case for the non-User edit view."""
+        return self.oto_forms["gender"] if not self.flare else None
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()

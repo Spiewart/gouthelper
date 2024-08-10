@@ -51,6 +51,7 @@ class GoalUrate(
                     models.Q(
                         user__isnull=False,
                         ultaid__isnull=True,
+                        ppx__isnull=True,
                     )
                     | models.Q(
                         user__isnull=True,
@@ -69,6 +70,12 @@ class GoalUrate(
         verbose_name="Goal Uric Acid",
         default=GoalUrates.SIX,
     )
+    ppx = models.OneToOneField(
+        "ppxs.Ppx",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     ultaid = models.OneToOneField(
         "ultaids.UltAid",
         on_delete=models.SET_NULL,
@@ -80,7 +87,7 @@ class GoalUrate(
 
     objects = models.Manager()
     related_objects = GoalUrateManager()
-    related_models = ["ult"]
+    related_models = ["ppx", "ultaid"]
     decision_aid_service = GoalUrateDecisionAid
 
     def __str__(self):

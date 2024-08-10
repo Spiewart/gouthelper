@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from datetime import date
 
     from django.contrib.auth import get_user_model
-    from django.db.models import QuerySet
+    from django.db.models import Model, QuerySet
 
     from .models import GoutHelperAidModel, GoutHelperPatientModel
-    from .types import MedAllergyAidHistoryModel
+    from .types import Aids
 
     User = get_user_model()
 
@@ -141,7 +141,7 @@ def list_of_objects_related_objects(obj: Any) -> list[Any]:
 def get_or_create_qs_attr(
     obj: Any,
     name: str,
-    query_object: Union["MedAllergyAidHistoryModel", "User", None] = None,
+    query_object: Union["Aids", "User", None] = None,
 ) -> list | None:
     """Method that takes any object and a string and creates an empty list
     attr on the object if it doesn't already exist. Adds an "s" to the end
@@ -371,3 +371,7 @@ def add_indicator_badge_and_samepage_link(self, attr: str, display_val: str | No
         f"<a class='samepage-link' href='#{attr}'>{display_val if display_val else attr.capitalize()}</a> \
 {add_indicator_badge(getattr(self, attr))}"
     )
+
+
+def attr_is_in_model_fields(attr: str, obj: Union[type["Model"], "Model"]) -> bool:
+    return attr in [field.name for field in obj._meta.get_fields()]

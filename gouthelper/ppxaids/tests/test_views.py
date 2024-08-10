@@ -353,12 +353,9 @@ class TestPpxAidPseudopatientCreate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False, gender=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -425,9 +422,7 @@ class TestPpxAidPseudopatientCreate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertEqual(message.message, f"{empty_user} is missing required information.")
 
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
@@ -1116,12 +1111,9 @@ class TestPpxAidPseudopatientUpdate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -1171,9 +1163,7 @@ class TestPpxAidPseudopatientUpdate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertIn("is missing required information.", message.message)
         # Assert that requesting the view for a User w/o a PpxAid redirects to the create view
         user_no_ppxaid = create_psp()
         self.client.force_login(user_no_ppxaid)

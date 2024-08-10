@@ -1095,7 +1095,7 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__get_context_data_patient(self):
         """Test that the context data includes the user."""
-        user = Pseudopatient.objects.first()
+        user = Pseudopatient.objects.filter(ppx__isnull=False).first()
         request = self.factory.get("/fake-url/")
         if user.profile.provider:
             request.user = user.profile.provider

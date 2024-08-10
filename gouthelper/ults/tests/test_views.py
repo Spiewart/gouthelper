@@ -193,12 +193,9 @@ class TestUltPseudopatientCreate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -244,9 +241,7 @@ class TestUltPseudopatientCreate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertEqual(message.message, f"{empty_user} is missing required information.")
 
     def test__get_form_kwargs(self):
         # Create a fake request
@@ -766,12 +761,9 @@ class TestUltPseudopatientUpdate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(gender=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -818,9 +810,7 @@ class TestUltPseudopatientUpdate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertEqual(message.message, f"{empty_user} is missing required information.")
 
     def test__get_form_kwargs(self):
         # Create a fake request

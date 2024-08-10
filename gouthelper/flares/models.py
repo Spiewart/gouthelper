@@ -18,6 +18,7 @@ from ..choices import BOOL_CHOICES
 from ..genders.choices import Genders
 from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.lists import FLARE_MEDHISTORYS
+from ..medhistorys.models import MedHistory
 from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
 from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date, shorten_date_for_str
@@ -231,6 +232,7 @@ monosodium urate crystals on polarized microscopy?"
     related_objects = FlareManager()
     related_models: list[Literal["flareaid"]] = ["flareaid"]
     decision_aid_service = FlareDecisionAid
+    req_otos: list[Literal["dateofbirth"], Literal["gender"]] = ["dateofbirth", "gender"]
 
     @cached_property
     def abnormal_duration(self) -> bool:
@@ -248,6 +250,34 @@ monosodium urate crystals on polarized microscopy?"
     @classmethod
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
         return FLARE_MEDHISTORYS
+
+    def aki_interp(self, samepage_links: bool = True) -> str:
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        aki_str = format_lazy(
+            """Acute kidney injury is a risk factor for gout, but it's not part of the Diagnostic Rule calculation. \
+It's important to consider in the context of a flare because several flare treatments are \
+contraindicated (<a href={}>NSAIDs</a>) or require dose adjustment (<a href={}>colchicine</a>) in the setting of \
+kidney injury. <br> <br>""",
+            reverse("treatments:about-flare") + "#nsaids",
+            reverse("treatments:about-flare") + "#colchicine",
+        )
+
+        if self.aki:
+            aki_str += format_lazy(
+                """<strong>{} had an acute kidney injury ({}) during the flare</strong>, which means any \
+{} will automatically exclude NSAIDs from the treatment plan, and will either dose-adjust \
+colchicine if the AKI improving or exclude it if the AKI isn't getting better.""",
+                Subject_the,
+                self.aki.get_status_display().lower(),
+                "<a href=#flareaid>FlareAid</a>" if samepage_links else "FlareAid",
+            )
+        else:
+            aki_str += format_lazy(
+                """<strong>{} did not have an acute kidney injury during the flare</strong>, so the FlareAid \
+will include NSAIDs and colchicine in the treatment plan if they are not otherwise contraindicated.""",
+                Subject_the,
+            )
+        return mark_safe(aki_str)
 
     @cached_property
     def at_risk_for_gout(self) -> bool:
@@ -592,6 +622,7 @@ and as such GoutHelper did not adjust the likelihood that these symptoms were du
     def explanations(self) -> list[tuple[str, str, bool, str]]:
         """Method that returns a dictionary of tuples explanations for the Flare to use in templates."""
         return [
+            ("aki", "Acute Kidney Injury", True if self.aki else False, self.aki_interp()),
             ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
             ("crystal_analysis", "Crystal Analysis", self.crystal_analysis, self.crystal_analysis_interp()),
             ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp()),
@@ -828,28 +859,64 @@ score."
             raise ValueError("Unsupported MoreLikelys")
 
     @staticmethod
-    def less_likely_demographics_explanation() -> str:
-        return mark_safe("<a href='demographics'>Pre-menopausal females</a> without CKD typically do not get gout")
+    def less_likely_demographics_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """{} without CKD typically do not get gout""",
+                (
+                    "<a class='samepage-link' href='#demographics'>Pre-menopausal females</a>"
+                    if samepage_links
+                    else "Pre-menopausal females"
+                ),
+            )
+        )
 
     @staticmethod
-    def less_likely_joints_explanation() -> str:
-        return mark_safe("The <a href'#joints'>joints</a> involved are atypical for gout")
+    def less_likely_joints_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """The {} involved are atypical for gout""",
+                "<a class='samepage-link' href'#joints'>joints</a>" if samepage_links else "joints",
+            )
+        )
 
     @staticmethod
-    def less_likely_negcrystals_explanation() -> str:
-        return mark_safe("A <a href='crystal_analysis'>negative crystal analysis</a> is inconsistent with gout")
+    def less_likely_negcrystals_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """A {} is inconsistent with gout""",
+                "<a href='crystal_analysis'>negative crystal analysis</a>"
+                if samepage_links
+                else "negative crystal analysis",
+            )
+        )
 
     @staticmethod
-    def less_likely_toolong_explanation() -> str:
-        return mark_safe("The <a href='#duration'>duration</a> of the flare is atypically long for gout")
+    def less_likely_toolong_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """The {} of the flare is atypically long for gout""",
+                "<a href='#duration'>duration</a>" if samepage_links else "duration",
+            )
+        )
 
     @staticmethod
-    def less_likely_tooshort_explanation() -> str:
-        return mark_safe("The <a href='#duration'>duration</a> of the flare is atypically short for gout")
+    def less_likely_tooshort_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """The {} of the flare is atypically short for gout""",
+                "<a href='#duration'>duration</a>" if samepage_links else "duration",
+            )
+        )
 
     @staticmethod
-    def less_likely_tooyoung_explanation() -> str:
-        return mark_safe("Almost no one gets gout before <a href='#age'>age</a> 18")
+    def less_likely_tooyoung_explanation(samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """Almost no one gets gout before {} 18""",
+                "<a href='#age'>age</a>" if samepage_links else "age",
+            )
+        )
 
     @staticmethod
     def more_likely_crystals_explanation(samepage_links: bool = True) -> str:
@@ -1082,9 +1149,12 @@ gout and should probably just be treated as such."
             onset=self.onset,
             redness=self.redness,
             joints=self.joints,
-            medhistorys=self.medhistorys_qs if hasattr(self, "medhistorys_qs") else list(self.medhistory_set.all()),
+            medhistorys=self.get_medhistorys_qs(),
             urate=self.urate,
         )
+
+    def get_medhistorys_qs(self) -> "QuerySet[MedHistory]":
+        return self.user.medhistorys_qs if self.user else self.medhistorys_qs
 
     def redness_interp(self) -> str:
         """Method that returns a str interpretation of the redness field."""

@@ -89,6 +89,10 @@ class TestFlareAidCreate(TestCase):
             f"{MedHistoryTypes.COLCHICINEINTERACTION}-value": False,
             f"{MedHistoryTypes.DIABETES}-value": False,
             f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            f"{MedHistoryTypes.STROKE}-value": True,
+            f"{MedHistoryTypes.CAD}-value": True,
+            f"{MedHistoryTypes.CHF}-value": True,
+            f"{MedHistoryTypes.DIABETES}-value": True,
         }
         self.flare = create_flare()
 
@@ -193,44 +197,28 @@ class TestFlareAidCreate(TestCase):
         self.assertEqual(response.status_code, 302)
         flareaid = FlareAid.objects.order_by("created").last()
         for mh in self.flare.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS):
-            if self.flareaid_data.get(f"{mh.medhistorytype}-value", None):
-                self.assertTrue(getattr(flareaid, f"{mh.medhistorytype.lower()}"))
+            mhtype = mh.medhistorytype
+            if self.flareaid_data.get(f"{mhtype}-value", None):
+                self.assertEqual(
+                    flareaid.medhistory_set.get(medhistorytype=mhtype),
+                    mh,
+                )
         for mhtype in initial_flare_medhistorys:
             if self.flareaid_data.get(f"{mhtype}-value", None):
-                self.assertTrue(getattr(self.flare, f"{mhtype.lower()}"))
-                self.assertTrue(getattr(flareaid, f"{mhtype.lower()}"))
+                self.assertTrue(self.flare.medhistory_set.filter(medhistorytype=mhtype).exists())
+                self.assertTrue(flareaid.medhistory_set.filter(medhistorytype=mhtype).exists())
             else:
-                self.assertFalse(getattr(flareaid, f"{mhtype.lower()}"))
-                self.assertFalse(getattr(flareaid, f"{mhtype.lower()}"))
-
-    def test__post_creates_medhistory(self):
-        # Count the MedHistorys
-        mh_count = MedHistory.objects.count()
-
-        self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
-        response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
-        forms_print_response_errors(response)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-
-        # Test that a MedHistory was created
-        self.assertEqual(MedHistory.objects.count(), mh_count + 1)
-        self.assertIn(
-            MedHistoryTypes.STROKE,
-            FlareAid.objects.order_by("created").last().medhistory_set.values_list("medhistorytype", flat=True),
-        )
+                self.assertFalse(self.flare.medhistory_set.filter(medhistorytype=mhtype).exists())
+                self.assertFalse(flareaid.medhistory_set.filter(medhistorytype=mhtype).exists())
 
     def test__post_creates_medhistorys(self):
-        # Count the number of MedHistorys before the post
-        mh_count = MedHistory.objects.count()
-        self.flareaid_data.update({f"{MedHistoryTypes.STROKE}-value": True})
-        self.flareaid_data.update({f"{MedHistoryTypes.DIABETES}-value": True})
         response = self.client.post(reverse("flareaids:create"), self.flareaid_data)
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
-        self.assertTrue(MedHistory.objects.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
-        self.assertEqual(MedHistory.objects.count(), mh_count + 2)
+        qs = MedHistory.objects.filter(flareaid=FlareAid.objects.order_by("created").last())
+        self.assertTrue(qs.filter(medhistorytype=MedHistoryTypes.STROKE).exists())
+        self.assertTrue(qs.filter(medhistorytype=MedHistoryTypes.DIABETES).exists())
+        self.assertEqual(qs.count(), 4)
         self.assertIn(
             MedHistoryTypes.STROKE,
             FlareAid.objects.order_by("created").last().medhistory_set.values_list("medhistorytype", flat=True),
@@ -382,12 +370,9 @@ class TestFlareAidPseudopatientCreate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False, gender=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -449,9 +434,7 @@ class TestFlareAidPseudopatientCreate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertEqual(message.message, f"{empty_user} is missing required information.")
 
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
@@ -1126,13 +1109,8 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False)
         view = self.view()
-        view.set_forms()
-        with self.assertRaises(AttributeError) as exc:
-            view.check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -1183,9 +1161,7 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertIn("is missing required information.", message.message)
         # Assert that requesting the view for a User w/o a FlareAid redirects to the create view
         user_no_flareaid = create_psp()
         self.client.force_login(user_no_flareaid)

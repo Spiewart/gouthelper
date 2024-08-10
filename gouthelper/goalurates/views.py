@@ -15,7 +15,7 @@ from ..ppxs.models import Ppx
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
-from ..utils.views import GoutHelperAidEditMixin
+from ..utils.views import MedHistoryFormMixin
 from .dicts import MEDHISTORY_FORMS
 from .forms import GoalUrateForm
 from .models import GoalUrate
@@ -44,7 +44,7 @@ class GoalUrateAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.GOALURATE, tag=None)
 
 
-class GoalUrateBase:
+class GoalUrateEditBase(MedHistoryFormMixin):
     class Meta:
         abstract = True
 
@@ -53,8 +53,6 @@ class GoalUrateBase:
 
     MEDHISTORY_FORMS = MEDHISTORY_FORMS
 
-
-class GoalUrateEditMixin:
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         if self.request.htmx:
@@ -75,27 +73,22 @@ class GoalUrateEditMixin:
         if self.errors:
             return self.errors
         else:
-            if self.create_view:
-                kwargs.update({"ppx": self.ppx})
-            kwargs.update({"ultaid": self.ultaid})
             if request.htmx:
                 kwargs.update({"htmx": HttpResponseClientRefresh()})
             return self.form_valid(**kwargs)
 
     @cached_property
     def ppx(self) -> Ppx | None:
-        ppx_kwarg = self.kwargs.get("ppx", None)
+        ppx_kwarg = self.kwargs.pop("ppx", None)
         return Ppx.related_objects.get(pk=ppx_kwarg) if ppx_kwarg else None
 
     @cached_property
     def ultaid(self) -> UltAid | None:
-        ultaid_kwarg = self.kwargs.get("ultaid", None)
+        ultaid_kwarg = self.kwargs.pop("ultaid", None)
         return UltAid.related_objects.get(pk=ultaid_kwarg) if ultaid_kwarg else None
 
 
-class GoalUrateCreate(
-    GoalUrateBase, GoalUrateEditMixin, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class GoalUrateCreate(GoalUrateEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """Creates a new GoalUrate"""
 
     permission_required = "goalurates.can_add_goalurate"
@@ -118,7 +111,7 @@ class GoalUrateCreate(
 
     @cached_property
     def related_object(self) -> Ppx:
-        return self.ppx
+        return self.ppx if self.ppx else self.ultaid
 
 
 class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
@@ -161,7 +154,7 @@ class GoalUrateDetail(GoalUrateDetailBase):
         return GoalUrate.related_objects.filter(pk=self.kwargs["pk"])
 
 
-class GoalUratePatientBase(GoalUrateBase):
+class GoalUratePatientBase(GoalUrateEditBase):
     """Abstract base class for attrs and methods that GoalUratePseudopatientCreate/Update
     inherit from."""
 
@@ -174,8 +167,6 @@ class GoalUratePatientBase(GoalUrateBase):
 
 class GoalUratePseudopatientCreate(
     GoalUratePatientBase,
-    GoalUrateEditMixin,
-    GoutHelperAidEditMixin,
     PermissionRequiredMixin,
     CreateView,
     SuccessMessageMixin,
@@ -248,8 +239,6 @@ class GoalUratePseudopatientDetail(GoalUrateDetailBase):
 
 class GoalUratePseudopatientUpdate(
     GoalUratePatientBase,
-    GoalUrateEditMixin,
-    GoutHelperAidEditMixin,
     AutoPermissionRequiredMixin,
     UpdateView,
     SuccessMessageMixin,
@@ -265,9 +254,7 @@ class GoalUratePseudopatientUpdate(
 
 
 class GoalUrateUpdate(
-    GoalUrateBase,
-    GoalUrateEditMixin,
-    GoutHelperAidEditMixin,
+    GoalUrateEditBase,
     AutoPermissionRequiredMixin,
     UpdateView,
     SuccessMessageMixin,

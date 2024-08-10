@@ -68,39 +68,25 @@
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">{{ recommendation }}</h4>
                 <p class="card-text">{{ explanation }}</p>
-                {% if object.should_show_ppxaid %}
-                  <hr size="3" color="dark" />
-                  <div id="ppxaid">
-                    <div id="row">
-                      <div id="col flex-fill d-flex justify-content-center">
-                        {% if object.user %}
-                          {% if object.user.ppxaid %}
-                            {% include 'ppxaids/ppxaid_detail_card.html' with object=object.user.ppxaid %}
-                          {% else %}
-                            <a type="button"
-                               class="btn btn-primary btn-lg"
-                               href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ object.get_absolute_url }}"
-                               role="button">Create PpxAid</a>
-                          {% endif %}
-                        {% else %}
-                          {% if object.ppxaid %}
-                            {% include 'ppxaids/ppxaid_detail_card.html' with object=object.ppxaid %}
-                          {% else %}
-                            <a type="button"
-                               class="btn btn-primary btn-lg"
-                               href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ object.get_absolute_url }}"
-                               role="button">Create PpxAid</a>
-                          {% endif %}
-                        {% endif %}
-                      </div>
-                    </div>
-                  </div>
-                {% endif %}
               </div>
             </div>
           {% endfor %}
         </div>
       </div>
+      {% if object.should_show_ppxaid %}
+        <hr size="3" color="dark" />
+        <div id="ppxaid">
+          <div id="row">
+            <div id="col flex-fill d-flex justify-content-center">
+              {% if object.user %}
+                {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.user.ppxaid marketing=True %}
+              {% else %}
+                {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.ppxaid marketing=True %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
       <hr size="3" color="dark" />
       <div id="details">
         <div class="row">
@@ -281,6 +267,7 @@
       $('.collapse').each(function() {
         $(this).on('shown.bs.collapse', expand_control);
       });
+      check_for_and_expand_collapse();
     });
   </script>
 {% endblock inline_javascript %}

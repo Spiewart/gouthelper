@@ -175,7 +175,7 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
         goal_urate_kwarg = (
-            {"goal_urate": self.form.instance.goalurate.goal_urate} if self.form.instance.goalurate else {}
+            {"goal_urate": self.form.instance.goalurate.goal_urate} if hasattr(self.form.instance, "goalurate") else {}
         )
         self.post_compare_urates_and_at_goal(**goal_urate_kwarg)
         if self.errors or self.errors_bool:
@@ -184,7 +184,6 @@ class PpxCreate(PpxBase, GoutHelperAidEditMixin, PermissionRequiredMixin, Create
             else:
                 return self.errors
         else:
-            kwargs.update({"ppxaid": self.ppxaid})
             labs_urates_annotate_order_by_flare_date_or_date_drawn(self.form.instance.urates_qs)
             return self.form_valid()
 
@@ -374,7 +373,7 @@ class PpxUpdate(PpxBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, Up
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
         goal_urate_kwarg = (
-            {"goal_urate": self.form.instance.goalurate.goal_urate} if self.form.instance.goalurate else {}
+            {"goal_urate": self.form.instance.goalurate.goal_urate} if hasattr(self.form.instance, "goalurate") else {}
         )
         self.post_compare_urates_and_at_goal(**goal_urate_kwarg)
         if self.errors or self.errors_bool:

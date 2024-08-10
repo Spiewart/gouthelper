@@ -27,8 +27,6 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
 from ..akis.choices import Statuses
 from ..akis.services import AkiProcessor
 from ..contents.choices import Contexts
-from ..dateofbirths.models import DateOfBirth
-from ..genders.models import Gender
 from ..labs.helpers import (
     labs_formset_has_one_or_more_valid_labs,
     labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
@@ -150,7 +148,6 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
             if hasattr(ckd_form, "cleaned_data")
             else None
         )
-        # TODO - WRITE TEST FOR THESE METHODS
 
     def get_stage(self, ckd):
         if ckd:
@@ -325,7 +322,7 @@ class FlarePatientEditBase(FlareEditBase):
     def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
+        return Pseudopatient.objects.flare_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
             pk=pseudopatient
         )
 
@@ -434,25 +431,22 @@ class FlarePseudopatientDetail(FlareDetailBase):
         """Overwritten to check for a User on the object and redirect to the
         correct FlarePseudopatientCreate url instead. Also checks if the user has
         the correct OneToOne models and redirects to the view to add them if not."""
-        try:
-            self.object = self.get_object()
-        except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
+        self.object = self.get_object()
+        if not self.user_has_required_otos:
             messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
             return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
         return super().dispatch(request, *args, **kwargs)
 
+    @property
+    def user_has_required_otos(self):
+        return all([hasattr(self.user, oto) for oto in self.model.req_otos])
+
     def get(self, request, *args, **kwargs):
         # Check if Flare is up to date and update if not update
         if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.object)
+            self.object.update_aid(qs=self.user)
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
-
-    def assign_flare_attrs_from_user(self, flare: Flare, user: "User") -> Flare:
-        flare.dateofbirth = user.dateofbirth
-        flare.gender = user.gender
-        flare.medhistorys_qs = user.medhistorys_qs
-        return flare
 
     def get_queryset(self) -> "QuerySet[Any]":
         return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
@@ -466,7 +460,6 @@ class FlarePseudopatientDetail(FlareDetailBase):
             flare: Flare = self.user.flare_qs[0]
         except IndexError as exc:
             raise Http404(f"Flare for {self.user} does not exist.") from exc
-        flare = self.assign_flare_attrs_from_user(flare=flare, user=self.user)
         return flare
 
 

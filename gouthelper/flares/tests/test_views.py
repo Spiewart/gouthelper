@@ -32,7 +32,7 @@ from ...labs.tests.factories import CreatinineFactory, UrateFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import AnginaForm, CadForm, ChfForm, CkdForm, GoutForm, HeartattackForm, PvdForm, StrokeForm
-from ...medhistorys.lists import FLARE_MEDHISTORYS
+from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ...medhistorys.models import Angina, MedHistory, Menopause
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
@@ -514,12 +514,9 @@ class TestFlarePseudopatientCreate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False, gender=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -558,9 +555,7 @@ class TestFlarePseudopatientCreate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertEqual(message.message, f"{empty_user} is missing required information.")
 
     def test__get_user_queryset(self):
         """Test the get_user_queryset() method for the view."""
@@ -1213,22 +1208,6 @@ class TestFlarePseudopatientDetail(TestCase):
             create_flare(user=psp)
         self.empty_psp = create_psp(plus=True)
 
-    def test__assign_flare_attrs_from_user(self):
-        """Test that the assign_flareaid_attrs_from_user() method for the view
-        transfers attributes from the QuerySet, which started with a User,
-        to the FlareAid object."""
-        flare = Flare.objects.filter(user=self.psp).last()
-        view = self.view()
-        request = self.factory.get("/fake-url/")
-        view.setup(request, pseudopatient=self.psp.pk)
-        assert not getattr(flare, "dateofbirth")
-        assert not getattr(flare, "gender")
-        assert not hasattr(flare, "medhistorys_qs")
-        view.assign_flare_attrs_from_user(flare=flare, user=flares_user_qs(self.psp.pk, flare.pk).get())
-        assert getattr(flare, "dateofbirth") == self.psp.dateofbirth
-        assert getattr(flare, "gender") == self.psp.gender
-        assert hasattr(flare, "medhistorys_qs")
-
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to Pseudopatient Update
         view when the user doesn't have the required 1to1 related models."""
@@ -1271,20 +1250,6 @@ class TestFlarePseudopatientDetail(TestCase):
         view.get_object()
         assert hasattr(view, "user")
         assert view.user == self.psp
-
-    def test__get_object_assigns_user_qs_attrs_to_flare(self):
-        """Test that the get_object method transfers required attributes from the
-        User QuerySet to the Flare object."""
-        request = self.factory.get("/fake-url/")
-        view = self.view()
-        view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
-        flare = view.get_object()
-        assert hasattr(flare, "dateofbirth")
-        assert getattr(flare, "dateofbirth") == view.user.dateofbirth
-        assert hasattr(flare, "gender")
-        assert getattr(flare, "gender") == view.user.gender
-        assert hasattr(flare, "medhistorys_qs")
-        assert getattr(flare, "medhistorys_qs") == view.user.medhistorys_qs
 
     def test__get_object_raises_404s(self):
         """Test that get_object() raises a 404 if the User or the Flare doesn't exist."""
@@ -1333,13 +1298,15 @@ class TestFlarePseudopatientDetail(TestCase):
         qs_flare = qs.flare_qs[0]
         assert qs_flare == flare
         if getattr(qs_flare, "aki", False):
-            assert len(queries.captured_queries) == 4
+            assert len(queries.captured_queries) == 5
         else:
-            assert len(queries.captured_queries) == 3
+            assert len(queries.captured_queries) == 4
         assert hasattr(qs, "dateofbirth") and qs.dateofbirth == self.psp.dateofbirth
         assert hasattr(qs, "gender") and qs.gender == self.psp.gender
         assert hasattr(qs, "medhistorys_qs")
-        psp_mhs = self.psp.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS).all()
+        psp_mhs = self.psp.medhistory_set.filter(
+            Q(medhistorytype__in=FLARE_MEDHISTORYS) | Q(medhistorytype__in=FLAREAID_MEDHISTORYS)
+        ).all()
         for mh in qs.medhistorys_qs:
             assert mh in psp_mhs
 
@@ -1614,12 +1581,9 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
         empty_user = create_psp(dateofbirth=False, gender=False)
-        with self.assertRaises(AttributeError) as exc:
-            self.view().check_user_onetoones(empty_user)
-        self.assertEqual(
-            exc.exception.args[0], "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
-        assert self.view().check_user_onetoones(self.user) is None
+        view = self.view()
+        view.user = empty_user
+        self.assertFalse(view.user_has_required_otos)
 
     def test__ckddetail(self):
         """Tests the ckddetail cached_property."""
@@ -1642,9 +1606,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         self.assertRedirects(response, reverse("users:pseudopatient-update", kwargs={"pseudopatient": empty_user.pk}))
         message = list(response.context.get("messages"))[0]
         self.assertEqual(message.tags, "error")
-        self.assertEqual(
-            message.message, "Baseline information is needed to use GoutHelper Decision and Treatment Aids."
-        )
+        self.assertIn("is missing required information.", message.message)
 
     def test__goutdetail(self):
         """Tests the goutdetail cached_property."""
@@ -1883,10 +1845,10 @@ class TestFlarePseudopatientUpdate(TestCase):
         if flare.aki:
             self.assertTrue(isinstance(flare.aki, Aki))
             self.assertTrue(hasattr(flare.aki, "creatinines_qs"))
-            self.assertEqual(len(queries.captured_queries), 4)
+            self.assertEqual(len(queries.captured_queries), 5)
         else:
             self.assertFalse(hasattr(flare, "aki"))
-            self.assertEqual(len(queries.captured_queries), 4)
+            self.assertEqual(len(queries.captured_queries), 3)
         self.assertTrue(hasattr(flare, "urate"))
         self.assertTrue(isinstance(flare.urate, Urate))
         self.assertEqual(flare.urate, flare.urate)

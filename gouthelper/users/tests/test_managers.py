@@ -74,7 +74,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
     def test__flares_qs(self):
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             for psp in Pseudopatient.objects.flares_qs().all():
                 self.assertTrue(hasattr(psp, "flares_qs"))
                 self.assertTrue(psp.dateofbirth)
@@ -88,7 +88,7 @@ class TestPseudopatientManager(TestCase):
                         self.assertTrue(isinstance(flare.urate, Urate))
         for psp in Pseudopatient.objects.flares_qs().all():
             if psp.flares_qs and len(psp.flares_qs) <= 1:
-                with self.assertNumQueries(4):
+                with self.assertNumQueries(5):
                     psp_flare_qs = Pseudopatient.objects.flares_qs(flare_pk=psp.flares_qs[0].pk).get(pk=psp.pk)
                     self.assertTrue(isinstance(psp_flare_qs, Pseudopatient))
                     self.assertTrue(hasattr(psp_flare_qs, "flare_qs"))

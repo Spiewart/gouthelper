@@ -257,7 +257,7 @@ class MedHistory(
             try:
                 return f"{self.MedHistoryTypes(self._meta.model_name).label}"
             except ValueError:
-                return "MedHistory pre-save"
+                return f"{medhistorys_get_default_medhistorytype(self)} pre-save"
 
     def delete(
         self,

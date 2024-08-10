@@ -53,8 +53,7 @@ class Ppx(
         constraints = [
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_user_xor_ppxaid",
-                check=models.Q(user__isnull=False, goalurate__isnull=True, ppxaid__isnull=True)
-                | models.Q(user__isnull=True),
+                check=models.Q(user__isnull=False, ppxaid__isnull=True) | models.Q(user__isnull=True),
             ),
             models.CheckConstraint(
                 check=models.Q(indication__gte=0) & models.Q(indication__lte=2),
@@ -62,12 +61,6 @@ class Ppx(
             ),
         ]
 
-    goalurate = models.OneToOneField(
-        "goalurates.GoalUrate",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
     indication = models.IntegerField(
         _("Indication"),
         validators=[MinValueValidator(0), MaxValueValidator(2)],
@@ -498,7 +491,7 @@ starting ULT."
         return rec_dict
 
     @property
-    def should_show_ultaid(self) -> bool:
+    def should_show_ppxaid(self) -> bool:
         return self.should_start_ppx or self.should_continue_ppx or self.should_consider_starting_ppx
 
     @cached_property
@@ -620,7 +613,7 @@ may benefit from flare prophylaxis in the interim."
                 format_lazy(
                     """{} is starting urate-lowering therapy (<a href={}>ULT</a>) and ACR guidelines \
 recommend starting flare <a href={}>prophylaxis</a> for all patients starting ULT. Prophylaxis should be continued \
-until {} has been at goal uric acid ({} or lower) for 6 months.""",
+until {} has been at goal uric acid ({}) or lower for 6 months.""",
                     Subject_the,
                     reverse("treatments:about-ult"),
                     reverse("treatments:about-ppx"),

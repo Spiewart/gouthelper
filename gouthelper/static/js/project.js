@@ -671,7 +671,7 @@ function at_goal_checker() {
   }
 }
 
-function starting_ult_checker(subject_the, Tobe) {
+function starting_ult_checker(subject_the, Tobe, pos, gender_subject) {
   // function that updates the help text of the starting_ult field
   // first get the on_ult field value
   var on_ult = $('#id_on_ult').val();
@@ -687,7 +687,7 @@ function starting_ult_checker(subject_the, Tobe) {
     $('#div_id_starting_ult').show();
     // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
     $('#hint_id_starting_ult').text(
-      `${Tobe} ${subject_the} starting urate-lowering therapy (ULT)?`,
+      `Is ${subject_the} just starting ULT (urate-lowering therapy) or ${pos} ${gender_subject} started ULT in the last 3 months?`,
     );
   } else {
     // hide the starting_ult field

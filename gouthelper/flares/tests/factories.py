@@ -190,9 +190,9 @@ class CustomFlareFactory(
                     return (
                         fake.date_between_dates(
                             date_start=self.date_started,
-                            date_end=self.date_started + timedelta(days=30)
-                            if date_diff > timedelta(days=30)
-                            else date_diff,
+                            date_end=(
+                                self.date_started + timedelta(days=30) if date_diff > timedelta(days=30) else date_diff
+                            ),
                         )
                         if date_diff > timedelta(days=1)
                         else self.date_started + date_diff

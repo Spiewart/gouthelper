@@ -22,7 +22,7 @@ from ..genders.models import Gender
 from ..labs.selectors import hyperuricemia_urates_prefetch
 from ..users.models import Pseudopatient
 from ..utils.helpers import get_str_attrs
-from ..utils.views import GoutHelperAidEditMixin, PatientSessionMixin
+from ..utils.views import MedHistoryFormMixin, OneToOneFormMixin, PatientSessionMixin
 from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS, PATIENT_OTO_FORMS, PATIENT_REQ_OTOS
 from .forms import UltForm
 from .models import Ult
@@ -53,7 +53,7 @@ class UltAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULT, tag=None)
 
 
-class UltBase:
+class UltEditBase(MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
@@ -65,7 +65,7 @@ class UltBase:
     OTO_FORMS = OTO_FORMS
 
 
-class UltCreate(UltBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class UltCreate(UltEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View to create a new Ult without a user."""
 
     permission_required = "ults.can_add_ult"
@@ -121,7 +121,7 @@ class UltDetail(UltDetailBase, PatientSessionMixin):
         return Ult.related_objects.filter(pk=self.kwargs["pk"])
 
 
-class UltPatientBase(UltBase):
+class UltPatientBase(UltEditBase):
     """Base class for UltCreate/Update views for Ults that have a user."""
 
     class Meta:
@@ -136,9 +136,7 @@ class UltPatientBase(UltBase):
         return Pseudopatient.objects.ult_qs().filter(pk=pseudopatient)
 
 
-class UltPseudopatientCreate(
-    UltPatientBase, GoutHelperAidEditMixin, PermissionRequiredMixin, CreateView, SuccessMessageMixin
-):
+class UltPseudopatientCreate(UltPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View for creating a Ult for a patient."""
 
     permission_required = "ults.can_add_ult"
@@ -227,9 +225,7 @@ class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
         return ult
 
 
-class UltPseudopatientUpdate(
-    UltPatientBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
+class UltPseudopatientUpdate(UltPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """UpdateView for Ults with a User."""
 
     success_message = "%(user)s's Ult successfully updated."
@@ -250,7 +246,7 @@ class UltPseudopatientUpdate(
             return self.form_valid()
 
 
-class UltUpdate(UltBase, GoutHelperAidEditMixin, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+class UltUpdate(UltEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
     """Updates a Ult"""
 
     success_message = "ULT updated successfully."

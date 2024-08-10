@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
+from django.db.models import Prefetch, Q
 
 from ..medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
@@ -44,6 +44,18 @@ def most_recent_flare_prefetch() -> Prefetch:
     )
 
 
+def medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(treatment__in=FlarePpxChoices.values).all()
+
+
+def medallergys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medallergy_set",
+        queryset=medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
 def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
@@ -77,7 +89,7 @@ def flareaid_medhistory_prefetch() -> Prefetch:
 
 
 def flareaid_medallergys_qs() -> "QuerySet":
-    return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values)).all()
+    return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values))
 
 
 def flareaid_medallergy_prefetch() -> Prefetch:
@@ -93,7 +105,7 @@ def flare_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
         "gender",
-    ).prefetch_related(medhistorys_prefetch())
+    )
 
 
 def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
@@ -106,7 +118,28 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
             "user",
             "urate",
         )
-        .prefetch_related(creatinines_prefetch(), flareaid_medhistory_prefetch(), flareaid_medallergy_prefetch())
+        .prefetch_related(
+            creatinines_prefetch(),
+            flareaid_medhistory_prefetch(),
+            flareaid_medallergy_prefetch(),
+            medhistorys_prefetch(),
+        )
+    )
+
+
+def user_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=FLARE_MEDHISTORYS) | Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
+        .select_related("ckddetail", "baselinecreatinine")
+    )
+
+
+def user_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=user_medhistorys_qs(),
+        to_attr="medhistorys_qs",
     )
 
 
@@ -122,9 +155,7 @@ def flare_user_relations(qs: "QuerySet", flare_pk: Union["UUID", None] = None) -
             "ultaid",
             "ult",
         )
-        .prefetch_related(
-            flares_prefetch(pk=flare_pk),
-        )
+        .prefetch_related(flares_prefetch(pk=flare_pk), user_medhistorys_prefetch(), medallergys_prefetch())
     )
 
 

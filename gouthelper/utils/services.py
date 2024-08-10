@@ -742,14 +742,14 @@ class AidService:
         self.default_settings_attr = (
             self.default_settings_class().__name__.lower() if self.default_settings_class else None
         )
-        if isinstance(self.qs, model):
-            setattr(self, self.model_attr_str, self.qs)
-            self.user = self.qs.user
-            self.qs_has_user = True if self.user else False
-        elif isinstance(self.qs, get_user_model()):
+        if isinstance(self.qs, get_user_model()):
             setattr(self, self.model_attr_str, self.get_aid_object_from_user_qs(model_attr_str=self.model_attr_str))
             self.user = self.qs
             self.qs_has_user = False
+        elif isinstance(self.qs, model):
+            setattr(self, self.model_attr_str, self.qs)
+            self.user = self.qs.user
+            self.qs_has_user = True if self.user else False
         else:
             model_name = model.__class__.__name__
             raise TypeError(f"{model_name}DecisionAid requires a {model_name} or User instance.")
@@ -791,6 +791,10 @@ class AidService:
         )
         # TODO: Add side effects back in at later stage, kept here to avoid breaking other code
         self.sideeffects = None
+
+    @cached_property
+    def qs_is_user(self) -> bool:
+        return isinstance(self.qs, get_user_model())
 
     def get_medallergys_from_medallergys_qs(self):
         if self.user:

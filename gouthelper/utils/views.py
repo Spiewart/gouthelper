@@ -28,6 +28,7 @@ from ..users.choices import Roles
 from ..users.models import Pseudopatient
 from ..utils.exceptions import Continue, EmptyRelatedModel
 from ..utils.helpers import (
+    attr_is_in_model_fields,
     get_or_create_qs_attr,
     get_str_attrs,
     list_of_objects_related_objects,
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
     from ..labs.models import Lab
     from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
     from ..medhistorys.models import MedHistory
-    from .types import MedAllergyAidHistoryModel
+    from .types import Aids
 
 
 User = get_user_model()
@@ -131,7 +132,6 @@ def validate_form_list(form_list: list[ModelForm]) -> bool:
 def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
     """Method to validate a list of formsets.
 
-    Args:
         formset_list: A list of BaseModelFormSets to validate.
 
     Returns:
@@ -163,18 +163,12 @@ class GoutHelperEditMixin:
 
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
+        self.form_valid_init()
+        self.form_valid_update_fks_and_related_object()
+        return self.form_valid_end(**kwargs)
 
-        def form_should_save() -> bool:
-            return (
-                self.form.has_changed
-                or self.oto_forms
-                and (self.oto_2_save or self.oto_2_rem)
-                or self.user
-                and self.form.instance.user is None
-                or self.create_view
-            )
-
-        if form_should_save():
+    def form_valid_init(self) -> None:
+        if self.form_valid_form_should_save():
             self.object = self.form.save(commit=False)
             self.save_object = True
         else:
@@ -182,29 +176,32 @@ class GoutHelperEditMixin:
             self.save_object = False
         if self.user and self.object.user is None:
             self.object.user = self.user
-        # Save the OneToOne related models
-        if self.oto_forms:
-            self.form_valid_save_otos()
-            self.form_valid_delete_otos()
-        if self.req_otos and self.related_object:
-            self.form_valid_related_object_otos()
-        if kwargs:
-            self.form_valid_set_aid_obj_relations(kwargs=kwargs)
-        self.form_valid_set_object_related_object_attr()
+
+    def form_valid_form_should_save(self) -> bool:
+        return (
+            self.form.has_changed
+            or self.oto_forms
+            and (self.oto_2_save or self.oto_2_rem)
+            or self.user
+            and self.form.instance.user is None
+            or self.create_view
+        )
+
+    def form_valid_update_related_object(self) -> None:
+        self.form_valid_set_view_model_attr_on_related_object()
+
+    def form_valid_update_fks_and_related_object(self) -> None:
+        if self.related_object:
+            self.save_related_object = False
+            self.form_valid_update_related_object()
         if self.save_object:
+            self.object.full_clean()
             self.object.save()
-        if kwargs:
-            self.form_valid_set_related_object_object_attr(kwargs)
-        if self.medallergy_forms:
-            self.form_valid_save_medallergys()
-            self.form_valid_delete_medallergys()
-        if self.medhistory_forms:
-            self.form_valid_save_medhistorys()
-            self.form_valid_save_medhistory_details()
-            self.form_valid_delete_medhistorys()
-            self.form_valid_delete_medhistory_details()
-        if self.lab_formsets:
-            self.form_valid_save_and_delete_labs()
+        if self.related_object and self.save_related_object:
+            self.related_object.full_clean()
+            self.related_object.save()
+
+    def form_valid_end(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         if self.user:
             setattr(self.user, f"{self.object_attr}_qs", self.object)
             self.object.update_aid(qs=self.user)
@@ -214,70 +211,27 @@ class GoutHelperEditMixin:
         messages.success(self.request, self.get_success_message(self.form.cleaned_data))
         if self.request.htmx:
             return kwargs.get("htmx")
-
         return HttpResponseRedirect(self.get_success_url())
 
-    def form_valid_update_objects(self) -> None:
-        if self.user:
-            setattr(self.user, f"{self.object_attr}_qs", self.object)
-            self.object.update_aid(qs=self.user)
-            if hasattr(self.object, "related_models"):
-                for related_model in self.object.related_models():
-                    user_related_model = getattr(self.user, related_model, None)
-                    if user_related_model:
-                        user_related_model.update_aid(qs=user_related_model)
-        else:
-            self.object.update_aid(qs=self.object)
-            if self.related_object:
-                self.related_object.update_aid(qs=self.related_object)
-            else:
-                if hasattr(self.object, "related_models"):
-                    for related_model in self.object.related_models():
-                        related_object = getattr(self.object, related_model, None)
-                        if related_object:
-                            related_object.update_aid(qs=related_object)
+    def set_object_attr_on_related_object(self) -> None:
+        setattr(self.related_object, self.object_attr, self.object)
+        if self.save_related_object is not True:
+            self.save_related_object = True
 
-    def form_valid_set_aid_obj_relations(
-        self,
-        kwargs: dict[str, Any],
-    ) -> None:
-        for key, val in kwargs.items():
-            if (
-                isinstance(val, Model)
-                and key in [field.name for field in self.object._meta.fields]
-                and getattr(self.object, key, None) is None
-            ):
-                setattr(self.object, key, val)
-                if self.save_object is not True:
-                    self.save_object = True
+    def form_valid_set_view_model_attr_on_related_object(self) -> None:
+        if self.model_attr_empty_on_related_object:
+            self.set_object_attr_on_related_object()
 
-    def form_valid_set_related_object_object_attr(
-        self,
-        kwargs: dict[str, Any],
-    ) -> None:
-        """Sets the related object's aid_obj_attr attr to the aid_obj and saves the model
-        if the related object was updated."""
-
-        for val in kwargs.values():
-            if (
-                isinstance(val, Model)
-                and self.object_attr in [field.name for field in val._meta.fields]
-                and getattr(val, self.object_attr, None) is None
-            ):
-                setattr(val, self.object_attr, self.object)
-                val.full_clean()
-                val.save()
-
-    def form_valid_set_object_related_object_attr(self) -> None:
-        if (
+    @property
+    def model_attr_empty_on_related_object(self) -> bool:
+        return (
             self.related_object
-            and self.related_object_attr in [field.name for field in self.object._meta.fields]
-            and getattr(self.object, self.related_object_attr, None) is None
-        ):
-            setattr(self.object, self.related_object_attr, self.related_object)
-            self.object.full_clean()
-            if self.save_object is not True:
-                self.save_object = True
+            and attr_is_in_model_fields(
+                self.object_attr,
+                self.related_object,
+            )
+            and getattr(self.related_object, self.object_attr, None) is None
+        )
 
     def get(self, request, *args, **kwargs):
         """Overwritten to not call get_object()."""
@@ -355,61 +309,92 @@ class GoutHelperEditMixin:
     def dispatch(self, request, *args, **kwargs):
         """Overwritten to redirect if the user is attempting to create an instance of a model that the intended
         Pseudopatient already has an instance of and their relationship is a 1to1."""
-        # Will also set self.user
         try:
             self.object = self.get_object()
         except self.model.DoesNotExist as exc:
             if self.user:
-                messages.error(request, exc.args[0])
-                return HttpResponseRedirect(
-                    reverse(
-                        f"{self.model.__name__.lower()}s:pseudopatient-create",
-                        kwargs={"pseudopatient": kwargs["pseudopatient"]},
-                    )
-                )
+                return self.dispatch_redirect_to_user_create_view(request, exc)
             else:
                 raise exc
-        if self.user:
-            try:
-                self.check_user_onetoones(user=self.user)
-            except AttributeError as exc:
-                messages.error(request, exc)
-                return HttpResponseRedirect(
-                    reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
-                )
-            if self.create_view:
-                model_name = self.model.__name__
-                if model_name != "Flare" and self.model.objects.filter(user=self.user).exists():
-                    messages.error(request, f"{self.user} already has a {model_name}. Please update it instead.")
-                    return HttpResponseRedirect(
-                        reverse(f"{model_name.lower()}s:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
-                    )
-        elif getattr(self.object, "user", None) and not isinstance(self.object, User):
-            kwargs = {"pseudopatient": self.object.user.pk}
-            if self.model.__name__.lower() == "flare":
-                kwargs["pk"] = self.object.pk
-            return HttpResponseRedirect(
-                reverse(
-                    f"{self.model._meta.app_label}:pseudopatient-{'create' if self.create_view else 'update'}",
-                    kwargs=kwargs,
-                )
-            )
-        # Raise a redirect if trying to create a related Aid for an Aid that already has that Aid set (i.e. FlareAid
-        # for a Flare with a flareaid attr already set)
-        elif self.related_object:
-            if self.create_view:
-                related_object_attr = getattr(self.related_object, self.model_name.lower(), None)
-                if related_object_attr:
-                    messages.error(
-                        request, f"{self.related_object} already has a {self.model_name}. Please update it instead."
-                    )
-                    return HttpResponseRedirect(
-                        reverse(
-                            f"{self.model_name.lower()}s:update",
-                            kwargs={"pk": related_object_attr.pk},
-                        )
-                    )
+
+        if self.dispatch_anon_view_needs_redirect_to_user_view():
+            return self.dispatch_redirect_to_user_view()
+        elif self.user:
+            if self.dispatch_user_missing_requirements(request):
+                return self.dispatch_redirect_to_user_update_view(request)
+            elif self.dispatch_user_create_view_needs_redirect_to_user_model_update_view():
+                return self.dispatch_redirect_to_user_model_update_view(request)
+        elif self.dispatch_with_related_object_needs_redirect_to_update_view():
+            return self.dispatch_redirect_to_update_view_with_related_object_model_attr(request)
+
         return super().dispatch(request, *args, **kwargs)
+
+    def dispatch_redirect_to_user_update_view(self, request: "HttpRequest") -> HttpResponseRedirect:
+        messages.error(request, message=f"{self.user} is missing required information.")
+        return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
+
+    def dispatch_user_missing_requirements(self, request: "HttpRequest") -> bool:
+        return False
+
+    def dispatch_user_create_view_needs_redirect_to_user_model_update_view(self) -> bool:
+        return (
+            self.user
+            and self.create_view
+            and self.model_name != "Flare"
+            and self.model.objects.filter(user=self.user).exists()
+        )
+
+    def dispatch_redirect_to_user_create_view(
+        self, request: "HttpRequest", exc: ValidationError
+    ) -> HttpResponseRedirect:
+        messages.error(request, exc.args[0])
+        return HttpResponseRedirect(
+            reverse(f"{self.model_app}:pseudopatient-create", kwargs={"pseudopatient": self.user.pk})
+        )
+
+    def dispatch_redirect_to_user_model_update_view(self, request: "HttpRequest") -> HttpResponseRedirect:
+        messages.error(request, f"{self.user} already has a {self.model_name}. Please update it instead.")
+        return HttpResponseRedirect(
+            reverse(f"{self.model_app}:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
+        )
+
+    def dispatch_with_related_object_needs_redirect_to_update_view(self) -> bool:
+        return self.related_object and self.create_view and self.related_object_has_model_attr()
+
+    def related_object_has_model_attr(self) -> bool:
+        return self.related_object_model_attr is not None
+
+    @property
+    def related_object_model_attr(self) -> Union["Aids", None]:
+        return getattr(self.related_object, self.model_name.lower(), None)
+
+    def dispatch_redirect_to_update_view_with_related_object_model_attr(
+        self, request: "HttpRequest"
+    ) -> HttpResponseRedirect:
+        messages.error(request, f"{self.related_object} already has a {self.model_name}. Please update it instead.")
+        return HttpResponseRedirect(
+            reverse(
+                f"{self.model_app}:update",
+                kwargs={"pk": self.related_object_model_attr.pk},
+            )
+        )
+
+    def object_has_user_and_is_not_user(self) -> bool:
+        return getattr(self.object, "user", None) and not isinstance(self.object, User)
+
+    def dispatch_anon_view_needs_redirect_to_user_view(self) -> bool:
+        return not self.user and self.object_has_user_and_is_not_user()
+
+    def dispatch_redirect_to_user_view(self) -> HttpResponseRedirect:
+        kwargs = {"pseudopatient": self.object.user.pk}
+        if self.model_name == "Flare":
+            kwargs["pk"] = self.object.pk
+        return HttpResponseRedirect(
+            reverse(
+                f"{self.model_app}:pseudopatient-{'create' if self.create_view else 'update'}",
+                kwargs=kwargs,
+            )
+        )
 
     @classmethod
     def get_modelform_model(cls, modelform: ModelForm) -> Model:
@@ -419,6 +404,10 @@ class GoutHelperEditMixin:
     def goutdetail(self) -> bool:
         """Method that returns True if GOUT is in the medhistorys dict."""
         return hasattr(self, "medhistory_detail_forms") and "goutdetail" in self.medhistory_detail_forms.keys()
+
+    @cached_property
+    def model_app(self) -> str:
+        return self.model._meta.app_label
 
     @cached_property
     def model_name(self) -> str:
@@ -433,61 +422,32 @@ class GoutHelperEditMixin:
         return self.object.__class__.__name__.lower() if not isinstance(self.object, Pseudopatient) else "user"
 
     def post(self, request, *args, **kwargs):
+        self.post_init()
+        if self.post_forms_valid():
+            self.post_process_forms()
+            self.post_errors()
+        else:
+            self.errors_bool = False
+            self.errors = self.render_errors()
+
+    def post_init(self) -> None:
         self.set_forms()
         form_class = self.get_form_class()
         self.form = form_class(
             **self.get_form_kwargs(),
         )
-        if self.oto_forms:
-            self.post_populate_oto_forms()
-        if self.medallergy_forms:
-            self.post_populate_ma_forms()
-        if self.medhistory_forms:
-            self.post_populate_mh_forms()
-        if self.lab_formsets:
-            self.post_populate_lab_formsets()
-        form_is_valid = self.form.is_valid()
-        oto_forms_is_valid = validate_form_list(form_list=self.oto_forms.values()) if self.oto_forms else True
-        ma_forms_is_valid = (
-            validate_form_list(form_list=self.medallergy_forms.values()) if self.medallergy_forms else True
-        )
-        mh_forms_is_valid = self.validate_medhistory_form_list() if self.medhistory_forms else True
-        mh_det_forms_is_valid = (
-            validate_form_list(form_list=self.medhistory_detail_forms.values())
-            if self.medhistory_detail_forms
-            else True
-        )
-        lab_formsets_is_valid = (
-            validate_formset_list(formset_list=[lab_tup[0] for lab_tup in self.lab_formsets.values()])
-            if self.lab_formsets
-            else True
-        )
-        if (
-            form_is_valid
-            and oto_forms_is_valid
-            and ma_forms_is_valid
-            and mh_forms_is_valid
-            and mh_det_forms_is_valid
-            and lab_formsets_is_valid
-        ):
-            self.errors_bool = False
-            self.form.save(commit=False)
-            if self.oto_forms:
-                self.post_process_oto_forms()
-            if self.medallergy_forms:
-                self.post_process_ma_forms()
-            if self.medhistory_forms:
-                self.post_process_mh_forms()
-            if self.lab_formsets:
-                self.post_process_lab_formsets()
-            self.errors = self.render_errors() if self.errors_bool else None
-        else:
-            self.errors_bool = False
-            self.errors = self.render_errors()
 
-    def post_get_qs_target(
-        self, post_object: Union["MedAllergyAidHistoryModel", User]
-    ) -> Union["MedAllergyAidHistoryModel", User]:
+    def post_forms_valid(self) -> bool:
+        return self.form.is_valid()
+
+    def post_process_forms(self) -> None:
+        self.errors_bool = False
+        self.form.save(commit=False)
+
+    def post_errors(self) -> Union["HttpResponse", None]:
+        self.errors = self.render_errors() if self.errors_bool else None
+
+    def post_get_qs_target(self, post_object: Union["Aids", User]) -> Union["Aids", User]:
         return self.query_object if isinstance(self.query_object, User) else post_object
 
     def post_get_ckd(self) -> Union["MedHistory", None]:
@@ -535,7 +495,7 @@ class GoutHelperEditMixin:
             )
 
     @cached_property
-    def query_object(self) -> Union["MedAllergyAidHistoryModel", User, None]:
+    def query_object(self) -> Union["Aids", User, None]:
         return self.user if self.user else self.object if not self.create_view else self.related_object
 
     @cached_property
@@ -556,18 +516,20 @@ class GoutHelperEditMixin:
     @cached_property
     def related_objects(self) -> list[Model]:
         rel_obj_list = []
-        if self.user:
+        if self.create_view and not self.user:
+            for aid_type in self.object.related_models:
+                if hasattr(self, aid_type):
+                    rel_obj = getattr(self, aid_type)
+                    if rel_obj:
+                        rel_obj_list.append(rel_obj)
             return rel_obj_list
-        elif self.create_view and self.related_object:
-            rel_obj_list.append(self.related_object)
-            return rel_obj_list
-        else:
+        elif not self.user:
             for aid_type in self.object.related_models:
                 if hasattr(self.object, aid_type):
                     rel_obj = getattr(self.object, aid_type)
                     if rel_obj:
                         rel_obj_list.append(rel_obj)
-            return rel_obj_list
+        return rel_obj_list
 
     @property
     def subform_kwargs(self) -> dict[str, Any]:
@@ -701,6 +663,10 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             if f"{lab}_formset_helper" not in kwargs:
                 kwargs[f"{lab}_formset_helper"] = lab_tup[1]
 
+    def form_valid_update_fks_and_related_object(self) -> None:
+        super().form_valid_update_fks_and_related_object()
+        self.form_valid_save_and_delete_labs()
+
     def lab_belongs_to_query_object(self, lab: str) -> bool:
         return not self.user and self.query_obj_attr in self.lab_formsets[lab][0].model.related_models()
 
@@ -741,6 +707,23 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             for lab in self.labs_2_rem:
                 lab.delete()
 
+    def post_init(self) -> None:
+        super().post_init()
+        self.post_populate_lab_formsets()
+
+    def post_forms_valid(self) -> bool:
+        other_forms_valid = super().post_forms_valid()
+        lab_formsets_valid = (
+            validate_formset_list(formset_list=[lab_tup[0] for lab_tup in self.lab_formsets.values()])
+            if self.lab_formsets
+            else True
+        )
+        return other_forms_valid and lab_formsets_valid
+
+    def post_process_forms(self) -> None:
+        super().post_process_forms()
+        self.post_process_lab_formsets()
+
     def post_populate_lab_formsets(self) -> None:
         """Method to populate a dict of lab forms with POST data in the post() method."""
         for lab, lab_tup in self.lab_formsets.items():
@@ -774,7 +757,7 @@ class LabFormSetsMixin(GoutHelperEditMixin):
 
         Args:
             lab_formset (BaseModelFormSet): A formset of LabForms
-            query_object (MedAllergyAidHistoryModel | User): The object to which the labs are related
+            query_object (Aids | User): The object to which the labs are related
 
         Returns:
             tuple[list[Lab], list[Lab]]: A tuple of lists of labs to save and remove"""
@@ -860,8 +843,8 @@ class LabFormSetsMixin(GoutHelperEditMixin):
 
     def post_get_creatinine_qs_target(
         self,
-        post_object: Union["MedAllergyAidHistoryModel", User],
-    ) -> Union["MedAllergyAidHistoryModel", User]:
+        post_object: Union["Aids", User],
+    ) -> Union["Aids", User]:
         qs_target = getattr(post_object, "aki", None) if post_object else None
         if not qs_target:
             qs_target = self.oto_forms["aki"].instance
@@ -869,8 +852,8 @@ class LabFormSetsMixin(GoutHelperEditMixin):
 
     def post_get_urate_qs_target(
         self,
-        post_object: Union["MedAllergyAidHistoryModel", User],
-    ) -> Union["MedAllergyAidHistoryModel", User]:
+        post_object: Union["Aids", User],
+    ) -> Union["Aids", User]:
         return post_object
 
 
@@ -911,6 +894,26 @@ class MedAllergyFormMixin(GoutHelperEditMixin):
                         str_attrs=self.str_attrs,
                     )
                 )
+
+    def form_valid_update_fks_and_related_object(self) -> None:
+        super().form_valid_update_fks_and_related_object()
+        self.form_valid_save_medallergys()
+        self.form_valid_delete_medallergys()
+
+    def post_init(self) -> None:
+        super().post_init()
+        self.post_populate_ma_forms()
+
+    def post_forms_valid(self) -> bool:
+        other_forms_valid = super().post_forms_valid()
+        ma_forms_valid = (
+            validate_form_list(form_list=self.medallergy_forms.values()) if self.medallergy_forms else True
+        )
+        return other_forms_valid and ma_forms_valid
+
+    def post_process_forms(self) -> None:
+        super().post_process_forms()
+        self.post_process_ma_forms()
 
     def post_populate_ma_forms(self) -> None:
         """Method to populate the forms for the MedAllergys for the post() method."""
@@ -1009,7 +1012,8 @@ class MedAllergyFormMixin(GoutHelperEditMixin):
 
 
 class MedHistoryFormMixin(GoutHelperEditMixin):
-    def add_mh_to_qs(self, mh: "MedHistory", qs: list["MedHistory"], check: bool = True) -> None:
+    @classmethod
+    def add_mh_to_qs(cls, mh: "MedHistory", qs: list["MedHistory"], check: bool = True) -> None:
         """Method to add a MedHistory to a list of MedHistories."""
         if not check or mh not in qs:
             qs.append(mh)
@@ -1090,6 +1094,13 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                     )
                 )
 
+    def form_valid_update_fks_and_related_object(self) -> None:
+        super().form_valid_update_fks_and_related_object()
+        self.form_valid_save_medhistorys()
+        self.form_valid_save_medhistory_details()
+        self.form_valid_delete_medhistorys()
+        self.form_valid_delete_medhistory_details()
+
     def goutdetail_mh_context(
         self,
         kwargs: dict[str, Any],
@@ -1109,6 +1120,24 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             )
             if hasattr(mh_obj, "user") and mh_obj.user:
                 raise Continue
+
+    def post_init(self) -> None:
+        super().post_init()
+        self.post_populate_mh_forms()
+
+    def post_forms_valid(self) -> bool:
+        other_forms_valid = super().post_forms_valid()
+        mh_forms_valid = self.validate_medhistory_form_list() if self.medhistory_forms else True
+        mh_det_forms_valid = (
+            validate_form_list(form_list=self.medhistory_detail_forms.values())
+            if self.medhistory_detail_forms
+            else True
+        )
+        return other_forms_valid and mh_forms_valid and mh_det_forms_valid
+
+    def post_process_forms(self) -> None:
+        super().post_process_forms()
+        self.post_process_mh_forms()
 
     def post_populate_mh_forms(self) -> None:
         """Populates forms for MedHistory and MedHistoryDetail objects in post() method."""
@@ -1242,7 +1271,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         return self.create_view and (self.object_to_crossref_medhistorys_with)
 
     @property
-    def object_to_crossref_medhistorys_with(self) -> Union["MedAllergyAidHistoryModel", User, None]:
+    def object_to_crossref_medhistorys_with(self) -> Union["Aids", User, None]:
         return self.user if self.user else self.related_object if self.related_object else None
 
     def post_process_mh_forms(
@@ -1270,16 +1299,23 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             mh_obj = self.get_mh_obj(mhtype)
             if self.get_mh_cleaned_value(mhtype, mh_form.cleaned_data):
                 if mh_obj:
-                    mh_to_include = mh_obj
-                    if self.related_object and self.medhistory_needs_related_object_attr_update(
-                        mh_obj, self.related_object, self.related_object_attr
+                    if (
+                        self.related_object
+                        and self.medhistory_needs_object_attr_update(
+                            mh_obj, self.related_object, self.related_object_attr
+                        )
+                        or self.medhistory_needs_object_attr_update(mh_obj, self.object, self.object_attr)
+                        or self.user
+                        and not mh_obj.user
                     ):
-                        self.add_mh_to_qs(mh=mh_to_include, qs=self.mhs_2_save)
+                        self.add_mh_to_qs(mh=mh_obj, qs=self.mhs_2_save)
                 else:
-                    mh_to_include = mh_form.save(commit=False)
-                    self.add_mh_to_qs(mh=mh_to_include, qs=self.mhs_2_save)
-                self.add_mh_to_qs(mh=mh_to_include, qs=post_qs_target.medhistorys_qs)
-                self.post_process_medhistory_detail(mhtype, mh_to_include)
+                    mh_obj = mh_form.save(commit=False)
+                    self.add_mh_to_qs(mh=mh_obj, qs=self.mhs_2_save)
+                self.add_mh_to_qs(mh=mh_obj, qs=post_qs_target.medhistorys_qs)
+                if self.related_object:
+                    self.add_mh_to_qs(mh=mh_obj, qs=self.related_object.medhistorys_qs)
+                self.post_process_medhistory_detail(mhtype, mh_obj)
             elif mh_obj:
                 self.mhs_2_remove.append(mh_obj)
                 self.post_remove_mh_from_medhistorys_qs(post_qs_target, mh_obj)
@@ -1331,8 +1367,8 @@ menopause status to evaluate their flare."
     ) -> bool:
         """Method that searches a cleaned_data dict for a value key and returns
         True if found, False otherwise."""
-
-        return cleaned_data.get(f"{mytype}-value", False)
+        value = cleaned_data.get(f"{mytype}-value", False)
+        return False if value == "" else value
 
     def ckddetail_mh_post_process(
         self,
@@ -1387,7 +1423,7 @@ menopause status to evaluate their flare."
 
     def post_remove_mh_from_medhistorys_qs(
         self,
-        post_qs_target: Union["MedAllergyAidHistoryModel", User],
+        post_qs_target: Union["Aids", User],
         mh_obj: "MedHistory",
     ) -> None:
         if post_qs_target == self.query_object:
@@ -1423,26 +1459,42 @@ menopause status to evaluate their flare."
                     mh.update_set_date_and_save()
 
     def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
-        # TODO - Refactor this method
         for related_object in self.related_objects:
             related_object_attr = related_object.__class__.__name__.lower()
-            if self.medhistory_needs_related_object_attr_update(mh, related_object, related_object_attr):
-                setattr(mh, related_object_attr, related_object)
-                self.add_mh_to_qs(mh, getattr(related_object, "medhistorys_qs", []), check=False)
+            if self.medhistory_compatible_with_aid_object(mh, related_object):
+                if not getattr(mh, related_object_attr, None):
+                    setattr(mh, related_object_attr, related_object)
+                    self.add_mh_to_medhistorys_qs(mh, related_object)
+                    self.add_mh_to_mhs_2_save(mh)
+                else:
+                    self.add_mh_to_medhistorys_qs(mh, related_object)
 
-    @staticmethod
-    def medhistory_needs_related_object_attr_update(
-        mh: "MedHistory",
-        related_object: "MedAllergyAidHistoryModel",
-        related_object_attr: str | None = None,
-    ) -> bool:
-        if not related_object_attr:
-            related_object_attr = related_object.__class__.__name__.lower()
+    @classmethod
+    def add_mh_to_medhistorys_qs(cls, mh: "MedHistory", object: "Aids") -> None:
+        cls.add_mh_to_qs(mh, getattr(object, "medhistorys_qs"))
+
+    def add_mh_to_object_medhistorys_qs(self, mh: "MedHistory") -> None:
+        self.add_mh_to_qs(mh, getattr(self.object, "medhistorys_qs"))
+
+    def add_mh_to_related_object_medhistorys_qs(self, mh: "MedHistory") -> None:
+        self.add_mh_to_qs(mh, getattr(self.related_object, "medhistorys_qs"))
+
+    def add_mh_to_mhs_2_save(self, mh: "MedHistory") -> None:
+        self.add_mh_to_qs(mh, self.mhs_2_save)
+
+    @classmethod
+    def medhistory_compatible_with_aid_object(cls, mh: "MedHistory", object: "Aids") -> bool:
         return (
-            mh.medhistorytype in related_object.aid_medhistorys()
+            mh.medhistorytype in object.aid_medhistorys()
             or mh._state.adding
-            and medhistorys_get_default_medhistorytype(mh) in related_object.aid_medhistorys()
-        ) and not getattr(mh, related_object_attr, None)
+            and medhistorys_get_default_medhistorytype(mh) in object.aid_medhistorys()
+        )
+
+    @classmethod
+    def medhistory_needs_object_attr_update(cls, mh: "MedHistory", object: "Aids", object_attr: str) -> bool:
+        if not object_attr:
+            object_attr = object.__class__.__name__.lower()
+        return cls.medhistory_compatible_with_aid_object(mh, object) and not getattr(mh, object_attr, None)
 
     def form_valid_save_medhistory_details(self) -> None:
         if self.mhdets_2_save:
@@ -1451,6 +1503,22 @@ menopause status to evaluate their flare."
                 self.form_valid_update_mh_det_mh(
                     mh_det.instance.medhistory if isinstance(mh_det, ModelForm) else mh_det.medhistory,
                 )
+                self.form_valid_update_fks_and_related_object_medhistorydetail(
+                    mh_det.instance if isinstance(mh_det, ModelForm) else mh_det
+                )
+
+    def form_valid_update_fks_and_related_object_medhistorydetail(
+        self, mh_detail: Union["CkdDetail", "GoutDetail"]
+    ) -> None:
+        for related_object in self.related_objects:
+            medhistory_attr = f"{mh_detail.medhistory.medhistorytype.lower()}"
+            if medhistory_attr in related_object.aid_medhistorys():
+                medhistorydetail_attr = f"{mh_detail.__class__.__name__.lower()}"
+                related_object_medhistory = getattr(related_object, medhistory_attr, None)
+                # These are 100% necessary because of the cached_property decorator-the related medhistory (CKD, Gout)
+                # references the now oudated medhistorydetail object (CKDDetail, GoutDetail)
+                setattr(related_object_medhistory, medhistorydetail_attr, mh_detail)
+                setattr(related_object, medhistorydetail_attr, mh_detail)
 
     def form_valid_delete_medhistorys(self) -> None:
         if self.mhs_2_remove:
@@ -1480,6 +1548,20 @@ menopause status to evaluate their flare."
                 self.form_valid_update_mh_det_mh(
                     mh_det.instance.medhistory if isinstance(mh_det, ModelForm) else mh_det.medhistory,
                 )
+                self.form_valid_remove_medhistorydetails_from_related_objects(mh_det.instance)
+
+    def form_valid_remove_medhistorydetails_from_related_objects(
+        self, mh_detail: Union["CkdDetail", "GoutDetail"]
+    ) -> None:
+        for related_object in self.related_objects:
+            medhistorydetail_attr = f"{mh_detail.__class__.__name__.lower()}"
+            if hasattr(related_object, medhistorydetail_attr):
+                medhistory_attr = f"{mh_detail.medhistory.medhistorytype.lower()}"
+                related_object_medhistory = getattr(related_object, medhistory_attr, None)
+                # These are 100% necessary because of the cached_property decorator-the related medhistory (CKD, Gout)
+                # references the now deleted medhistorydetail object (CKDDetail, GoutDetail)
+                setattr(related_object_medhistory, medhistorydetail_attr, None)
+                setattr(related_object, medhistorydetail_attr, None)
 
     def validate_medhistory_form_list(self) -> bool:
         forms_valid = True
@@ -1494,12 +1576,11 @@ menopause status to evaluate their flare."
 class OneToOneFormMixin(GoutHelperEditMixin):
     request: "HttpRequest"
 
-    def check_user_onetoones(self, user: User) -> None:
+    @property
+    def user_has_required_otos(self) -> bool:
         if not hasattr(self, "req_otos"):
             self.set_req_otos()
-        for onetoone in self.req_otos:
-            if not hasattr(user, onetoone):
-                raise AttributeError("Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
+        return all(hasattr(self.user, onetoone) for onetoone in self.req_otos)
 
     def context_onetoones(
         self,
@@ -1530,6 +1611,16 @@ class OneToOneFormMixin(GoutHelperEditMixin):
     def context_update_onetoone(self, onetoone: str, kwargs: dict) -> None:
         kwargs.update({"age" if onetoone == "dateofbirth" else onetoone: self.get_onetoone_value(onetoone)})
 
+    def dispatch_user_missing_requirements(self, request: "HttpRequest") -> bool:
+        return not self.user_has_required_otos or super().dispatch_user_missing_requirements(request)
+
+    def form_valid_init(self) -> None:
+        super().form_valid_init()
+        self.form_valid_save_otos()
+        self.form_valid_delete_otos()
+        if self.req_otos and self.related_object:
+            self.form_valid_related_object_otos()
+
     def form_valid_save_otos(self) -> None:
         if self.oto_2_save:
             for oto in self.oto_2_save:
@@ -1551,7 +1642,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
 
     def form_valid_related_object_otos(self):
         def check_if_oto_attr_in_related_object_fields(oto_attr: str) -> bool:
-            return oto_attr in [field.name for field in self.related_object._meta.fields]
+            return attr_is_in_model_fields(oto_attr, self.related_object)
 
         for oto_attr in self.req_otos:
             related_object_oto = getattr(self.related_object, oto_attr, None)
@@ -1651,6 +1742,19 @@ class OneToOneFormMixin(GoutHelperEditMixin):
     def onetoone_not_attr_of_related_object(self, onetoone: str) -> bool:
         return not self.related_object or (self.related_object and not getattr(self.related_object, onetoone, None))
 
+    def post_init(self) -> None:
+        super().post_init()
+        self.post_populate_oto_forms()
+
+    def post_forms_valid(self) -> bool:
+        other_forms_valid = super().post_forms_valid()
+        oto_forms_valid = validate_form_list(form_list=self.oto_forms.values()) if self.oto_forms else True
+        return other_forms_valid and oto_forms_valid
+
+    def post_process_forms(self) -> None:
+        super().post_process_forms()
+        self.post_process_oto_forms()
+
     def post_process_oto_forms(
         self,
     ) -> tuple[list[Model], list[Model]]:
@@ -1695,7 +1799,12 @@ class GoutHelperUserDetailMixin(PatientSessionMixin):
         return self.object if isinstance(self.object, User) else getattr(self.object, "user", None)
 
 
-class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
+class GoutHelperUserEditMixin(
+    PatientSessionMixin,
+    OneToOneFormMixin,
+    MedHistoryFormMixin,
+    MedAllergyFormMixin,
+):
     """Overwritten to modify related models around a User, rather than
     a GoutHelper DecisionAid or TreatmentAid object. Also to create a user."""
 
@@ -1745,16 +1854,14 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
             self.form_valid_delete_otos()
         if self.req_otos and self.related_object:
             self.form_valid_related_object_otos()
-        if self.medallergy_forms:
-            self.form_valid_save_medallergys()
-            self.form_valid_delete_medallergys()
         if self.medhistory_forms:
             self.form_valid_save_medhistorys()
             self.form_valid_save_medhistory_details()
             self.form_valid_delete_medhistorys()
             self.form_valid_delete_medhistory_details()
-        if self.lab_formsets:
-            self.form_valid_save_and_delete_labs()
+        if self.medallergy_forms:
+            self.form_valid_save_medallergys()
+            self.form_valid_delete_medallergys()
         if self.create_view:  # pylint: disable=W0125
             create_pseudopatientprofile()
         return HttpResponseRedirect(self.get_success_url())
@@ -1798,7 +1905,7 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
     def update_related_object_medallergys_qs(self, related_object: Any, related_object_attr: str) -> None:
         if not hasattr(related_object, "medallergys_qs"):
             raise AttributeError("Related object must have a medallergys_qs attribute.")
-        if not hasattr(self, "ma_2_save"):
+        if self.form_valid_need_to_set_ma_save_rem_forms():
             self.medallergy_forms = True
             self.ma_2_save = []
             self.ma_2_rem = []
@@ -1809,6 +1916,15 @@ class GoutHelperUserEditMixin(GoutHelperAidEditMixin):
                 self.update_related_obj_medallergy(
                     ma_in_ma_2_save if ma_in_ma_2_save else ma, ma_related_obj, related_object_attr
                 )
+
+    def form_valid_need_to_set_ma_save_rem_forms(self) -> bool:
+        return (
+            not hasattr(self, "ma_2_save")
+            or not hasattr(self, "ma_2_rem")
+            or not hasattr(self, "medallergy_forms")
+            or hasattr(self, "medallergy_forms")
+            and not self.medallergy_forms
+        )
 
     def update_related_obj_medallergy(
         self, ma: "MedAllergy", ma_related_obj: Any | None, related_object_attr: str

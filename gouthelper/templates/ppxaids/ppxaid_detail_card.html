@@ -62,14 +62,36 @@
       <div class="row">
         <div class="col">
           <h4 class="card-title">
-            <a href="{% url 'ppxaids:about' %}">PpxAid</a>: none
+            <a href="{% url 'ppxaids:about' %}">PpxAid</a>:
+            {% if marketing %}
+              get custom prophylaxis recommendations
+            {% else %}
+              none
+            {% endif %}
           </h4>
         </div>
         <div class="col-auto">
-          <a type="button"
-             class="btn btn-primary"
-             href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
-             role="button">Create</a>
+          {% if object|is_pseudopatient %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object.user %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxaids:ppx-create' ppx=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxaids:create' %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
         </div>
       </div>
     {% endif %}

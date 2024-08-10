@@ -95,12 +95,11 @@ class PpxAidCreate(PpxAidEditBase, PermissionRequiredMixin, CreateView, SuccessM
         if self.errors:
             return self.errors
         else:
-            kwargs.update({"ppx": self.ppx})
             return self.form_valid(**kwargs)
 
     @cached_property
     def ppx(self) -> Ppx | None:
-        ppx_kwarg = self.kwargs.get("ppx", None)
+        ppx_kwarg = self.kwargs.pop("ppx", None)
         return Ppx.related_objects.get(pk=ppx_kwarg) if ppx_kwarg else None
 
     @cached_property

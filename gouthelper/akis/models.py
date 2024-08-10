@@ -121,3 +121,6 @@ class Aki(
     @cached_property
     def resolved(self) -> bool:
         return self.status == Statuses.RESOLVED
+
+    def __str__(self) -> str:
+        return f"AKI, {self.get_status_display()}"

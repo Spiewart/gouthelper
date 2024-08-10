@@ -82,7 +82,7 @@ class PseudopatientManager(BaseUserManager):
         return flare_user_relations(self.get_queryset(), **{"flare_pk": flare_pk} if flare_pk else {})
 
     def flare_qs(self, flare_pk: "UUID"):
-        return self.flare_qs(flare_pk=flare_pk)
+        return self.flares_qs(flare_pk=flare_pk)
 
     def goalurate_qs(self):
         return goalurate_user_relations(self.get_queryset())
