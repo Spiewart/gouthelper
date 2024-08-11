@@ -106,7 +106,7 @@ class UltAid(
 
     objects = models.Manager()
     related_objects = UltAidManager()
-    related_models: list[Literal["ult"]] = ["ult"]
+    related_models: list[Literal["ult"], Literal["goalurate"]] = ["goalurate", "ult"]
     decision_aid_service = UltAidDecisionAid
 
     def __str__(self):

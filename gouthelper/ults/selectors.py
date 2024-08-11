@@ -4,8 +4,8 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch  # type: ignore
 
 from ..flares.selectors import flares_prefetch
-from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..ultaids.selectors import medhistorys_qs as ultaid_medhistorys_qs
+from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
+from ..treatments.choices import UltChoices
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -21,6 +21,18 @@ def medhistorys_qs() -> "QuerySet":
     ).all()
 
 
+def goalurate_medhistorys_qs() -> "QuerySet":
+    return (apps.get_model("medhistorys.MedHistory").objects.filter(medhistorytype__in=GOALURATE_MEDHISTORYS)).all()
+
+
+def ultaid_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(medhistorytype__in=ULTAID_MEDHISTORYS)
+        .select_related("ckddetail", "baselinecreatinine")
+    ).all()
+
+
 def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
@@ -29,11 +41,12 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
-def ult_relations(qs: "QuerySet") -> "QuerySet":
-    return qs.select_related(
-        "dateofbirth",
-        "gender",
-    ).prefetch_related(medhistorys_prefetch())
+def goalurate_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ultaid__goalurate__medhistory_set",
+        queryset=goalurate_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
 
 
 def ultaid_medhistorys_prefetch() -> Prefetch:
@@ -44,8 +57,35 @@ def ultaid_medhistorys_prefetch() -> Prefetch:
     )
 
 
+def ultaid_medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(treatment__in=UltChoices.values).all()
+
+
+def ultaid_medallergys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ultaid__medallergy_set",
+        queryset=ultaid_medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
+def ult_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "gender",
+    ).prefetch_related(medhistorys_prefetch())
+
+
 def ult_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ult_relations(qs=qs).select_related("ultaid", "user").prefetch_related(ultaid_medhistorys_prefetch())
+    return (
+        ult_relations(qs=qs)
+        .select_related("ultaid__goalurate", "user")
+        .prefetch_related(
+            ultaid_medallergys_prefetch(),
+            ultaid_medhistorys_prefetch(),
+            goalurate_medhistorys_prefetch(),
+        )
+    )
 
 
 def ult_user_relations(qs: "QuerySet") -> "QuerySet":

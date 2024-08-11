@@ -16,6 +16,7 @@ from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
 from ...ppxs.tests.factories import create_ppx
 from ...ultaids.tests.factories import create_ultaid
+from ...ults.tests.factories import create_ult
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import UserFactory, create_psp
@@ -324,6 +325,25 @@ class TestGoalUrateUpdate(TestCase):
         self.assertTrue(goalurate.medhistory_set.get(medhistorytype=MedHistoryTypes.TOPHI))
         goalurate.refresh_from_db()
         self.assertEqual(goalurate.goal_urate, GoalUrates.FIVE)
+
+    def test__updates_ult_related_by_ultaid(self):
+        ult = create_ult(mhs=[])
+        self.assertFalse(ult.medhistory_set.all())
+        ultaid = create_ultaid(mhs=[])
+        self.assertFalse(ultaid.medhistory_set.all())
+        ultaid.ult = ult
+        ultaid.save()
+        goalurate = create_goalurate(ultaid=ultaid, mhs=[])
+        self.assertFalse(goalurate.medhistory_set.all())
+        self.assertEqual(goalurate.ultaid, ultaid)
+        data = {
+            f"{MedHistoryTypes.EROSIONS}-value": True,
+            f"{MedHistoryTypes.TOPHI}-value": False,
+        }
+        response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        # self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).exists())
 
 
 class TestGoalUratePseudopatientCreate(TestCase):

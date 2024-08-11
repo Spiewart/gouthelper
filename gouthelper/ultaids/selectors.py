@@ -4,7 +4,7 @@ from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
-from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULTAID_MEDHISTORYS
+from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -32,6 +32,18 @@ def medhistorys_qs() -> "QuerySet":
     )
 
 
+def goalurate_medhistorys_qs() -> "QuerySet":
+    return apps.get_model("medhistorys.MedHistory").objects.filter(medhistorytype__in=GOALURATE_MEDHISTORYS)
+
+
+def ult_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(medhistorytype__in=ULT_MEDHISTORYS)
+        .select_related("ckddetail", "baselinecreatinine")
+    )
+
+
 def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
@@ -40,12 +52,27 @@ def medhistorys_prefetch() -> Prefetch:
     )
 
 
+def goalurate_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "goalurate__medhistory_set",
+        queryset=goalurate_medhistorys_qs(),
+        to_attr="goalurate_medhistorys_qs",
+    )
+
+
+def ult_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "ult__medhistory_set",
+        queryset=ult_medhistorys_qs(),
+        to_attr="ult_medhistorys_qs",
+    )
+
+
 def ultaid_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
         "ethnicity",
         "gender",
-        "goalurate",
         "hlab5801",
     ).prefetch_related(
         medhistorys_prefetch(),
@@ -54,7 +81,14 @@ def ultaid_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ultaid_userless_relations(qs: "QuerySet") -> "QuerySet":
-    return ultaid_relations(qs).select_related("user")
+    return (
+        ultaid_relations(qs)
+        .select_related("goalurate", "ult", "user")
+        .prefetch_related(
+            goalurate_medhistorys_prefetch(),
+            ult_medhistorys_prefetch(),
+        )
+    )
 
 
 def ultaid_user_relations(qs: "QuerySet") -> "QuerySet":
