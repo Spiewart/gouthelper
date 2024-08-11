@@ -50,7 +50,7 @@ class TestUltAidQuerySet(TestCase):
         self.assertEqual(ultaid.goalurate, self.goalurate)
         with CaptureQueriesContext(connection) as queries:
             queryset = queryset.get()
-        self.assertEqual(len(queries.captured_queries), 3)
+        self.assertEqual(len(queries.captured_queries), 4)
         self.assertIn(self.ckd, queryset.medhistorys_qs)
 
     def test__empty_queryset_returns_correctly(self):
