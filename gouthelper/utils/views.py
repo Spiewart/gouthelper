@@ -517,7 +517,7 @@ class GoutHelperEditMixin:
     def related_objects(self) -> list[Model]:
         rel_obj_list = []
         if self.create_view and not self.user:
-            for aid_type in self.object.related_models:
+            for aid_type in self.model.related_models:
                 if hasattr(self, aid_type):
                     rel_obj = getattr(self, aid_type)
                     if rel_obj:
@@ -529,6 +529,9 @@ class GoutHelperEditMixin:
                     rel_obj = getattr(self.object, aid_type)
                     if rel_obj:
                         rel_obj_list.append(rel_obj)
+                        for aid_type in rel_obj.related_models:
+                            if hasattr(rel_obj, aid_type):
+                                rel_obj_list.append(getattr(rel_obj, aid_type))
         return rel_obj_list
 
     @property
@@ -1300,10 +1303,8 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             if self.get_mh_cleaned_value(mhtype, mh_form.cleaned_data):
                 if mh_obj:
                     if (
-                        self.related_object
-                        and self.medhistory_needs_object_attr_update(
-                            mh_obj, self.related_object, self.related_object_attr
-                        )
+                        self.related_objects
+                        and self.medhistory_needs_object_attr_update_for_any_related_object(mh_obj)
                         or self.medhistory_needs_object_attr_update(mh_obj, self.object, self.object_attr)
                         or self.user
                         and not mh_obj.user
@@ -1319,6 +1320,18 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             elif mh_obj:
                 self.mhs_2_remove.append(mh_obj)
                 self.post_remove_mh_from_medhistorys_qs(post_qs_target, mh_obj)
+
+    def medhistory_needs_object_attr_update_for_any_related_object(self, mh: "MedHistory") -> bool:
+        return any(
+            [
+                self.medhistory_needs_object_attr_update(
+                    mh=mh,
+                    object=related_object,
+                    object_attr=related_object.__class__.__name__.lower(),
+                )
+                for related_object in self.related_objects
+            ]
+        )
 
     def post_process_medhistory_detail(self, mhtype: MedHistoryTypes, medhistory: Union["MedHistory", None]) -> None:
         if mhtype == MedHistoryTypes.GOUT and self.goutdetail:
@@ -1459,9 +1472,12 @@ menopause status to evaluate their flare."
                     mh.update_set_date_and_save()
 
     def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
+        print(self.related_objects)
+        print(mh)
         for related_object in self.related_objects:
             related_object_attr = related_object.__class__.__name__.lower()
             if self.medhistory_compatible_with_aid_object(mh, related_object):
+                print(related_object)
                 if not getattr(mh, related_object_attr, None):
                     setattr(mh, related_object_attr, related_object)
                     self.add_mh_to_medhistorys_qs(mh, related_object)
