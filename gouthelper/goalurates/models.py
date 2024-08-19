@@ -88,6 +88,7 @@ class GoalUrate(
     objects = models.Manager()
     related_objects = GoalUrateManager()
     related_models = ["ppx", "ultaid"]
+    req_otos: list[None] = []
     decision_aid_service = GoalUrateDecisionAid
 
     def __str__(self):

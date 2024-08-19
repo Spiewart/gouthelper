@@ -1,12 +1,9 @@
 from typing import TYPE_CHECKING, Any
 
 from django.apps import apps  # type: ignore
-from django.contrib import messages  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.http import HttpResponseRedirect  # type: ignore
-from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
-from django.views.generic import CreateView, DetailView, TemplateView, UpdateView  # type: ignore
+from django.views.generic import CreateView, TemplateView, UpdateView  # type: ignore
 from django_htmx.http import HttpResponseClientRefresh  # type: ignore
 from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredMixin  # type: ignore
 
@@ -14,8 +11,7 @@ from ..contents.choices import Contexts
 from ..ppxs.models import Ppx
 from ..ultaids.models import UltAid
 from ..users.models import Pseudopatient
-from ..utils.helpers import get_str_attrs
-from ..utils.views import MedHistoryFormMixin
+from ..utils.views import GoutHelperDetailMixin, GoutHelperPseudopatientDetailMixin, MedHistoryFormMixin
 from .dicts import MEDHISTORY_FORMS
 from .forms import GoalUrateForm
 from .models import GoalUrate
@@ -114,44 +110,9 @@ class GoalUrateCreate(GoalUrateEditBase, PermissionRequiredMixin, CreateView, Su
         return self.ppx if self.ppx else self.ultaid
 
 
-class GoalUrateDetailBase(AutoPermissionRequiredMixin, DetailView):
-    """Abstract base class for attrs and methods that GoalUrateDetail and
-    GoalUratePseudopatientDetail inherit from."""
-
-    class Meta:
-        abstract = True
-
+class GoalUrateDetail(GoutHelperDetailMixin):
     model = GoalUrate
     object: GoalUrate
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
-        return context
-
-    def get_permission_object(self):
-        return self.object
-
-
-class GoalUrateDetail(GoalUrateDetailBase):
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        else:
-            # Check if FlareAid is up to date and update if not update
-            if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.object)
-            return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        """Overwritten to avoid calling get_object again, which is instead
-        called on dispatch()."""
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return GoalUrate.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class GoalUratePatientBase(GoalUrateEditBase):
@@ -185,56 +146,9 @@ class GoalUratePseudopatientCreate(
         return self.success_message % dict(cleaned_data, user=self.user)
 
 
-class GoalUratePseudopatientDetail(GoalUrateDetailBase):
-    """View for displaying a GoalUrate for a Pseudopatient."""
-
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        """Overwritten to add the GoalUrate's user to the context as 'patient'."""
-        context = super().get_context_data(**kwargs)
-        context["patient"] = self.user
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct GoalUratePseudopatientCreate url instead."""
-        try:
-            self.object = self.get_object()
-        except GoalUrate.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
-            )
-        return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        """Updates the objet prior to rendering the view."""
-        # Check if GoalUrate is up to date and update if not update
-        if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.object)
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_permission_object(self):
-        return self.object
-
-    def assign_goalurate_attrs_from_user(self, goalurate: GoalUrate, user: "User") -> GoalUrate:
-        """Transfers the user's medhistorys_qs to the GoalUrate."""
-        goalurate.medhistorys_qs = user.medhistorys_qs
-        return goalurate
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.goalurate_qs().filter(pk=self.kwargs["pseudopatient"])
-
-    def get_object(self, *args, **kwargs) -> GoalUrate:
-        """Gets the GoalUrate, sets the user attr, and also transfers the user's
-        medhistorys_qs to the GoalUrate."""
-        self.user: User = self.get_queryset().get()
-        try:
-            goalurate: GoalUrate = self.user.goalurate
-        except GoalUrate.DoesNotExist as exc:
-            raise GoalUrate.DoesNotExist(f"{self.user} does not have a GoalUrate. Create one.") from exc
-        goalurate = self.assign_goalurate_attrs_from_user(goalurate=goalurate, user=self.user)
-        return goalurate
+class GoalUratePseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = GoalUrate
+    object: GoalUrate
 
 
 class GoalUratePseudopatientUpdate(

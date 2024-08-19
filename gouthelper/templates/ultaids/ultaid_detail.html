@@ -40,7 +40,11 @@
       | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
-      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+      {% if object.user %}
+        <span>{{ object.user }}</span>
+      {% elif object.ult %}
+        <a href="{% url 'ults:detail' pk=object.ult.pk %}">{{ object.ult }}</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

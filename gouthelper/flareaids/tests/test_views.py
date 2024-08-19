@@ -41,7 +41,6 @@ from ...utils.factories import (
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..models import FlareAid
-from ..selectors import flareaid_user_qs
 from ..views import (
     FlareAidAbout,
     FlareAidCreate,
@@ -925,24 +924,6 @@ class TestFlareAidPseudopatientDetail(TestCase):
             reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}),
         )
 
-    def test__assign_flareaid_attrs_from_user(self):
-        """Test that the assign_flareaid_attrs_from_user() method for the view
-        transfers attributes from the QuerySet, which started with a User,
-        to the FlareAid object."""
-        flareaid = FlareAid.objects.get(user=self.psp)
-        view = self.view()
-        request = self.factory.get("/fake-url/")
-        view.setup(request, pseudopatient=self.psp.pk)
-        assert not getattr(flareaid, "dateofbirth")
-        assert not getattr(flareaid, "gender")
-        assert not hasattr(flareaid, "medhistorys_qs")
-        assert not hasattr(flareaid, "medallergys_qs")
-        view.assign_flareaid_attrs_from_user(flareaid=flareaid, user=flareaid_user_qs(self.psp.pk).get())
-        assert getattr(flareaid, "dateofbirth") == self.psp.dateofbirth
-        assert getattr(flareaid, "gender") == self.psp.gender
-        assert hasattr(flareaid, "medhistorys_qs")
-        assert hasattr(flareaid, "medallergys_qs")
-
     def test__rules(self):
         psp = create_psp()
         create_flareaid(user=psp)
@@ -1014,22 +995,6 @@ class TestFlareAidPseudopatientDetail(TestCase):
         view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
-
-    def test__get_object_assigns_user_qs_attrs_to_flareaid(self):
-        """Test that the get_object method transfers required attributes from the
-        User QuerySet to the FlareAid object."""
-        request = self.factory.get("/fake-url/")
-        view = self.view()
-        view.setup(request, pseudopatient=self.psp.pk)
-        flareaid = view.get_object()
-        assert hasattr(flareaid, "dateofbirth")
-        assert getattr(flareaid, "dateofbirth") == view.user.dateofbirth
-        assert hasattr(flareaid, "gender")
-        assert getattr(flareaid, "gender") == view.user.gender
-        assert hasattr(flareaid, "medhistorys_qs")
-        assert getattr(flareaid, "medhistorys_qs") == view.user.medhistorys_qs
-        assert hasattr(flareaid, "medallergys_qs")
-        assert getattr(flareaid, "medallergys_qs") == view.user.medallergys_qs
 
     def test__get_permission_object(self):
         """Test that the get_permission_object() method returns the

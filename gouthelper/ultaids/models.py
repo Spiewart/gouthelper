@@ -107,13 +107,15 @@ class UltAid(
     objects = models.Manager()
     related_objects = UltAidManager()
     related_models: list[Literal["ult"], Literal["goalurate"]] = ["goalurate", "ult"]
+    req_otos: list[Literal["ethnicity"]] = ["ethnicity"]
     decision_aid_service = UltAidDecisionAid
 
     def __str__(self):
         if self.user:
             return f"{str(self.user)}'s UltAid"
         else:
-            return f"UltAid: created {self.created.date()}"
+            suffix = f"created {self.created.date()}" if self.created else "in creation"
+            return f"UltAid: {suffix}"
 
     @cached_property
     def aid_dict(self) -> dict:

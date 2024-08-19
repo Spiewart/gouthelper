@@ -87,13 +87,15 @@ class PpxAid(
     objects = models.Manager()
     related_objects = PpxAidManager()
     related_models: list[Literal["ppx"]] = ["ppx"]
+    req_otos: list[Literal["dateofbirth"]] = ["dateofbirth"]
     decision_aid_service = PpxAidDecisionAid
 
     def __str__(self):
         if self.user:
             return f"{str(self.user)}'s PpxAid"
         else:
-            return f"PpxAid: created {self.created.date()}"
+            suffix = f"created {self.created.date()}" if self.created else "in creation"
+            return f"PpxAid: {suffix}"
 
     @cached_property
     def aid_dict(self) -> dict:

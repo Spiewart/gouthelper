@@ -680,7 +680,7 @@ symptoms were due to gout."
     def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":
         """Overwritten to pass the flare_pk kwarg to the flares_qs manager."""
         model_name = self._meta.model_name
-        return getattr(Pseudopatient.objects, f"{model_name}_qs")(flare_pk=self.pk).get()
+        return getattr(Pseudopatient.objects, f"{model_name}_qs").filter(user=self.user, flare_pk=self.pk).get()
 
     def gout_interp(self):
         """Method that returns a str interpretation of the gout cached_property."""

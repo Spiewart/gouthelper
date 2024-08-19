@@ -36,7 +36,6 @@ from ...utils.factories import form_data_colchicine_contra, form_data_nsaid_cont
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..models import PpxAid
-from ..selectors import ppxaid_user_qs
 from ..views import (
     PpxAidAbout,
     PpxAidCreate,
@@ -930,24 +929,6 @@ class TestPpxAidPseudopatientDetail(TestCase):
             reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}),
         )
 
-    def test__assign_ppxaid_attrs_from_user(self):
-        """Test that the assign_ppxaid_attrs_from_user() method for the view
-        transfers attributes from the QuerySet, which started with a User,
-        to the PpxAid object."""
-        ppxaid = PpxAid.objects.get(user=self.psp)
-        view = self.view()
-        request = self.factory.get("/fake-url/")
-        view.setup(request, pseudopatient=self.psp.pk)
-        assert not getattr(ppxaid, "dateofbirth")
-        assert not getattr(ppxaid, "gender")
-        assert not hasattr(ppxaid, "medhistorys_qs")
-        assert not hasattr(ppxaid, "medallergys_qs")
-        view.assign_ppxaid_attrs_from_user(ppxaid=ppxaid, user=ppxaid_user_qs(self.psp.pk).get())
-        assert getattr(ppxaid, "dateofbirth") == self.psp.dateofbirth
-        assert getattr(ppxaid, "gender") == self.psp.gender
-        assert hasattr(ppxaid, "medhistorys_qs")
-        assert hasattr(ppxaid, "medallergys_qs")
-
     def test__rules(self):
         psp = create_psp()
         create_ppxaid(user=psp)
@@ -1017,22 +998,6 @@ class TestPpxAidPseudopatientDetail(TestCase):
         view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
-
-    def test__get_object_assigns_user_qs_attrs_to_ppxaid(self):
-        """Test that the get_object method transfers required attributes from the
-        User QuerySet to the PpxAid object."""
-        request = self.factory.get("/fake-url/")
-        view = self.view()
-        view.setup(request, pseudopatient=self.psp.pk)
-        ppxaid = view.get_object()
-        assert hasattr(ppxaid, "dateofbirth")
-        assert getattr(ppxaid, "dateofbirth") == view.user.dateofbirth
-        assert hasattr(ppxaid, "gender")
-        assert getattr(ppxaid, "gender") == view.user.gender
-        assert hasattr(ppxaid, "medhistorys_qs")
-        assert getattr(ppxaid, "medhistorys_qs") == view.user.medhistorys_qs
-        assert hasattr(ppxaid, "medallergys_qs")
-        assert getattr(ppxaid, "medallergys_qs") == view.user.medallergys_qs
 
     def test__get_permission_object(self):
         """Test that the get_permission_object() method returns the

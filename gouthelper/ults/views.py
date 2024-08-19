@@ -1,28 +1,22 @@
 from typing import TYPE_CHECKING, Any  # pylint: disable=E0013, E0015 # type: ignore
 
 from django.apps import apps  # pylint: disable=E0401 # type: ignore
-from django.contrib import messages  # pylint: disable=E0401  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401 # type: ignore
-from django.http import HttpResponseRedirect  # pylint: disable=E0401 # type: ignore
-from django.urls import reverse  # pylint: disable=E0401  # type: ignore
-from django.views.generic import (  # pylint: disable=E0401 # type: ignore
-    CreateView,
-    DetailView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import CreateView, TemplateView, UpdateView  # pylint: disable=E0401 # type: ignore
 from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignore
     AutoPermissionRequiredMixin,
     PermissionRequiredMixin,
 )
 
 from ..contents.choices import Contexts
-from ..dateofbirths.models import DateOfBirth
-from ..genders.models import Gender
 from ..labs.selectors import hyperuricemia_urates_prefetch
 from ..users.models import Pseudopatient
-from ..utils.helpers import get_str_attrs
-from ..utils.views import MedHistoryFormMixin, OneToOneFormMixin, PatientSessionMixin
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
+)
 from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS, PATIENT_OTO_FORMS, PATIENT_REQ_OTOS
 from .forms import UltForm
 from .models import Ult
@@ -79,46 +73,9 @@ class UltCreate(UltEditBase, PermissionRequiredMixin, CreateView, SuccessMessage
             return self.form_valid()
 
 
-class UltDetailBase(AutoPermissionRequiredMixin, DetailView):
-    """DetailView for Ult model."""
-
-    class Meta:
-        abstract = True
-
+class UltDetail(GoutHelperDetailMixin):
     model = Ult
     object: Ult
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
-        return context
-
-    def get_permission_object(self):
-        return self.object
-
-
-class UltDetail(UltDetailBase, PatientSessionMixin):
-    """Overwritten for different url routing/redirecting and assigning the view object."""
-
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        # If the object has a user, this is the wrong view so redirect to the right one
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        else:
-            # Check if Ult is up to date and update if not update
-            if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.object)
-            return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        """Overwritten to avoid calling get_object again, which is instead
-        called on dispatch()."""
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Ult.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class UltPatientBase(UltEditBase):
@@ -167,62 +124,9 @@ class UltPseudopatientCreate(UltPatientBase, PermissionRequiredMixin, CreateView
             return self.form_valid()
 
 
-class UltPseudopatientDetail(UltDetailBase, PatientSessionMixin):
-    """DetailView for Ults that have a user."""
-
-    pk_url_kwarg = "pseudopatient"
-
-    def dispatch(self, request, *args, **kwargs):
-        """Redirects to the Ult CreateView if the user doesn't have a Ult. Also,
-        redirects to the Pseudopatient UpdateView if the user doesn't have the required
-        OneToOne models. These exceptions are raised by the get_object() method."""
-        try:
-            self.object = self.get_object()
-        except Ult.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("ults:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
-            )
-        except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
-            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        """Overwritten to add the Ult's user to the context as 'patient'."""
-        context = super().get_context_data(**kwargs)
-        context["patient"] = self.user
-        return context
-
-    def get(self, request, *args, **kwargs):
-        """Updates the object prior to rendering the view. Does not call get_object()."""
-        if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.object)
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    @classmethod
-    def assign_ult_attrs_from_user(cls, ult: Ult, user: "User") -> Ult:  # pylint: disable=W0613  # type: ignore
-        """Method that assigns attributes from the User QuerySet to the Ult for processing
-        in service methods and display in the templates. Raises DoesNotExist errors if the
-        related model does not exist on the User, which are then used to redirect to the
-        appropriate view."""
-        ult.dateofbirth = user.dateofbirth
-        ult.gender = user.gender
-        ult.medhistorys_qs = user.medhistorys_qs
-        return ult
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ult_qs().filter(pk=self.kwargs["pseudopatient"])
-
-    def get_object(self, *args, **kwargs) -> Ult:
-        self.user: User = self.get_queryset().get()  # pylint: disable=W0201 # type: ignore
-        try:
-            ult: Ult = self.user.ult
-        except Ult.DoesNotExist as exc:
-            raise Ult.DoesNotExist(f"{self.user} does not have a Ult. Create one.") from exc
-        ult = self.assign_ult_attrs_from_user(ult=ult, user=self.user)
-        return ult
+class UltPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = Ult
+    object: Ult
 
 
 class UltPseudopatientUpdate(UltPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):

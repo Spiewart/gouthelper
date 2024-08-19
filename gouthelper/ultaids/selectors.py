@@ -56,7 +56,7 @@ def goalurate_medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "goalurate__medhistory_set",
         queryset=goalurate_medhistorys_qs(),
-        to_attr="goalurate_medhistorys_qs",
+        to_attr="medhistorys_qs",
     )
 
 
@@ -64,7 +64,7 @@ def ult_medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "ult__medhistory_set",
         queryset=ult_medhistorys_qs(),
-        to_attr="ult_medhistorys_qs",
+        to_attr="medhistorys_qs",
     )
 
 

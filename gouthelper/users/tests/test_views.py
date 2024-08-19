@@ -394,7 +394,7 @@ menopause status to evaluate their flare."
             "starting_ult": True,
         }
         if (
-            pseudopatient.gender == Genders.FEMALE
+            pseudopatient.gender.value
             and age_calc(pseudopatient.dateofbirth.value) >= 40
             and age_calc(pseudopatient.dateofbirth.value) < 60
         ):

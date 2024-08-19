@@ -1,9 +1,15 @@
+from datetime import timedelta
+
 import pytest  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
+from django.utils import timezone
 
+from ...genders.choices import Genders
 from ...medhistorys.lists import CV_DISEASES, MedHistoryTypes
 from ...treatments.choices import UltChoices
+from ...ults.tests.factories import create_ult
+from ...users.tests.factories import create_psp
 from ..forms import UltAidForm
 
 pytestmark = pytest.mark.django_db
@@ -13,6 +19,7 @@ class TestUltAidForm(TestCase):
     def setUp(self):
         self.form = UltAidForm(medallergys=UltChoices.values)
         self.factory = RequestFactory()
+        self.psp = create_psp()
 
     def test___init__without_medallergys_raises_KeyError(self):
         with pytest.raises(KeyError):
@@ -43,3 +50,27 @@ class TestUltAidForm(TestCase):
         self.assertIn("medallergys", response.rendered_content)
         for medallergy in UltChoices.values:
             self.assertIn(f"medallergy_{medallergy}", response.rendered_content)
+
+    def test__dateofbirth_gender_form_not_included_with_patient(self):
+        response = self.client.get(reverse("ultaids:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}))
+        self.assertNotIn("dateofbirth-value", response.rendered_content)
+        self.assertIn("age", response.rendered_content)
+        self.assertNotIn("gender-value", response.rendered_content)
+        self.assertIn("gender", response.rendered_content)
+        self.assertNotIn("ethnicity-value", response.rendered_content)
+
+    def test__dateofbirth_but_not_gender_form_included_with_ult_with_gender_only(self):
+        ult = create_ult(dateofbirth=None, gender=Genders.FEMALE)
+        response = self.client.get(reverse(viewname="ultaids:ult-create", kwargs={"ult": ult.pk}))
+        self.assertIn("dateofbirth-value", response.rendered_content)
+        self.assertNotIn("gender-value", response.rendered_content)
+        self.assertIn("gender", response.rendered_content)
+        self.assertIn("ethnicity-value", response.rendered_content)
+
+    def test__gender_but_not_dateofbirth_form_included_with_ult_with_dateofbirth_only(self):
+        ult = create_ult(dateofbirth=timezone.now() - timedelta(days=365 * 50), gender=None)
+        response = self.client.get(reverse(viewname="ultaids:ult-create", kwargs={"ult": ult.pk}))
+        self.assertIn("age", response.rendered_content)
+        self.assertNotIn("dateofbirth-value", response.rendered_content)
+        self.assertIn("gender-value", response.rendered_content)
+        self.assertIn("ethnicity-value", response.rendered_content)

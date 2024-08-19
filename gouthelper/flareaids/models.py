@@ -94,6 +94,7 @@ class FlareAid(
     objects = models.Manager()
     related_objects = FlareAidManager()
     related_models: list[Literal["flare"]] = ["flare"]
+    req_otos: list[Literal["dateofbirth"]] = ["dateofbirth"]
     decision_aid_service = FlareAidDecisionAid
 
     def __str__(self):

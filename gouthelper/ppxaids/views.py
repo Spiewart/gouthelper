@@ -1,30 +1,25 @@
 from typing import TYPE_CHECKING, Any  # pylint: disable=e0401, e0015 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
-from django.contrib import messages  # pylint: disable=e0401 # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
-from django.http import HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
-from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
-from django.views.generic import (  # pylint: disable=e0401 # type: ignore
-    CreateView,
-    DetailView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import CreateView, TemplateView, UpdateView  # pylint: disable=e0401 # type: ignore
 from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
     AutoPermissionRequiredMixin,
     PermissionRequiredMixin,
 )
 
 from ..contents.choices import Contexts
-from ..dateofbirths.models import DateOfBirth
-from ..genders.models import Gender
 from ..ppxs.models import Ppx
 from ..users.models import Pseudopatient
-from ..utils.helpers import get_str_attrs
-from ..utils.views import MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    MedAllergyFormMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
+)
 from .dicts import (
     MEDALLERGY_FORMS,
     MEDHISTORY_DETAIL_FORMS,
@@ -107,45 +102,9 @@ class PpxAidCreate(PpxAidEditBase, PermissionRequiredMixin, CreateView, SuccessM
         return self.ppx
 
 
-class PpxAidDetailBase(AutoPermissionRequiredMixin, DetailView):
-    """DetailView for PpxAids."""
-
-    class Meta:
-        abstract = True
-
+class PpxAidDetail(GoutHelperDetailMixin):
     model = PpxAid
     object: PpxAid
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
-        return context
-
-    def get_permission_object(self):
-        return self.object
-
-
-class PpxAidDetail(PpxAidDetailBase):
-    """DetailView for PpxAid model."""
-
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        else:
-            # Check if PpxAid is up to date and update if not update
-            if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.object)
-            return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        """Overwritten to avoid calling get_object again, which is instead
-        called on dispatch()."""
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return PpxAid.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class PpxAidPatientBase(PpxAidEditBase):
@@ -181,62 +140,9 @@ class PpxAidPseudopatientCreate(PpxAidPatientBase, PermissionRequiredMixin, Crea
             return self.form_valid()
 
 
-class PpxAidPseudopatientDetail(PpxAidDetailBase):
-    """Overwritten for different url routing, object fetching, and
-    building the content data."""
-
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        """Overwritten to add the PpxAid's user to the context as 'patient'."""
-        context = super().get_context_data(**kwargs)
-        context["patient"] = self.user
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct PpxAidPseudopatientCreate url instead. Also checks if the user has
-        the correct OneToOne models and redirects to the view to add them if not."""
-        try:
-            self.object = self.get_object()
-        except PpxAid.DoesNotExist as exc:
-            messages.error(request, exc.args[0])
-            return HttpResponseRedirect(
-                reverse("ppxaids:pseudopatient-create", kwargs={"pseudopatient": kwargs["pseudopatient"]})
-            )
-        except (DateOfBirth.DoesNotExist, Gender.DoesNotExist):
-            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
-        return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        """Updates the objet prior to rendering the view."""
-        # Check if PpxAid is up to date and update if not update
-        if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.object)
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_permission_object(self):
-        return self.object
-
-    def assign_ppxaid_attrs_from_user(self, ppxaid: PpxAid, user: "User") -> PpxAid:
-        ppxaid.dateofbirth = user.dateofbirth
-        if hasattr(user, "gender"):
-            ppxaid.gender = user.gender
-        ppxaid.medallergys_qs = user.medallergys_qs
-        ppxaid.medhistorys_qs = user.medhistorys_qs
-        return ppxaid
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.ppxaid_qs().filter(pk=self.kwargs["pseudopatient"])
-
-    def get_object(self, *args, **kwargs) -> PpxAid:
-        self.user: User = self.get_queryset().get()  # pylint: disable=W0201
-        try:
-            ppxaid: PpxAid = self.user.ppxaid
-        except PpxAid.DoesNotExist as exc:
-            raise PpxAid.DoesNotExist(f"{self.user} does not have a PpxAid. Create one.") from exc
-        ppxaid = self.assign_ppxaid_attrs_from_user(ppxaid=ppxaid, user=self.user)
-        return ppxaid
+class PpxAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = PpxAid
+    object: PpxAid
 
 
 class PpxAidPseudopatientUpdate(PpxAidPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):

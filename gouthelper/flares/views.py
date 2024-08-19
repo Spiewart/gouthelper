@@ -2,11 +2,10 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Union  # pylint: disable=E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
-from django.contrib import messages  # pylint: disable=e0401 # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
 from django.core.exceptions import ValidationError  # pylint: disable=e0401 # type: ignore
-from django.http import Http404, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
+from django.http import Http404  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
 from django.utils.html import mark_safe  # pylint: disable=e0401 # type: ignore
@@ -14,7 +13,6 @@ from django.utils.text import format_lazy  # pylint: disable=e0401 # type: ignor
 from django.views.generic import (  # pylint: disable=e0401 # type: ignore
     CreateView,
     DeleteView,
-    DetailView,
     ListView,
     TemplateView,
     UpdateView,
@@ -35,8 +33,14 @@ from ..labs.helpers import (
 from ..labs.models import Creatinine
 from ..medhistorys.choices import MedHistoryTypes
 from ..users.models import Pseudopatient
-from ..utils.helpers import get_str_attrs, wrap_in_samepage_links_anchor
-from ..utils.views import LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin
+from ..utils.helpers import wrap_in_samepage_links_anchor
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    LabFormSetsMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
+)
 from .dicts import (
     LAB_FORMSETS,
     MEDHISTORY_DETAIL_FORMS,
@@ -267,48 +271,9 @@ class FlareCreate(FlareAnonEditBase, AutoPermissionRequiredMixin, CreateView, Su
         return initial
 
 
-class FlareDetailBase(AutoPermissionRequiredMixin, DetailView):
-    class Meta:
-        abstract = True
-
+class FlareDetail(GoutHelperDetailMixin):
     model = Flare
     object: Flare
-
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
-        return context
-
-    def get_permission_object(self):
-        return self.object
-
-
-class FlareDetail(FlareDetailBase):
-    """View for viewing a Flare"""
-
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        else:
-            # Check if Flare is up to date and update if not update
-            if not request.GET.get("updated", None):
-                self.update_objects()
-            return super().dispatch(request, *args, **kwargs)
-
-    def get(self, request, *args, **kwargs):
-        if not hasattr(self, "object"):
-            self.object = self.get_object()
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Flare.related_objects.filter(pk=self.kwargs["pk"])
-
-    def update_objects(self):
-        self.object.update_aid(qs=self.object)
-        if self.object.flareaid:
-            self.object.flareaid.update_aid(qs=self.object.flareaid)
 
 
 class FlarePatientEditBase(FlareEditBase):
@@ -418,48 +383,26 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessM
         return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
 
 
-class FlarePseudopatientDetail(FlareDetailBase):
-    """Overwritten for different url routing, object fetching, and
-    building the content data."""
+class FlarePseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = Flare
+    object: Flare
+    user: User
 
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["patient"] = self.user
-        return context
-
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to check for a User on the object and redirect to the
-        correct FlarePseudopatientCreate url instead. Also checks if the user has
-        the correct OneToOne models and redirects to the view to add them if not."""
-        self.object = self.get_object()
-        if not self.user_has_required_otos:
-            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
-        return super().dispatch(request, *args, **kwargs)
-
-    @property
-    def user_has_required_otos(self):
-        return all([hasattr(self.user, oto) for oto in self.model.req_otos])
-
-    def get(self, request, *args, **kwargs):
-        # Check if Flare is up to date and update if not update
-        if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.user)
-        context = self.get_context_data(object=self.object)
-        return self.render_to_response(context)
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
+    def get_queryset(self, **kwargs) -> "QuerySet[Any]":
+        kwargs.update({"flare_pk": self.kwargs["pk"]})
+        return super().get_queryset(**kwargs)
 
     def get_object(self, *args, **kwargs) -> Flare:
+        """Overwritten from parent method because a User can have multiple Flares and the
+        queryset will have returned the one indicated by the flare_pk kwarg / "pk" url parameter."""
         try:
             self.user: User = self.get_queryset().get()
         except User.DoesNotExist as exc:
-            raise Http404("GoutPatient does not exist.") from exc
+            raise User.DoesNotExist("GoutPatient does not exist.") from exc
         try:
             flare: Flare = self.user.flare_qs[0]
         except IndexError as exc:
-            raise Http404(f"Flare for {self.user} does not exist.") from exc
+            raise Flare.DoesNotExist(f"Flare for {self.user} does not exist.") from exc
         return flare
 
 

@@ -58,11 +58,13 @@ class CkdDetailFormProcessor:
         self.dialysis_type = ckddetail_form.cleaned_data["dialysis_type"]
         self.dialysis_duration = ckddetail_form.cleaned_data["dialysis_duration"]
         self.stage = ckddetail_form.cleaned_data["stage"]
-        if self.dateofbirth_form and self.gender_form:
+        if self.dateofbirth_form:
             self.dateofbirth = self.dateofbirth_form.cleaned_data["value"]
-            self.gender = self.gender_form.cleaned_data["value"]
         else:
             self.dateofbirth = dateofbirth.value if isinstance(dateofbirth, DateOfBirth) else dateofbirth
+        if self.gender_form:
+            self.gender = self.gender_form.cleaned_data["value"]
+        else:
             self.gender = gender.value if isinstance(gender, Gender) else gender
 
     @cached_property

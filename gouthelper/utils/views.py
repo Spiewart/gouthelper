@@ -10,7 +10,8 @@ from django.forms import ModelForm  # type: ignore
 from django.http import HttpResponseRedirect  # type: ignore
 from django.urls import reverse
 from django.utils.functional import cached_property  # type: ignore
-from django.views.generic import CreateView
+from django.views.generic import CreateView, DetailView
+from rules.contrib.views import AutoPermissionRequiredMixin
 
 from ..dateofbirths.helpers import age_calc
 from ..genders.choices import Genders
@@ -36,6 +37,7 @@ from ..utils.helpers import (
 )
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
     from django.forms import BaseModelFormSet  # type: ignore
     from django.http import HttpRequest, HttpResponse  # type: ignore
 
@@ -114,6 +116,94 @@ class PatientSessionMixin:
             self.remove_patient_from_session(patient)
 
 
+class GoutHelperDetailMixinBase(AutoPermissionRequiredMixin, DetailView, PatientSessionMixin):
+    class Meta:
+        abstract = True
+
+    object: "Aids"
+    user: User | None
+
+    def get(self, request, *args, **kwargs):
+        """Overwritten to avoid calling get_object again, which is instead
+        called on dispatch()."""
+        if not request.GET.get("updated", None):
+            self.object.update_aid(qs=self.user if getattr(self, "user", False) else self.object)
+            self.object.update_related_objects(qs=self.user if getattr(self, "user", False) else self.object)
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
+        return context
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_queryset(self) -> "QuerySet[Any]":
+        return self.model.related_objects.filter(pk=self.kwargs["pk"])
+
+    def update_objects(self):
+        self.object.update_aid(qs=self.object)
+        if self.object.flareaid:
+            self.object.flareaid.update_aid(qs=self.object.flareaid)
+
+
+class GoutHelperDetailMixin(GoutHelperDetailMixinBase):
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.user:
+            return HttpResponseRedirect(self.object.get_absolute_url())
+        else:
+            return super().dispatch(request, *args, **kwargs)
+
+
+class GoutHelperPseudopatientDetailMixin(GoutHelperDetailMixinBase):
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            self.object = self.get_object()
+        except self.model.DoesNotExist:
+            model_name = self.model._meta.model_name
+            messages.error(request, f"{self.user} does not have a {model_name}. Create one instead.")
+            return HttpResponseRedirect(
+                reverse(f"{model_name.lower()}s:pseudopatient-create", kwargs={"pseudopatient": self.user.pk})
+            )
+        if not self.user_has_required_otos:
+            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
+            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
+        else:
+            if not request.GET.get("updated", None):
+                self.object.update_aid(qs=self.user)
+                self.object.update_related_objects(qs=self.user)
+            return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["patient"] = self.user
+        return context
+
+    def get_object(self) -> "Aids":
+        try:
+            self.user: User = self.get_queryset().get()
+        except User.DoesNotExist as exc:
+            raise User.DoesNotExist("GoutPatient does not exist.") from exc
+        try:
+            model_name = self.model._meta.model_name
+            flare: "Aids" = getattr(self.user, model_name.lower())
+        except self.model.DoesNotExist as exc:
+            raise self.model.DoesNotExist(f"{model_name} for {self.user} does not exist.") from exc
+        return flare
+
+    def get_queryset(self, **kwargs) -> "QuerySet[Any]":
+        return getattr(Pseudopatient.objects, self.model._meta.model_name.lower() + "_qs")(**kwargs).filter(
+            pk=self.kwargs["pseudopatient"]
+        )
+
+    @property
+    def user_has_required_otos(self):
+        return all([hasattr(self.user, oto) for oto in self.model.req_otos])
+
+
 def validate_form_list(form_list: list[ModelForm]) -> bool:
     """Method to validate a list of forms.
 
@@ -187,13 +277,10 @@ class GoutHelperEditMixin:
             or self.create_view
         )
 
-    def form_valid_update_related_object(self) -> None:
-        self.form_valid_set_view_model_attr_on_related_object()
-
     def form_valid_update_fks_and_related_object(self) -> None:
         if self.related_object:
             self.save_related_object = False
-            self.form_valid_update_related_object()
+            self.form_valid_set_view_model_attr_on_related_object()
         if self.save_object:
             self.object.full_clean()
             self.object.save()
@@ -463,10 +550,10 @@ class GoutHelperEditMixin:
             )
 
     def get_dateofbirth_form(self) -> Union["DateOfBirthForm", None]:
-        return self.oto_forms["dateofbirth"] if self.oto_forms and not self.user else None
+        return self.oto_forms.get("dateofbirth", None) if self.oto_forms and not self.user else None
 
     def get_gender_form(self) -> Union["GenderForm", None]:
-        return self.oto_forms["gender"] if self.oto_forms and not self.user else None
+        return self.oto_forms.get("gender", None) if self.oto_forms and not self.user else None
 
     def post_get_dateofbirth_value(self) -> Union["DateOfBirth", None]:
         dateofbirth_form = self.get_dateofbirth_form()
@@ -515,23 +602,29 @@ class GoutHelperEditMixin:
 
     @cached_property
     def related_objects(self) -> list[Model]:
+        def append_rel_objs_rel_objs(rel_obj: "Aids") -> None:
+            for aid_type in rel_obj.related_models:
+                if hasattr(rel_obj, aid_type):
+                    rel_rel_obj = getattr(rel_obj, aid_type)
+                    if rel_rel_obj and rel_rel_obj != self.object and rel_rel_obj not in rel_obj_list:
+                        rel_obj_list.append(rel_rel_obj)
+
         rel_obj_list = []
+
         if self.create_view and not self.user:
             for aid_type in self.model.related_models:
                 if hasattr(self, aid_type):
                     rel_obj = getattr(self, aid_type)
                     if rel_obj:
                         rel_obj_list.append(rel_obj)
-            return rel_obj_list
+                        append_rel_objs_rel_objs(rel_obj)
         elif not self.user:
             for aid_type in self.object.related_models:
                 if hasattr(self.object, aid_type):
                     rel_obj = getattr(self.object, aid_type)
                     if rel_obj:
                         rel_obj_list.append(rel_obj)
-                        for aid_type in rel_obj.related_models:
-                            if hasattr(rel_obj, aid_type):
-                                rel_obj_list.append(getattr(rel_obj, aid_type))
+                        append_rel_objs_rel_objs(rel_obj)
         return rel_obj_list
 
     @property
@@ -1472,12 +1565,9 @@ menopause status to evaluate their flare."
                     mh.update_set_date_and_save()
 
     def form_valid_update_medhistory_related_objects(self, mh: "MedHistory") -> None:
-        print(self.related_objects)
-        print(mh)
         for related_object in self.related_objects:
             related_object_attr = related_object.__class__.__name__.lower()
             if self.medhistory_compatible_with_aid_object(mh, related_object):
-                print(related_object)
                 if not getattr(mh, related_object_attr, None):
                     setattr(mh, related_object_attr, related_object)
                     self.add_mh_to_medhistorys_qs(mh, related_object)
@@ -1796,17 +1886,6 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                         for field in oto_form.required_fields:
                             setattr(oto_form.instance, field, oto_form.initial[field])
                     self.oto_2_rem.append(oto_form.instance)
-
-
-class GoutHelperAidEditMixin(
-    PatientSessionMixin,
-    OneToOneFormMixin,
-    LabFormSetsMixin,
-    MedAllergyFormMixin,
-    MedHistoryFormMixin,
-    GoutHelperEditMixin,
-):
-    pass
 
 
 class GoutHelperUserDetailMixin(PatientSessionMixin):

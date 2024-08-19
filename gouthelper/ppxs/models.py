@@ -80,6 +80,7 @@ class Ppx(
     objects = models.Manager()
     related_objects = PpxManager()
     related_models: list[Literal["ppxaid"]] = ["ppxaid"]
+    req_otos: list[None] = []
     decision_aid_service = PpxDecisionAid
 
     @classmethod

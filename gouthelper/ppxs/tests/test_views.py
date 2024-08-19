@@ -31,7 +31,7 @@ from ...utils.factories import count_data_deleted
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..models import Ppx
-from ..selectors import ppx_user_qs, ppx_userless_qs
+from ..selectors import ppx_userless_qs
 from ..views import (
     PpxAbout,
     PpxCreate,
@@ -757,20 +757,6 @@ class TestPpxPseudopatientDetail(TestCase):
         self.assertIn("patient", context)
         self.assertEqual(context["patient"], self.psp)
 
-    def test__assign_ppx_attrs_from_user(self):
-        """Test that the assign_ppx_attrs_from_user() method for the view
-        transfers attributes from the QuerySet, which started with a User,
-        to the Ppx object."""
-        ppx = Ppx.objects.get(user=self.psp)
-        view = self.view()
-        request = self.factory.get("/fake-url/")
-        view.setup(request, pseudopatient=self.psp.pk)
-        assert not hasattr(ppx, "medhistorys_qs")
-        assert not hasattr(ppx, "urates_qs")
-        view.assign_ppx_attrs_from_user(ppx=ppx, user=ppx_user_qs(self.psp.pk).get())
-        assert hasattr(ppx, "medhistorys_qs")
-        assert hasattr(ppx, "urates_qs")
-
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to CreateView when
         the User doesn't have a Ppx."""
@@ -799,18 +785,6 @@ class TestPpxPseudopatientDetail(TestCase):
         view.setup(request, pseudopatient=self.empty_psp.pk)
         with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
-
-    def test__get_object_assigns_user_qs_attrs_to_ppx(self):
-        """Test that the get_object method transfers required attributes from the
-        User QuerySet to the Ppx object."""
-        request = self.factory.get("/fake-url/")
-        view = self.view()
-        view.setup(request, pseudopatient=self.psp.pk)
-        ppx = view.get_object()
-        assert hasattr(ppx, "medhistorys_qs")
-        assert getattr(ppx, "medhistorys_qs") == view.user.medhistorys_qs
-        assert hasattr(ppx, "urates_qs")
-        assert getattr(ppx, "urates_qs") == view.user.urates_qs
 
     def test__get_permission_object(self):
         """Test that the get_permission_object() method returns the

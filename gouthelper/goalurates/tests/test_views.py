@@ -15,7 +15,9 @@ from ...medhistorys.forms import ErosionsForm, TophiForm
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
 from ...ppxs.tests.factories import create_ppx
+from ...ultaids.models import UltAid
 from ...ultaids.tests.factories import create_ultaid
+from ...ults.models import Ult
 from ...ults.tests.factories import create_ult
 from ...users.choices import Roles
 from ...users.models import Pseudopatient
@@ -24,7 +26,6 @@ from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import GoalUrates
 from ..models import GoalUrate
-from ..selectors import goalurate_user_qs
 from ..views import (
     GoalUrateAbout,
     GoalUrateCreate,
@@ -196,6 +197,25 @@ class TestGoalUrateCreate(TestCase):
         goal_urate = GoalUrate.objects.filter(ppx=ppx).get()
         self.assertEqual(ppx.goalurate, goal_urate)
 
+    def test__updates_ult_related_by_ultaid(self):
+        ult = create_ult(mhs=[])
+        self.assertFalse(ult.medhistory_set.all())
+        ultaid = create_ultaid(mhs=[])
+        ult.ultaid = ultaid
+        ult.save()
+        self.assertFalse(ultaid.medhistory_set.all())
+        self.assertEqual(UltAid.objects.filter(ult=ult).get(), ultaid)
+        self.assertEqual(Ult.objects.filter(ultaid=ultaid).get(), ult)
+        data = {
+            f"{MedHistoryTypes.EROSIONS}-value": True,
+            f"{MedHistoryTypes.TOPHI}-value": False,
+        }
+        response = self.client.post(reverse("goalurates:ultaid-create", kwargs={"ultaid": ultaid.id}), data=data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).exists())
+        self.assertFalse(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).exists())
+
 
 class TestGoalUrateDetail(TestCase):
     def setUp(self):
@@ -330,9 +350,11 @@ class TestGoalUrateUpdate(TestCase):
         ult = create_ult(mhs=[])
         self.assertFalse(ult.medhistory_set.all())
         ultaid = create_ultaid(mhs=[])
+        ult.ultaid = ultaid
+        ult.save()
         self.assertFalse(ultaid.medhistory_set.all())
-        ultaid.ult = ult
-        ultaid.save()
+        self.assertEqual(UltAid.objects.filter(ult=ult).get(), ultaid)
+        self.assertEqual(Ult.objects.filter(ultaid=ultaid).get(), ult)
         goalurate = create_goalurate(ultaid=ultaid, mhs=[])
         self.assertFalse(goalurate.medhistory_set.all())
         self.assertEqual(goalurate.ultaid, ultaid)
@@ -343,7 +365,17 @@ class TestGoalUrateUpdate(TestCase):
         response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
         forms_print_response_errors(response)
         self.assertEqual(response.status_code, 302)
-        # self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).exists())
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).exists())
+        self.assertFalse(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).exists())
+        data = {
+            f"{MedHistoryTypes.EROSIONS}-value": False,
+            f"{MedHistoryTypes.TOPHI}-value": True,
+        }
+        response = self.client.post(reverse("goalurates:update", kwargs={"pk": goalurate.id}), data=data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.EROSIONS).exists())
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.TOPHI).exists())
 
 
 class TestGoalUratePseudopatientCreate(TestCase):
@@ -603,18 +635,6 @@ class TestGoalUratePseudopatientDetail(TestCase):
         for psp in Pseudopatient.objects.all():
             create_goalurate(user=psp)
         self.empty_psp = create_psp(plus=True)
-
-    def test__assign_goalurate_attrs_from_user(self):
-        """Test that the assign_goalurate_attrs_from_user() method for the view
-        transfers attributes from the QuerySet, which started with a User,
-        to the GoalUrate object."""
-        gu = GoalUrate.objects.filter(user__isnull=False).first()
-        view = self.view()
-        request = self.factory.get("/fake-url/")
-        view.setup(request, pseudopatient=gu.user.pk)
-        assert not hasattr(gu, "medhistorys_qs")
-        view.assign_goalurate_attrs_from_user(goalurate=gu, user=goalurate_user_qs(gu.user.pk).get())
-        assert hasattr(gu, "medhistorys_qs")
 
     def test__dispatch(self):
         """Test the dispatch() method for the view. Should redirect to CreateView

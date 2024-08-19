@@ -37,6 +37,7 @@ class UltAidForm(
         )
 
     def __init__(self, *args, **kwargs):
+        self.ult = kwargs.pop("ult", None)
         self.medallergys = kwargs.pop("medallergys")
         self.ethnicity = True
         super().__init__(*args, **kwargs)
@@ -53,9 +54,14 @@ class UltAidForm(
         forms_helper_insert_hlab5801(layout=self.helper.layout)
         forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
-        if not self.patient:
+        if not self.patient and not self.ult:
             forms_helper_insert_dateofbirth(layout=self.helper.layout)
             forms_helper_insert_gender(layout=self.helper.layout)
+        elif self.ult:
+            if not self.ult.dateofbirth:
+                forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            if not self.ult.gender:
+                forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.XOIINTERACTION)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.ORGANTRANSPLANT)
         forms_helper_insert_medallergys(layout=self.helper.layout, treatments=self.medallergys)

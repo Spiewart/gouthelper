@@ -1976,6 +1976,21 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
         model_name = self._meta.model_name
         return getattr(apps.get_model("users.Pseudopatient").objects, f"{model_name}_qs")().filter(pk=self.user.pk)
 
+    @cached_property
+    def related_objects_list(self) -> list["Aids"]:
+        def get_rel_objs(obj: Union["User", "Aids"]) -> Union["Aids", None]:
+            rel_obj_list = []
+            for model_name in self.related_models:
+                rel_obj = getattr(obj, model_name, None)
+                if rel_obj:
+                    rel_obj_list.append(rel_obj)
+            return rel_obj_list
+
+        if self.user:
+            return get_rel_objs(self.user)
+        else:
+            return get_rel_objs(self)
+
     def update_aid(
         self,
         qs: Union["Aids", "Pseudopatient", None] = None,
@@ -1997,10 +2012,8 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
     ) -> None:
         if qs is None:
             qs = self.get_update_qs()
-        for related_model in self.related_models:
-            related_obj = getattr(self.user, related_model, None) if self.user else getattr(self, related_model, None)
-            if related_obj:
-                related_obj.update_aid(qs=self.user if self.user else related_obj)
+        for related_obj in self.related_objects_list:
+            related_obj.update_aid(qs=self.user if self.user else related_obj)
 
 
 class GoutHelperModel(models.Model):

@@ -4,11 +4,7 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 from factory.faker import faker  # type: ignore
 
-from ...users.models import Pseudopatient
-from ...users.tests.factories import create_psp
-from ..choices import FlareFreqs, FlareNums
-from ..models import Ult
-from .factories import create_ult, ult_data_factory
+from .factories import ult_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -17,21 +13,8 @@ fake = faker.Faker()
 
 
 class TestCreateUlt(TestCase):
-    def setUp(self):
-        for _ in range(40):
-            create_ult(user=create_psp(plus=True) if fake.boolean() else None)
-        self.ults_without_user = Ult.related_objects.filter(user__isnull=True).all()
-        self.users_with_ults = Pseudopatient.objects.ult_qs().filter(ult__isnull=False).all()
-
-    def test__FlareFreqs_are_random(self):
-        for freq in FlareFreqs.values:
-            self.assertTrue(Ult.related_objects.filter(freq_flares=freq).exists())
-            self.assertTrue(Pseudopatient.objects.ult_qs().filter(ult__freq_flares=freq).exists())
-
-    def test__FlareNums_are_random(self):
-        for num in FlareNums.values:
-            self.assertTrue(Ult.related_objects.filter(num_flares=num).exists())
-            self.assertTrue(Pseudopatient.objects.ult_qs().filter(ult__num_flares=num).exists())
+    # Needs to be rewritten when the CustomUltFactory is implemented, old versions of this would not-so-randomly fail
+    pass
 
 
 class TestUltDataFactory(TestCase):

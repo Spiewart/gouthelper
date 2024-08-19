@@ -137,6 +137,7 @@ class Ult(
     objects = models.Manager()
     related_objects = UltManager()
     related_models: list[Literal["ultaid"]] = ["ultaid"]
+    req_otos: list[None] = []
     decision_aid_service = UltDecisionAid
 
     def __str__(self):

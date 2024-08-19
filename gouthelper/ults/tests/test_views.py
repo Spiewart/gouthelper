@@ -28,7 +28,6 @@ from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import FlareFreqs, FlareNums
 from ..models import Ult
-from ..selectors import ult_user_qs
 from ..views import (
     UltAbout,
     UltCreate,
@@ -618,22 +617,6 @@ class TestUltPseudopatientDetail(TestCase):
         for _ in range(5):
             create_ult(user=create_psp(plus=True))
 
-    def test__assign_ult_attrs_from_user(self):
-        for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
-            user = ult_user_qs(pseudopatient=ult.user.pk).get()
-            ult = user.ult
-            self.assertFalse(getattr(ult, "dateofbirth"))
-            self.assertFalse(getattr(ult, "gender"))
-            self.assertFalse(hasattr(ult, "medhistorys_qs"))
-            self.view.assign_ult_attrs_from_user(ult, ult.user)
-            self.assertTrue(getattr(ult, "dateofbirth"))
-            self.assertEqual(ult.dateofbirth, ult.user.dateofbirth)
-            self.assertTrue(getattr(ult, "gender"))
-            self.assertEqual(ult.gender, ult.user.gender)
-            self.assertTrue(hasattr(ult, "medhistorys_qs"))
-            for mh in ult.user.medhistory_set.filter(medhistorytype__in=ult.aid_medhistorys()):
-                self.assertIn(mh, ult.medhistorys_qs)
-
     def test__dispatch(self):
         for ult in Ult.objects.filter(user__isnull=False).select_related("user"):
             view = self.view()
@@ -665,24 +648,6 @@ class TestUltPseudopatientDetail(TestCase):
         self.assertTrue(isinstance(response, HttpResponseRedirect))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("ults:pseudopatient-create", kwargs=kwargs))
-
-        # Test that the view redirects to the pseudopatient-update view if the user
-        # is lacking one of their required OneToOneFields
-        user_with_ult = Ult.objects.filter(user__isnull=False).first().user
-        user_with_ult.dateofbirth.delete()
-        view = self.view()
-        kwargs = {"pseudopatient": user_with_ult.pk}
-        request = self.factory.get(reverse("ults:pseudopatient-detail", kwargs=kwargs))
-        request.user = user_with_ult
-        view.setup(request, **kwargs)
-
-        SessionMiddleware(dummy_get_response).process_request(request)
-        MessageMiddleware(dummy_get_response).process_request(request)
-
-        response = view.dispatch(request, **kwargs)
-        self.assertTrue(isinstance(response, HttpResponseRedirect))
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("users:pseudopatient-update", kwargs=kwargs))
 
     def test__get(self):
         ult = Ult.objects.filter(user__isnull=False).select_related("user").last()

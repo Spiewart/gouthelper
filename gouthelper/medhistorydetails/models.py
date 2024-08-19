@@ -121,7 +121,8 @@ class CkdDetail(MedHistoryDetail):
         if getattr(self.medhistory, "user"):
             return f"{self.medhistory.user.username.capitalize()}'s CKD Detail"
         else:
-            return f"CKD Detail: created {self.created.date()}"
+            suffix = f"created {self.created.date()}" if self.created else "in creation"
+            return f"CKD Detail: {suffix}"
 
 
 class GoutDetail(MedHistoryDetail):

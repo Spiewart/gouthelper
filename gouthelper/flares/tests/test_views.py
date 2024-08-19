@@ -1251,17 +1251,17 @@ class TestFlarePseudopatientDetail(TestCase):
         assert hasattr(view, "user")
         assert view.user == self.psp
 
-    def test__get_object_raises_404s(self):
+    def test__get_object_raises_DoesNotExist(self):
         """Test that get_object() raises a 404 if the User or the Flare doesn't exist."""
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, pseudopatient=self.psp.pk, pk=self.psp.flare_set.first().pk)
         view.kwargs["pseudopatient"] = uuid.uuid4()
-        with self.assertRaises(Http404):
+        with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
         view.kwargs["pseudopatient"] = self.psp.pk
         view.kwargs["pk"] = 999
-        with self.assertRaises(Http404):
+        with self.assertRaises(ObjectDoesNotExist):
             view.get_object()
 
     def test__get_object(self):

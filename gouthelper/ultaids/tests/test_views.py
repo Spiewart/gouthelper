@@ -32,12 +32,12 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...medhistorys.models import MedHistory, Xoiinteraction
 from ...treatments.choices import Treatments, UltChoices
+from ...ults.tests.factories import create_ult
 from ...users.models import Pseudopatient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..models import UltAid
-from ..selectors import ultaid_user_qs
 from ..views import (
     UltAidAbout,
     UltAidCreate,
@@ -75,6 +75,11 @@ class TestUltAidCreate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.view: UltAidCreate = UltAidCreate()
+
+    def test__get_with_ult_resolves(self):
+        ult = create_ult()
+        response = self.client.get(reverse("ultaids:ult-create", kwargs={"ult": ult.pk}))
+        self.assertEqual(response.status_code, 200)
 
     def test__post_adds_hlab5801_True(self):
         """Tests that a POST request adds a Hlab5801 instance as an attribute
@@ -153,6 +158,60 @@ class TestUltAidCreate(TestCase):
         self.assertNotIn(Treatments.ALLOPURINOL, ultaid.options)
         self.assertNotIn(Treatments.FEBUXOSTAT, ultaid.options)
         self.assertEqual(Treatments.PROBENECID, ultaid.recommendation[0])
+
+    def test__post_with_ult_dateofbirth_gender_ckd(self):
+        ult = create_ult(
+            mhs=[MedHistoryTypes.CKD],
+            gender=Genders.MALE,
+            dateofbirth=timezone.now() - timedelta(days=365 * 40),
+            baselinecreatinine=Decimal("2.0"),
+        )
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(ult.dateofbirth)
+        self.assertTrue(ult.gender)
+        ultaid_data = {
+            "dateofbirth-value": ult.dateofbirth.value,
+            "gender-value": ult.gender.value,
+            "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
+            "hlab5801-value": "",
+            f"{MedHistoryTypes.CKD}-value": True,
+            "dialysis": ult.ckddetail.dialysis,
+            "baselinecreatinine": ult.baselinecreatinine.value,
+            "stage": ult.ckddetail.stage,
+            f"{MedHistoryTypes.HEPATITIS}-value": True,
+            f"{MedHistoryTypes.ORGANTRANSPLANT}-value": False,
+            f"{MedHistoryTypes.URATESTONES}-value": False,
+            f"{MedHistoryTypes.XOIINTERACTION}-value": True,
+        }
+        response = self.client.post(reverse("ultaids:ult-create", kwargs={"ult": ult.pk}), ultaid_data)
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+
+    def test__get_with_ult_adds_ult_medhistorys_to_context_as_true(self):
+        ult = create_ult(mhs=[MedHistoryTypes.CKD, MedHistoryTypes.URATESTONES])
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.URATESTONES).exists())
+        response = self.client.get(reverse("ultaids:ult-create", kwargs={"ult": ult.pk}))
+        self.assertTrue(response.context_data[f"{MedHistoryTypes.CKD}_form"].fields[f"{MedHistoryTypes.CKD}-value"])
+        self.assertTrue(
+            response.context_data[f"{MedHistoryTypes.URATESTONES}_form"].fields[f"{MedHistoryTypes.URATESTONES}-value"]
+        )
+
+    def test__get_with_ult_adds_age_gender_from_ult_to_context(self):
+        ult = create_ult(
+            mhs=[MedHistoryTypes.CKD],
+            gender=Genders.MALE,
+            dateofbirth=timezone.now() - timedelta(days=365 * 40),
+            baselinecreatinine=Decimal("2.0"),
+        )
+        self.assertTrue(ult.medhistory_set.filter(medhistorytype=MedHistoryTypes.CKD).exists())
+        self.assertTrue(ult.dateofbirth)
+        self.assertTrue(ult.gender)
+        response = self.client.get(reverse("ultaids:ult-create", kwargs={"ult": ult.pk}))
+        self.assertIn("age", response.context_data)
+        self.assertEqual(response.context_data["age"], ult.age)
+        self.assertIn("gender", response.context_data)
+        self.assertEqual(response.context_data["gender"], ult.gender.value)
 
 
 class TestUltAidDetail(TestCase):
@@ -792,37 +851,6 @@ class TestUltAidPseudopatientDetail(TestCase):
         for _ in range(5):
             create_ultaid(user=create_psp(plus=True))
 
-    def test__assign_ultaid_attrs_from_user(self):
-        for ultaid in UltAid.objects.filter(user__isnull=False).select_related("user"):
-            user = ultaid_user_qs(pseudopatient=ultaid.user.pk).get()
-            ultaid = user.ultaid
-            self.assertFalse(getattr(ultaid, "dateofbirth"))
-            self.assertFalse(getattr(ultaid, "ethnicity"))
-            self.assertFalse(getattr(ultaid, "gender"))
-            self.assertFalse(hasattr(ultaid, "goalurate"))
-            self.assertFalse(getattr(ultaid, "hlab5801"))
-            self.assertFalse(hasattr(ultaid, "medallergys_qs"))
-            self.assertFalse(hasattr(ultaid, "medhistorys_qs"))
-            self.view.assign_ultaid_attrs_from_user(ultaid, ultaid.user)
-            self.assertTrue(getattr(ultaid, "dateofbirth"))
-            self.assertEqual(ultaid.dateofbirth, ultaid.user.dateofbirth)
-            self.assertTrue(getattr(ultaid, "ethnicity"))
-            self.assertEqual(ultaid.ethnicity, ultaid.user.ethnicity)
-            self.assertTrue(getattr(ultaid, "gender"))
-            self.assertEqual(ultaid.gender, ultaid.user.gender)
-            if hasattr(ultaid.user, "goalurate"):
-                self.assertTrue(hasattr(ultaid, "goalurate"))
-                self.assertEqual(ultaid.goalurate, ultaid.user.goalurate)
-            if hasattr(ultaid.user, "hlab5801"):
-                self.assertTrue(hasattr(ultaid, "hlab5801"))
-                self.assertEqual(ultaid.hlab5801, ultaid.user.hlab5801)
-            self.assertTrue(hasattr(ultaid, "medallergys_qs"))
-            for ma in ultaid.user.medallergy_set.filter(treatment__in=ultaid.aid_treatments()):
-                self.assertIn(ma, ultaid.medallergys_qs)
-            self.assertTrue(hasattr(ultaid, "medhistorys_qs"))
-            for mh in ultaid.user.medhistory_set.filter(medhistorytype__in=ultaid.aid_medhistorys()):
-                self.assertIn(mh, ultaid.medhistorys_qs)
-
     def test__dispatch(self):
         for ultaid in UltAid.objects.filter(user__isnull=False).select_related("user"):
             view = self.view()
@@ -858,7 +886,8 @@ class TestUltAidPseudopatientDetail(TestCase):
         # Test that the view redirects to the pseudopatient-update view if the user
         # is lacking one of their required OneToOneFields
         user_with_ultaid = UltAid.objects.filter(user__isnull=False).first().user
-        user_with_ultaid.dateofbirth.delete()
+        user_with_ultaid.ethnicity.delete()
+
         view = self.view()
         kwargs = {"pseudopatient": user_with_ultaid.pk}
         request = self.factory.get(reverse("ultaids:pseudopatient-detail", kwargs=kwargs))
