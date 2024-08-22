@@ -2,10 +2,11 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Union  # pylint: disable=E0015, E0013 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
+from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
 from django.core.exceptions import ValidationError  # pylint: disable=e0401 # type: ignore
-from django.http import Http404  # pylint: disable=e0401 # type: ignore
+from django.http import Http404, HttpResponseRedirect  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
 from django.utils.html import mark_safe  # pylint: disable=e0401 # type: ignore
@@ -287,15 +288,14 @@ class FlarePatientEditBase(FlareEditBase):
     def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flare_qs(flare_pk=self.kwargs.get("pk")).filter(  # pylint:disable=E1101
-            pk=pseudopatient
-        )
+        return Pseudopatient.objects.flares_qs().filter(pk=pseudopatient)  # pylint:disable=E1101
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
         super().post(request, *args, **kwargs)
+        self.post_assess_conflict_with_other_flare_dates()
         self.post_process_aki()
         # Compare creatinine date_drawns to Flare date_started and date_ended
         self.post_process_urate_check()
@@ -308,6 +308,76 @@ class FlarePatientEditBase(FlareEditBase):
                 return self.errors
         else:
             return self.form_valid()
+
+    def dates_conflict_with_another_flare(
+        self,
+        flare: Flare,
+    ) -> bool:
+        return self.date_started_conflicts_with_another_flare(flare) or self.date_ended_conflicts_with_another_flare(
+            flare
+        )
+
+    def date_started_conflicts_with_another_flare(
+        self,
+        flare: Flare,
+    ) -> bool:
+        return flare.date_started <= self.object.date_started <= flare.date_ended
+
+    def date_ended_conflicts_with_another_flare(
+        self,
+        flare: Flare,
+    ) -> bool:
+        return flare.date_started <= self.object.date_ended <= flare.date_ended if self.object.date_ended else False
+
+    def post_assess_conflict_with_other_flare_dates(self) -> None:
+        conflicting_flare = next(
+            iter(
+                flare
+                for flare in self.user.flares_qs
+                if flare is not self.object and self.dates_conflict_with_another_flare(flare=flare)
+            ),
+            None,
+        )
+        if conflicting_flare:
+            if self.date_started_conflicts_with_another_flare(conflicting_flare):
+                self.form.add_error(
+                    "date_started",
+                    ValidationError(
+                        message=mark_safe(
+                            format_lazy(
+                                """
+                                Date started ({}) is during a different {}. <a href={}>Update</a> that flare instead.
+                                """,
+                                self.object.date_started,
+                                conflicting_flare,
+                                reverse(
+                                    "flares:pseudopatient-update",
+                                    kwargs={"pseudopatient": self.user.pk, "pk": conflicting_flare.pk},
+                                ),
+                            )
+                        )
+                    ),
+                )
+            if self.date_ended_conflicts_with_another_flare(conflicting_flare):
+                self.form.add_error(
+                    "date_ended",
+                    ValidationError(
+                        message=mark_safe(
+                            format_lazy(
+                                """
+                                Date ended ({}) is during a different {}. <a href={}>Update</a> that flare instead.
+                                """,
+                                self.object.date_ended,
+                                conflicting_flare,
+                                reverse(
+                                    "flares:pseudopatient-update",
+                                    kwargs={"pseudopatient": self.user.pk, "pk": conflicting_flare.pk},
+                                ),
+                            )
+                        )
+                    ),
+                )
+            self.set_errors_bool_True()
 
 
 class FlarePseudopatientList(PermissionRequiredMixin, ListView):
@@ -343,11 +413,38 @@ class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, Cr
     permission_required = "flares.can_add_flare"
     success_message = "%(user)s's Flare successfully created."
 
+    def dispatch(self, request, *args, **kwargs):
+        for flare in self.user.flares_qs:
+            if not flare.date_ended:
+                return self.dispatch_redirect_ongoing_flare_detail(request=request, flare_pk=flare.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def dispatch_redirect_ongoing_flare_detail(self, request, flare_pk: "UUID") -> HttpResponseRedirect:
+        messages.error(
+            request,
+            message=(
+                f"{self.user} already has an ongoing flare. Edit that if symptoms or other information are changing. "
+                "Otherwise, update it with the date it ended and then you can create a new one."
+            ),
+        )
+        return HttpResponseRedirect(
+            reverse(
+                "flares:pseudopatient-detail",
+                kwargs={
+                    "pseudopatient": self.user.pk,
+                    "pk": flare_pk,
+                },
+            )
+        )
+
     def get_initial(self) -> dict[str, Any]:
         initial = super().get_initial()
         initial["onset"] = None
         initial["redness"] = None
         return initial
+
+    def get_object(self, queryset=None) -> Flare:
+        return self.model()
 
 
 class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessMessageMixin):
@@ -449,6 +546,17 @@ class FlarePseudopatientUpdate(
             if hasattr(self.object, "aki")
             else Creatinine.objects
         )
+
+    def get_object(self, queryset=None) -> Flare:
+        if not hasattr(self, "object"):
+            if self.create_view:
+                return self.model()
+            elif self.user:
+                try:
+                    return next(iter(flare for flare in self.user.flares_qs if flare.pk == self.kwargs.get("pk")))
+                except StopIteration as exc:
+                    raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
+            return super().get_object(queryset)
 
 
 class FlareUpdate(

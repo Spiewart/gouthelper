@@ -1838,10 +1838,10 @@ class TestFlarePseudopatientUpdate(TestCase):
         with CaptureQueriesContext(connection) as queries:
             qs = qs.get()
         self.assertTrue(isinstance(qs, User))
-        self.assertTrue(hasattr(qs, "flare_qs"))
-        self.assertTrue(isinstance(qs.flare_qs, list))
-        self.assertEqual(qs.flare_qs[0], flare)
-        flare = qs.flare_qs[0]
+        self.assertTrue(hasattr(qs, "flares_qs"))
+        self.assertTrue(isinstance(qs.flares_qs, list))
+        self.assertIn(flare, qs.flares_qs)
+        flare = next(iter(flare for flare in qs.flares_qs if flare is flare))
         if flare.aki:
             self.assertTrue(isinstance(flare.aki, Aki))
             self.assertTrue(hasattr(flare.aki, "creatinines_qs"))

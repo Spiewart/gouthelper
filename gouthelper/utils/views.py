@@ -370,12 +370,6 @@ class GoutHelperEditMixin:
                         return getattr(self.user, model_name)
                     except self.model.DoesNotExist as exc:
                         raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
-                    except AttributeError as exc:
-                        model_qs = getattr(self.user, f"{model_name}_qs")
-                        try:
-                            return model_qs[0]
-                        except IndexError:
-                            raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
                 else:
                     return self.user
             return super().get_object(queryset)

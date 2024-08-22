@@ -1467,6 +1467,12 @@ transplant providers, including a pharmacist, prior to starting any new or stopp
         )
 
     @cached_property
+    def osteoporosis(self) -> Union["MedHistory", bool]:
+        """Method that returns Osteoporosis object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.OSTEOPOROSIS, self)
+
+    @cached_property
     def other_nsaid_contras(self) -> list["MedHistory"]:
         """Method that returns MedHistory object from self.medhistorys_qs or
         or self.medhistorys.all()."""
