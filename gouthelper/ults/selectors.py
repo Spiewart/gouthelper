@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch  # type: ignore
+from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
@@ -17,6 +17,18 @@ def medhistorys_qs() -> "QuerySet":
     return (
         apps.get_model("medhistorys.MedHistory")
         .objects.filter(medhistorytype__in=ULT_MEDHISTORYS)
+        .select_related("ckddetail", "baselinecreatinine")
+    ).all()
+
+
+def user_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(
+            Q(medhistorytype__in=ULT_MEDHISTORYS)
+            | Q(medhistorytype__in=GOALURATE_MEDHISTORYS)
+            | Q(medhistorytype__in=ULTAID_MEDHISTORYS)
+        )
         .select_related("ckddetail", "baselinecreatinine")
     ).all()
 
@@ -37,6 +49,14 @@ def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def user_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=user_medhistorys_qs(),
         to_attr="medhistorys_qs",
     )
 
@@ -69,6 +89,14 @@ def ultaid_medallergys_prefetch() -> Prefetch:
     )
 
 
+def user_medallergys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medallergy_set",
+        queryset=ultaid_medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
 def ult_relations(qs: "QuerySet") -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
@@ -89,20 +117,21 @@ def ult_userless_relations(qs: "QuerySet") -> "QuerySet":
 
 
 def ult_user_relations(qs: "QuerySet") -> "QuerySet":
-    return (
-        ult_relations(qs)
-        .select_related(
-            "flareaid",
-            "goalurate",
-            "ppxaid",
-            "ppx",
-            "pseudopatientprofile",
-            "ultaid",
-            "ult",
-        )
-        .prefetch_related(
-            flares_prefetch(),
-        )
+    return qs.select_related(
+        "dateofbirth",
+        "ethnicity",
+        "flareaid",
+        "gender",
+        "goalurate",
+        "ppxaid",
+        "ppx",
+        "pseudopatientprofile",
+        "ultaid",
+        "ult",
+    ).prefetch_related(
+        flares_prefetch(),
+        user_medallergys_prefetch(),
+        user_medhistorys_prefetch(),
     )
 
 

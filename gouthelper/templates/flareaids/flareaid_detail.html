@@ -44,7 +44,7 @@
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
       {% if object.user %}
-        <span>{{ object.user }}</span>
+        <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
       {% elif object.flare %}
         <a href="{% url 'flares:detail' pk=object.flare.pk %}">{{ object.flare }}</a>
       {% endif %}

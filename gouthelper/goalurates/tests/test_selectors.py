@@ -34,7 +34,7 @@ class TestGoalUrateUserQuerySet(TestCase):
         """Test that the goalurate_user_qs returns a queryset."""
         qs = goalurate_user_qs(self.user_goalurate.user.pk)
         self.assertIsInstance(qs, QuerySet)
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             qs = qs.get()
             self.assertEqual(qs, self.user_goalurate.user)
             self.assertIsInstance(qs.pseudopatientprofile, PseudopatientProfile)

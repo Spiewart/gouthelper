@@ -23,28 +23,46 @@ class TestMedAllergyAttr(TestCase):
         self.empty_user_ppxaid = create_ppxaid(mas=[], user=True)
         self.empty_user = self.empty_user_ppxaid.user
 
-    def test__medallergys_qs(self):
+    def test__medallergys_qs_ppxaid(self):
         """Test the method when the objects have a medallergys_qs attribute"""
-        ppxaid_mas = ppxaid_userless_qs(pk=self.ppxaid.pk).get()
-        user_ppxaid_mas = ppxaid_user_qs(pseudopatient=self.user.pk).get()
-        empty_ppxaid_mas = ppxaid_userless_qs(pk=self.empty_ppxaid.pk).get()
-        empty_user_ppxaid_mas = ppxaid_user_qs(pseudopatient=self.empty_user.pk).get()
+        ppxaid = ppxaid_userless_qs(pk=self.ppxaid.pk).get()
+        self.assertTrue(hasattr(ppxaid, "medallergys_qs"))
         with self.assertNumQueries(0):
             for trt in self.trt_mas:
                 if trt in NsaidChoices.values:
-                    self.assertTrue(medallergy_attr(trt, self.ppxaid))
-                    self.assertTrue(ppxaid_mas.nsaid_allergy)
-                    self.assertTrue(medallergy_attr(trt, self.user_ppxaid))
-                    self.assertTrue(user_ppxaid_mas.nsaid_allergy)
-                    self.assertIn(trt, [ma.treatment for ma in ppxaid_mas.nsaid_allergy])
-                    self.assertIn(trt, [ma.treatment for ma in user_ppxaid_mas.nsaid_allergy])
-                    self.assertFalse(empty_ppxaid_mas.nsaid_allergy)
-                    self.assertFalse(empty_user_ppxaid_mas.nsaid_allergy)
+                    self.assertTrue(medallergy_attr(trt, ppxaid))
+                    self.assertTrue(ppxaid.nsaid_allergy)
+                    self.assertIn(trt, [ma.treatment for ma in ppxaid.nsaid_allergy])
                 else:
-                    self.assertTrue(getattr(ppxaid_mas, f"{trt.lower()}_allergy"))
-                    self.assertTrue(getattr(user_ppxaid_mas, f"{trt.lower()}_allergy"))
-                    self.assertFalse(getattr(empty_ppxaid_mas, f"{trt.lower()}_allergy"))
-                    self.assertFalse(getattr(empty_user_ppxaid_mas, f"{trt.lower()}_allergy"))
+                    self.assertTrue(getattr(ppxaid, f"{trt.lower()}_allergy"))
+
+    def test__medallergys_qs_empty_ppxaid(self):
+        empty_ppxaid = ppxaid_userless_qs(pk=self.empty_ppxaid.pk).get()
+        with self.assertNumQueries(0):
+            for trt in self.trt_mas:
+                if trt in NsaidChoices.values:
+                    self.assertFalse(empty_ppxaid.nsaid_allergy)
+                else:
+                    self.assertFalse(getattr(empty_ppxaid, f"{trt.lower()}_allergy"))
+
+    def test__medallergys_qs_pseudopatient(self):
+        pseudpatient = ppxaid_user_qs(pseudopatient=self.user.pk).get()
+        with self.assertNumQueries(0):
+            for trt in self.trt_mas:
+                if trt in NsaidChoices.values:
+                    self.assertTrue(pseudpatient.nsaid_allergy)
+                    self.assertIn(trt, [ma.treatment for ma in pseudpatient.nsaid_allergy])
+                else:
+                    self.assertTrue(getattr(pseudpatient, f"{trt.lower()}_allergy"))
+
+    def test__medallergys_qs_empty_pseudopatient(self):
+        empty_pseudopatient = ppxaid_user_qs(pseudopatient=self.empty_user.pk).get()
+        with self.assertNumQueries(0):
+            for trt in self.trt_mas:
+                if trt in NsaidChoices.values:
+                    self.assertFalse(empty_pseudopatient.nsaid_allergy)
+                else:
+                    self.assertFalse(getattr(empty_pseudopatient, f"{trt.lower()}_allergy"))
 
     def test__without_medallergys_qs(self):
         """Test the method when the objects do not have a medallergys_qs attribute and

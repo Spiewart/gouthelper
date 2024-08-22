@@ -25,7 +25,9 @@
       | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col align-items-center d-flex justify-content-end">
-      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+      {% if object.user %}
+        <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

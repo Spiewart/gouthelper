@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from ..ultaids.services import UltAidDecisionAid
     from ..ults.services import UltDecisionAid
     from ..users.models import Pseudopatient
-    from ..utils.types import Aids
+    from ..utils.types import AidNames, Aids
 
     User = get_user_model()
 
@@ -78,6 +78,7 @@ class GoutHelperBaseModel(GoalUrateMixin):
     a prefetched / select_related QuerySet of the model fields in order to
     categorize and display them."""
 
+    related_models: Union["AidNames", None]
     user: Union["User", None]
 
     class Meta:
@@ -920,11 +921,24 @@ contraindicated."
         else:
             return getattr(self, "hlab5801", None)
 
+    def get_related_objects(self) -> list["Aids"]:
+        obj_list = []
+
+        if hasattr(self, "related_models"):
+            for rel_model in self.related_models:
+                rel_obj = getattr(self, rel_model, None)
+                if rel_obj:
+                    obj_list.append(rel_obj)
+
+        return obj_list
+
     @cached_property
     def goalurate_get_display(self):
         has_goalurate_property = hasattr(self, "goalurate") and not self.has_goalurate
         return (
-            self.goalurate.get_goal_urate_display()
+            self.user.goalurate.get_goal_urate_display()
+            if self.user and self.user.goalurate
+            else self.goalurate.get_goal_urate_display()
             if self.has_goalurate
             else self.GoalUrates(self.goal_urate).label
             if has_goalurate_property
@@ -1077,6 +1091,7 @@ starting allopurinol.""",
             "Subject_the", "tobe", "tobe_neg", "gender_pos", "Subject_the_pos"
         )
         if self.hyperuricemic is not None:
+            print(self.hyperuricemic)
             return mark_safe(
                 format_lazy(
                     """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> \
@@ -1322,7 +1337,12 @@ rash, fluid retention, and decreased kidney function",
     @cached_property
     def has_goalurate(self) -> bool:
         GoalUrate = apps.get_model("goalurates.GoalUrate")
-        return hasattr(self, "goalurate") and isinstance(self.goalurate, GoalUrate)
+        return (
+            self.user
+            and self.user.goalurate is not None
+            or hasattr(self, "goalurate")
+            and isinstance(self.goalurate, GoalUrate)
+        )
 
     @cached_property
     def on_ppx(self) -> bool | None:
@@ -1344,8 +1364,22 @@ rash, fluid retention, and decreased kidney function",
 
     @cached_property
     def on_ult(self) -> bool | None:
-        """Method that returns whether the patient is currently on ULT."""
-        return self.ppx.on_ult
+        return (
+            self.user.on_ult
+            if self.user
+            else self.goutdetail.on_ult
+            if self.goutdetail
+            else next(
+                iter(
+                    rel_obj.goutdetail.on_ult
+                    for rel_obj in self.get_related_objects()
+                    if hasattr(rel_obj, "goutdetail") and rel_obj.goutdetail
+                ),
+                None,
+            )
+            if hasattr(self, "get_related_objects")
+            else None
+        )
 
     @property
     def on_ult_detail(self) -> str:
@@ -1359,10 +1393,44 @@ rash, fluid retention, and decreased kidney function",
         )
         if self.starting_ult:
             on_ult_str += f" {Gender_subject} is in the initiation phase of ULT."
-        else:
+        elif self.on_ult:
             on_ult_str += f" {Gender_subject} is in the maintenance phase of ULT, where the treatment doses are \
 stable and labs are not monitored as frequently. {Gender_subject} should not be experiencing gout flares in \
 this phase."
+        elif hasattr(self, "ult"):
+            if self.ult:
+                on_ult_str += f" ULT is {self.ult.get_indication_interp(samepage_links=False)}"
+            else:
+                subject_the = self.get_str_attrs("subject_the")
+                on_ult_str += " Create a "
+                if isinstance(self, User):
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.pk})}'>Ult</a>"
+                    )
+                elif self.user:
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                        f"Ult</a>"
+                    )
+                else:
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                        f"Ult</a>"
+                    )
+                on_ult_str += f" to figure out if ULT is indicated for {subject_the}."
+        elif self.user:
+            if self.user.ult:
+                on_ult_str += f" {self.user.ult.get_indication_interp(samepage_links=False)}"
+            else:
+                subject_the = self.get_str_attrs("subject_the")
+                on_ult_str += (
+                    " Create a "
+                    f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                    f"Ult</a>"
+                    f" to figure out if ULT is indicated for {subject_the}."
+                )
+        else:
+            on_ult_str += f" Use a <a href='{reverse('ults:create')}'>Ult</a> to determine if ULT is indicated."
         return mark_safe(on_ult_str)
 
     @cached_property
@@ -1555,8 +1623,22 @@ and as such shouldn't be prescribed probenecid."
 
     @cached_property
     def starting_ult(self) -> bool | None:
-        """Method that returns whether the patient is currently starting ult."""
-        return self.goutdetail.starting_ult
+        return (
+            self.user.starting_ult
+            if self.user
+            else self.goutdetail.starting_ult
+            if self.goutdetail
+            else next(
+                iter(
+                    rel_obj.goutdetail.starting_ult
+                    for rel_obj in self.get_related_objects()
+                    if hasattr(rel_obj, "goutdetail") and rel_obj.goutdetail
+                ),
+                None,
+            )
+            if hasattr(self, "get_related_objects")
+            else None
+        )
 
     @property
     def starting_ult_detail(self) -> str:
@@ -2044,6 +2126,14 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
 
     def get_dated_urates(self):
         return urates_dated_qs().filter(user=self)
+
+    @cached_property
+    def on_ult(self) -> bool | None:
+        return self.goutdetail.on_ult
+
+    @cached_property
+    def starting_ult(self) -> bool | None:
+        return self.goutdetail.starting_ult
 
     @cached_property
     def user(self):

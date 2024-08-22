@@ -229,12 +229,9 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
                 else "uric acid kidney stones"
             ),
             "multipleflares": (
-                (
-                    wrap_in_samepage_links_anchor("multipleflares", "multiple flares")
-                    if samepage_links
-                    else "multiple flares"
-                ),
-                " but having one or less flare per year",
+                wrap_in_samepage_links_anchor("multipleflares", "multiple flares")
+                if samepage_links
+                else "multiple flares" " but having one or less flare per year"
             ),
         }
 

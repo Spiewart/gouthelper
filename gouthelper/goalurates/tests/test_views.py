@@ -4,7 +4,7 @@ from django.contrib.auth.models import AnonymousUser  # type: ignore
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import ObjectDoesNotExist  # type: ignore
-from django.db.models import QuerySet  # type: ignore
+from django.db.models import Q, QuerySet  # type: ignore
 from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 
@@ -12,7 +12,7 @@ from ...contents.choices import Contexts, Tags
 from ...contents.models import Content
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import ErosionsForm, TophiForm
-from ...medhistorys.lists import GOALURATE_MEDHISTORYS
+from ...medhistorys.lists import GOALURATE_MEDHISTORYS, PPX_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
 from ...medhistorys.models import Erosions, MedHistory, Tophi
 from ...ppxs.tests.factories import create_ppx
 from ...ultaids.models import UltAid
@@ -694,12 +694,17 @@ class TestGoalUratePseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, pseudopatient=self.anon_psp.pk)
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             qs = view.get_queryset().get()
         assert qs == self.anon_psp
         assert hasattr(qs, "goalurate") and qs.goalurate == self.anon_psp.goalurate
         assert hasattr(qs, "medhistorys_qs")
-        psp_mhs = self.anon_psp.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).all()
+        psp_mhs = self.anon_psp.medhistory_set.filter(
+            Q(medhistorytype__in=GOALURATE_MEDHISTORYS)
+            | Q(medhistorytype__in=ULT_MEDHISTORYS)
+            | Q(medhistorytype__in=ULTAID_MEDHISTORYS)
+            | Q(medhistorytype__in=PPX_MEDHISTORYS)
+        ).all()
         for mh in qs.medhistorys_qs:
             assert mh in psp_mhs
 
@@ -903,7 +908,7 @@ class TestGoalUratePseudopatientUpdate(TestCase):
         view.setup(request, **kwargs)
         qs = view.get_user_queryset(view.kwargs["pseudopatient"])
         self.assertTrue(isinstance(qs, QuerySet))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             qs = qs.get()
             self.assertTrue(isinstance(qs, User))
             self.assertEqual(qs, self.anon_psp)

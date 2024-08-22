@@ -678,15 +678,17 @@ function starting_ult_checker(subject_the, Tobe, pos, gender_subject) {
   // then check if on_ult is true
   if (on_ult == 'True') {
     $('#div_id_starting_ult').show();
+    $('#starting_ult_help_text_extra').hide();
     // if on_Ult is true, change help text to "Has the patient started
     // ULT in the last 3 months?"
-    $('#hint_id_starting_ult').text(
+    $('#starting_ult_help_text').text(
       `${Tobe} ${subject_the} in the initial dose-adjustment phase (e.g. titration, usually first 6-12 months) of urate-lowering therapy (ULT)?`,
     );
   } else if (on_ult == 'False') {
     $('#div_id_starting_ult').show();
+    $('#starting_ult_help_text_extra').show();
     // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
-    $('#hint_id_starting_ult').text(
+    $('#starting_ult_help_text').text(
       `Is ${subject_the} just starting ULT (urate-lowering therapy) or ${pos} ${gender_subject} started ULT in the last 3 months?`,
     );
   } else {

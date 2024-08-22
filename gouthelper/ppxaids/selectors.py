@@ -5,7 +5,7 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
 from ..labs.selectors import urates_dated_qs
-from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..medhistorys.lists import PPX_MEDHISTORYS, PPXAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
@@ -27,7 +27,20 @@ def medallergys_prefetch() -> Prefetch:
 
 
 def medhistorys_qs() -> "QuerySet":
-    return (apps.get_model("medhistorys.MedHistory").objects.select_related("ckddetail", "baselinecreatinine")).all()
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(medhistorytype__in=PPXAID_MEDHISTORYS)
+        .select_related("ckddetail", "baselinecreatinine")
+        .all()
+    )
+
+
+def medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
 
 
 def ppx_medhistorys_qs() -> "QuerySet":
@@ -46,6 +59,23 @@ def ppx_medhistorys_prefetch() -> Prefetch:
     )
 
 
+def user_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=PPXAID_MEDHISTORYS) | Q(medhistorytype__in=PPX_MEDHISTORYS))
+        .select_related("ckddetail", "baselinecreatinine")
+        .all()
+    )
+
+
+def user_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=user_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
 def ppx_urates_prefetch() -> Prefetch:
     return Prefetch(
         "ppx__urate_set",
@@ -54,11 +84,11 @@ def ppx_urates_prefetch() -> Prefetch:
     )
 
 
-def medhistorys_prefetch() -> Prefetch:
+def user_urates_prefetch() -> Prefetch:
     return Prefetch(
-        "medhistory_set",
-        queryset=medhistorys_qs(),
-        to_attr="medhistorys_qs",
+        "urate_set",
+        queryset=urates_dated_qs(),
+        to_attr="urates_qs",
     )
 
 
@@ -67,7 +97,6 @@ def ppxaid_relations(qs: "QuerySet") -> "QuerySet":
         "dateofbirth",
         "gender",
     ).prefetch_related(
-        medhistorys_prefetch(),
         medallergys_prefetch(),
     )
 
@@ -77,6 +106,7 @@ def ppxaid_userless_relations(qs: "QuerySet") -> "QuerySet":
         ppxaid_relations(qs)
         .select_related("ppx", "user")
         .prefetch_related(
+            medhistorys_prefetch(),
             ppx_medhistorys_prefetch(),
             ppx_urates_prefetch(),
         )
@@ -98,6 +128,8 @@ def ppxaid_user_relations(qs: "QuerySet") -> "QuerySet":
         )
         .prefetch_related(
             flares_prefetch(),
+            user_medhistorys_prefetch(),
+            user_urates_prefetch(),
         )
     )
 

@@ -5,6 +5,7 @@ from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
+from ..treatments.choices import UltChoices
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 
 def medallergys_qs() -> "QuerySet":
-    return apps.get_model("medallergys.MedAllergy").objects.all()
+    return apps.get_model("medallergys.MedAllergy").objects.filter(treatment__in=UltChoices.values).all()
 
 
 def medallergys_prefetch() -> Prefetch:

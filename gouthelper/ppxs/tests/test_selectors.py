@@ -22,7 +22,7 @@ class TestPpxUserQuerySet(TestCase):
 
     def test__ppx_user_qs(self):
         for psp in Pseudopatient.objects.ppx_qs().filter(ppx__isnull=False).all():
-            with self.assertNumQueries(4):
+            with self.assertNumQueries(5):
                 qs = ppx_user_qs(psp.pk).get()
                 self.assertTrue(isinstance(qs, Pseudopatient))
                 self.assertTrue(getattr(qs, "ppx", False))

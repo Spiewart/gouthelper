@@ -27,7 +27,7 @@ def medallergy_attr(
 ) -> Union[None, "MedAllergy", list["MedAllergy"]]:
     """Method that consolidates the Try / Except logic for getting a MedAllergy."""
     try:
-        return medallergys_get(obj.medallergys_qs, medallergy)
+        return medallergys_get(obj.user.medallergys_qs if obj.user else obj.medallergys_qs, medallergy)
     except AttributeError as exc:
         if isinstance(medallergy, Treatments):
             if hasattr(obj, "user") and obj.user:

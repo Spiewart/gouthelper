@@ -12,6 +12,7 @@ from ...goalurates.models import GoalUrate
 from ...goalurates.tests.factories import create_goalurate
 from ...labs.models import Urate
 from ...medhistorydetails.models import GoutDetail
+from ...medhistorys.lists import PPX_MEDHISTORYS, ULT_MEDHISTORYS, ULTAID_MEDHISTORYS
 from ...ppxaids.models import PpxAid
 from ...ppxaids.tests.factories import create_ppxaid
 from ...ppxs.models import Ppx
@@ -95,16 +96,21 @@ class TestPseudopatientManager(TestCase):
                     self.assertEqual(psp_flare_qs.flare_qs[0], psp.flares_qs[0])
 
     def test__goalurate_qs(self):
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             for psp in Pseudopatient.objects.goalurate_qs().filter(goalurate__isnull=False):
                 self.assertTrue(hasattr(psp, "goalurate"))
                 self.assertTrue(isinstance(psp.goalurate, GoalUrate))
                 self.assertTrue(hasattr(psp, "medhistorys_qs"))
                 for mh in psp.medhistorys_qs:
-                    self.assertTrue(mh.medhistorytype in GoalUrate.aid_medhistorys())
+                    self.assertTrue(
+                        mh.medhistorytype in GoalUrate.aid_medhistorys()
+                        or mh.medhistorytype in ULT_MEDHISTORYS
+                        or mh.medhistorytype in ULTAID_MEDHISTORYS
+                        or mh.medhistorytype in PPX_MEDHISTORYS
+                    )
 
     def test__ppxaid_qs(self):
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(6):
             for psp in Pseudopatient.objects.ppxaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ppxaid"):
@@ -163,7 +169,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
     def test__ult_qs(self):
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             for psp in Pseudopatient.objects.ult_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ult"):

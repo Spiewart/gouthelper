@@ -1330,9 +1330,27 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
             raise Continue
 
     def get_mh_obj(self, mhtype: MedHistoryTypes) -> Union["MedHistory", None]:
-        return (
-            medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None) if self.query_object else None
-        )
+        if self.user:
+            return (
+                medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None)
+                if self.query_object
+                else None
+            )
+        elif self.query_object and mhtype in self.query_object.aid_medhistorys():
+            return (
+                medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None)
+                if self.query_object
+                else None
+            )
+        else:
+            return next(
+                iter(
+                    medhistorys_get(rel_obj.medhistorys_qs, mhtype, null_return=None)
+                    for rel_obj in self.related_objects
+                    if mhtype in rel_obj.aid_medhistorys()
+                ),
+                None,
+            )
 
     def default_get_mh_initial_value(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> bool:
         return (
@@ -2146,3 +2164,7 @@ class GoutHelperUserEditMixin(
     @cached_property
     def user(self) -> User | None:
         return None
+
+    @cached_property
+    def related_objects(self) -> list[Model]:
+        return []

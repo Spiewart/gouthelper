@@ -7,7 +7,7 @@ from django.contrib.auth.models import AnonymousUser  # pylint: disable=e0401 # 
 from django.contrib.messages.middleware import MessageMiddleware  # pylint: disable=e0401 # type: ignore
 from django.contrib.sessions.middleware import SessionMiddleware  # pylint: disable=e0401 # type: ignore
 from django.core.exceptions import ObjectDoesNotExist  # pylint: disable=e0401 # type: ignore
-from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
+from django.db.models import Q, QuerySet  # pylint: disable=e0401 # type: ignore
 from django.test import RequestFactory, TestCase  # pylint: disable=e0401 # type: ignore
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
@@ -20,7 +20,7 @@ from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.helpers import medhistory_attr
-from ...medhistorys.lists import PPX_MEDHISTORYS
+from ...medhistorys.lists import PPX_MEDHISTORYS, PPXAID_MEDHISTORYS
 from ...medhistorys.models import Gout
 from ...medhistorys.tests.factories import GoutFactory
 from ...ppxaids.tests.factories import create_ppxaid
@@ -587,7 +587,7 @@ class TestPpxPseudopatientCreate(TestCase):
         assert Ppx.objects.filter(user=self.psp).exists()
 
         # Get the Ppx
-        ppx = Ppx.objects.get(user=self.psp)
+        ppx = Pseudopatient.objects.ppx_qs().get(pk=self.psp.pk).ppx
 
         # Assert that the Ppx fields are the same as in the data dict
         self.assertEqual(ppx.starting_ult, data["starting_ult"])
@@ -638,7 +638,7 @@ class TestPpxPseudopatientCreate(TestCase):
 
     def test__post_creates_ppxs_with_correct_indication(self):
         """Test that the view creates the User's Ppx object with the correct indication."""
-        for user in Pseudopatient.objects.all():
+        for user in Pseudopatient.objects.ppx_qs().filter(ppx__isnull=False).all():
             data = ppx_data_factory(user, urates=None)
 
             if user.profile.provider:
@@ -650,7 +650,7 @@ class TestPpxPseudopatientCreate(TestCase):
             assert response.status_code == 302
 
             # Get the Ppx
-            ppx = Ppx.objects.get(user=user)
+            ppx = user.ppx
 
             # Test the view logic for setting the indication
             if ppx.starting_ult:
@@ -807,12 +807,14 @@ class TestPpxPseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, pseudopatient=self.psp.pk)
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             qs = view.get_queryset().get()
         assert qs == self.psp
         assert hasattr(qs, "ppx") and qs.ppx == self.psp.ppx
         assert hasattr(qs, "medhistorys_qs")
-        psp_mhs = self.psp.medhistory_set.filter(medhistorytype__in=PPX_MEDHISTORYS).all()
+        psp_mhs = self.psp.medhistory_set.filter(
+            Q(medhistorytype__in=PPX_MEDHISTORYS) | Q(medhistorytype__in=PPXAID_MEDHISTORYS)
+        ).all()
         for mh in qs.medhistorys_qs:
             assert mh in psp_mhs
         assert hasattr(qs, "urates_qs")
@@ -1174,7 +1176,7 @@ class TestPpxPseudopatientUpdate(TestCase):
         assert response.status_code == 302
 
         # Get the Ppx
-        ppx = Ppx.objects.get(user=self.psp)
+        ppx = Pseudopatient.objects.ppx_qs().get(pk=self.psp.pk).ppx
 
         # Assert that the Ppx fields are the same as in the data dict
         self.assertEqual(ppx.starting_ult, data["starting_ult"])
@@ -1238,7 +1240,9 @@ class TestPpxPseudopatientUpdate(TestCase):
 
     def test__post_creates_ppxs_with_correct_indication(self):
         """Test that the view creates the User's Ppx object with the correct indication."""
-        for ppx in Ppx.objects.select_related("user__pseudopatientprofile").filter(user__isnull=False).all():
+        for psp in Pseudopatient.objects.ppx_qs().filter(ppx__isnull=False).all():
+            ppx = psp.ppx
+
             data = ppx_data_factory(ppx=ppx, urates=None)
 
             if ppx.user.profile.provider:
@@ -1250,7 +1254,7 @@ class TestPpxPseudopatientUpdate(TestCase):
             assert response.status_code == 302
 
             # Refresh the ppx from the db
-            ppx.refresh_from_db()
+            ppx = Pseudopatient.objects.ppx_qs().get(pk=psp.pk).ppx
 
             # Test the view logic for setting the indication
             if ppx.starting_ult:

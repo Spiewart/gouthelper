@@ -1020,7 +1020,7 @@ class TestPpxAidPseudopatientDetail(TestCase):
         request = self.factory.get("/fake-url/")
         view = self.view()
         view.setup(request, pseudopatient=self.psp.pk)
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             qs = view.get_queryset().get()
         assert qs == self.psp
         assert hasattr(qs, "ppxaid") and qs.ppxaid == self.psp.ppxaid

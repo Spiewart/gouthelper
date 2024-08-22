@@ -109,7 +109,7 @@ class TestPpxAidUserQuerySet(TestCase):
             self.assertIsInstance(queryset, QuerySet)
             queryset = queryset.get()
             self.assertEqual(queryset, self.user_ppx.user)
-            self.assertEqual(len(queries.captured_queries), 4)
+            self.assertEqual(len(queries.captured_queries), 5)
             self.assertTrue(hasattr(queryset, "ppxaid"))
             self.assertEqual(queryset.ppxaid, self.user_ppx)
             self.assertTrue(hasattr(queryset, "ppxaidsettings"))

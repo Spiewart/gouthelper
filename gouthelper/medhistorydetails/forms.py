@@ -1,6 +1,7 @@
 from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import HTML, Div, Field, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
+from django.urls import reverse  # type: ignore
 from django.urls import reverse_lazy  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
 from django.utils.text import format_lazy  # type: ignore
@@ -212,11 +213,22 @@ class GoutDetailForm(ModelFormKwargMixin, forms.ModelForm):
         self.fields["on_ult"].initial = None
         self.fields["on_ult"].choices = YES_OR_NO_OR_NONE
         self.fields["on_ult"].required = True
-        self.fields["starting_ult"].help_text = format_lazy(
-            """Is {} just starting ULT (urate-lowering therapy) or {} {} started ULT in the last 3 months?""",
-            self.str_attrs.get("subject_the"),
-            self.str_attrs.get("pos"),
-            self.str_attrs.get("gender_subject"),
+        self.fields["starting_ult"].help_text = mark_safe(
+            format_lazy(
+                """<span id='starting_ult_help_text'>Is {} just starting ULT (urate-lowering therapy) or {} {} \
+started ULT in the last 3 months?</span><span id='starting_ult_help_text_extra'> If you aren't sure whether {} \
+should start ULT, leave as 'No' and you can use a <a href='{}'>Ult</a> \
+to help you decide later.</span>""",
+                self.str_attrs.get("subject_the"),
+                self.str_attrs.get("pos"),
+                self.str_attrs.get("gender_subject"),
+                self.str_attrs.get("subject_the"),
+                reverse("ultaids:about"),
+            )
+        )
+        self.fields["starting_ult"].help_text_alt = mark_safe(
+            f"{self.str_attrs.get('Tobe')} {self.str_attrs.get('subject_the')} in the initial dose-adjustment phase"
+            " (e.g. titration, usually first 6-12 months) of urate-lowering therapy (ULT)?"
         )
         self.fields["starting_ult"].initial = None
         self.fields["starting_ult"].choices = YES_OR_NO_OR_NONE

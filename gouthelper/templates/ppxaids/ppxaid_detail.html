@@ -40,7 +40,11 @@
       | <a class="samepage-link" href="#not_options">Not Recommended</a> | <a class="samepage-link" href="#explanations">Explanations</a>
     </div>
     <div class="col-auto align-items-center d-flex justify-content-end">
-      {% if object.user %}<span>{{ object.user }}</span>{% endif %}
+      {% if object.user %}
+        <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
+      {% elif object.ppx %}
+        <a href="{% url 'ppxs:detail' pk=object.ppx.pk %}">{{ object.ppx }}</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}

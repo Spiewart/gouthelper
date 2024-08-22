@@ -87,7 +87,7 @@ class TestPpxAidMethods(TestCase):
             BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
         ppxaidsettings = PpxAidSettingsFactory(user=ppxaid.user)
         qs = ppxaid_user_qs(pseudopatient=ppxaid.user.pk)
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             # QuerySet is 3 queries because the user has a ppxaidsettings
             qs = qs.get()
             decisionaid = PpxAidDecisionAid(qs=qs)
