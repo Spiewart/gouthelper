@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
 from django.db.models import QuerySet  # type: ignore
@@ -51,7 +53,7 @@ class TestPseudopatientFilterAgeGender(TestCase):
     def setUp(self):
         self.pseudopatient = create_psp()
         for _ in range(3):
-            create_psp()
+            create_psp(dateofbirth=self.pseudopatient.dateofbirth.value - timedelta(days=365 * 2))
         for _ in range(3):
             create_psp(
                 dateofbirth=self.pseudopatient.dateofbirth.value, gender=Genders(self.pseudopatient.gender.value)
