@@ -78,7 +78,12 @@ class Flare(
                 ),
             ),
             # TODO: create UniqueConstraint preventing overlapping date_started-date_ended intervals for user's Flares
-            # TODO: create UniqueConstraint preventing a user from having more than one Flare without a date_ended
+            # Each user can only have one Flare that is on going, i.e. there is no date_ended
+            models.UniqueConstraint(
+                fields=["user", "date_ended"],
+                condition=models.Q(date_ended__isnull=True),
+                name="%(app_label)s_%(class)s_one_active_flare_per_user",
+            ),
             models.CheckConstraint(
                 check=models.Q(date_started__lte=models.functions.Now()),
                 name="%(app_label)s_%(class)s_date_started_not_in_future",
