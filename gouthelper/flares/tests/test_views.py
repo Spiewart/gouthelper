@@ -1055,6 +1055,40 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             response.context_data["ckddetail_form"].errors["dialysis"][0],
         )
 
+    def test__get_redirects_when_another_flare_does_not_have_date_ended(self):
+        conflicting_flare = create_flare(user=self.psp, date_ended=None)
+        response = self.client.get(
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}),
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse(
+                "flares:pseudopatient-detail",
+                kwargs={"pseudopatient": conflicting_flare.user.pk, "pk": conflicting_flare.pk},
+            ),
+        )
+
+    def test__post_raises_ValidationError_when_date_started_or_ended_conflicts_with_another_flare(self):
+        conflicting_flare = create_flare(user=self.psp, date_ended=(timezone.now() - timedelta(days=1)).date())
+        self.assertEqual(conflicting_flare.date_ended, (timezone.now() - timedelta(days=1)).date())
+        flare_data = flare_data_factory(user=self.psp)
+        flare_data.update(
+            {
+                "date_started": conflicting_flare.date_started,
+                "date_ended": conflicting_flare.date_ended,
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-create", kwargs={"pseudopatient": self.psp.pk}),
+            data=flare_data,
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertIn("date_started", response.context_data["form"].errors)
+
 
 class TestFlarePseudopatientDelete(TestCase):
     """Tests for the FlarePseudopatientDelete view."""
@@ -1576,7 +1610,11 @@ class TestFlarePseudopatientUpdate(TestCase):
             create_psp(plus=True)
         self.psp = create_psp()
         for psp in Pseudopatient.objects.all():
-            create_flare(user=psp)
+            create_flare(
+                user=psp,
+                date_started=(timezone.now() - timedelta(days=50)).date(),
+                date_ended=(timezone.now() - timedelta(days=45)).date(),
+            )
 
     def test__check_user_onetoones(self):
         """Tests that the view checks for the User's related models."""
@@ -2012,7 +2050,12 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__post_creates_urate(self):
         """Test that the post() method creates a urate when provided the appropriate data."""
         # Create a flare with a user and no urate
-        flare = create_flare(user=self.user, urate=None)
+        flare = create_flare(
+            user=self.user,
+            urate=None,
+            date_started=(timezone.now() - timedelta(days=10)).date(),
+            date_ended=(timezone.now() - timedelta(days=1)).date(),
+        )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
         # Add the urate data
@@ -2037,7 +2080,12 @@ class TestFlarePseudopatientUpdate(TestCase):
 
     def test__post_updates_urate(self):
         # Create a flare with a user and a urate
-        flare = create_flare(user=self.user, urate=UrateFactory(user=self.user, value=Decimal("5.0")))
+        flare = create_flare(
+            user=self.user,
+            urate=UrateFactory(user=self.user, value=Decimal("5.0")),
+            date_started=(timezone.now() - timedelta(days=10)).date(),
+            date_ended=(timezone.now() - timedelta(days=1)).date(),
+        )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
         # Add the urate data
@@ -2063,7 +2111,12 @@ class TestFlarePseudopatientUpdate(TestCase):
         """Test that the post() method deletes a urate when provided the appropriate data."""
         urate = UrateFactory(user=self.user, value=Decimal("5.0"))
         # Create a flare with a user and a urate
-        flare = create_flare(user=self.user, urate=urate)
+        flare = create_flare(
+            user=self.user,
+            urate=urate,
+            date_started=(timezone.now() - timedelta(days=10)).date(),
+            date_ended=(timezone.now() - timedelta(days=1)).date(),
+        )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
         # Add the urate data
@@ -2335,6 +2388,28 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             "If the patient is on",
             response.context_data["ckddetail_form"].errors["dialysis"][0],
         )
+
+    def test__post_raises_ValidationError_when_date_started_or_ended_conflicts_with_another_flare(self):
+        flare = self.psp.flare_set.last()
+        print(self.psp.flare_set.all())
+        conflicting_flare = create_flare(user=self.psp, date_ended=(timezone.now() - timedelta(days=1)).date())
+        self.assertEqual(conflicting_flare.date_ended, (timezone.now() - timedelta(days=1)).date())
+        flare_data = flare_data_factory(flare=flare)
+        flare_data.update(
+            {
+                "date_started": conflicting_flare.date_started,
+                "date_ended": conflicting_flare.date_ended,
+            }
+        )
+        response = self.client.post(
+            reverse("flares:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk, "pk": flare.pk}),
+            data=flare_data,
+        )
+        forms_print_response_errors(response)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context_data["form"].errors)
+        self.assertIn("date_started", response.context_data["form"].errors)
+        self.assertIn("date_ended", response.context_data["form"].errors)
 
 
 class TestFlareUpdate(TestCase):

@@ -321,20 +321,21 @@ class FlarePatientEditBase(FlareEditBase):
         self,
         flare: Flare,
     ) -> bool:
-        return flare.date_started <= self.object.date_started <= flare.date_ended
+        return flare.date_started <= self.form.cleaned_data["date_started"] <= flare.date_ended
 
     def date_ended_conflicts_with_another_flare(
         self,
         flare: Flare,
     ) -> bool:
-        return flare.date_started <= self.object.date_ended <= flare.date_ended if self.object.date_ended else False
+        date_ended = self.form.cleaned_data.get("date_ended", None)
+        return flare.date_started <= date_ended <= flare.date_ended if date_ended else False
 
     def post_assess_conflict_with_other_flare_dates(self) -> None:
         conflicting_flare = next(
             iter(
                 flare
                 for flare in self.user.flares_qs
-                if flare is not self.object and self.dates_conflict_with_another_flare(flare=flare)
+                if flare is not self.form.instance and self.dates_conflict_with_another_flare(flare=flare)
             ),
             None,
         )
