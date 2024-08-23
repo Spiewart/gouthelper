@@ -340,15 +340,16 @@ def flare_data_factory(
     )
     data = data_constructor.create()
     # Create FlareAid Data
-    date_started = fake.date_between_dates(
-        date_start=(timezone.now() - timedelta(days=180)).date(), date_end=timezone.now().date()
+    date_started = (
+        flare.date_started
+        if flare
+        else fake.date_between_dates(
+            date_start=(timezone.now() - timedelta(days=180)).date(), date_end=timezone.now().date()
+        )
     )
     data["date_started"] = str(date_started)
-    if flare and flare.date_ended is not None:
-        if fake.boolean():
-            data["date_ended"] = str(create_date_ended(date_started))
-        else:
-            data["date_ended"] = ""
+    if flare:
+        data["date_ended"] = str(flare.date_ended if flare.date_ended else "")
     elif fake.boolean():
         data["date_ended"] = str(create_date_ended(date_started))
     else:

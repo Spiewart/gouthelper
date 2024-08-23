@@ -40,8 +40,6 @@ class TestPseudopatientManager(TestCase):
                 create_onetoone_factory_atomic(FlareAidSettingsFactory, **{"user": psp})
             if fake.boolean():
                 create_flare(user=psp)
-                if fake.boolean():
-                    create_flare(user=psp)
             if fake.boolean():
                 create_goalurate(user=psp)
             if fake.boolean():

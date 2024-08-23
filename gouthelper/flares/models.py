@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Literal
 
 from django.conf import settings  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateRangeField, RangeBoundary, RangeOperators
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -42,6 +44,11 @@ if TYPE_CHECKING:
     User = get_user_model()
 
 
+class TsTzRange(models.Func):
+    function = "daterange"
+    output_field = DateRangeField()
+
+
 class Flare(
     RulesModelMixin,
     GoutHelperAidModel,
@@ -77,7 +84,17 @@ class Flare(
                     )
                 ),
             ),
-            # TODO: create UniqueConstraint preventing overlapping date_started-date_ended intervals for user's Flares
+            # A user can't have two flares that overlap
+            ExclusionConstraint(
+                name="%(app_label)s_%(class)s_exclude_user_overlapping",
+                expressions=[
+                    (
+                        TsTzRange("date_started", "date_ended", RangeBoundary(inclusive_upper=True)),
+                        RangeOperators.OVERLAPS,
+                    ),
+                    ("user", RangeOperators.EQUAL),
+                ],
+            ),
             # Each user can only have one Flare that is on going, i.e. there is no date_ended
             models.UniqueConstraint(
                 fields=["user", "date_ended"],

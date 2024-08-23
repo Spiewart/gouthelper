@@ -1454,11 +1454,19 @@ class TestFlarePseudopatientList(TestCase):
         self.admin = AdminFactory()
         self.anon_user = AnonymousUser()
         self.psp = create_psp(provider=self.provider, plus=True)
-        for _ in range(5):
-            create_flare(user=self.psp)
+        for i in range(5):
+            create_flare(
+                user=self.psp,
+                date_started=timezone.now().date() - timedelta(days=5 * i),
+                date_ended=timezone.now().date() - timedelta(days=4 * i),
+            )
         self.anon_psp = create_psp(plus=True)
-        for _ in range(5):
-            create_flare(user=self.anon_psp)
+        for i in range(5):
+            create_flare(
+                user=self.anon_psp,
+                date_started=timezone.now().date() - timedelta(days=5 * i),
+                date_ended=timezone.now().date() - timedelta(days=4 * i),
+            )
         self.empty_psp = create_psp(plus=True)
         self.view = FlarePseudopatientList
 
@@ -2049,12 +2057,13 @@ class TestFlarePseudopatientUpdate(TestCase):
 
     def test__post_creates_urate(self):
         """Test that the post() method creates a urate when provided the appropriate data."""
+        users_first_flare = self.user.flare_set.first()
         # Create a flare with a user and no urate
         flare = create_flare(
             user=self.user,
             urate=None,
-            date_started=(timezone.now() - timedelta(days=10)).date(),
-            date_ended=(timezone.now() - timedelta(days=1)).date(),
+            date_started=(users_first_flare.date_started - timedelta(days=10)),
+            date_ended=(users_first_flare.date_started - timedelta(days=5)),
         )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
@@ -2079,12 +2088,13 @@ class TestFlarePseudopatientUpdate(TestCase):
         self.assertEqual(flare.urate.user, self.user)
 
     def test__post_updates_urate(self):
+        users_first_flare = self.user.flare_set.first()
         # Create a flare with a user and a urate
         flare = create_flare(
             user=self.user,
             urate=UrateFactory(user=self.user, value=Decimal("5.0")),
-            date_started=(timezone.now() - timedelta(days=10)).date(),
-            date_ended=(timezone.now() - timedelta(days=1)).date(),
+            date_started=(users_first_flare.date_started - timedelta(days=10)),
+            date_ended=(users_first_flare.date_started - timedelta(days=1)),
         )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
@@ -2109,13 +2119,14 @@ class TestFlarePseudopatientUpdate(TestCase):
 
     def test__post_deletes_urate(self):
         """Test that the post() method deletes a urate when provided the appropriate data."""
+        users_first_flare = self.user.flare_set.first()
         urate = UrateFactory(user=self.user, value=Decimal("5.0"))
         # Create a flare with a user and a urate
         flare = create_flare(
             user=self.user,
             urate=urate,
-            date_started=(timezone.now() - timedelta(days=10)).date(),
-            date_ended=(timezone.now() - timedelta(days=1)).date(),
+            date_started=(users_first_flare.date_started - timedelta(days=10)),
+            date_ended=(users_first_flare.date_started - timedelta(days=1)),
         )
         # Create some fake flare data
         data = flare_data_factory(user=self.user, flare=flare)
@@ -2391,9 +2402,11 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
 
     def test__post_raises_ValidationError_when_date_started_or_ended_conflicts_with_another_flare(self):
         flare = self.psp.flare_set.last()
-        print(self.psp.flare_set.all())
-        conflicting_flare = create_flare(user=self.psp, date_ended=(timezone.now() - timedelta(days=1)).date())
-        self.assertEqual(conflicting_flare.date_ended, (timezone.now() - timedelta(days=1)).date())
+        conflicting_flare = create_flare(
+            user=self.psp,
+            date_started=flare.date_started - timedelta(days=10),
+            date_ended=flare.date_started - timedelta(days=5),
+        )
         flare_data = flare_data_factory(flare=flare)
         flare_data.update(
             {
