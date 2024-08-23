@@ -192,7 +192,7 @@
           </div>
         </div>
       </div>
-      {% if object.urates_qs %}
+      {% if object.urates_qs or object.user and object.user.urates_qs %}
         <hr size="3" color="dark" />
         <div id="urates">
           <div class="row">
@@ -218,20 +218,37 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for urate in object.urates_qs %}
-                      <tr>
-                        <th scope="row">{{ forloop.counter }}</th>
-                        <td>{{ urate.value }}</td>
-                        <td>{{ urate.date.date }}</td>
-                        <td>
-                          {% if urate.value > object.goal_urate %}
-                            No
-                          {% else %}
-                            Yes
-                          {% endif %}
-                        </td>
-                      </tr>
-                    {% endfor %}
+                    {% if object.user %}
+                      {% for urate in object.user.urates_qs %}
+                        <tr>
+                          <th scope="row">{{ forloop.counter }}</th>
+                          <td>{{ urate.value }}</td>
+                          <td>{{ urate.date.date }}</td>
+                          <td>
+                            {% if urate.value > object.user.goal_urate %}
+                              No
+                            {% else %}
+                              Yes
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    {% else %}
+                      {% for urate in object.urates_qs %}
+                        <tr>
+                          <th scope="row">{{ forloop.counter }}</th>
+                          <td>{{ urate.value }}</td>
+                          <td>{{ urate.date.date }}</td>
+                          <td>
+                            {% if urate.value > object.goal_urate %}
+                              No
+                            {% else %}
+                              Yes
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    {% endif %}
                   </tbody>
                 </table>
               </div>

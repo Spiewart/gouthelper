@@ -937,7 +937,7 @@ contraindicated."
         has_goalurate_property = hasattr(self, "goalurate") and not self.has_goalurate
         return (
             self.user.goalurate.get_goal_urate_display()
-            if self.user and self.user.goalurate
+            if self.user and hasattr(self.user, "goalurate") and self.user.goalurate
             else self.goalurate.get_goal_urate_display()
             if self.has_goalurate
             else self.GoalUrates(self.goal_urate).label
@@ -1091,7 +1091,6 @@ starting allopurinol.""",
             "Subject_the", "tobe", "tobe_neg", "gender_pos", "Subject_the_pos"
         )
         if self.hyperuricemic is not None:
-            print(self.hyperuricemic)
             return mark_safe(
                 format_lazy(
                     """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> \
@@ -1339,6 +1338,7 @@ rash, fluid retention, and decreased kidney function",
         GoalUrate = apps.get_model("goalurates.GoalUrate")
         return (
             self.user
+            and hasattr(self.user, "goalurate")
             and self.user.goalurate is not None
             or hasattr(self, "goalurate")
             and isinstance(self.goalurate, GoalUrate)

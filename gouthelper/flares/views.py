@@ -238,6 +238,15 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box."
         form = self.oto_forms["urate"]
         return form, form.cleaned_data.get("value", None)
 
+    def get_success_url(self):
+        """Overwritten to take optional next parameter from url"""
+        next_url = self.request.POST.get("next", None)
+        if next_url:
+            next_url += f"?updated=True&related_object_id=#{self.object_attr}_{self.object.pk}-card"
+            return next_url
+        else:
+            return super().get_success_url() + "?updated=True"
+
 
 class FlareAnonEditBase(FlareEditBase):
     def post(self, request, *args, **kwargs):

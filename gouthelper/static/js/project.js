@@ -95,8 +95,13 @@ function get_id_in_hyperlink() {
 function get_collapse_id_from_hyperlink_id(hyperlink_id) {
   // function that gets the collapse id from the hyperlink id
   //swap out - for _ in hyperlink_id
-  var collapse_id = hyperlink_id.replace('-', '_');
-  return collapse_id + '_collapse';
+  var last_dash = hyperlink_id.lastIndexOf('-');
+  return (
+    hyperlink_id.substring(0, last_dash) +
+    '_' +
+    hyperlink_id.substring(last_dash + 1) +
+    '_collapse'
+  );
 }
 
 function check_if_id_collapse_hidden(id) {
@@ -109,16 +114,12 @@ function check_if_id_collapse_hidden(id) {
   }
 }
 
-function expand_collapse_for_id_if_hidden() {
-  hyperlink_id = get_id_in_hyperlink();
-  console.log(hyperlink_id);
+function expand_collapse_for_id_if_hidden(id) {
   // check if there is a hyperlink id
-  if (hyperlink_id) {
-    console.log('hyperlink_id found');
+  if (id) {
     // function that expands the collapse with id=id if it is hidden
-    collapse_id = get_collapse_id_from_hyperlink_id(hyperlink_id);
+    collapse_id = get_collapse_id_from_hyperlink_id(id);
     if (check_if_id_collapse_hidden(collapse_id)) {
-      console.log('hidden');
       $('#' + collapse_id).collapse('show');
     }
   }
