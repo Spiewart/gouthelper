@@ -245,7 +245,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box."
             next_url += f"?updated=True&related_object_id=#{self.object_attr}_{self.object.pk}-card"
             return next_url
         else:
-            return super().get_success_url() + "?updated=True"
+            return super().get_success_url()
 
 
 class FlareAnonEditBase(FlareEditBase):
