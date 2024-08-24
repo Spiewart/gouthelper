@@ -448,15 +448,28 @@ It also affects the body's medication processing and can affect medication dosin
         return medallergy_attr(Treatments.COLCHICINE, self)
 
     @cached_property
-    def colchicine_ckd_contra(self) -> bool:
-        """Method that returns whether or not the object has a contraindication
-        to colchicine due to CKD."""
-        contra = aids_colchicine_ckd_contra(
+    def colchicine_ckd_contra(self) -> Contraindications | None:
+        return aids_colchicine_ckd_contra(
             ckd=self.ckd,
             ckddetail=self.ckddetail,
             defaulttrtsettings=self.defaulttrtsettings,
         )
-        return contra == Contraindications.ABSOLUTE or contra == Contraindications.RELATIVE
+
+    @cached_property
+    def colchicine_contraindicated_due_to_ckd(self) -> bool:
+        """Method that returns whether or not the object has a contraindication
+        to colchicine due to CKD."""
+
+        return (
+            self.colchicine_ckd_contra == Contraindications.ABSOLUTE
+            or self.colchicine_ckd_contra == Contraindications.RELATIVE
+        )
+
+    @cached_property
+    def colchicine_dose_adjusted_due_to_ckd(self) -> bool:
+        """Method that returns whether or not the object has a dose adjustment
+        to colchicine due to CKD."""
+        return self.colchicine_ckd_contra == Contraindications.DOSEADJ
 
     @cached_property
     def colchicineinteraction(self) -> Union["MedHistory", bool]:
@@ -497,6 +510,8 @@ beyond the capabilities of this tool to manage safely."
         info_dict = self.colchicine_info()
         if self.organtransplant:
             info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if self.colchicine_dose_adjusted_due_to_ckd:
+            info_dict.update({"Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links)})
         return info_dict
 
     @classmethod
@@ -510,7 +525,7 @@ verapamil, quinidine)"
         contra_dict = {}
         if self.colchicine_allergy:
             contra_dict["Allergy"] = ("medallergys", self.colchicine_allergy)
-        if self.colchicine_ckd_contra:
+        if self.colchicine_contraindicated_due_to_ckd:
             contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
         if self.colchicineinteraction:
             contra_dict["Medication Interaction"] = (
@@ -1972,14 +1987,14 @@ with CKD.""",
 
         ckd_str += str(
             format_lazy(
-                """<br> <br> <a target='_blank' href={}>Colchicine</a> is heavily processed by the kidneys and \
+                """<br> <br> <a href={}>Colchicine</a> is heavily processed by the kidneys and \
 should be used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage \
 4 or 5, or is on dialysis, colchicine should be avoided.""",
                 reverse("treatments:about-flare") + "#colchicine",
             )
         )
         if self.ckd:
-            if self.colchicine_ckd_contra:
+            if self.colchicine_contraindicated_due_to_ckd:
                 ckd_str += f" Therefore, colchicine is not recommended for {subject_the}"
                 if self.ckddetail:
                     ckd_str += f" with {self.ckddetail.explanation}"
@@ -1991,7 +2006,7 @@ colchicine can be used by {subject_the}, but at reduced doses."
         return mark_safe(ckd_str)
 
     def cvdiseases_interp(self) -> str:
-        Subject_the, subject_the, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos_neg")
+        subject_the, pos_neg = self.get_str_attrs("subject_the", "pos_neg")
 
         main_str = format_lazy(
             """Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
@@ -2000,7 +2015,7 @@ cardiovascular disease is a relative contraindication to using NSAIDs. """,
             reverse("treatments:about-flare") + "#nsaids",
         )
         if self.cvdiseases:
-            main_str += f"Because of <strong>{Subject_the}'s cardiovascular disease(s) ({self.cvdiseases_str.lower()})\
+            main_str += f"Because of <strong>{subject_the}'s cardiovascular disease(s) ({self.cvdiseases_str.lower()})\
 </strong>, NSAIDs are not recommended."
         else:
             main_str += f"Because <strong>{subject_the} {pos_neg} cardiovascular disease</strong>, NSAIDs are \
@@ -2049,15 +2064,7 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
         "UltAidDecisionAid",
         "UltDecisionAid",
     ]
-    related_models: (
-        Literal["flareaid"]
-        | Literal["flare"]
-        | Literal["goalurate"]
-        | Literal["ppxaid"]
-        | Literal["ppx"]
-        | Literal["ultaid"]
-        | Literal["ult"]
-    )
+    related_models: "AidNames"
     related_objects: "Manager"
 
     def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":

@@ -61,7 +61,7 @@
         </h3>
         <div class="row">
           <div class="col">
-            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype %}
+            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_links=True %}
             {% if object.recommendation %}
               <div class="card card-body spacious-cards">
                 <h4 class="card-title">Universal Flare Treatment Instructions</h4>

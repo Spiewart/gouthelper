@@ -301,13 +301,11 @@ class PseudopatientListView(LoginRequiredMixin, PermissionRequiredMixin, GoutHel
 pseudopatient_list_view = PseudopatientListView.as_view()
 
 
-class UserDeleteView(
-    LoginRequiredMixin, AutoPermissionRequiredMixin, GoutHelperUserDetailMixin, SuccessMessageMixin, DeleteView
-):
+class UserDeleteView(LoginRequiredMixin, AutoPermissionRequiredMixin, SuccessMessageMixin, DeleteView):
     model = User
 
     def get_success_message(self, cleaned_data):
-        return _("User successfully deleted")
+        return _("Account successfully deleted")
 
     def get_success_url(self):
         return reverse("contents:home")
@@ -319,7 +317,7 @@ class UserDeleteView(
 user_delete_view = UserDeleteView.as_view()
 
 
-class PseudopatientDeleteView(UserDeleteView):
+class PseudopatientDeleteView(UserDeleteView, GoutHelperUserDetailMixin):
     model = Pseudopatient
 
     def form_valid(self, form):
@@ -330,7 +328,7 @@ class PseudopatientDeleteView(UserDeleteView):
         return Pseudopatient.objects.get(pk=self.kwargs.get("pseudopatient", None))
 
     def get_success_message(self, cleaned_data):
-        return _("Pseudopatient successfully deleted")
+        return _("GoutPatient successfully deleted")
 
     def get_success_url(self):
         return reverse("users:pseudopatients", kwargs={"username": self.request.user.username})

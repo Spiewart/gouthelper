@@ -58,8 +58,10 @@
         </h2>
         <div class="row">
           <div class="col">
-            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_link=True %}
+            {% include "treatments/partials/recommendation.html" with recommendation=object.recommendation trttype=object.trttype samepage_links=True %}
           </div>
+        </div>
+        <div class="row">
           <div class="col">
             {% if object.recommendation %}
               <div class="card card-body spacious-cards">
@@ -74,53 +76,55 @@
                 </ul>
               </div>
             {% endif %}
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
             {% if object.user and object.user.goalurate %}
               {% include 'goalurates/partials/goalurate_detail.html' with object=object.user.goalurate ult=object.recommendation.0.lower %}
             {% elif object.goalurate %}
               {% include 'goalurates/partials/goalurate_detail.html' with object=object.goalurate ult=object.recommendation.0.lower %}
             {% elif object.recommendation %}
-              <div>
-                <div class="card card-body spacious-cards" id="goalurate">
-                  <h4 class="card-title">Goal Uric Acid</h4>
-                  <ul>
-                    <li>
-                      ULT is used to reduce
-                      {% if patient %}
-                        {{ patient }}'s
-                      {% else %}
-                        the patient's
-                      {% endif %}
-                      blood uric acid to goal level.
-                    </li>
-                    <li>This level is dependent on the gout severity and if maintained the risk of gout flares is essentially zero.</li>
-                    <li>ULT medications are dose adjusted until the goal level is reached.</li>
-                    <li>Once 'at goal', a maintenance dose is prescribed to keep the uric acid at this level.</li>
-                    <li>
-                      Use the GoalUrate decision aid to figure out what
-                      {% if patient %}
-                        {{ patient }}'s
-                      {% else %}
-                        the patient's
-                      {% endif %}
-                      goal uric acid is.
-                    </li>
-                  </ul>
-                  {% if patient %}
-                    <a type="button"
-                       class="btn btn-primary btn-lg"
-                       hx-get="{% url 'goalurates:pseudopatient-create' pseudopatient=patient.pk %}"
-                       hx-target="#goalurate"
-                       hx-trigger="click"
-                       role="button">Create GoalUrate</a>
-                  {% else %}
-                    <a type="button"
-                       class="btn btn-primary btn-lg"
-                       hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
-                       hx-target="#goalurate"
-                       hx-trigger="click"
-                       role="button">Create GoalUrate</a>
-                  {% endif %}
-                </div>
+              <div class="card card-body spacious-cards" id="goalurate">
+                <h4 class="card-title">Goal Uric Acid</h4>
+                <ul>
+                  <li>
+                    ULT is used to reduce
+                    {% if patient %}
+                      {{ patient }}'s
+                    {% else %}
+                      the patient's
+                    {% endif %}
+                    blood uric acid to goal level.
+                  </li>
+                  <li>This level is dependent on the gout severity and if maintained the risk of gout flares is essentially zero.</li>
+                  <li>ULT medications are dose adjusted until the goal level is reached.</li>
+                  <li>Once 'at goal', a maintenance dose is prescribed to keep the uric acid at this level.</li>
+                  <li>
+                    Use the GoalUrate decision aid to figure out what
+                    {% if patient %}
+                      {{ patient }}'s
+                    {% else %}
+                      the patient's
+                    {% endif %}
+                    goal uric acid is.
+                  </li>
+                </ul>
+                {% if patient %}
+                  <a type="button"
+                     class="btn btn-primary btn-lg"
+                     hx-get="{% url 'goalurates:pseudopatient-create' pseudopatient=patient.pk %}"
+                     hx-target="#goalurate"
+                     hx-trigger="click"
+                     role="button">Create GoalUrate</a>
+                {% else %}
+                  <a type="button"
+                     class="btn btn-primary btn-lg"
+                     hx-get="{% url 'goalurates:ultaid-create' ultaid=object.pk %}"
+                     hx-target="#goalurate"
+                     hx-trigger="click"
+                     role="button">Create GoalUrate</a>
+                {% endif %}
               </div>
             {% endif %}
           </div>

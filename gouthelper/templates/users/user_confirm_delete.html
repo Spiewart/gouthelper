@@ -15,7 +15,7 @@
   <main class="container">
     <form class="form-horizontal"
           method="post"
-          action="{% url 'users:pseudopatient-delete' object.username %}">
+          action="{% url 'users:delete' %}">
       {% csrf_token %}
       <p>Are you sure you want to delete your account?</p>
       <p>

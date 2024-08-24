@@ -42,6 +42,8 @@
     <div class="col-auto align-items-center d-flex justify-content-end">
       {% if object.user %}
         <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
+      {% elif object.ultaid %}
+        <a href="{% url 'ultaids:detail' pk=object.ultaid.pk %}">{{ object.ultaid }}</a>
       {% endif %}
     </div>
   </div>
@@ -65,23 +67,20 @@
                 <b><u>{{ object.get_indication_display }}</u></b>
               </h3>
               <p class="card-text">{{ object.get_indication_interp }}</p>
-              {% if object.indicated %}
-                <hr size="3" color="dark" />
-                <div id="ultaid">
-                  <div id="row">
-                    <div id="col flex-fill d-flex justify-content-center">
-                      {% if object.user %}
-                        {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.user.ultaid marketing=True %}
-                      {% else %}
-                        {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.ultaid marketing=True %}
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-              {% endif %}
             </div>
           </div>
         </div>
+        {% if object.indicated %}
+          <div class="row">
+            <div class="col">
+              {% if object.user %}
+                {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.user.ultaid marketing=True %}
+              {% else %}
+                {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.ultaid marketing=True %}
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </div>
       <hr size="3" color="dark" />
       <div id="details">
