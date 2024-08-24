@@ -90,6 +90,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "gouthelper.users",
+    "gouthelper.akis.apps.AkisConfig",
     "gouthelper.blog.apps.BlogConfig",
     "gouthelper.contact.apps.ContactConfig",
     "gouthelper.contents.apps.ContentsConfig",
@@ -109,7 +110,7 @@ LOCAL_APPS = [
     "gouthelper.profiles.apps.ProfilesConfig",
     "gouthelper.treatments.apps.TreatmentsConfig",
     "gouthelper.ults.apps.UltsConfig",
-    "gouthelper.ultaids.apps.UltaidsConfig",
+    "gouthelper.ultaids.apps.UltAidsConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -286,13 +287,13 @@ LOGGING = {
             "formatter": "verbose",
         }
     },
-    "loggers": {
-        "rules": {
-            "handlers": ["console"],
-            "level": "DEBUG",
-            "propagate": True,
-        },
-    },
+    # "loggers": {
+    #     "rules": {
+    #         "handlers": ["console"],  # noqa
+    #         "level": "DEBUG",
+    #         "propagate": True,
+    #     },
+    # },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
 

@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING, Union
 
 from django.apps import apps  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
+from django.db.models import Prefetch, Q
 
-from ..medhistorys.lists import FLARE_MEDHISTORYS
-from ..users.models import Pseudopatient
+from ..medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
+from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -12,48 +12,47 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def flare_userless_qs(pk: "UUID") -> "QuerySet":
-    queryset = apps.get_model("flares.Flare").objects.filter(pk=pk)
-    # Fetch the user to check if a redirect to a Pseudopatient view is needed
-    queryset = queryset.select_related("user")
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.select_related("urate")
-    queryset = queryset.prefetch_related(medhistorys_prefetch())
-    return queryset
-
-
-def flare_user_qs(username: str, flare_pk: Union["UUID", None]) -> "QuerySet":
-    queryset = Pseudopatient.objects.filter(username=username)
-    queryset = queryset.select_related("dateofbirth")
-    queryset = queryset.select_related("gender")
-    queryset = queryset.prefetch_related(medhistory_set_prefetch())
-    if flare_pk:
-        queryset = queryset.prefetch_related(flare_prefetch(pk=flare_pk))
-    return queryset
-
-
-def flare_prefetch(pk: "UUID") -> Prefetch:
+def creatinines_prefetch() -> Prefetch:
     return Prefetch(
-        "flare_set",
-        queryset=apps.get_model("flares.Flare").objects.filter(pk=pk).select_related("urate"),
-        to_attr="flare_qs",
+        "aki__creatinine_set",
+        queryset=apps.get_model("labs.Creatinine").objects.order_by("-date_drawn").select_related("user").all(),
+        to_attr="creatinines_qs",
     )
 
 
-def flares_prefetch() -> Prefetch:
+def flares_prefetch(pk: Union["UUID", None] = None) -> Prefetch:
+    queryset = apps.get_model("flares.Flare").objects.select_related("aki", "urate")
+    queryset = queryset.prefetch_related(creatinines_prefetch())
+    qs_attr = "flare"
+    if pk:
+        queryset = queryset.filter(pk=pk)
+        qs_attr += "_qs"
+    else:
+        qs_attr += "s_qs"
     return Prefetch(
         "flare_set",
-        queryset=apps.get_model("flares.Flare").objects.select_related("urate"),
-        to_attr="flares_qs",
+        queryset=queryset,
+        to_attr=qs_attr,
     )
 
 
-def medhistorys_prefetch() -> Prefetch:
+def most_recent_flare_prefetch() -> Prefetch:
     return Prefetch(
-        "medhistorys",
-        queryset=medhistorys_qs(),
-        to_attr="medhistorys_qs",
+        "flare_set",
+        queryset=apps.get_model("flares.Flare").objects.order_by("-date_started"),
+        to_attr="most_recent_flare",
+    )
+
+
+def medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(treatment__in=FlarePpxChoices.values).all()
+
+
+def medallergys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medallergy_set",
+        queryset=medallergys_qs(),
+        to_attr="medallergys_qs",
     )
 
 
@@ -65,7 +64,7 @@ def medhistorys_qs() -> "QuerySet":
     )
 
 
-def medhistory_set_prefetch() -> Prefetch:
+def medhistorys_prefetch() -> Prefetch:
     return Prefetch(
         "medhistory_set",
         queryset=medhistorys_qs(),
@@ -73,11 +72,103 @@ def medhistory_set_prefetch() -> Prefetch:
     )
 
 
-def user_flares(username: str) -> "QuerySet":
-    """QuerySet to fetch all the flares for a User
-    and return both the User and the Flares."""
+def flareaid_medhistorys_qs() -> "QuerySet":
     return (
-        Pseudopatient.objects.filter(username=username)
-        .select_related("pseudopatientprofile")
-        .prefetch_related(flares_prefetch())
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
+        .select_related("ckddetail", "baselinecreatinine")
+    ).all()
+
+
+def flareaid_medhistory_prefetch() -> Prefetch:
+    return Prefetch(
+        "flareaid__medhistory_set",
+        queryset=flareaid_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def flareaid_medallergys_qs() -> "QuerySet":
+    return apps.get_model("medallergys.MedAllergy").objects.filter(Q(treatment__in=FlarePpxChoices.values))
+
+
+def flareaid_medallergy_prefetch() -> Prefetch:
+    return Prefetch(
+        "flareaid__medallergy_set",
+        queryset=flareaid_medallergys_qs(),
+        to_attr="medallergys_qs",
+    )
+
+
+def flare_relations(qs: "QuerySet") -> "QuerySet":
+    """QuerySet to fetch all the related objects for a Flare."""
+    return qs.select_related(
+        "dateofbirth",
+        "gender",
+    )
+
+
+def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
+    """QuerySet to fetch all the related objects for a Flare without the User."""
+    return (
+        flare_relations(qs)
+        .select_related(
+            "aki",
+            "flareaid",
+            "user",
+            "urate",
+        )
+        .prefetch_related(
+            creatinines_prefetch(),
+            flareaid_medhistory_prefetch(),
+            flareaid_medallergy_prefetch(),
+            medhistorys_prefetch(),
+        )
+    )
+
+
+def user_medhistorys_qs() -> "QuerySet":
+    return (
+        apps.get_model("medhistorys.MedHistory")
+        .objects.filter(Q(medhistorytype__in=FLARE_MEDHISTORYS) | Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
+        .select_related("ckddetail", "baselinecreatinine")
+    )
+
+
+def user_medhistorys_prefetch() -> Prefetch:
+    return Prefetch(
+        "medhistory_set",
+        queryset=user_medhistorys_qs(),
+        to_attr="medhistorys_qs",
+    )
+
+
+def flare_user_relations(qs: "QuerySet", flare_pk: Union["UUID", None] = None) -> "QuerySet":
+    return (
+        flare_relations(qs)
+        .select_related(
+            "flareaid",
+            "goalurate",
+            "ppxaid",
+            "ppx",
+            "pseudopatientprofile",
+            "ultaid",
+            "ult",
+        )
+        .prefetch_related(flares_prefetch(pk=flare_pk), user_medhistorys_prefetch(), medallergys_prefetch())
+    )
+
+
+def flare_userless_qs(pk: "UUID") -> "QuerySet":
+    return flare_userless_relations(apps.get_model("flares.Flare").objects.filter(pk=pk))
+
+
+def flares_user_qs(pseudopatient: str, flare_pk: Union["UUID", None] = None) -> "QuerySet":
+    """QuerySet for a Pseudopatient and all the necessary related objects to
+    create or update a Flare. If a flare_pk is provided, the Flare object will
+    be fetched and added to the QuerySet."""
+
+    return flare_user_relations(
+        apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient),
+        flare_pk,
     )

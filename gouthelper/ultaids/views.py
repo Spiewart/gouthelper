@@ -1,62 +1,43 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
-from django.apps import apps  # type: ignore
-from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.db.models import Q  # type: ignore
-from django.http import HttpResponseRedirect  # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.apps import apps  # pylint: disable=E0401  # type: ignore
+from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=E0401  # type: ignore
+from django.views.generic import CreateView, TemplateView, UpdateView  # pylint: disable=E0401  # type: ignore
+from rules.contrib.views import (  # pylint: disable=e0401, E0611  # type: ignore
+    AutoPermissionRequiredMixin,
+    PermissionRequiredMixin,
+)
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthFormOptional
-from ..dateofbirths.models import DateOfBirth
-from ..ethnicitys.forms import EthnicityForm
-from ..ethnicitys.models import Ethnicity
-from ..genders.forms import GenderFormOptional
-from ..genders.models import Gender
-from ..labs.forms import Hlab5801Form
-from ..labs.models import Hlab5801
-from ..medhistorydetails.forms import CkdDetailOptionalForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import (
-    AllopurinolhypersensitivityForm,
-    AnginaForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    FebuxostathypersensitivityForm,
-    HeartattackForm,
-    OrgantransplantForm,
-    PvdForm,
-    StrokeForm,
-    XoiinteractionForm,
+from ..ults.models import Ult
+from ..users.models import Pseudopatient
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    MedAllergyFormMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
+    PatientSessionMixin,
 )
-from ..medhistorys.models import (
-    Allopurinolhypersensitivity,
-    Angina,
-    Cad,
-    Chf,
-    Ckd,
-    Febuxostathypersensitivity,
-    Heartattack,
-    Organtransplant,
-    Pvd,
-    Stroke,
-    Xoiinteraction,
+from .dicts import (
+    MEDALLERGY_FORMS,
+    MEDHISTORY_DETAIL_FORMS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+    PATIENT_OTO_FORMS,
+    PATIENT_REQ_OTOS,
 )
-from ..treatments.choices import UltChoices
-from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import UltAidForm
 from .models import UltAid
-from .selectors import ultaid_userless_qs
 
 if TYPE_CHECKING:
-    from django.db.models import Model, QuerySet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
+    from uuid import UUID  # type: ignore
 
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import GoutDetailForm
-    from ..medhistorys.models import MedHistory
+    from django.contrib.auth import get_user_model  # type: ignore
+    from django.db.models import QuerySet  # type: ignore
+
+    User = get_user_model()
 
 
 class UltAidAbout(TemplateView):
@@ -74,212 +55,137 @@ class UltAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULTAID, tag=None)
 
 
-class UltAidBase(View):
+class UltAidEditBase(MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin, PatientSessionMixin):
     class Meta:
         abstract = True
 
-    model = UltAid
     form_class = UltAidForm
-    # Assign onetoones dict with key as the name of the model and value as a
-    # dict of the model's form and model.
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthFormOptional, "model": DateOfBirth},
-        "ethnicity": {"form": EthnicityForm, "model": Ethnicity},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-        "hlab5801": {"form": Hlab5801Form, "model": Hlab5801},
-    }
-    # Assign medallergys as the Treatment choices for UltAid
-    medallergys = UltChoices
-    # Assign medhistorys dict with key as the name of the model and value as a
-    # dict of the model's form and model.
-    medhistorys = {
-        MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY: {
-            "form": AllopurinolhypersensitivityForm,
-            "model": Allopurinolhypersensitivity,
-        },
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY: {
-            "form": FebuxostathypersensitivityForm,
-            "model": Febuxostathypersensitivity,
-        },
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-        MedHistoryTypes.XOIINTERACTION: {"form": XoiinteractionForm, "model": Xoiinteraction},
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailOptionalForm}
+    model = UltAid
+
+    MEDALLERGY_FORMS = MEDALLERGY_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
-class UltAidCreate(UltAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
-    """
-    Create a new UltAid instance.
-    """
+class UltAidCreate(UltAidEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    """Create a new UltAid"""
 
+    permission_required = "ultaids.can_add_ultaid"
     success_message = "UltAid created successfully!"
 
-    def form_valid(
-        self,
-        form: UltAidForm,
-        onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        self.object.update(qs=self.object)
-        return HttpResponseRedirect(self.get_success_url())
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        if self.ult:
+            kwargs.update({"ult": self.ult})
+        return kwargs
+
+    def get_permission_object(self):
+        if self.ult and self.ult.user:
+            raise PermissionError("Trying to create a UltAid for a Ult with a user with an anonymous view.")
+        return None
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # object_data
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # labs_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
-            )
+            kwargs.update({"ult": self.ult})
+            return self.form_valid(**kwargs)
+
+    @cached_property
+    def ult(self) -> Ult | None:
+        ult_kwarg = self.kwargs.get("ult", None)
+        return Ult.related_objects.get(pk=ult_kwarg) if ult_kwarg else None
+
+    @cached_property
+    def related_object(self) -> Ult:
+        return self.ult
 
 
-class UltAidDetail(DetailView):
-    """DetailView for UltAid model."""
-
+class UltAidDetail(GoutHelperDetailMixin):
     model = UltAid
     object: UltAid
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
-        return context
 
-    def get_queryset(self) -> "QuerySet[Any]":
-        return ultaid_userless_qs(self.kwargs["pk"])
+class UltAidPatientBase(UltAidEditBase):
+    """Base class for UltAidCreate/Update views for UltAids that have a user."""
 
-    def get_object(self, *args, **kwargs) -> UltAid:
-        ultaid: UltAid = super().get_object(*args, **kwargs)  # type: ignore
-        # Prefetch goalurate medhistory_qs for use in the template and to avoid additional queries
-        if hasattr(ultaid, "goalurate"):
-            ultaid.goalurate.medhistorys_qs = ultaid.goalurate.medhistorys.all()
-            if not self.request.GET.get("goalurate_updated", None):
-                ultaid.goalurate.update(qs=ultaid.goalurate)
-        # Check if UltAid is up to date and update if not update
-        if not self.request.GET.get("updated", None):
-            ultaid.update(qs=ultaid)
-        return ultaid
+    class Meta:
+        abstract = True
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULTAID)
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
+
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        """Used to set the user attribute on the view, with associated related models
+        select_related and prefetch_related."""
+        return Pseudopatient.objects.ultaid_qs().filter(pk=pseudopatient)
 
 
-class UltAidUpdate(UltAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
-    """Updates a UltAid"""
+class UltAidPseudopatientCreate(UltAidPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    """View for creating a UltAid for a patient."""
 
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailOptionalForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
+    permission_required = "ultaids.can_add_ultaid"
+    success_message = "%(user)s's UltAid successfully created."
 
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        # Update object / form instance
-        self.object.update(qs=self.object)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a UltAid for."""
+        return self.user
 
-    def get_queryset(self):
-        return ultaid_userless_qs(self.kwargs["pk"])
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            labs_to_save,
-            labs_to_remove,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
-            )
+            return self.form_valid()
+
+
+class UltAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = UltAid
+    object: UltAid
+
+
+class UltAidPseudopatientUpdate(UltAidPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    """UpdateView for UltAids with a User."""
+
+    success_message = "%(user)s's UltAid successfully updated."
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
+
+    def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For UltAid, no additional processing is needed."""
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()
+
+
+class UltAidUpdate(UltAidEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    """Updates a UltAid"""
+
+    success_message = "UltAid updated successfully!"
+
+    def get_queryset(self):
+        return UltAid.related_objects.filter(pk=self.kwargs["pk"])
+
+    def get_permission_object(self):
+        return self.object
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()

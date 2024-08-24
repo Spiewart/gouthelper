@@ -1,0 +1,85 @@
+{% load project_tags %}
+
+<div id="ppx-card" class="card spacious-cards">
+  <div class="card-body" id="ppx">
+    {% if ppx %}
+      <div class="row">
+        <div class="col">
+          <h4>
+            {% if ppx.user %}
+              <!-- djlint:off --><a href="{% url 'ppxs:pseudopatient-detail' ppx.user.pk %}"><!-- djlint:on -->
+            {% else %}
+              <a href="{% url 'ppxs:detail' ppx.pk %}">
+              {% endif %}
+            {{ ppx }}</a>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="ppx_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#ppx_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="ppx_card_collapse">Show</button>
+        </div>
+      </div>
+      <div class="collapse mini-card-content" id="ppx_card_collapse">
+        <div class="row">
+          {% for recommendation, explanation in ppx.recommendations.items %}
+            <div class="col-md-12">
+              <h5 class="card-title">
+                <b><u>{{ recommendation }}</u></b>
+              </h5>
+              <p class="card-text stacked-column-p">{{ explanation }}</p>
+            </div>
+          {% endfor %}
+        </div>
+        {% if ppx.user %}
+          <a class="btn btn-primary"
+             href="{% url 'ppxs:pseudopatient-update' ppx.user.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% else %}
+          <a class="btn btn-primary"
+             href="{% url 'ppxs:update' ppx.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'ppxs:about' %}">About</a>
+      </div>
+    {% else %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'ppxs:about' %}">Ppx</a>:
+            {% if marketing %}
+              {{ marketing }}
+            {% else %}
+              none
+            {% endif %}
+          </h4>
+        </div>
+        <div class="col-auto">
+          {% if object|is_pseudopatient %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object.user %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% elif object %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:ppxaid-create' ppxaid=object.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'ppxs:create' %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>

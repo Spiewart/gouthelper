@@ -1,202 +1,598 @@
 import uuid
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
+from django.apps import apps  # type: ignore
 from django.db import models  # type: ignore
-from django.db.models.query import QuerySet  # type: ignore
+from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
+from django.utils.html import mark_safe  # type: ignore
+from django.utils.text import format_lazy
 
 from ..dateofbirths.helpers import age_calc, dateofbirths_get_nsaid_contra
-from ..defaults.selectors import defaults_defaultulttrtsettings
+from ..defaults.selectors import defaults_flareaidsettings, defaults_ppxaidsettings, defaults_ultaidsettings
 from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
-from ..medallergys.helpers import (
-    medallergys_allopurinol_allergys,
-    medallergys_colchicine_allergys,
-    medallergys_febuxostat_allergys,
-    medallergys_nsaid_allergys,
-    medallergys_probenecid_allergys,
-    medallergys_steroid_allergys,
+from ..genders.helpers import get_gender_abbreviation
+from ..goalurates.choices import GoalUrates
+from ..goalurates.helpers import goalurates_get_object_goal_urate
+from ..labs.helpers import (
+    labs_urate_is_newer_than_goutdetail_set_date,
+    labs_urate_within_90_days,
+    labs_urate_within_last_month,
+    labs_urates_at_goal,
+    labs_urates_six_months_at_goal,
 )
-from ..medhistorys.choices import Contraindications
-from ..medhistorys.helpers import (
-    medhistorys_get_allopurinolhypersensitivity,
-    medhistorys_get_anticoagulation,
-    medhistorys_get_bleed,
-    medhistorys_get_ckd,
-    medhistorys_get_colchicineinteraction,
-    medhistorys_get_cvdiseases,
-    medhistorys_get_cvdiseases_str,
-    medhistorys_get_diabetes,
-    medhistorys_get_erosions,
-    medhistorys_get_febuxostathypersensitivity,
-    medhistorys_get_gastricbypass,
-    medhistorys_get_gout,
-    medhistorys_get_hyperuricemia,
-    medhistorys_get_ibd,
-    medhistorys_get_menopause,
-    medhistorys_get_organtransplant,
-    medhistorys_get_other_nsaid_contras,
-    medhistorys_get_tophi,
-    medhistorys_get_uratestones,
-    medhistorys_get_xoiinteraction,
-)
-from ..treatments.choices import NsaidChoices
+from ..labs.selectors import urates_dated_qs
+from ..medallergys.helpers import medallergy_attr
+from ..medhistorys.choices import Contraindications, CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistory_attr, medhistorys_get, medhistorys_get_cvdiseases_str
+from ..medhistorys.lists import OTHER_NSAID_CONTRAS
+from ..treatments.choices import FlarePpxChoices, NsaidChoices, SteroidChoices, Treatments, TrtTypes
 from ..treatments.helpers import treatments_stringify_trt_tuple
-from .helpers.aid_helpers import (
+from ..utils.helpers import add_indicator_badge_and_samepage_link, wrap_in_samepage_links_anchor
+from .helpers import TrtDictStr, get_str_attrs
+from .services import (
     aids_colchicine_ckd_contra,
     aids_hlab5801_contra,
+    aids_not_options,
+    aids_options,
     aids_probenecid_ckd_contra,
     aids_xois_ckd_contra,
 )
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from django.contrib.auth import get_user_model
+    from django.db.models import Manager, QuerySet
+
     from ..dateofbirths.models import DateOfBirth
-    from ..defaults.models import DefaultFlareTrtSettings, DefaultPpxTrtSettings, DefaultUltTrtSettings
+    from ..defaults.models import FlareAidSettings, PpxAidSettings, UltAidSettings
     from ..ethnicitys.models import Ethnicity
-    from ..labs.models import BaselineCreatinine, Hlab5801, Lab
+    from ..flareaids.services import FlareAidDecisionAid
+    from ..flares.services import FlareDecisionAid
+    from ..genders.models import Gender
+    from ..labs.models import BaselineCreatinine, Hlab5801, Urate
     from ..medallergys.models import MedAllergy
     from ..medhistorydetails.models import CkdDetail, GoutDetail
     from ..medhistorys.models import Ckd, MedHistory
-    from ..treatments.choices import Treatments
-    from ..users.models import User
+    from ..ppxaids.services import PpxAidDecisionAid
+    from ..ppxs.services import PpxDecisionAid
+    from ..ultaids.services import UltAidDecisionAid
+    from ..ults.services import UltDecisionAid
+    from ..users.models import Pseudopatient
+    from ..utils.types import AidNames, Aids
+
+    User = get_user_model()
 
 
-class DecisionAidModel(models.Model):
+class GoalUrateMixin:
+    @cached_property
+    def goal_urate(self) -> GoalUrates:
+        """Returns the object's GoalUrate.goal_urate attribute if object has a GoalUrate otherwise
+        returns the GoutHelper default GoalUrates.SIX."""
+        return goalurates_get_object_goal_urate(self)
+
+
+class GoutHelperBaseModel(GoalUrateMixin):
     """Abstract base model that adds method for iterating over the model fields or
     a prefetched / select_related QuerySet of the model fields in order to
     categorize and display them."""
 
+    related_models: Union["AidNames", None]
+    user: Union["User", None]
+
     class Meta:
         abstract = True
 
-    dateofbirth: Union["DateOfBirth", None]
-    defaulttrtsettings: Union["DefaultFlareTrtSettings", "DefaultPpxTrtSettings", "DefaultUltTrtSettings"]
-    ethnicity: Union["Ethnicity", None]
-    hlab5801: Union["Hlab5801", None]
-    medallergys_qs: list["MedAllergy"]
-    medallergys: QuerySet["MedAllergy"]
-    medhistorys_qs: list["MedHistory"]
-    medhistorys: QuerySet["MedHistory"]
-    options: dict
-    recommendation: tuple["Treatments", dict] | None
-    user: Union["User", None]
+    GoalUrates = GoalUrates
+
+    @classmethod
+    def about_allopurinol_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#allopurinol."""
+        return reverse("treatments:about-ult") + "#allopurinol"
+
+    @classmethod
+    def about_celecoxib_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#celecoxib."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_colchicine_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#colchicine."""
+        return reverse("treatments:about-flare") + "#colchicine"
+
+    @classmethod
+    def about_diclofenac_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#diclofenac."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_febuxostat_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#febuxostat."""
+        return reverse("treatments:about-ult") + "#febuxostat"
+
+    @classmethod
+    def about_ibuprofen_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#ibuprofen."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_indomethacin_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#indomethacin."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_meloxicam_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#meloxicam."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_methylprednisolone_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return cls.about_steroids_url()
+
+    @classmethod
+    def about_naproxen_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#naproxen."""
+        return cls.about_nsaids_url()
+
+    @classmethod
+    def about_nsaids_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#nsaids."""
+        return reverse("treatments:about-flare") + "#nsaids"
+
+    @classmethod
+    def about_prednisone_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return cls.about_steroids_url()
+
+    @classmethod
+    def about_probenecid_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-ult/#probenecid."""
+        return reverse("treatments:about-ult") + "#probenecid"
+
+    @classmethod
+    def about_steroids_url(cls) -> str:
+        """Gets the URL: gouthelper/treatments/about-flare/#steroids."""
+        return reverse("treatments:about-flare") + "#steroids"
 
     @cached_property
     def age(self) -> int | None:
         """Method that returns the age of the object's user if it exists."""
-        if self.dateofbirth:
+        if hasattr(self, "user") and self.user and self.user.dateofbirth:
+            return age_calc(date_of_birth=self.user.dateofbirth.value)
+        elif hasattr(self, "dateofbirth") and self.dateofbirth:
             return age_calc(date_of_birth=self.dateofbirth.value)
         return None
 
+    def age_interp(self) -> str:
+        """Method that interprets the age attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, tobe, tobe_neg = self.get_str_attrs("Subject_the", "tobe", "tobe_neg")
+        main_str = format_lazy(
+            """People over age 65 have a higher rate of side effects with use of non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} over age 65</strong>""",
+            reverse("treatments:about-flare") + "#nsaids",
+            Subject_the,
+            tobe if self.age > 65 else tobe_neg,
+        )
+        if self.age > 65:
+            main_str += ", and as such, NSAIDs should be used cautiously in this setting."
+        else:
+            main_str += ", so this isn't a concern."
+
+        main_str += "<br> <br> GoutHelper defaults to not contraindicating NSAIDs based on age alone."
+        return mark_safe(main_str)
+
     @cached_property
-    def allopurinol_allergys(self) -> list["MedAllergy"] | None:
+    def allopurinol_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Allopurinol MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_allopurinol_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_allopurinol_allergys(self.medallergys.all())
+        return medallergy_attr(Treatments.ALLOPURINOL, self)
+
+    def allopurinol_allergy_interp(self) -> str:
+        """Method that interprets the allopurinol_allergy attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the, pos = self.get_str_attrs("Subject_the", "subject_the", "pos")
+        if self.allopurinol_allergy:
+            if self.allopurinolhypersensitivity:
+                allergy_str = self.allopurinolhypersensitivity_interp()
+            else:
+                allergy_str = f"<strong>{Subject_the} {pos} an allergy to allopurinol </strong>, so it's not \
+recommended for {subject_the}."
+        return mark_safe(allergy_str)
+
+    def allopurinol_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        """Method that returns a dict of allopurinol contraindications."""
+        contra_dict = {}
+        if self.allopurinol_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.allopurinol_allergy)
+        if self.hlab5801_contra:
+            contra_dict["HLA-B*5801"] = ("hlab5801", self.hlab5801_contra_interp())
+        if self.xoiinteraction:
+            contra_dict["Medication Interaction"] = (
+                "xoiinteraction",
+                f"{self.xoi_interactions(treatment='Allopurinol')}",
+            )
+        if self.hlab5801_contra:
+            contra_dict["HLA-B*5801"] = ("hlab5801", self.hlab5801_contra_interp())
+        return contra_dict
+
+    @classmethod
+    def allopurinol_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Cheap",
+            "Side Effects": "Increased risk of gout flares during the initiation period. Otherwise, usually none.",
+            "Warning-Rash": "A new rash while taking allopurinol could be a sign of a serious allergic reaction \
+and it should always be stopped immediately and the healthcare provider contacted.",
+        }
+
+    def allopurinol_info_dict(self, samepage_links: bool = True) -> str:
+        if self.xoi_ckd_dose_reduction:
+            info_dict = {
+                "Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links),
+            }
+            info_dict.update(self.allopurinol_info())
+        else:
+            info_dict = self.allopurinol_info()
+        if self.hepatitis:
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning(samepage_links=samepage_links)})
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if not getattr(self, "hlab5801", None) and not self.hlab5801_contra:
+            info_dict.update(
+                {
+                    "Warning-HLA-B*5801": self.hlab5801_unknown_warning(samepage_links=samepage_links),
+                }
+            )
+        return info_dict
 
     @cached_property
-    def allopurinolhypersensitivity(self) -> Union["MedHistory", None]:
+    def allopurinolhypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns AllopurinolHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_allopurinolhypersensitivity(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_allopurinolhypersensitivity(self.medhistorys.all())
+        return next(
+            iter(
+                ma
+                for ma in self.medallergys
+                if ma.treatment == Treatments.ALLOPURINOL and ma.matype == ma.MaTypes.HYPERSENSITIVITY
+            ),
+            False,
+        )
+
+    def allopurinolhypersensitivity_interp(self) -> str:
+        """Method that interprets the allopurinolhypersensitivity attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        if self.allopurinolhypersensitivity:
+            main_str = f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of allopurinol \
+hypersensitivity</strong>, "
+        else:
+            main_str = "Allopurinol hypersensitivity syndrome is "
+        main_str += format_lazy(
+            """a potentially life-threatening reaction to allopurinol. <br> <br> Generally, \
+anyone with a history of allopurinol hypersensitivity shouldn't take allopurinol, \
+though, in some cases individuals can be de-sensitized. This should be done under the direction of a \
+rheumatologist. Risk of allopurinol hypersensitivity is increased in individuals with the \
+<a target='_next' href={}>HLA-B*58:01</a> genotype.""",
+            reverse("labs:about-hlab5801"),
+        )
+        return mark_safe(main_str)
 
     @cached_property
-    def anticoagulation(self) -> Union["MedHistory", None]:
+    def angina(self) -> Union["MedHistory", bool]:
+        """Method that returns Angina object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.ANGINA, self)
+
+    @cached_property
+    def anticoagulation(self) -> Union["MedHistory", bool]:
         """Method that returns Anticoagulation object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_anticoagulation(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_anticoagulation(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.ANTICOAGULATION, self)
+
+    def anticoagulation_interp(self) -> str:
+        """Method that interprets the anticoagulation attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, tobe, tobe_neg, gender_ref = self.get_str_attrs("Subject_the", "tobe", "tobe_neg", "gender_ref")
+        main_str = format_lazy(
+            """Anticoagulation is a relative contraindication to non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} on anticoagulation</strong>, \
+so""",
+            reverse("treatments:about-flare") + "#nsaids",
+            Subject_the,
+            tobe if self.anticoagulation else tobe_neg,
+        )
+        if self.anticoagulation:
+            main_str += f" NSAIDs would typically not be prescribed to {gender_ref}."
+        else:
+            main_str += f" anticoagulation isn't an issue for {gender_ref} taking them."
+        return mark_safe(main_str)
 
     @cached_property
-    def baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
+    def at_goal(self) -> bool:
+        return self.goutdetail.at_goal
+
+    @cached_property
+    def at_goal_long_term(self) -> bool:
+        """Method that interprets the Ppx's labs (Urates) and returns a bool
+        indicating whether the patient is at goal."""
+        return self.goutdetail.at_goal_long_term
+
+    @property
+    def at_goal_long_term_detail(self) -> str:
+        """Returns a str detailing the patient's long-term uric acid goal status."""
+        Subject_the, tobe, pos = self.get_str_attrs("Subject_the", "tobe", "pos")
+        if self.at_goal is True:
+            return mark_safe(
+                format_lazy(
+                    """{} {} at goal uric acid ({}), {} for six months or longer.""",
+                    Subject_the,
+                    tobe,
+                    self.goalurate_get_display,
+                    "but not" if not self.at_goal_long_term else "and " + pos + " been",
+                )
+            )
+        else:
+            return mark_safe(
+                format_lazy(
+                    """{} {} {} been at goal uric acid ({}) for six months or longer.""",
+                    Subject_the,
+                    pos,
+                    "not" if not self.at_goal_long_term else "",
+                    self.goalurate_get_display,
+                )
+            )
+
+    @cached_property
+    def baselinecreatinine(self) -> Union["BaselineCreatinine", False]:
         """Method  that returns BaselineCreatinine object from ckd attribute/property
         or None if either doesn't exist.
         """
-        if self.ckd:
-            try:
-                return self.ckd.baselinecreatinine
-            except AttributeError:
-                pass
-        return None
+        return getattr(self.ckd, "baselinecreatinine", None) if self.ckd else None
 
     @cached_property
-    def bleed(self) -> Union["MedHistory", None]:
+    def bleed(self) -> Union["MedHistory", False]:
         """Method that returns Bleed object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_bleed(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_bleed(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.BLEED, self)
+
+    def bleed_interp(self) -> str:
+        """Method that interprets the bleed attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, gender_ref, pos_neg = self.get_str_attrs("Subject_the", "pos", "gender_ref", "pos_neg")
+        main_str = format_lazy(
+            """History of a life-threatening bleeding event is an absolute contraindication to non-steroidal \
+anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>). <strong>{} {} a history of major bleeding </strong> \
+, so""",
+            reverse("treatments:about-flare") + "#nsaids",
+            Subject_the,
+            pos if self.bleed else pos_neg,
+        )
+        if self.bleed:
+            main_str += f" NSAIDs are contraindicated for {gender_ref}."
+        else:
+            main_str += f" this isn't an issue for {gender_ref}."
+        return mark_safe(main_str)
+
+    @cached_property
+    def belongs_to_patient(self) -> bool:
+        """Method that returns a bool indicating whether the object belongs to a patient."""
+        return getattr(self, "user", False)
+
+    @cached_property
+    def cad(self) -> Union["MedHistory", bool]:
+        """Method that returns CAD object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.CAD, self)
+
+    def celecoxib_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def celecoxib_info(cls):
+        return cls.nsaid_info()
+
+    def celecoxib_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
+
+    @cached_property
+    def chf(self) -> Union["MedHistory", bool]:
+        """Method that returns CHF object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        medhistory_attr(MedHistoryTypes.CHF, self)
 
     @cached_property
     def ckd(self) -> Union["Ckd", None]:
         """Method that returns Ckd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_ckd(self.medhistorys_qs)  # type: ignore
-        except AttributeError:
-            try:
-                return medhistorys_get_ckd(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_ckd(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.CKD, self, ["ckddetail", "baselinecreatinine"])
+
+    @property
+    def ckd_detail(self) -> str:
+        return add_indicator_badge_and_samepage_link(
+            self, "ckd", self.ckddetail.explanation if self.ckddetail else "CKD"
+        )
+
+    def ckd_interp(self) -> str:
+        """Method that interprets the ckd attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        main_str = f"Chronic kidney disease (CKD) is a risk factor for new and recurrent gout. \
+It also affects the body's medication processing and can affect medication dosing and safety. \
+<strong>{subject_the} {pos if self.ckd else pos_neg} \
+{self.ckddetail.explanation if self.ckddetail else 'CKD'}.</strong>"
+        return mark_safe(main_str)
 
     @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
         """Method that returns CkdDetail object from the objects ckd attribute/property
         or None if either doesn't exist."""
-        try:
-            return self.ckd.ckddetail if self.ckd else None
-        except AttributeError:
-            pass
-        return None
+        return getattr(self.ckd, "ckddetail", None) if self.ckd else None
 
     @cached_property
-    def colchicine_allergys(self) -> list["MedAllergy"] | None:
+    def stage(self) -> str:
+        """Method that returns the stage of the object's CKD."""
+        return self.ckddetail.stage if self.ckddetail else None
+
+    @cached_property
+    def colchicine_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Colchicine MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_colchicine_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_colchicine_allergys(self.medallergys.all())
+        return medallergy_attr(Treatments.COLCHICINE, self)
 
     @cached_property
-    def colchicine_ckd_contra(self) -> bool:
-        """Method that returns whether or not the object has a contraindication
-        to colchicine due to CKD."""
-        contra = aids_colchicine_ckd_contra(
+    def colchicine_ckd_contra(self) -> Contraindications | None:
+        return aids_colchicine_ckd_contra(
             ckd=self.ckd,
             ckddetail=self.ckddetail,
             defaulttrtsettings=self.defaulttrtsettings,
         )
-        return contra == Contraindications.ABSOLUTE or contra == Contraindications.RELATIVE
 
     @cached_property
-    def colchicineinteraction(self) -> Union["MedHistory", None]:
+    def colchicine_contraindicated_due_to_ckd(self) -> bool:
+        """Method that returns whether or not the object has a contraindication
+        to colchicine due to CKD."""
+
+        return (
+            self.colchicine_ckd_contra == Contraindications.ABSOLUTE
+            or self.colchicine_ckd_contra == Contraindications.RELATIVE
+        )
+
+    @cached_property
+    def colchicine_dose_adjusted_due_to_ckd(self) -> bool:
+        """Method that returns whether or not the object has a dose adjustment
+        to colchicine due to CKD."""
+        return self.colchicine_ckd_contra == Contraindications.DOSEADJ
+
+    @cached_property
+    def colchicineinteraction(self) -> Union["MedHistory", bool]:
         """Method that returns Colchicineinteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_colchicineinteraction(self.medhistorys_qs)
-        except AttributeError:
-            try:
-                return medhistorys_get_colchicineinteraction(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_colchicineinteraction(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.COLCHICINEINTERACTION, self)
+
+    def colchicineinteraction_interp(self) -> str:
+        """Method that interprets the colchicineinteraction attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        main_str = "<a target='_next' href='https://www.goodrx.com/colchicine/interactions'>MANY</a> medications \
+(see partial list below) interact with colchicine."
+        if self.colchicineinteraction:
+            main_str += f" <strong>{Subject_the} is on a medication that interacts with colchicine</strong>. \
+This can lead to serious side effects, so colchicine should be used cautiously and under the supervision \
+of a physician and/or pharmacist. As such, GoutHelper contraindicates colchicine in this setting because it's \
+beyond the capabilities of this tool to manage safely."
+        else:
+            main_str += f" <strong>{Subject_the} isn't on any medications that interact with colchicine</strong>."
+
+        main_str += f" <br> <br>Examples (not exhaustive) of medications that interact with colchicine include \
+{self.colchicine_interactions()}."
+        return mark_safe(main_str)
+
+    @classmethod
+    def colchicine_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Moderate",
+            "Caution": "Can cause stomach upset when taken at the doses effective for Flares.",
+            "Side Effects": "Diarrhea, nausea, vomiting, and abdominal pain.",
+            "Interactions": cls.colchicine_interactions().capitalize(),
+        }
+
+    def colchicine_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.colchicine_info()
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if self.colchicine_dose_adjusted_due_to_ckd:
+            info_dict.update({"Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links)})
+        return info_dict
+
+    @classmethod
+    def colchicine_interactions(cls) -> str:
+        return "simvastatin, 'azole' antifungals (fluconazole, itraconazole, ketoconazole), \
+macrolide antibiotics (clarithromycin, erythromycin), and P-glycoprotein inhibitors (cyclosporine, \
+verapamil, quinidine)"
+
+    def colchicine_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        """Method that returns a dict of colchicine contraindications."""
+        contra_dict = {}
+        if self.colchicine_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.colchicine_allergy)
+        if self.colchicine_contraindicated_due_to_ckd:
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
+        if self.colchicineinteraction:
+            contra_dict["Medication Interaction"] = (
+                "colchicineinteraction",
+                f"Colchicine interacts with {self.colchicine_interactions()}",
+            )
+        return contra_dict
 
     @cached_property
     def cvdiseases(self) -> list["MedHistory"]:
         """Method that returns a list of cardiovascular disease MedHistory objects
         from self.medhistorys_qs or or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_cvdiseases(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_cvdiseases(self.medhistorys.all())
+        if hasattr(self, "medhistorys_qs"):
+            return medhistorys_get(self.medhistorys_qs, CVDiseases.values)
+        else:
+            return medhistorys_get(self.user.medhistorys_qs, CVDiseases.values)
+
+    def cvdiseases_febuxostat_interp(self, samepage_links: bool = True) -> str | None:
+        (subject_the_pos, gender_pos) = self.get_str_attrs("subject_the_pos", "gender_pos")
+        if self.cvdiseases:
+            if self.febuxostat_cvdiseases_contra:
+                return mark_safe(
+                    format_lazy(
+                        """Febuxostat is contraindicated because of {} {} and the \
+UltAid settings are set to contraindicate febuxostat in this scenario.""",
+                        subject_the_pos,
+                        "<a class='samepage-link' target'_next' href='#cvdiseases'>cardiovascular disease</a>"
+                        if samepage_links
+                        else "cardiovascular disease",
+                    )
+                )
+            else:
+                return mark_safe(
+                    format_lazy(
+                        """Because of {} {}, febuxostat should be used cautiously and {} treatment for \
+cardiovascular disease prevention should be optimized.""",
+                        subject_the_pos,
+                        "<a class='samepage-link' target'_next' href='#cvdiseases'>cardiovascular disease</a>"
+                        if samepage_links
+                        else "cardiovascular disease",
+                        gender_pos,
+                    )
+                )
+
+    def cvdiseases_interp(self) -> str:
+        """Method that interprets the cvdiseases attribute and returns a str explanation
+        of the impact of them on a patient's gout."""
+
+        main_str = format_lazy(
+            """ are a leading cause of death worldwide, and some gout (<a target='_next" href={}>NSAIDs</a>, \
+<a target='_next' href={}>febuxostat</a> mediactions are associated with an increased risk of \
+cardiovascular events.""",
+            reverse("treatments:about-flare") + "#nsaids",
+            reverse("treatments:about-ult") + "#febuxostat",
+        )
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        if self.cvdiseases:
+            pre_str = (
+                f"<strong>{Subject_the} {pos} cardiovascular disease ({self.cvdiseases_str.lower()})</strong>, which"
+            )
+            post_str = ""
+        else:
+            pre_str = "Cardiovascular diseases"
+            post_str = (
+                f" <strong>{Subject_the} {pos_neg} any cardiovascular diseases</strong>, so this isn't a concern."
+            )
+        return f"{pre_str}{main_str}{post_str}"
 
     @cached_property
     def cvdiseases_str(self) -> str:
@@ -205,25 +601,57 @@ class DecisionAidModel(models.Model):
         try:
             return medhistorys_get_cvdiseases_str(self.medhistorys_qs)
         except AttributeError:
-            return medhistorys_get_cvdiseases_str(self.medhistorys.all())
+            if hasattr(self, "user"):
+                if not self.user:
+                    return medhistorys_get_cvdiseases_str(self.medhistory_set.all())
+                else:
+                    return medhistorys_get_cvdiseases_str(self.user.medhistory_set.all())
+            else:
+                return medhistorys_get_cvdiseases_str(self.medhistory_set.all())
+
+    def delete_cached_property(self, cached_property_name: str) -> None:
+        del self.__dict__[cached_property_name]
 
     @cached_property
-    def defaultulttrtsettings(self) -> "DefaultUltTrtSettings":
-        """Method that returns DefaultUltTrtSettings object from the objects user
-        attribute/property or the GoutHelper default if User doesn't exist."""
-        return defaults_defaultulttrtsettings(user=None)
-
-    @cached_property
-    def diabetes(self) -> Union["MedHistory", None]:
+    def diabetes(self) -> Union["MedHistory", bool]:
         """Method that returns Diabetes object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_diabetes(self.medhistorys_qs)
-        except AttributeError:
-            try:
-                return medhistorys_get_diabetes(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_diabetes(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.DIABETES, self)
+
+    def diabetes_interp(self) -> str:
+        """Method that interprets the diabetes attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, gender_subject, gender_pos = self.get_str_attrs(
+            "Subject_the", "pos", "gender_subject", "gender_pos"
+        )
+        main_str = format_lazy(
+            """<a target='_next' href={}>Corticosteroids</a>, such as prednisone \
+or methylprednisolone, can raise blood sugar levels. This can be dramatic or even \
+dangerous in people with diabetes.""",
+            reverse("treatments:about-flare") + "#steroids",
+        )
+
+        if self.diabetes:
+            main_str += f" <strong>{Subject_the} {pos} diabetes</strong>, so if {gender_subject} takes a steroid \
+for {gender_pos} gout, {gender_subject} should monitor {gender_pos} blood sugar levels closely \
+and discuss {gender_pos} hyperglycemia with {gender_pos} primary care provider if they are \
+persistently elevated."
+        else:
+            main_str += f" <strong>{Subject_the} doesn't have diabetes</strong>, so this is less of a concern. It is \
+certainly possible to unmask or precipitate diabetes in non-diabetic individuals with high doses of steroids."
+
+        return mark_safe(main_str)
+
+    def diclofenac_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def diclofenac_info(cls):
+        return cls.nsaid_info()
+
+    def diclofenac_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
     def dose_adj_colchicine(self) -> bool:
@@ -235,6 +663,17 @@ class DecisionAidModel(models.Model):
                 defaulttrtsettings=self.defaulttrtsettings,
             )
             == Contraindications.DOSEADJ
+        )
+
+    @classmethod
+    def dose_reduced_for_ckd_info(cls, samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """Dose has been reduced due to {}.""",
+                "<a class='samepage-link' href='#ckd'>chronic kidney disease</a>"
+                if samepage_links
+                else "chronic kidney disease",
+            )
         )
 
     @cached_property
@@ -249,116 +688,566 @@ class DecisionAidModel(models.Model):
         )
 
     @cached_property
-    def erosions(self) -> Union["MedHistory", None]:
+    def erosions(self) -> Union["MedHistory", bool]:
         """Method that returns Erosions object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_erosions(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_erosions(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.EROSIONS, self)
+
+    @property
+    def erosions_detail(self) -> str:
+        return add_indicator_badge_and_samepage_link(self, "erosions")
+
+    def erosions_interp(self) -> str:
+        """Method that interprets the erosions attribute and returns a str explanation."""
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+
+        return mark_safe(
+            f"<strong>{Subject_the} {pos if self.erosions else pos_neg} erosions</strong>: \
+destructive gouty changes due buildup of uric acid and inflammation in and around joints that are \
+most commonly visualized on x-rays."
+        )
 
     @cached_property
     def ethnicity_hlab5801_risk(self) -> bool:
         """Method that determines whether an object object has an ethnicity and whether
         it is an ethnicity that has a high prevalence of HLA-B*58:01 genotype."""
-        return ethnicitys_hlab5801_risk(ethnicity=self.ethnicity)
+        return ethnicitys_hlab5801_risk(ethnicity=self.user.ethnicity if self.user else self.ethnicity)
 
     @cached_property
-    def febuxostat_allergys(self) -> list["MedAllergy"] | None:
+    def febuxostat_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Febuxostat MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_febuxostat_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_febuxostat_allergys(self.medallergys.all())
+        return medallergy_attr(Treatments.FEBUXOSTAT, self)
+
+    def febuxostat_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        """Method that returns a dict of febuxostat contraindications."""
+        contra_dict = {}
+        if self.febuxostat_cvdiseases_contra:
+            contra_dict["Cardiovascular Disease"] = (
+                "cvdiseases",
+                self.cvdiseases_febuxostat_interp(samepage_links=samepage_links),
+            )
+        if self.febuxostat_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.febuxostat_allergy)
+        if self.xoiinteraction:
+            contra_dict["Medication Interaction"] = (
+                "xoiinteraction",
+                f"{self.xoi_interactions(treatment='Febuxostat')}",
+            )
+        return contra_dict
 
     @cached_property
-    def febuxostathypersensitivity(self) -> Union["MedHistory", None]:
+    def febuxostat_cvdiseases_contra(self) -> bool:
+        """Method that determines whether or not the object has a contraindication
+        to febuxostat due to CVD."""
+        if self.cvdiseases:
+            return not self.defaulttrtsettings.febu_cv_disease
+        return False
+
+    @classmethod
+    def febuxostat_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Expensive",
+            "Side Effects": "Increased risk of gout flares during the initiation period. Otherwise, usually none.",
+            "Warning-Rash": "A new rash while taking febuxostat could be a sign of a serious allergic reaction \
+and it should always be stopped immediately and the healthcare provider contacted.",
+        }
+
+    def febuxostat_info_dict(self, samepage_links: bool = True) -> str:
+        if self.xoi_ckd_dose_reduction:
+            info_dict = {"Dosing-CKD": self.dose_reduced_for_ckd_info(samepage_links=samepage_links)}
+            info_dict.update(self.febuxostat_info())
+        else:
+            info_dict = self.febuxostat_info()
+        if self.hepatitis:
+            info_dict.update({"Warning-Hepatotoxicity": self.hepatitis_warning(samepage_links=samepage_links)})
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        if self.cvdiseases:
+            info_dict.update(
+                {"Warning-Cardiovascular Disease": self.cvdiseases_febuxostat_interp(samepage_links=samepage_links)}
+            )
+        return info_dict
+
+    @cached_property
+    def febuxostathypersensitivity(self) -> Union["MedHistory", bool]:
         """Method that returns FebuxostatHypersensitivity object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_febuxostathypersensitivity(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_febuxostathypersensitivity(self.medhistorys.all())
+        return next(
+            iter(
+                ma
+                for ma in self.medallergys
+                if ma.treatment == Treatments.FEBUXOSTAT and ma.matype == ma.MaTypes.HYPERSENSITIVITY
+            ),
+            False,
+        )
+
+    def febuxostathypersensitivity_interp(self) -> str:
+        """Method that interprets the febuxostathypersensitivity attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        if self.febuxostathypersensitivity:
+            main_str = f" <strong>{self.get_str_attrs('Subject_the')[0]} has a history of febuxostat \
+hypersensitivity</strong>, "
+        else:
+            main_str = "Febuxostat hypersensitivity syndrome is "
+        main_str += "a potentially life-threatening reaction to \
+febuxostat. <br> <br> Generally, anyone with a history of febuxostat hypersensitivity shouldn't take febuxostat, \
+though some individuals can be de-sensitized under the direction of a \
+rheumatologist. Like allopurinol hypersensitivity, it is very rare, but is generally less well \
+reported (scientifically) than hypersensitivity to allopurinol."
+        return mark_safe(main_str)
 
     @cached_property
-    def gastricbypass(self) -> Union["MedHistory", None]:
+    def flaring(self) -> bool | None:
+        """Method that returns whether the patient is currently flaring."""
+        return self.goutdetail.flaring
+
+    @cached_property
+    def flaring_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current flaring status."""
+        Subject_the, subject_the = self.get_str_attrs("Subject_the", "subject_the")
+        if self.flaring is not None:
+            return mark_safe(
+                format_lazy(
+                    """{} is {} experiencing symptoms attributed to gout <a href={}>flares</a>.""",
+                    Subject_the,
+                    "not" if not self.flaring else "",
+                    reverse("flares:about"),
+                )
+            )
+        else:
+            return mark_safe(
+                format_lazy(
+                    """It is not known if {} is experiencing gout flares. \
+    It would be prudent to inquire about this and use the <a href={}>Flare</a> decision aid to \
+    determine if the symptoms are likely due to gout.""",
+                    subject_the,
+                    reverse("flares:pseudopatient-create", kwargs={"username": self.user.username})
+                    if self.user
+                    else reverse("flares:create"),
+                )
+            )
+
+    @cached_property
+    def gastricbypass(self) -> Union["MedHistory", bool]:
         """Method that returns Gastricbypass object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_gastricbypass(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_gastricbypass(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.GASTRICBYPASS, self)
+
+    def gastricbypass_interp(self) -> str:
+        """Method that interprets the gastricbypss attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos_past, pos_neg_past = self.get_str_attrs("Subject_the", "pos_past", "pos_neg_past")
+        main_str = format_lazy(
+            """Having had a gastric bypass puts an individual at risk for gastroinestinal (GI) bleeding. \
+Because <a target='_next' href={}>NSAIDs</a> are also a risk factor for GI bleeding, they are relatively \
+contraindicated in individuals who have had a gastric bypass.""",
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.gastricbypass:
+            main_str += f" <strong>{Subject_the} {pos_past} a gastric bypass</strong>, so NSAIDs are relatively \
+contraindicated."
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg_past} a gastric bypass</strong>."
+        return mark_safe(main_str)
 
     @cached_property
-    def gout(self) -> Union["MedHistory", None]:
+    def gender_abbrev(self) -> str | None:
+        """Method that returns the age of the object's user if it exists."""
+        if hasattr(self, "user") and self.user and self.user.gender:
+            return get_gender_abbreviation(gender=self.user.gender.value)
+        elif hasattr(self, "gender") and self.gender:
+            return get_gender_abbreviation(gender=self.gender.value)
+        return None
+
+    @classmethod
+    def get_list_of_onetoone_fields(cls) -> list[str]:
+        return [field.name for field in cls._meta.get_fields() if isinstance(field, models.OneToOneField)]
+
+    def get_str_attrs(
+        self,
+        *args: (
+            Literal["query"]
+            | Literal["Query"]
+            | Literal["tobe"]
+            | Literal["Tobe"]
+            | Literal["tobe_past"]
+            | Literal["Tobe_past"]
+            | Literal["tobe_neg"]
+            | Literal["Tobe_neg"]
+            | Literal["pos"]
+            | Literal["Pos"]
+            | Literal["pos_past"]
+            | Literal["Pos_past"]
+            | Literal["pos_neg"]
+            | Literal["Pos_neg"]
+            | Literal["pos_neg_past"]
+            | Literal["Pos_neg_past"]
+            | Literal["subject"]
+            | Literal["Subject"]
+            | Literal["subject_the"]
+            | Literal["Subject_the"]
+            | Literal["subject_pos"]
+            | Literal["Subject_pos"]
+            | Literal["subject_the_pos"]
+            | Literal["Subject_the_pos"]
+            | Literal["gender_subject"]
+            | Literal["Gender_subject"]
+            | Literal["gender_pos"]
+            | Literal["Gender_pos"]
+            | Literal["gender_ref"]
+            | Literal["Gender_ref"]
+        ),
+    ) -> tuple[str] | None:
+        """Method that takes any number of str args and returns a tuple of the object's
+        attribute values if they exist. If the attribute doesn't exist, calls the set_str_attrs
+        method and then attempts to return the attribute values again."""
+
+        if hasattr(self, "str_attrs"):
+            return tuple(self.str_attrs[arg] for arg in args)
+        else:
+            self.set_str_attrs(patient=self.user)
+            return tuple(self.str_attrs[arg] for arg in args)
+
+    def get_dateofbirth(self) -> Union["DateOfBirth", None]:
+        if getattr(self, "user", False):
+            return getattr(self.user, "dateofbirth", None)
+        else:
+            return getattr(self, "dateofbirth", None)
+
+    def get_ethnicity(self) -> Union["Ethnicity", None]:
+        if getattr(self, "user", False):
+            return getattr(self, "ethnicity", None)
+        else:
+            return getattr(self, "ethnicity", None)
+
+    def get_gender(self) -> Union["Gender", None]:
+        if getattr(self, "user", False):
+            return getattr(self.user, "gender", None)
+        else:
+            return getattr(self, "gender", None)
+
+    def get_hlab5801(self) -> Union["Hlab5801", None]:
+        if getattr(self, "user", False):
+            return getattr(self.user, "hlab5801", None)
+        else:
+            return getattr(self, "hlab5801", None)
+
+    def get_related_objects(self) -> list["Aids"]:
+        obj_list = []
+
+        if hasattr(self, "related_models"):
+            for rel_model in self.related_models:
+                rel_obj = getattr(self, rel_model, None)
+                if rel_obj:
+                    obj_list.append(rel_obj)
+
+        return obj_list
+
+    @cached_property
+    def goalurate_get_display(self):
+        has_goalurate_property = hasattr(self, "goalurate") and not self.has_goalurate
+        return (
+            self.user.goalurate.get_goal_urate_display()
+            if self.user and hasattr(self.user, "goalurate") and self.user.goalurate
+            else self.goalurate.get_goal_urate_display()
+            if self.has_goalurate
+            else self.GoalUrates(self.goal_urate).label
+            if has_goalurate_property
+            else "6.0 mg/dL, GoutHelper's default"
+        )
+
+    @cached_property
+    def gout(self) -> Union["MedHistory", bool]:
         """Method that returns Gout object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_gout(self.medhistorys_qs)
-        except AttributeError:
-            try:
-                return medhistorys_get_gout(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_gout(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.GOUT, self, ["goutdetail"])
 
     @cached_property
     def goutdetail(self) -> Union["GoutDetail", None]:
         """Method that returns GoutDetail object from the objects gout attribute/property
         or None if either doesn't exist."""
-        if self.gout:
-            try:
-                return self.gout.goutdetail
-            except AttributeError:
-                pass
-        return None
+        try:
+            return self.gout.goutdetail if self.gout else None
+        except AttributeError:
+            return None
+
+    @cached_property
+    def heartattack(self) -> Union["MedHistory", bool]:
+        """Method that returns Heartattack object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.HEARTATTACK, self)
+
+    @cached_property
+    def hepatitis(self) -> Union["MedHistory", bool]:
+        """Method that returns Hepatitis object from self.medhistorys_qs or or self.medhistory_set.all()."""
+        return medhistory_attr(MedHistoryTypes.HEPATITIS, self)
+
+    def hepatitis_interp(self) -> str:
+        """Method that interprets the hepatitis attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, pos_neg, gender_pos = self.get_str_attrs("Subject_the", "pos", "pos_neg", "gender_pos")
+        main_str = "Liver function test (LFT) abnormalities are common in individuals with gout and can \
+be caused or exacerbated medications used to treat gout. While pre-existing liver conditions, \
+such as hepatitis or cirrhosis, are not a contraindication to gout treatment, \
+they can make LFT interpretation more complicated and often require a patient get more frequent lab monitoring. \
+<br> <br> "
+        if self.hepatitis:
+            main_str += f" <strong>{Subject_the} {pos} hepatitis and as a result, \
+{gender_pos} liver function tests should be monitored closely.</strong>"
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg} hepatitis</strong>, so routine \
+monitoring of {gender_pos} LFTs is appropriate."
+        return mark_safe(main_str)
+
+    @classmethod
+    def hepatitis_warning(cls, samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """Liver function test abnormalities are common and should be \
+monitored closely with {}.""",
+                "<a class='samepage-link' href='#hepatitis'>hepatitis or cirrhosis</a>"
+                if samepage_links
+                else "hepatitis or cirrhosis",
+            )
+        )
 
     @cached_property
     def hlab5801_contra(self) -> bool:
         """Property that returns True if the object's hlab5801 contraindicates
         allopurinol."""
         return aids_hlab5801_contra(
-            hlab5801=self.hlab5801,
-            ethnicity=self.ethnicity,
-            defaultulttrtsettings=self.defaultulttrtsettings,
+            hlab5801=self.get_hlab5801(),
+            ethnicity=self.get_ethnicity(),
+            ultaidsettings=(
+                self.defaulttrtsettings if not self.is_patient else self.defaulttrtsettings(trttype=TrtTypes.ULT)
+            ),
+        )
+
+    def hlab5801_contra_interp(self) -> str:
+        """Method that interprets the hlab5801_contra attribute and returns a str explanation."""
+        Subject_the, gender_ref = self.get_str_attrs("Subject_the", "gender_ref")
+        hlab5801 = self.get_hlab5801()
+        if self.hlab5801_contra:
+            if hlab5801 and hlab5801.value:
+                return mark_safe(
+                    f" <strong>{Subject_the} has the HLA-B*5801 genotype</strong>, \
+and as a result, allopurinol should not be the first line ULT treatment for {gender_ref}."
+                )
+            else:
+                return mark_safe(
+                    f" {Subject_the} is of a <strong>descent at high risk for the HLA-B*5801 \
+gene, but the HLA-B*58:01 genotype is unknown</strong>. It is recommended to check this prior to starting \
+allopurinol."
+                )
+        elif hlab5801 and hlab5801.value is False:
+            return mark_safe(f" <strong>{Subject_the} does not have the HLA-B*5801 genotype</strong>.")
+        else:
+            return mark_safe(f" <strong>{Subject_the} has not had testing for the HLA-B*5801 gene</strong>.")
+
+    @cached_property
+    def hlab5801_value(self) -> bool | None:
+        hlab5801 = self.get_hlab5801()
+        return hlab5801.value if hlab5801 else None
+
+    def hlab5801_interp(self) -> str:
+        """Method that interprets the hlab5801_contra related model manager and returns a str explanation."""
+
+        main_str = format_lazy(
+            """<a target='_next' href={}>HLA-B*5801</a> is a gene that is associated with an \
+increased risk of allopurinol hypersensitivity syndrome. It is more common in individuals of certain \
+ancestries, such as those of African American, Korean, Han Chinese, or Thai descent. The American \
+College of Rheumatology recommends checking individuals of these descents for this gene before \
+starting allopurinol.""",
+            reverse("labs:about-hlab5801"),
+        )
+        main_str += " <br> <br> "
+        main_str += self.hlab5801_contra_interp()
+        return mark_safe(main_str)
+
+    @classmethod
+    def hlab5801_unknown_warning(self, samepage_links: bool = True) -> str:
+        return mark_safe(
+            format_lazy(
+                """{} status is unknown. Consider checking it before starting allopurinol.""",
+                wrap_in_samepage_links_anchor("hlab5801", "HLA-B*5801") if samepage_links else "HLA-B*5801",
+            )
         )
 
     @cached_property
-    def hyperuricemia(self) -> Union["MedHistory", None]:
+    def hypertension(self) -> Union["MedHistory", bool]:
+        """Method that returns Hypertension object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.HYPERTENSION, self)
+
+    @cached_property
+    def hyperuricemia(self) -> Union["MedHistory", bool]:
         """Property that returns Hyperuricemia object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_hyperuricemia(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_hyperuricemia(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.HYPERURICEMIA, self)
+
+    @property
+    def hyperuricemia_detail(self) -> str:
+        return add_indicator_badge_and_samepage_link(self, "hyperuricemia")
 
     @cached_property
-    def ibd(self) -> Union["MedHistory", None]:
+    def hyperuricemic(self) -> bool | None:
+        """Returns boolean indicating whether the patient is currently hyperuricemic."""
+        return self.goutdetail.at_goal is False
+
+    @property
+    def hyperuricemic_detail(self) -> str:
+        """Returns a short str explanation of whether or not the object is hyperuricemic."""
+        Subject_the, tobe, tobe_neg, gender_pos, Subject_the_pos = self.get_str_attrs(
+            "Subject_the", "tobe", "tobe_neg", "gender_pos", "Subject_the_pos"
+        )
+        if self.hyperuricemic is not None:
+            return mark_safe(
+                format_lazy(
+                    """{} {} hyperuricemic, defined as having a <a href={}>uric acid</a> \
+greater than {} <a href={}>goal urate</a>: {}.
+                        """,
+                    Subject_the,
+                    tobe if self.hyperuricemic else tobe_neg,
+                    reverse("labs:about-urate"),
+                    gender_pos,
+                    reverse("goalurates:about"),
+                    self.goalurate_get_display,
+                )
+            )
+        else:
+            return mark_safe(
+                f"{Subject_the_pos} uric acid level is not known. Serum uric acid should probably \
+be checked."
+            )
+
+    @cached_property
+    def ibd(self) -> Union["MedHistory", bool]:
         """Method that returns Ibd object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_ibd(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_ibd(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.IBD, self)
+
+    def ibd_interp(self) -> str:
+        """Method that interprets the ibd attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        subject, pos, pos_neg, gender_ref = self.get_str_attrs("Subject_the", "pos", "pos_neg", "gender_ref")
+        main_str = format_lazy(
+            """Some evidence suggests that <a target='_next' href={}>NSAIDs</a> can exacerbate inflammatory bowel \
+disease (IBD) and thus they are relatively contraindicated in this setting.""",
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.ibd:
+            main_str += f" <strong>{subject} {pos} IBD</strong> and as a result \
+NSAIDs are contraindicated for {gender_ref}."
+        else:
+            main_str += f" <strong>{subject} {pos_neg} IBD</strong>, so there is no \
+contraindication to NSAIDs from this perspective."
+        return mark_safe(main_str)
+
+    def ibuprofen_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def ibuprofen_info(cls):
+        info_dict = cls.nsaid_info()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    def ibuprofen_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.nsaids_info_dict(samepage_links=samepage_links)
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    def indomethacin_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def indomethacin_info(cls):
+        return cls.nsaid_info()
+
+    def indomethacin_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
 
     @cached_property
-    def menopause(self) -> Union["MedHistory", None]:
+    def is_patient(self) -> bool:
+        """Method that returns True if the object is a Patient object and False if not."""
+        return isinstance(self, GoutHelperPatientModel)
+
+    @cached_property
+    def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
+        """Method that returns a list of MedAllergy objects from self.medallergys_qs or
+        or self.medallergy_set.all()."""
+        try:
+            return self.medallergys_qs
+        except AttributeError:
+            return self.medallergy_set.all()
+
+    def medallergys_interp(self) -> str:
+        """Method that interprets the medallergys attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the = self.get_str_attrs("Subject_the", "subject_the")
+        main_str = "Medication allergies can be serious and even life-threatening. Usually, allergy to a \
+medication is an absolute contraindication to its use. Ironically, there are rare circumstances in gout treatment \
+where an individual with an allergy to certain medications may be de-sensitized to them so they can take them."
+        if self.medallergys:
+            main_str += f"<br> <br> {Subject_the} has medication allergies, so {subject_the} should avoid \
+these medications."
+        else:
+            main_str += f"<br> <br> {Subject_the} doesn't have any medication allergies."
+
+    def meloxicam_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def meloxicam_info(cls):
+        return cls.nsaid_info()
+
+    def meloxicam_info_dict(self, samepage_links: bool = True) -> str:
+        return self.nsaids_info_dict(samepage_links=samepage_links)
+
+    @cached_property
+    def menopause(self) -> Union["MedHistory", bool]:
         """Method that returns Menopause object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_menopause(self.medhistorys_qs)
-        except AttributeError:
-            try:
-                return medhistorys_get_menopause(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_menopause(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.MENOPAUSE, self)
+
+    @cached_property
+    def methylprednisolone_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def methylprednisolone_info(cls) -> str:
+        return cls.steroid_info()
+
+    def methylprednisolone_info_dict(self, samepage_links: bool = True) -> str:
+        return self.steroid_info_dict(samepage_links=samepage_links)
+
+    def naproxen_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.nsaids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def naproxen_info(cls):
+        info_dict = cls.nsaid_info()
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
+
+    def naproxen_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.nsaids_info_dict(samepage_links=samepage_links)
+        info_dict.update({"Availability": "Over the counter"})
+        return info_dict
 
     @cached_property
     def nsaid_age_contra(self) -> bool | None:
         """Method that returns True if there is an age contraindication (>65)
         for NSAIDs and False if not."""
         return dateofbirths_get_nsaid_contra(
-            dateofbirth=self.dateofbirth,
+            dateofbirth=self.dateofbirth if not self.user else self.user.dateofbirth,
             defaulttrtsettings=self.defaulttrtsettings,
         )
 
@@ -372,13 +1261,17 @@ class DecisionAidModel(models.Model):
         return False
 
     @cached_property
-    def nsaid_allergys(self) -> list["MedAllergy"] | None:
+    def nsaid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_nsaid_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_nsaid_allergys(self.medallergys.all())
+        return medallergy_attr(NsaidChoices.values, self)
+
+    @property
+    def nsaid_allergy_treatment_str(self) -> str | None:
+        """Method that converts the nsaid_allergy attribute to a str."""
+        if self.nsaid_allergy:
+            return ", ".join([str(allergy.treatment.lower()) for allergy in self.nsaid_allergy])
+        return None
 
     @cached_property
     def nsaids_contraindicated(self) -> bool:
@@ -388,73 +1281,343 @@ class DecisionAidModel(models.Model):
         Returns:
             bool: True if NSAIDs are contraindicated, False if not
         """
-        if self.nsaid_age_contra or self.nsaid_allergys or self.other_nsaid_contras or self.cvdiseases or self.ckd:
+        if self.nsaid_age_contra or self.nsaid_allergy or self.other_nsaid_contras or self.cvdiseases or self.ckd:
             return True
         return False
 
-    @cached_property
-    def options_str(self) -> list[tuple[str, dict]] | None:
-        if self.recommendation:
-            rec = self.recommendation[0]
-            return [
-                treatments_stringify_trt_tuple(trt=option, dosing=option_dict)
-                for option, option_dict in self.options.items()
-                if option != rec
+    def nsaids_contra_dict(self, samepage_links: bool = True) -> dict[str, str, Any | list[Any] | None]:
+        """Method that returns a dict of NSAID contraindications.
+
+        Returns:
+            tuple[
+                str: not recommended Treatment or NSAIDs,
+                dict[
+                    str: contraindication,
+                    str: link term that is an id for an href on the same page
+                    Union[Any, list[Any]]: The contraindication object or objects
+                ]
             ]
+        """
+        contra_dict = {}
+        if self.nsaid_age_contra:
+            contra_dict["Age"] = (
+                "age",
+                f"{self.age} years old",
+            )
+        if self.nsaid_allergy:
+            contra_dict[f"Allerg{'ies' if len(self.nsaid_allergy) > 1 else 'y'}"] = ("medallergys", self.nsaid_allergy)
+        if self.other_nsaid_contras:
+            for contra in self.other_nsaid_contras:
+                contra_dict[str(contra)] = (
+                    f"{contra.medhistorytype.lower()}",
+                    None,
+                )
+        if self.cvdiseases:
+            contra_dict[f"Cardiovascular Disease{'s' if len(self.cvdiseases) > 1 else ''}"] = (
+                "cvdiseases",
+                self.cvdiseases,
+            )
+        if self.ckd:
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.ckddetail.explanation if self.ckddetail else None)
+        return contra_dict
+
+    @classmethod
+    def nsaid_info(cls):
+        return {
+            "Availability": "Prescription only",
+            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding \
+rash, fluid retention, and decreased kidney function",
+        }
+
+    def nsaids_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.nsaid_info()
+        if self.age > 65 and self.nsaids_recommended and not self.nsaids_contraindicated:
+            info_dict.update(
+                {
+                    "Warning-Age": mark_safe(
+                        format_lazy(
+                            """NSAIDs have a higher risk of side effects and adverse events in individuals {}.""",
+                            "<a class='samepage-link' href='#age'>over age 65</a>"
+                            if samepage_links
+                            else "over age 65",
+                        )
+                    )
+                }
+            )
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        return info_dict
 
     @cached_property
-    def organtransplant(self) -> Union["MedHistory", None]:
+    def has_goalurate(self) -> bool:
+        GoalUrate = apps.get_model("goalurates.GoalUrate")
+        return (
+            self.user
+            and hasattr(self.user, "goalurate")
+            and self.user.goalurate is not None
+            or hasattr(self, "goalurate")
+            and isinstance(self.goalurate, GoalUrate)
+        )
+
+    @cached_property
+    def on_ppx(self) -> bool | None:
+        """Method that returns whether the patient is currently on PPx."""
+        return self.goutdetail.on_ppx
+
+    @property
+    def on_ppx_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current on_ppx status."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            format_lazy(
+                """{} is {} on flare <a href={}>prophylaxis</a>.""",
+                Subject_the,
+                "not" if not self.on_ppx else "",
+                reverse("treatments:about-ppx"),
+            )
+        )
+
+    @cached_property
+    def on_ult(self) -> bool | None:
+        return (
+            self.user.on_ult
+            if self.user
+            else self.goutdetail.on_ult
+            if self.goutdetail
+            else next(
+                iter(
+                    rel_obj.goutdetail.on_ult
+                    for rel_obj in self.get_related_objects()
+                    if hasattr(rel_obj, "goutdetail") and rel_obj.goutdetail
+                ),
+                None,
+            )
+            if hasattr(self, "get_related_objects")
+            else None
+        )
+
+    @property
+    def on_ult_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current on_ult status."""
+        Subject_the, Gender_subject = self.get_str_attrs("Subject_the", "Gender_subject")
+        on_ult_str = format_lazy(
+            """{} is {} on urate-lowering therapy (<a href={}>ULT</a>).""",
+            Subject_the,
+            "not" if not self.on_ult else "",
+            reverse("treatments:about-ult"),
+        )
+        if self.starting_ult:
+            on_ult_str += f" {Gender_subject} is in the initiation phase of ULT."
+        elif self.on_ult:
+            on_ult_str += f" {Gender_subject} is in the maintenance phase of ULT, where the treatment doses are \
+stable and labs are not monitored as frequently. {Gender_subject} should not be experiencing gout flares in \
+this phase."
+        elif hasattr(self, "ult"):
+            if self.ult:
+                on_ult_str += f" ULT is {self.ult.get_indication_interp(samepage_links=False)}"
+            else:
+                subject_the = self.get_str_attrs("subject_the")
+                on_ult_str += " Create a "
+                if isinstance(self, User):
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.pk})}'>Ult</a>"
+                    )
+                elif self.user:
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                        f"Ult</a>"
+                    )
+                else:
+                    on_ult_str += (
+                        f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                        f"Ult</a>"
+                    )
+                on_ult_str += f" to figure out if ULT is indicated for {subject_the}."
+        elif self.user:
+            if self.user.ult:
+                on_ult_str += f" {self.user.ult.get_indication_interp(samepage_links=False)}"
+            else:
+                subject_the = self.get_str_attrs("subject_the")
+                on_ult_str += (
+                    " Create a "
+                    f"<a href='{reverse('ults:pseudopatient-create', kwargs={'pseudopatient': self.user.pk})}'>"
+                    f"Ult</a>"
+                    f" to figure out if ULT is indicated for {subject_the}."
+                )
+        else:
+            on_ult_str += f" Use a <a href='{reverse('ults:create')}'>Ult</a> to determine if ULT is indicated."
+        return mark_safe(on_ult_str)
+
+    @cached_property
+    def organtransplant(self) -> Union["MedHistory", bool]:
         """Method that returns Organtransplant object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_organtransplant(self.medhistorys_qs)
-        except AttributeError:
-            try:
-                return medhistorys_get_organtransplant(self.medhistorys.all())
-            except AttributeError:
-                return medhistorys_get_organtransplant(self.medhistory_set.all())
+        return medhistory_attr(MedHistoryTypes.ORGANTRANSPLANT, self)
+
+    def organtransplant_interp(self) -> str:
+        """Method that interprets the organtransplant attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        main_str = "Having had an organ transplant isn't a contraindication to any particular gout \
+medication, however, it very much complicates the situation. Organ transplant recipients are on \
+immunosuppressive medications that can interact with gout medications and increase the likelihood of \
+adverse effects or rejection of the transplanted organ. "
+        if self.organtransplant:
+            main_str += f" <br> <br> <strong>{Subject_the} {pos} an organ transplant</strong> and should \
+absolutely consult with his or her transplant providers, including a pharmacist, prior to starting any \
+new or stopping any old medications."
+        else:
+            main_str += f" <strong>{Subject_the.capitalize()} {pos_neg} an organ transplant</strong>."
+        return mark_safe(main_str)
+
+    @cached_property
+    def organtransplant_warning(self) -> str | None:
+        """Method that returns a warning str if the object has an associated
+        OrganTransplant MedHistory object."""
+        Subject_the, pos, gender_pos = self.get_str_attrs("Subject_the", "pos", "gender_pos")
+        return mark_safe(
+            f"{Subject_the} {pos} an organ transplant and should consult with {gender_pos} \
+transplant providers, including a pharmacist, prior to starting any new or stopping any old medications."
+        )
+
+    @cached_property
+    def osteoporosis(self) -> Union["MedHistory", bool]:
+        """Method that returns Osteoporosis object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.OSTEOPOROSIS, self)
 
     @cached_property
     def other_nsaid_contras(self) -> list["MedHistory"]:
         """Method that returns MedHistory object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_other_nsaid_contras(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_other_nsaid_contras(self.medhistorys.all())
+        return medhistory_attr(OTHER_NSAID_CONTRAS, self)
+
+    def prednisone_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        return self.steroids_contra_dict[1](samepage_links=samepage_links)
+
+    @classmethod
+    def prednisone_info(cls) -> str:
+        return cls.steroid_info
+
+    def prednisone_info_dict(self, samepage_links: bool = True) -> str:
+        return self.steroid_info_dict(samepage_links=samepage_links)
 
     @cached_property
-    def probenecid_allergys(self) -> list["MedAllergy"] | None:
+    def probenecid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns Probenecid MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_probenecid_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_probenecid_allergys(self.medallergys.all())
+        return medallergy_attr(Treatments.PROBENECID, self)
 
     @cached_property
     def probenecid_ckd_contra(self) -> bool:
         """Property method that implements aids_probenecid_ckd_contra with the Aid
-        model object's optional Ckd, CkdDetail, and DefaultUltTrtSettings to
+        model object's optional Ckd, CkdDetail, and UltAidSettings to
         determines if Probenecid is contraindicated. Written to not query for
-        DefaultUltTrtSettings if it is not needed.
+        UltAidSettings if it is not needed.
 
         Returns: bool
         """
         ckd = self.ckd
         if ckd:
             try:
-                ckddetail = ckd.ckddetail
-            except AttributeError:
-                ckddetail = None
-            if ckddetail:
                 return aids_probenecid_ckd_contra(
                     ckd=ckd,
-                    ckddetail=ckddetail,
-                    defaulttrtsettings=self.defaultulttrtsettings,
+                    ckddetail=ckd.ckddetail,
+                    defaulttrtsettings=self.defaulttrtsettings,
                 )
+            except AttributeError:
+                pass
             return True
         return False
+
+    def probenecid_ckd_contra_interp(self) -> str:
+        """Method that interprets the probenecid_ckd_contra attribute and returns a str explanation."""
+        if self.probenecid_ckd_contra:
+            (subject_the,) = self.get_str_attrs("subject_the")
+            return f"Probenecid is not recommended for {subject_the} with \
+{self.ckddetail.explanation if self.ckddetail else 'CKD of unknown stage'}."
+        else:
+            raise ValueError("probenecid_ckd_contra_interp should not be called if probenecid_ckd_contra is False.")
+
+    def probenecid_contra_dict(self, samepage_links: bool = True) -> dict[str, Any | list[Any] | None]:
+        """Method that returns a dict of probenecid contraindications."""
+        contra_dict = {}
+        if self.probenecid_allergy:
+            contra_dict["Allergy"] = ("medallergys", self.probenecid_allergy)
+        if self.probenecid_ckd_contra:
+            contra_dict["Chronic Kidney Disease"] = ("ckd", self.probenecid_ckd_contra_interp())
+        if self.uratestones:
+            contra_dict["Urate Kidney Stones"] = (
+                "uratestones",
+                f"{self.probenecid_uratestones_interp()}",
+            )
+        return contra_dict
+
+    @classmethod
+    def probenecid_info(cls) -> str:
+        return {
+            "Availability": "Prescription only",
+            "Cost": "Cheap",
+            "Side Effects": "Flushing, as well as increased risk of gout flares during the initiation period.",
+            "Warning-Urate Kidney Stones": "Increases risk of uric acid kidney stones.",
+        }
+
+    def probenecid_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = self.probenecid_info()
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        return info_dict
+
+    def probenecid_uratestones_interp(self) -> str:
+        """Method that interprets the uratestones attribute and returns a str explanation."""
+
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        main_str = format_lazy(
+            """Uric acid kidney stones can be exacerbated by medications that increase \
+urinary uric acid filtration, such as <a target='_next' href={}>probenecid</a>. """,
+            reverse("treatments:about-ult") + "#probenecid",
+        )
+        if self.uratestones:
+            return mark_safe(
+                main_str
+                + f"<strong>{Subject_the} has a history of uric acid kidney stones</strong>, \
+and as such shouldn't be prescribed probenecid."
+            )
+        else:
+            return mark_safe(
+                main_str
+                + f"<strong>{Subject_the} does not have a history of uric acid kidney stones\
+</strong>."
+            )
+
+    @cached_property
+    def pud(self) -> Union["MedHistory", bool]:
+        """Method that returns Pud object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.PUD, self)
+
+    def pud_interp(self) -> str:
+        """Method that interprets the pud attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        main_str = format_lazy(
+            """Peptic ulcer disease causes stomach pain and sometimes stomach bleeding. \
+<a target='_next' href={}>NSAIDs</a> can worsen peptic ulcer disease.""",
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.pud:
+            main_str += f" <strong>{Subject_the} {pos} peptic ulcer disease</strong>, so NSAIDs are contraindicated."
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg} peptic ulcer disease</strong>, so no worries."
+        return mark_safe(main_str)
+
+    @cached_property
+    def pvd(self) -> Union["MedHistory", bool]:
+        """Method that returns Pvd object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.PVD, self)
 
     @cached_property
     def recommendation_str(self) -> tuple[str, dict] | None:
@@ -466,202 +1629,486 @@ class DecisionAidModel(models.Model):
             return treatments_stringify_trt_tuple(trt=trt, dosing=dosing)
         return None
 
+    def set_str_attrs(
+        self,
+        patient: Union["GoutHelperPatientModel", None] = None,
+        request_user: Union["User", None] = None,
+    ) -> None:
+        """Method that checks for a str_attrs attribute on the object and returns it if
+        it exists, otherwise creates one with helper function."""
+        self.str_attrs = get_str_attrs(
+            obj=self,
+            patient=patient,
+            request_user=request_user,
+        )
+
     @cached_property
-    def steroid_allergys(self) -> list["MedAllergy"] | None:
+    def starting_ult(self) -> bool | None:
+        return (
+            self.user.starting_ult
+            if self.user
+            else self.goutdetail.starting_ult
+            if self.goutdetail
+            else next(
+                iter(
+                    rel_obj.goutdetail.starting_ult
+                    for rel_obj in self.get_related_objects()
+                    if hasattr(rel_obj, "goutdetail") and rel_obj.goutdetail
+                ),
+                None,
+            )
+            if hasattr(self, "get_related_objects")
+            else None
+        )
+
+    @property
+    def starting_ult_detail(self) -> str:
+        """Returns a brief detail str explaining the object's current starting_ult status."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            format_lazy(
+                """{} is {} in the initiation phase of starting urate-lowering therapy \
+(<a href={}>ULT</a>), which is characterized by an increased risk of gout flares\
+, dose adjustment of the treatments until serum uric acid is at goal, and frequent lab monitoring.""",
+                Subject_the,
+                "not" if not self.starting_ult else "",
+                reverse("treatments:about-ult"),
+            )
+        )
+
+    @cached_property
+    def steroid_allergy(self) -> list["MedAllergy"] | None:
         """Method that returns MedAllergy object from self.medallergys_qs or
         or self.medallergys.all()."""
-        try:
-            return medallergys_steroid_allergys(self.medallergys_qs)
-        except AttributeError:
-            return medallergys_steroid_allergys(self.medallergys.all())
+        return medallergy_attr(SteroidChoices.values, self)
+
+    @property
+    def steroid_allergy_treatment_str(self) -> str | None:
+        """Method that converts the steroid_allergy attribute to a str."""
+        if self.steroid_allergy:
+            return ", ".join([str(allergy.treatment.lower()) for allergy in self.steroid_allergy])
+        return None
+
+    def steroids_contra_dict(self, samepage_links: bool = True) -> dict[str, str, Any | list[Any] | None]:
+        """Method that returns a dict of corticosteroid contraindications.
+
+        Returns:
+            tuple[
+                str: not recommended Treatment or Steroids,
+                dict[
+                    str: contraindication,
+                    str: link term that is an id for an href on the same page
+                    Union[Any, list[Any]]: The contraindication object or objects
+                ]
+            ]
+        """
+        contra_dict = {}
+        if self.steroid_allergy:
+            contra_dict[f"Allerg{'ies' if len(self.steroid_allergy) > 1 else 'y'}"] = (
+                "medallergys",
+                self.steroid_allergy,
+            )
+        return contra_dict
+
+    @classmethod
+    def steroid_info(cls):
+        return {
+            "Availability": "Prescription only",
+            "Side Effects": "Hyperglycemia, insomnia, mood swings, increased appetite",
+        }
+
+    def steroid_info_dict(self, samepage_links: bool = True):
+        info_dict = self.steroid_info()
+        if self.diabetes:
+            info_dict.update({"Warning-Diabetes": self.steroid_warning(samepage_links=samepage_links)})
+        if self.organtransplant:
+            info_dict.update({"Warning-Organ Transplant": self.organtransplant_warning})
+        return info_dict
+
+    def steroid_warning(self, samepage_links: bool = True) -> str | None:
+        """Method that returns a warning str if the object has an associated
+        Diabetes MedHistory object."""
+        Subject_the, pos, Gender_subject, gender_pos = self.get_str_attrs(
+            "Subject_the", "pos", "Gender_subject", "gender_pos"
+        )
+        return mark_safe(
+            format_lazy(
+                """{} {} {} and could can experience severe hyperglycemia (elevated blood sugar) \
+when taking steroids. {} should monitor {} blood sugars closely and seek medical advice if they \
+are persistently elevated.""",
+                Subject_the,
+                pos,
+                wrap_in_samepage_links_anchor("diabetes", "diabetes") if samepage_links else "diabetes",
+                Gender_subject,
+                gender_pos,
+            )
+        )
 
     @cached_property
-    def tophi(self) -> Union["MedHistory", None]:
+    def stroke(self) -> Union["MedHistory", bool]:
+        """Method that returns Stroke object from self.medhistorys_qs or
+        or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.STROKE, self)
+
+    @cached_property
+    def tophi(self) -> Union["MedHistory", bool]:
         """Method that returns Tophi object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_tophi(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_tophi(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.TOPHI, self)
+
+    @property
+    def tophi_detail(self) -> str:
+        return add_indicator_badge_and_samepage_link(self, "tophi")
+
+    def tophi_interp(self, samepage_links: bool = True) -> str:
+        """Method that interprets the tophi attribute and returns a str explanation."""
+        Subject_the, gender_subject = self.get_str_attrs("Subject_the", "gender_subject")
+
+        main_str = format_lazy(
+            """Like {}, tophi are a sign of advanced \
+gout and are associated with more severe disease. Tophi are actually little clumps of \
+<a target='_blank' href={}>uric acid</a> in and around joints. They require more aggressive \
+treatment with ULT in order to eliminate them. If left untreated, they can cause permanent joint damage.""",
+            f"{wrap_in_samepage_links_anchor('erosions', 'erosions')}" if samepage_links else "erosions",
+            reverse("labs:about-urate"),
+        )
+        if self.tophi:
+            main_str += f" <strong>{Subject_the} has tophi, and {gender_subject} should be treated \
+aggressively with ULT.</strong>"
+        else:
+            main_str += f" <strong>{Subject_the} does not have tophi.</strong>"
+        return mark_safe(main_str)
 
     @cached_property
-    def uratestones(self) -> Union["MedHistory", None]:
+    def most_recent_urate(self) -> "Urate":
+        """Method that returns the most recent Urate object from self.urates_qs or
+        or self.urates.all()."""
+        return self.dated_urates.first() if isinstance(self.dated_urates, models.QuerySet) else self.dated_urates[0]
+
+    @cached_property
+    def dated_urates(self) -> list["Urate"]:
+        if self.user and hasattr(self.user, "urates_qs"):
+            return self.user.urates_qs
+        elif hasattr(self, "urates_qs"):
+            return self.urates_qs
+        else:
+            return self.get_dated_urates()
+
+    def get_dated_urates(self):
+        kwargs = (
+            {"user": self}
+            if self.is_patient
+            else {"user": self.user}
+            if self.belongs_to_patient
+            else {f"{self._meta.model_name.lower()}": self}
+        )
+        return urates_dated_qs().filter(**kwargs)
+
+    @cached_property
+    def urates_at_goal(
+        self,
+    ) -> bool:
+        """Returns True if the object's most recent Urate object is at goal."""
+        return labs_urates_at_goal(self.dated_urates, self.goal_urate)
+
+    @cached_property
+    def urates_at_goal_within_last_month(self) -> bool:
+        return self.urates_at_goal and self.urate_within_last_month
+
+    @cached_property
+    def urates_not_at_goal_within_last_month(self) -> bool:
+        return not self.urates_at_goal and self.urate_within_last_month
+
+    @cached_property
+    def urates_at_goal_long_term(self) -> bool:
+        """Returns True if the object has had urates at goal for at least 6 months."""
+        return labs_urates_six_months_at_goal(self.dated_urates, self.goal_urate)
+
+    @cached_property
+    def urates_at_goal_long_term_within_last_month(self) -> bool:
+        """Returns True if the object has had urates at goal for at least 6 months and had a
+        uric acid within the last month."""
+        return self.urates_at_goal_long_term and self.urate_within_last_month
+
+    @cached_property
+    def urates_most_recent_newer_than_gout_set_date(self) -> bool:
+        """Returns True if the object's most recent Urate object is newer than the object's
+        Gout MedHistory set_date."""
+        return labs_urate_is_newer_than_goutdetail_set_date(self.most_recent_urate, self.goutdetail)
+
+    @property
+    def urate_status_unknown_detail(self) -> str:
+        """Returns a str explaining that the object's uric acid level is unknown."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(f"{Subject_the} uric acid level is not known. Serum uric acid should probably be checked.")
+
+    @cached_property
+    def urate_within_last_month(self) -> bool:
+        """Returns True if the object has a Urate object within the last month."""
+        return labs_urate_within_last_month(self.dated_urates)
+
+    @cached_property
+    def urate_within_90_days(self) -> bool:
+        """Returns True if the object has a Urate object within the last 3 months."""
+        return labs_urate_within_90_days(self.dated_urates)
+
+    @cached_property
+    def uratestones(self) -> Union["MedHistory", bool]:
         """Method that returns UrateStones object from self.medhistorys_qs or
         or self.medhistorys.all()."""
-        try:
-            return medhistorys_get_uratestones(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_uratestones(self.medhistorys.all())
+        return medhistory_attr(MedHistoryTypes.URATESTONES, self)
+
+    @property
+    def uratestones_detail(self) -> str:
+        return add_indicator_badge_and_samepage_link(self, "uratestones", "Uric acid kidney stones")
+
+    def uratestones_interp(self) -> str:
+        """Method that interprets the uratestones attribute and returns a str explanation."""
+        Subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "pos", "pos_neg")
+        main_str = "Probenecid increases urinary filtration of uric acid and predisposes individuals \
+to uric acid kidney stones. "
+        if self.uratestones:
+            main_str += f" <strong>{Subject_the} {pos} a history of uric acid kidney stones</strong> \
+and should not be prescribed probenecid."
+        else:
+            main_str += f" <strong>{Subject_the} {pos_neg} a history of uric acid kidney stones</strong>."
+        return mark_safe(main_str)
 
     @cached_property
-    def xoiinteraction(self) -> Union["MedHistory", None]:
+    def xoiinteraction(self) -> Union["MedHistory", bool]:
         """Method that returns XoiInteraction object from self.medhistorys_qs or
         or self.medhistorys.all()."""
+        return medhistory_attr(MedHistoryTypes.XOIINTERACTION, self)
+
+    @classmethod
+    def xoi_interactions(cls, treatment: str | None = None) -> str:
+        return mark_safe(
+            f"{treatment if treatment else 'Xanthine oxidase inhibitors'} (<a target='_next' \
+href='https://en.wikipedia.org/wiki/Xanthine_oxidase_inhibitor'>XOI</a>) interact{'s' if treatment else ''} \
+with <a target='_next' href='https://en.wikipedia.org/wiki/Azathioprine'>azathioprine</a>, \
+<a target='_next' href='https://en.wikipedia.org/wiki/Mercaptopurine'>6-mercaptopurine</a>, \
+and <a target='_next' href='https://en.wikipedia.org/wiki/Theophylline'>theophylline</a>."
+        )
+
+    def xoiinteraction_interp(self) -> str:
+        """Method that interprets the xoiinteraction attribute and returns a str explanation."""
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        main_str = "Allopurinol and febuxostat are \
+<a target='_next' href='https://en.wikipedia.org/wiki/Xanthine_oxidase_inhibitors'>xanthine oxidase inhibitors</a> \
+(XOIs) that are used to treat gout. \
+They can interact with other medications, such as azathioprine, 6-mercaptopurine, and theophylline, \
+    by inhibiting their metabolism. This can lead to increased levels of these medications in the blood, \
+        which can cause toxicity and severe side effects. "
+        if self.xoiinteraction:
+            main_str += f" <br> <br> <strong>{Subject_the} is on a mediaction  \
+that interacts with XOIs</strong> and should not be on allopurinol or febuxostat except under rare circumstances \
+and under the close supervision of a healthcare provider."
+        else:
+            main_str += f" <strong>{Subject_the} is not on a medication that interacts with XOIs.</strong>"
+        return mark_safe(main_str)
+
+
+class TreatmentAidMixin:
+    """Mixin to add methods for interpreting treatment aids."""
+
+    @cached_property
+    def not_options(self) -> dict[str, dict]:
+        """Returns {list} of FlareAids's Flare Treatment options that are not recommended."""
+        return aids_not_options(trt_dict=self.aid_dict, defaultsettings=self.defaulttrtsettings)
+
+    @property
+    def not_options_label_list(self) -> list[str]:
+        return [Treatments(key).label if key in Treatments else key for key in self.not_options.keys()]
+
+    @cached_property
+    def options(self) -> dict:
+        """Returns {dict} of FlareAids's Flare Treatment options {treatment: dosing}."""
+        return aids_options(trt_dict=self.aid_dict)
+
+    @property
+    def options_without_rec(self) -> dict:
+        """Method that returns the options dictionary without the recommendation key."""
+        return aids_options(
+            trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
+        )
+
+    @property
+    def recommendation_is_none_str(self) -> str:
+        (Subject_the,) = self.get_str_attrs("Subject_the")
+        return mark_safe(
+            f"<strong>No recommendation available</strong>. {Subject_the} is medically complicated \
+enough that GoutHelper can't safely make a recommendation and in this case human judgement is required. \
+See a rheumatologist for further evaluation."
+        )
+
+    def treatment_dose_adjustment(self, trt: Treatments) -> "Decimal":
+        return self.options[trt]["dose_adj"]
+
+    def treatment_dosing_dict(self, trt: Treatments, samepage_links: bool = True) -> dict[str, str]:
+        """Returns a dictionary of the dosing for a given treatment."""
+        dosing_dict = {}
+        dosing_dict.update({"Dosing": self.treatment_dosing_str(trt)})
+        info_dict = getattr(self, f"{trt.lower()}_info_dict")(samepage_links=samepage_links)
+        for key, val in info_dict.items():
+            dosing_dict.update({key: val})
+        return dosing_dict
+
+    def treatment_dosing_str(self, trt: Treatments) -> str:
+        """Returns a string of the dosing for a given treatment."""
         try:
-            return medhistorys_get_xoiinteraction(self.medhistorys_qs)
-        except AttributeError:
-            return medhistorys_get_xoiinteraction(self.medhistorys.all())
+            return TrtDictStr(self.options[trt], self.trttype(), trt).trt_dict_to_str()
+        except KeyError as exc:
+            raise KeyError(f"{trt} not in {self} options.") from exc
+
+    def treatment_not_an_option_dict(self, trt: Treatments, samepage_links: bool = True) -> tuple[str, dict]:
+        """Returns a dictionary of the contraindications for a given treatment."""
+        return getattr(self, f"{trt.lower()}_contra_dict")(samepage_links=samepage_links)
 
 
-class LabAidModel(models.Model):
-    """Abstract base model to add labs to a model without a User."""
+class FlarePpxMixin(GoutHelperBaseModel):
+    """Mixin to modify the GoutHelperBaseModel methods to be specific to
+    Flare and Ppx treatment types."""
 
-    class Meta:
-        abstract = True
+    def ckd_interp(self) -> str:
+        ckd_str = super().ckd_interp()
 
-    labs = models.ManyToManyField(
-        "labs.Lab",
-    )
+        (subject_the,) = self.get_str_attrs("subject_the")
 
-    def add_labs(
-        self,
-        labs: list["Lab"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of labs to a Aid without a User.
+        ckd_str += str(
+            format_lazy(
+                """<br> <br> Non-steroidal anti-inflammatory drugs (<a target='_next' href={}>NSAIDs</a>) \
+are associated with acute kidney injury and chronic kidney disease and thus are not recommended for patients \
+with CKD.""",
+                reverse("treatments:about-flare") + "#nsaids",
+            )
+        )
+        if self.ckd:
+            ckd_str += f" Therefore, NSAIDs are not recommended for {subject_the}."
 
-        Args:
-            labs: list of Lab objects to add
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for lab in labs:
-            if lab.labtype in self.__class__.aid_labs():  # type: ignore
-                self.labs.add(lab)
+        ckd_str += str(
+            format_lazy(
+                """<br> <br> <a href={}>Colchicine</a> is heavily processed by the kidneys and \
+should be used cautiously in patients with early CKD (less than or equal to stage 3). If a patient has CKD stage \
+4 or 5, or is on dialysis, colchicine should be avoided.""",
+                reverse("treatments:about-flare") + "#colchicine",
+            )
+        )
+        if self.ckd:
+            if self.colchicine_contraindicated_due_to_ckd:
+                ckd_str += f" Therefore, colchicine is not recommended for {subject_the}"
+                if self.ckddetail:
+                    ckd_str += f" with {self.ckddetail.explanation}"
+                ckd_str += "."
             else:
-                raise TypeError(f"{lab} is not a valid Lab for {self}")
-        if commit:
-            self.full_clean()
-            self.save()
+                ckd_str += f" Therefore, if there are no other contraindications to colchicine, \
+colchicine can be used by {subject_the}, but at reduced doses."
 
-    def remove_labs(
-        self,
-        labs: list["Lab"],
-        commit: bool = True,
-    ) -> None:
-        """Method that removes a list of labs to a DecisionAid without a User.
+        return mark_safe(ckd_str)
 
-        Args:
-            labs: list of Lab objects to remove
-            commit: bool to commit the changes to the database
-            updating: DecisionAid object that is being updated, optional
+    def cvdiseases_interp(self) -> str:
+        subject_the, pos_neg = self.get_str_attrs("subject_the", "pos_neg")
 
-        Returns: None"""
-        for lab in labs:
-            self.labs.remove(lab)
-            lab.delete()
-        if commit:
-            self.full_clean()
-            self.save()
+        main_str = format_lazy(
+            """Non-steroidal anti-inflammatory drugs (<a target='_blank' href={}>NSAIDs</a>) are associated \
+with an increased risk of cardiovascular events and mortality with long-term use. For that reason, \
+cardiovascular disease is a relative contraindication to using NSAIDs. """,
+            reverse("treatments:about-flare") + "#nsaids",
+        )
+        if self.cvdiseases:
+            main_str += f"Because of <strong>{subject_the}'s cardiovascular disease(s) ({self.cvdiseases_str.lower()})\
+</strong>, NSAIDs are not recommended."
+        else:
+            main_str += f"Because <strong>{subject_the} {pos_neg} cardiovascular disease</strong>, NSAIDs are \
+reasonable to use."
+        return mark_safe(main_str)
+
+    @cached_property
+    def medallergys(self) -> Union[list["MedAllergy"], "QuerySet[MedAllergy]"]:
+        return medallergy_attr(FlarePpxChoices.values, self)
+
+    def medallergys_interp(self) -> str:
+        """Method that interprets the medallergys attribute and returns a str explanation
+        of the impact of it on a patient's gout."""
+
+        Subject_the, subject_the, pos, pos_neg = self.get_str_attrs("Subject_the", "subject_the", "pos", "pos_neg")
+        main_str = ""
+        if self.medallergys:
+            if self.nsaid_allergy:
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to NSAIDs \
+({self.nsaid_allergy_treatment_str})</strong>, so NSAIDs are not recommended for {subject_the}."
+            if self.colchicine_allergy:
+                if self.nsaid_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to colchicine</strong>\
+, so colchicine is not recommended for {subject_the}."
+            if self.steroid_allergy:
+                if self.nsaid_allergy or self.colchicine_allergy:
+                    main_str += "<br> <br> "
+                main_str += f"<strong>{Subject_the} {pos} a medication allergy to corticosteroids \
+({self.steroid_allergy_treatment_str})</strong>, so corticosteroids are not recommended for {subject_the}."
+        else:
+            main_str += f"Usually, allergy to a medication is an absolute contraindication to its use. \
+{Subject_the} {pos_neg} any allergies to gout flare treatments."
+        return mark_safe(main_str)
 
 
-class MedAllergyAidModel(models.Model):
-    """Abstract base model to add medallergys to a DecisionAid without a User."""
-
+class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
     class Meta:
         abstract = True
 
-    medallergys = models.ManyToManyField(
-        "medallergys.MedAllergy",
-    )
+    decision_aid_service: Union[
+        "FlareAidDecisionAid",
+        "FlareDecisionAid",
+        "PpxAidDecisionAid",
+        "PpxDecisionAid",
+        "UltAidDecisionAid",
+        "UltDecisionAid",
+    ]
+    related_models: "AidNames"
+    related_objects: "Manager"
 
-    def add_medallergys(
+    def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":
+        model_name = self._meta.model_name
+        return getattr(apps.get_model("users.Pseudopatient").objects, f"{model_name}_qs")().filter(pk=self.user.pk)
+
+    @cached_property
+    def related_objects_list(self) -> list["Aids"]:
+        def get_rel_objs(obj: Union["User", "Aids"]) -> Union["Aids", None]:
+            rel_obj_list = []
+            for model_name in self.related_models:
+                rel_obj = getattr(obj, model_name, None)
+                if rel_obj:
+                    rel_obj_list.append(rel_obj)
+            return rel_obj_list
+
+        if self.user:
+            return get_rel_objs(self.user)
+        else:
+            return get_rel_objs(self)
+
+    def update_aid(
         self,
-        medallergys: list["MedAllergy"],
-        medallergys_qs: QuerySet["MedAllergy"] | list["MedAllergy"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of medallergys to a DecisionAid without a User.
+        qs: Union["Aids", "Pseudopatient", None] = None,
+    ) -> "Aids":
+        if qs is None:
+            qs = self.get_update_qs()
+        decisionaid = self.decision_aid_service(qs=qs)
+        return decisionaid._update()
 
-        Args:
-            medallergys: list of MedAllergy objects to add
-            medallergys_qs: list of MedAllergy objects to check for duplicates
-            commit: bool to commit the changes to the database
+    def get_update_qs(self) -> "QuerySet[Union[Aids, Pseudopatient]]":
+        if self.user:
+            return self.get_pseudopatient_queryset()
+        else:
+            return self.__class__.related_objects.filter(pk=self.pk)
 
-        Returns: None"""
-        for medallergy in medallergys:
-            if next(iter([ma for ma in medallergys_qs if ma.treatment == medallergy.treatment]), False):
-                raise TypeError(f"{medallergy} is already in {self}")
-            if medallergy.treatment in self.__class__.aid_treatments():
-                self.medallergys.add(medallergy)
-        if commit:
-            self.full_clean()
-            self.save()
-
-    def remove_medallergys(
+    def update_related_objects(
         self,
-        medallergys: list["MedAllergy"],
-        commit=True,
+        qs: Union["Aids", "Pseudopatient", None] = None,
     ) -> None:
-        """Method that removes a list of medallergys to a UltAid without a User.
-
-        Args:
-            medallergys: list of MedAllergy objects to remove
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for medallergy in medallergys:
-            self.medallergys.remove(medallergy)
-            medallergy.delete()
-        if commit:
-            self.full_clean()
-            self.save()
-
-
-class MedHistoryAidModel(models.Model):
-    """Abstract base model to add medhistorys to a model without a User."""
-
-    class Meta:
-        abstract = True
-
-    medhistorys = models.ManyToManyField(
-        "medhistorys.Medhistory",
-    )
-
-    def add_medhistorys(
-        self,
-        medhistorys: list["MedHistory"],
-        medhistorys_qs: QuerySet["MedHistory"] | list["MedHistory"],
-        commit: bool = True,
-    ) -> None:
-        """Method that adds a list of medhistorys to a Aid without a User.
-
-        Args:
-            medhistorys: list of MedHistory objects to add
-            medhistorys_qs: list of MedHistory objects to check for duplicates
-            commit: bool to commit the changes to the database
-
-        Returns: None"""
-        for medhistory in medhistorys:
-            if next(iter([mh for mh in medhistorys_qs if mh.medhistorytype == medhistory.medhistorytype]), False):
-                raise TypeError(f"{medhistory} is already in {self}")
-            if medhistory.medhistorytype in self.__class__.aid_medhistorys():  # type: ignore
-                self.medhistorys.add(medhistory)
-            else:
-                raise TypeError(f"{medhistory} is not a valid MedHistory for {self}")
-        if commit:
-            self.full_clean()
-            self.save()
-
-    def remove_medhistorys(
-        self,
-        medhistorys: list["MedHistory"],
-        commit: bool = True,
-    ) -> None:
-        """Method that removes a list of medhistorys to a UltAid without a User.
-
-        Args:
-            medhistorys: list of MedHistory objects to remove
-            commit: bool to commit the changes to the database
-            updating: DecisionAid object that is being updated, optional
-
-        Returns: None"""
-        for medhistory in medhistorys:
-            self.medhistorys.remove(medhistory)
-            medhistory.delete()
-        if commit:
-            self.full_clean()
-            self.save()
+        if qs is None:
+            qs = self.get_update_qs()
+        for related_obj in self.related_objects_list:
+            related_obj.update_aid(qs=self.user if self.user else related_obj)
 
 
 class GoutHelperModel(models.Model):
@@ -675,3 +2122,101 @@ class GoutHelperModel(models.Model):
         abstract = True
 
     objects = models.Manager()
+
+
+class GoutHelperPatientModel(GoutHelperBaseModel):
+    """Abstract base model that adds methods for iterating over a User's related models
+    via a prefetched / select_related QuerySet or the User's defualt related model Managers
+    in order to categorize and display them."""
+
+    class Meta:
+        abstract = True
+
+    @cached_property
+    def age(self) -> int | None:
+        """Method that returns the age of the object's user if it exists."""
+        return age_calc(date_of_birth=self.dateofbirth.value) if hasattr(self, "dateofbirth") else None
+
+    def get_dated_urates(self):
+        return urates_dated_qs().filter(user=self)
+
+    @cached_property
+    def on_ult(self) -> bool | None:
+        return self.goutdetail.on_ult
+
+    @cached_property
+    def starting_ult(self) -> bool | None:
+        return self.goutdetail.starting_ult
+
+    @cached_property
+    def user(self):
+        return self
+
+    def get_defaulttrtsettings(
+        self, trttype: TrtTypes
+    ) -> Union["FlareAidSettings", "PpxAidSettings", "UltAidSettings"]:
+        """Method that returns the DefaultTrtSettings object for the User's trttype."""
+        if trttype == TrtTypes.FLARE:
+            return defaults_flareaidsettings(user=self)
+        elif trttype == TrtTypes.PPX:
+            return defaults_ppxaidsettings(user=self)
+        elif trttype == TrtTypes.ULT:
+            return defaults_ultaidsettings(user=self)
+
+
+class DecisionAidRelation(models.Model):
+    """Abstract base model for adding DecisionAid OneToOneFields to models."""
+
+    class Meta:
+        abstract = True
+
+    flare = models.ForeignKey(
+        "flares.Flare",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    goalurate = models.ForeignKey(
+        "goalurates.GoalUrate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    ppx = models.ForeignKey(
+        "ppxs.Ppx",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    ult = models.ForeignKey(
+        "ults.Ult",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+
+class TreatmentAidRelation(models.Model):
+    """Abstract base model for adding TreatmentAid OneToOneFields to models."""
+
+    class Meta:
+        abstract = True
+
+    flareaid = models.ForeignKey(
+        "flareaids.FlareAid",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    ppxaid = models.ForeignKey(
+        "ppxaids.PpxAid",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    ultaid = models.ForeignKey(
+        "ultaids.UltAid",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )

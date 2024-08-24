@@ -8,15 +8,43 @@
     <div class="col">
       <h1>Ppx</h1>
     </div>
-    <div class="col align-items-center d-flex">
+    <div class="col align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'ppxs:about' %}"
          role="button">About</a>
-      <a type="button"
-         class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'ppxs:update' pk=object.pk %}"
-         role="button">Update</a>
+      {% if object.user %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxs:pseudopatient-update' pseudopatient=object.user.pk %}"
+           role="button">Update</a>
+      {% else %}
+        <a type="button"
+           class="btn btn-primary btn-lg spacious-buttons"
+           href="{% url 'ppxs:update' pk=object.pk %}"
+           role="button">Update</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#recommendation">
+        {% if object.recommendations.keys|length > 1 %}
+          Recommendations
+        {% else %}
+          Recommendation
+        {% endif %}
+      </a> |
+      <a class="samepage-link" href="#details">Details</a> |
+      {% if object.urates_qs %}<a class="samepage-link" href="#urates">Urates</a> |{% endif %}
+      <a class="samepage-link" href="#explanations">Explanations</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}
+        <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
+      {% elif object.ppxaid %}
+        <a href="{% url 'ppxaids:detail' pk=object.ppxaid.pk %}">{{ object.ppxaid }}</a>
+      {% endif %}
     </div>
   </div>
 {% endblock heading %}
@@ -24,40 +52,205 @@
   <main role="main">
     <div class="container bodytainer">
       <hr size="3" color="dark" />
-      <div id="indication">
+      <div id="recommendation">
         <div class="row">
           <div class="col">
-            <div class="card card-body">
+            <h2>
+              <u>
+                {% if object.recommendations.keys|length > 1 %}
+                  Recommendations
+                {% else %}
+                  Recommendation
+                {% endif %}
+              </u>
+            </h2>
+          </div>
+        </div>
+        <div class="row">
+          {% for recommendation, explanation in object.recommendations.items %}
+            <div class="col">
+              <div class="card card-body spacious-cards">
+                <h4 class="card-title">{{ recommendation }}</h4>
+                <p class="card-text">{{ explanation }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% if object.should_show_ppxaid %}
+        <hr size="3" color="dark" />
+        <div id="ppxaid">
+          <div id="row">
+            <div id="col flex-fill d-flex justify-content-center">
+              {% if object.user %}
+                {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.user.ppxaid marketing=True %}
+              {% else %}
+                {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.ppxaid marketing=True %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+      <hr size="3" color="dark" />
+      <div id="details">
+        <div class="row">
+          <div class="col">
+            <h2>
+              <u>Details</u>
+            </h2>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <div class="card card-body" id="gout-card">
               <h3 class="card-title">
-                <u>Indication</u>: <strong>{{ object.get_indication_display }}</strong>
+                <u>Gout</u>
               </h3>
-              <p class="card-text">{% include "ppxs/_indication_explanation.html" %}</p>
+              <div class="card-text">
+                <ul>
+                  <li>
+                    <strong><a class="samepage-link" href="#flaring">Flaring</a></strong>: {{ object.flaring_detail }}
+                  </li>
+                  {% if object.at_goal %}
+                    <li>
+                      <strong><a class="samepage-link" href="#at_goal">At Goal</a> Uric Acid</strong>: {{ object.at_goal_long_term_detail }}
+                    </li>
+                  {% else %}
+                    <li>
+                      <strong><a class="samepage-link" href="#hyperuricemic">Hyperuricemic</a></strong>: {{ object.hyperuricemic_detail }}
+                    </li>
+                  {% endif %}
+                </ul>
+                <hr size="3" color="dark" />
+                <div id="goalurate">
+                  <div class="row">
+                    <div class="col flex-fill d-flex justify-content-center">
+                      {% if object.user %}
+                        {% if not object.user.goalurate %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg"
+                             hx-get="{% url 'goalurates:pseudopatient-create' pseudopatient=object.user.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Create GoalUrate</a>
+                        {% else %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg"
+                             hx-get="{% url 'goalurates:pseudopatient-update' object.user.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Update Goal Urate</a>
+                        {% endif %}
+                      {% else %}
+                        {% if not object.has_goalurate %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg"
+                             hx-get="{% url 'goalurates:ppx-create' ppx=object.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Create GoalUrate</a>
+                        {% else %}
+                          <a type="button"
+                             class="btn btn-primary btn-lg"
+                             hx-get="{% url 'goalurates:update' object.goalurate.pk %}"
+                             hx-target="#goalurate"
+                             hx-trigger="click"
+                             role="button">Update Goal Urate</a>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card card-body" id="treatment-card">
+              <h3 class="card-title">
+                <u>Treatment</u>
+              </h3>
+              <div class="card-text">
+                <ul>
+                  {% if object.starting_ult %}
+                    <li>
+                      <strong><a class="samepage-link" href="#starting_ult">Starting ULT</a></strong>: {{ object.starting_ult_detail }}
+                    </li>
+                  {% else %}
+                    <li>
+                      <strong><a class="samepage-link" href="#on_ult">On ULT</a></strong>: {{ object.on_ult_detail }}
+                    </li>
+                  {% endif %}
+                  <li>
+                    <strong><a class="samepage-link" href="#on_ppx">On PPx</a></strong>: {{ object.on_ppx_detail }}
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div id="recommendation">
+      {% if object.urates_qs or object.user and object.user.urates_qs %}
         <hr size="3" color="dark" />
-        {% include 'ppxs/_recommendation.html' %}
-      </div>
-      <div id="details">
-        <hr size="3" color="dark" />
-        <div class="row">
-          <div class="col">{% include "ppxs/_details.html" %}</div>
-        </div>
-      </div>
-      {% if object.labs_qs %}
         <div id="urates">
-          <hr size="3" color="dark" />
+          <div class="row">
+            <div class="col">
+              <h2>
+                <u>Urates</u>
+              </h2>
+            </div>
+            <div class="col align-items-center d-flex justify-content-end">
+              <a href="#top"><small>Back to top</small></a>
+            </div>
+          </div>
           <div class="row">
             <div class="col">
               <div class="card card-body">
-                <h3 class="card-title">
-                  <u>Urates</u>
-                </h3>
-                <ol>
-                  {% for lab in object.labs_qs %}<li>{{ lab }} - {{ lab.date.date }}</li>{% endfor %}
-                </ol>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Level (mg/dL)</th>
+                      <th scope="col">Date Drawn</th>
+                      <th scope="col">At Goal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if object.user %}
+                      {% for urate in object.user.urates_qs %}
+                        <tr>
+                          <th scope="row">{{ forloop.counter }}</th>
+                          <td>{{ urate.value }}</td>
+                          <td>{{ urate.date.date }}</td>
+                          <td>
+                            {% if urate.value > object.user.goal_urate %}
+                              No
+                            {% else %}
+                              Yes
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    {% else %}
+                      {% for urate in object.urates_qs %}
+                        <tr>
+                          <th scope="row">{{ forloop.counter }}</th>
+                          <td>{{ urate.value }}</td>
+                          <td>{{ urate.date.date }}</td>
+                          <td>
+                            {% if urate.value > object.goal_urate %}
+                              No
+                            {% else %}
+                              Yes
+                            {% endif %}
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -67,24 +260,21 @@
         <hr size="3" color="dark" />
         <div class="row">
           <div class="col">
-            <h3>
+            <h2>
               <u>Explanations</u>
-            </h3>
+            </h2>
+          </div>
+          <div class="col align-items-center d-flex justify-content-end">
+            <a href="#top"><small>Back to top</small></a>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=gout id="gout" label="Gout" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ppx id="on_ppx" label="Already On PPx" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=on_ult id="on_ult" label="Already On ULT" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=starting_ult id="starting_ult" label="Starting ULT" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=flaring id="flaring" label="Flaring" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=at_goal id="at_goal" label="At Goal" %}
-            {% include "_explanation.html" with aidtype="Ppx" con_obj=hyperuricemic id="hyperuricemic" label="Hyperuricemic" %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
-      <a href="#top">Back to top</a>
+      <a href="#top"><small>Back to top</small></a>
     </div>
   </main>
 {% endblock content %}
@@ -92,15 +282,13 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
+      $('.collapse').each(function() {
         $(this).on("hidden.bs.collapse", collapse_control);
       });
-      $('.collapse-explanation').each(function() {
+      $('.collapse').each(function() {
         $(this).on('shown.bs.collapse', expand_control);
       });
+      check_for_and_expand_collapse();
     });
   </script>
 {% endblock inline_javascript %}

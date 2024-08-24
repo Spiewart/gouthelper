@@ -15,13 +15,7 @@ from ...treatments.choices import (
     TrtTypes,
 )
 from ...users.tests.factories import UserFactory
-from ..models import (
-    DefaultFlareTrtSettings,
-    DefaultMedHistory,
-    DefaultPpxTrtSettings,
-    DefaultTrt,
-    DefaultUltTrtSettings,
-)
+from ..models import DefaultMedHistory, DefaultTrt, FlareAidSettings, PpxAidSettings, UltAidSettings
 
 pytestmark = pytest.mark.django_db
 
@@ -118,16 +112,16 @@ class DefaultNaproxenPpxFactory(DefaultTrtFactory):
         model = DefaultTrt
 
 
-class DefaultFlareTrtSettingsFactory(DefaultTrtFactory):
+class FlareAidSettingsFactory(DjangoModelFactory):
     class Meta:
-        model = DefaultFlareTrtSettings
+        model = FlareAidSettings
 
 
-class DefaultPpxTrtSettingsFactory(DefaultTrtFactory):
+class PpxAidSettingsFactory(DefaultTrtFactory):
     class Meta:
-        model = DefaultPpxTrtSettings
+        model = PpxAidSettings
 
 
-class DefaultUltTrtSettingsFactory(DefaultTrtFactory):
+class UltAidSettingsFactory(DefaultTrtFactory):
     class Meta:
-        model = DefaultUltTrtSettings
+        model = UltAidSettings

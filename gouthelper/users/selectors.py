@@ -1,16 +1,18 @@
 from typing import TYPE_CHECKING
 
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from django.db.models import Prefetch, Q  # type: ignore
+from django.db.models import Prefetch, Q  # pylint:disable=E0401  # type: ignore
 
+from ..flares.selectors import flares_prefetch, most_recent_flare_prefetch
+from ..labs.selectors import urates_prefetch
+from ..medallergys.selectors import medallergys_prefetch
 from ..medhistorys.choices import MedHistoryTypes
-from .models import Pseudopatient
-
-User = get_user_model()
+from ..medhistorys.selectors import medhistorys_prefetch
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
+
+    from ..genders.choices import Genders
 
 
 def pseudopatient_lab_qs() -> "QuerySet":
@@ -68,7 +70,8 @@ def pseudopatient_profile_medhistory_prefetch() -> Prefetch:
 
 def pseudopatient_qs(username: str) -> "QuerySet":
     return (
-        Pseudopatient.objects.filter(username=username)
+        apps.get_model("users.Pseudopatient")
+        .objects.filter(username=username)
         .select_related(
             "pseudopatientprofile",
             "dateofbirth",
@@ -81,33 +84,72 @@ def pseudopatient_qs(username: str) -> "QuerySet":
     )
 
 
-def pseudopatient_qs_plus(username: str) -> "QuerySet":
-    return (
-        Pseudopatient.objects.filter(username=username)
-        .select_related(
-            "pseudopatientprofile",
-            "dateofbirth",
-            "ethnicity",
-            "gender",
-        )
-        .prefetch_related(
-            pseudopatient_medallergy_prefetch(),
-            pseudopatient_medhistory_prefetch(),
-            # pseudopatient_lab_prefetch(),
-        )
+def pseudopatient_profile_qs(pseudopatient: str) -> "QuerySet":
+    return pseudopatient_onetoone_relations(
+        apps.get_model("users.Pseudopatient").objects.filter(pk=pseudopatient)
+    ).prefetch_related(
+        most_recent_flare_prefetch(),
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+        urates_prefetch(),
     )
 
 
-def pseudopatient_profile_qs(username: str) -> "QuerySet":
-    return (
-        Pseudopatient.objects.filter(username=username)
-        .select_related(
-            "pseudopatientprofile",
-            "dateofbirth",
-            "gender",
-            "ethnicity",
-        )
-        .prefetch_related(
-            pseudopatient_profile_medhistory_prefetch(),
-        )
+def pseudopatient_profile_update_qs(pseudopatient: str) -> "QuerySet":
+    return pseudopatient_profile_onetoone_relations(
+        apps.get_model("users.Pseudopatient")
+        .objects.filter(pk=pseudopatient)
+        .prefetch_related(pseudopatient_profile_medhistory_prefetch())
+    )
+
+
+def pseudopatient_related_aids(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "flareaid",
+        "goalurate",
+        "ppxaid",
+        "ppx",
+        "pseudopatientprofile",
+        "ultaid",
+        "ult",
+    ).prefetch_related(flares_prefetch())
+
+
+def pseudopatient_profile_onetoone_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "dateofbirth",
+        "ethnicity",
+        "gender",
+        "pseudopatientprofile__provider",
+        "flareaidsettings",
+        "ppxaidsettings",
+        "ultaidsettings",
+    )
+
+
+def pseudopatient_onetoone_relations(qs: "QuerySet") -> "QuerySet":
+    return pseudopatient_profile_onetoone_relations(qs).select_related(
+        "flareaid",
+        "goalurate",
+        "hlab5801",
+        "ppxaid",
+        "ppx",
+        "ultaid",
+        "ult",
+    )
+
+
+def pseudopatient_relations(qs: "QuerySet") -> "QuerySet":
+    return pseudopatient_onetoone_relations(qs).prefetch_related(
+        flares_prefetch(),
+        medhistorys_prefetch(),
+        medallergys_prefetch(),
+        urates_prefetch(),
+    )
+
+
+def pseudopatient_filter_age_gender(qs: "QuerySet", age: int, gender: "Genders") -> "QuerySet":
+    return qs.filter(
+        age=age,
+        gender__value=gender,
     )

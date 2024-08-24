@@ -19,33 +19,30 @@
          role="button">Update</a>
     </div>
   </div>
+  <div class="row">
+    <div class="col">
+      <span>Jump to:</span> <a class="samepage-link" href="#goal-uric-acid">Goal Uric Acid</a>
+      | <a class="samepage-link" href="#explanations">Explanations</a>
+    </div>
+    <div class="col align-items-center d-flex justify-content-end">
+      {% if object.user %}
+        <span>{% include 'users/pseudopatient_link.html' with user=object.user %}</span>
+      {% endif %}
+    </div>
+  </div>
 {% endblock heading %}
 {% block content %}
   <main role="main">
     <div class="container bodytainer">
       <hr size="3" color="dark" />
-      <div class="row">
-        <div class="col">
-          <h3>{{ object.get_goal_urate_display }}</h3>
-          <p>
-            This is the goal serum uric acid level based on the
-            {% if object.erosions or object.tophi %}
-              presence of
-              {% if object.erosions and object.tophi %}
-                <a class="samepage-link" href="#erosions">erosions</a> and
-                <a class="samepage-link" href="#tophi">tophi</a>
-              {% elif object.tophi %}
-                <a class="samepage-link" href="#tophi">tophi</a>
-              {% elif object.erosions %}
-                <a class="samepage-link" href="#erosions">erosions</a>
-              {% endif %}
-            {% else %}
-              absence
-              <a class="samepage-link" href="#erosions">erosions</a> and
-              <a class="samepage-link" href="#tophi">tophi</a>
-            {% endif %}
-            .
-          </p>
+      <div id="goal-uric-acid">
+        <div class="row">
+          <div class="col">
+            <h3>
+              <u>Goal Uric Acid</u>: {{ object.get_goal_urate_display }}
+            </h3>
+            <p>{{ object.get_interpretation }}</p>
+          </div>
         </div>
       </div>
       <div id="explanations">
@@ -57,30 +54,13 @@
             </h3>
           </div>
         </div>
-        <div class="row">
-          <div class="col">
-            {% include "_explanation.html" with aidtype="GoalUrate" con_obj=tophi id="tophi" label='Tophi' %}
-            {% include "_explanation.html" with aidtype="GoalUrate" con_obj=erosions id="erosions" label='Erosions' %}
-          </div>
+        <div class="accordion" id="accordionExplanations">
+          {% for explanation in object.explanations %}
+            {% include "explanation_accordion_item.html" with parent="accordionExplanations" id=explanation.0 label=explanation.1 bool=explanation.2 interp=explanation.3 %}
+          {% endfor %}
         </div>
       </div>
       <a href="#top">Back to top</a>
     </div>
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-  <script>
-    $(document).ready(function() {
-      $(".collapse-toggle").each(function() {
-        check_plusminus($(this).attr('id'));
-      })
-      $('.collapse-explanation').each(function() {
-        $(this).on("hidden.bs.collapse", collapse_control);
-      });
-      $('.collapse-explanation').each(function() {
-        $(this).on('shown.bs.collapse', expand_control);
-      });
-    });
-  </script>
-{% endblock inline_javascript %}

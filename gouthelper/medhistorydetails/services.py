@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
@@ -6,13 +7,13 @@ from django.utils.functional import cached_property  # type: ignore
 
 from ..dateofbirths.forms import DateOfBirthForm
 from ..dateofbirths.helpers import age_calc
+from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderForm
+from ..genders.models import Gender
 from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
-    from ..dateofbirths.models import DateOfBirth
-    from ..genders.models import Gender
     from ..labs.forms import BaselineCreatinineForm
     from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.forms import CkdDetailForm
@@ -57,16 +58,24 @@ class CkdDetailFormProcessor:
         self.dialysis_type = ckddetail_form.cleaned_data["dialysis_type"]
         self.dialysis_duration = ckddetail_form.cleaned_data["dialysis_duration"]
         self.stage = ckddetail_form.cleaned_data["stage"]
-        if self.dateofbirth_form and self.gender_form:
+        if self.dateofbirth_form:
             self.dateofbirth = self.dateofbirth_form.cleaned_data["value"]
+        else:
+            self.dateofbirth = dateofbirth.value if isinstance(dateofbirth, DateOfBirth) else dateofbirth
+        if self.gender_form:
             self.gender = self.gender_form.cleaned_data["value"]
         else:
-            self.dateofbirth = dateofbirth.value
-            self.gender = gender.value
+            self.gender = gender.value if isinstance(gender, Gender) else gender
 
     @cached_property
     def age(self) -> int | None:
-        return age_calc(self.dateofbirth) if self.dateofbirth else None
+        return (
+            age_calc(self.dateofbirth)
+            if self.dateofbirth and isinstance(self.dateofbirth, (date, datetime))
+            else self.dateofbirth
+            if self.dateofbirth
+            else None
+        )
 
     @property
     def baselinecreatinine_initial(self) -> Decimal | None:
@@ -260,6 +269,9 @@ Please double check and try again."
             return stage
         return None
 
+    def ckd_stage_is_empty_with_baselinecreatinine(self) -> bool:
+        return not self.stage and self.baselinecreatinine
+
     def process(
         self,
     ) -> tuple[Union["CkdDetailForm", None], Union["BaselineCreatinineForm", None], bool]:
@@ -276,7 +288,9 @@ Please double check and try again."
         # If there are no errors, process the forms
         if not errors:
             # Check if there is supposed to be a CkdDetail instance added/updated
-            if self.ckddetail_bool and self.changed_data:
+            if (self.ckddetail_bool or self.baselinecreatinine) and (
+                self.changed_data or self.ckd_stage_is_empty_with_baselinecreatinine
+            ):
                 # If so, process CkdDetail and BaselineCreatinine
                 self.set_ckd_fields(
                     ckddetail_form=self.ckddetail_form,
@@ -294,17 +308,14 @@ Please double check and try again."
                     dialysis=self.dialysis,
                     ckd=self.ckd,
                 )
-            # Check if there's a CkdDetail instance to be deleted
-            elif (
-                not self.ckddetail_bool
-                and self.ckddetail_form.instance
-                and not self.ckddetail_form.instance._state.adding
-            ):
-                # If so, set it's fields to the initial values and mark it for deletion
-                for field in self.ckddetail_form.changed_data:
-                    setattr(self.ckddetail_form.instance, field, self.ckddetail_form.initial[field])
-                # If so, mark it for deletion
-                self.ckddetail_form.instance.to_delete = True
+            # Check if there's a CkdDetail or BaselineCreatinine instance to be deleted
+            elif not self.ckddetail_bool:
+                if self.ckddetail_form.instance and not self.ckddetail_form.instance._state.adding:
+                    # If so, set it's fields to the initial values and mark it for deletion
+                    for field in self.ckddetail_form.changed_data:
+                        setattr(self.ckddetail_form.instance, field, self.ckddetail_form.initial[field])
+                    # If so, mark it for deletion
+                    self.ckddetail_form.instance.to_delete = True
                 # Check if there's a BaselineCreatinine instance to be deleted
                 if self.baselinecreatinine_form.instance and not self.baselinecreatinine_form.instance._state.adding:
                     # If so, mark it for deletion

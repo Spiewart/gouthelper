@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -8,19 +8,21 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..defaults.selectors import defaults_defaultppxtrtsettings
+from ..defaults.models import PpxAidSettings
+from ..defaults.selectors import defaults_ppxaidsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..treatments.choices import FlarePpxChoices
-from ..utils.helpers.aid_helpers import aids_json_to_trt_dict, aids_options
-from ..utils.models import DecisionAidModel, GoutHelperModel, MedAllergyAidModel, MedHistoryAidModel
-from .selectors import ppxaid_user_qs, ppxaid_userless_qs
+from ..treatments.choices import FlarePpxChoices, TrtTypes
+from ..users.models import Pseudopatient
+from ..utils.helpers import TrtDictStr
+from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
+from ..utils.services import aids_json_to_trt_dict
+from .managers import PpxAidManager
 from .services import PpxAidDecisionAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
-    from ..defaults.models import DefaultPpxTrtSettings
     from ..medhistorys.choices import MedHistoryTypes
     from ..treatments.choices import Treatments
 
@@ -29,10 +31,10 @@ if TYPE_CHECKING:
 
 class PpxAid(
     RulesModelMixin,
-    DecisionAidModel,
+    FlarePpxMixin,
+    TreatmentAidMixin,
+    GoutHelperAidModel,
     GoutHelperModel,
-    MedAllergyAidModel,
-    MedHistoryAidModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
 ):
@@ -82,17 +84,24 @@ class PpxAid(
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
+    objects = models.Manager()
+    related_objects = PpxAidManager()
+    related_models: list[Literal["ppx"]] = ["ppx"]
+    req_otos: list[Literal["dateofbirth"]] = ["dateofbirth"]
+    decision_aid_service = PpxAidDecisionAid
+
     def __str__(self):
         if self.user:
-            return f"{self.user.username.capitalize()}'s PpxAid"
+            return f"{str(self.user)}'s PpxAid"
         else:
-            return f"PpxAid: created {self.created.date()}"
+            suffix = f"created {self.created.date()}" if self.created else "in creation"
+            return f"PpxAid: {suffix}"
 
     @cached_property
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
         if not self.decisionaid:
-            self.decisionaid = self.update().decisionaid
+            self.decisionaid = self.update_aid().decisionaid
         return aids_json_to_trt_dict(decisionaid=self.decisionaid)
 
     @classmethod
@@ -103,27 +112,47 @@ class PpxAid(
     def aid_treatments(cls) -> list[FlarePpxChoices]:
         return FlarePpxChoices.values
 
+    @classmethod
+    def defaultsettings(cls) -> type[PpxAidSettings]:
+        return PpxAidSettings
+
     @cached_property
-    def defaulttrtsettings(self) -> "DefaultPpxTrtSettings":
-        """Uses defaults_defaultflaretrtsettings to fetch the DefaultSettings for the user or
+    def defaulttrtsettings(self) -> "PpxAidSettings":
+        """Uses defaults_flareaidsettings to fetch the DefaultSettings for the user or
         GoutHelper DefaultSettings."""
-        return defaults_defaultppxtrtsettings(user=self.user)
+        return defaults_ppxaidsettings(user=self.user)
+
+    @cached_property
+    def explanations(self) -> list[tuple[str, str, bool, str]]:
+        """Returns a list of tuples to use as explanations for the FlareAid Detail template."""
+        return [
+            ("age", "Age", True if self.age >= 65 else False, self.age_interp()),
+            ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp()),
+            ("bleed", "Bleed", self.bleed, self.bleed_interp()),
+            ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
+            (
+                "colchicineinteraction",
+                "Colchicine Medication Interaction",
+                self.colchicineinteraction,
+                self.colchicineinteraction_interp(),
+            ),
+            ("cvdiseases", "Cardiovascular Diseases", True if self.cvdiseases else False, self.cvdiseases_interp()),
+            ("diabetes", "Diabetes", self.diabetes, self.diabetes_interp()),
+            ("gastricbypass", "Gastric Bypass", self.gastricbypass, self.gastricbypass_interp()),
+            ("ibd", "Inflammatory Bowel Disease", self.ibd, self.ibd_interp()),
+            ("medallergys", "Medication Allergies", True if self.medallergys else False, self.medallergys_interp()),
+            ("organtransplant", "Organ Transplant", self.organtransplant, self.organtransplant_interp()),
+            ("pud", "Peptic Ulcer Disease", self.pud, self.pud_interp()),
+        ]
 
     def get_absolute_url(self):
         if self.user:
-            return reverse("ppxaids:pseudopatient-detail", kwargs={"username": self.user.username})
+            return reverse("ppxaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
         else:
             return reverse("ppxaids:detail", kwargs={"pk": self.pk})
 
-    @property
-    def options(self) -> dict:
-        """Returns {dict} of PpxAid's Ppx Treatment options {treatment: dosing}."""
-        return aids_options(trt_dict=self.aid_dict)
-
     @cached_property
-    def recommendation(
-        self, ppx_settings: Union["DefaultPpxTrtSettings", None] = None
-    ) -> tuple["Treatments", None] | None:
+    def recommendation(self, ppx_settings: Union["PpxAidSettings", None] = None) -> tuple["Treatments", None] | None:
         """Returns {dict} of PpxAid's PPx Treatment recommendation {treatment: dosing}."""
         if not ppx_settings:
             ppx_settings = self.defaulttrtsettings
@@ -150,19 +179,16 @@ class PpxAid(
                         except KeyError:
                             return None
 
-    def update(self, qs: Union["PpxAid", "User", None] = None) -> "PpxAid":
-        """Updates PpxAid decisionaid JSON field field.
+    def treatment_dosing_str(self, trt: "Treatments") -> str:
+        """Returns a string of the dosing for a given treatment."""
+        try:
+            return TrtDictStr(self.options[trt], TrtTypes.PPX, trt).trt_dict_to_str()
+        except KeyError as exc:
+            raise KeyError(f"{trt} not in {self} options.") from exc
 
-        Args:
-            qs (PpxAid, User, optional): PpxAid object. Defaults to None. Should have related field objects
-            prefetched and select_related.
+    @classmethod
+    def trttype(cls) -> str:
+        return TrtTypes.PPX
 
-        Returns:
-            PpxAid: PpxAid object."""
-        if qs is None:
-            if self.user:
-                qs = ppxaid_user_qs(username=self.user.username)
-            else:
-                qs = ppxaid_userless_qs(pk=self.pk)
-        decisionaid = PpxAidDecisionAid(qs=qs)
-        return decisionaid._update()
+    def get_update_qs_from_users_objects(self) -> Pseudopatient:
+        pass

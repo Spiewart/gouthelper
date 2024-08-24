@@ -4,42 +4,49 @@
 {% load project_tags %}
 
 {% block title %}
-  New GoalUrate
+  {% if form.instance.created %}
+    Edit GoalUrate
+  {% else %}
+    New GoalUrate
+  {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>GoalUrate</h1>
 {% endblock heading %}
 {% block subheading %}
-  Determine what a patient's goal uric acid level is.
+  Determine what {{ str_attrs.subject_the_pos }} goal uric acid level is.
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'goalurates:pseudopatient-update' view.kwargs.username %}">
+              action="{% url 'goalurates:pseudopatient-update' object.user.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% else %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'goalurates:update' form.instance.pk %}">
+              action="{% url 'goalurates:update' object.pk %}">
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% endif %}
     {% else %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'goalurates:pseudopatient-create' view.kwargs.username %}">
+              action="{% url 'goalurates:pseudopatient-create' view.kwargs.pseudopatient %}">
           {% csrf_token %}
           {% crispy form %}
           {% include "_submit_button.html" %}
+          {% include '_next_inputs.html' %}
         </form>
       {% else %}
         {% if ultaid %}
@@ -49,6 +56,7 @@
             {% csrf_token %}
             {% crispy form %}
             {% include "_submit_button.html" %}
+            {% include '_next_inputs.html' %}
           </form>
         {% else %}
           <form class="form-horizontal"
@@ -57,12 +65,10 @@
             {% csrf_token %}
             {% crispy form %}
             {% include "_submit_button.html" %}
+            {% include '_next_inputs.html' %}
           </form>
         {% endif %}
       {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
-{% block inline_javascript %}
-  {{ block.super }}
-{% endblock inline_javascript %}

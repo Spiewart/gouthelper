@@ -1,21 +1,18 @@
 {% load project_tags %}
 
 {% if options %}
+  <hr size="3" color="dark" />
   <div id="options">
-    <hr size="3" color="dark" />
-    <h3>
-      <u>Options</u>
-    </h3>
     <div class="row">
-      {% for option in options %}
-        <div class="col-auto">
-          {% if option.0 == "Colchicine" %}
-            {% include "treatments/partials/dosing.html" with trt=option.0 trt_dict=option.1 colchicine=True trttype=trttype %}
-          {% else %}
-            {% include "treatments/partials/dosing.html" with trt=option.0 trt_dict=option.1 trttype=trttype %}
-          {% endif %}
-        </div>
-      {% endfor %}
+      <div class="col">
+        <h2>
+          <u>Options</u>
+        </h2>
+      </div>
+      <div class="col align-items-center d-flex justify-content-end">
+        <a href="#top"><small>Back to top</small></a>
+      </div>
     </div>
+    {% include "treatments/partials/accordion.html" with options=options.keys parent="Options" accordion_body="treatments/partials/dosing.html" modify_header=True %}
   </div>
 {% endif %}

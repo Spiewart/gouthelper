@@ -63,31 +63,94 @@
           <a class="navbar-brand" href="{% url 'contents:home' %}">GoutHelper</a>
           <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav mr-auto">
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'flares:create' %}">Flare</a>
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="navbarSupportedContentDropDown"
+                   data-bs-toggle="dropdown"
+                   aria-haspopup="true"
+                   aria-expanded="false">Decision Aids</a>
+                <div class="dropdown-menu"
+                     aria-labelledby="navbarSupportedContentDropDown">
+                  <a class="dropdown-item" href="{% url 'flares:create' %}">Flare</a>
+                  <a class="dropdown-item" href="{% url 'goalurates:create' %}">GoalUrate</a>
+                  <a class="dropdown-item" href="{% url 'ppxs:create' %}">Ppx</a>
+                  <a class="dropdown-item" href="{% url 'ults:create' %}">Ult</a>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'flareaids:create' %}">FlareAid</a>
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle"
+                   href="#"
+                   id="navbarSupportedContentDropDown"
+                   data-bs-toggle="dropdown"
+                   aria-haspopup="true"
+                   aria-expanded="false">Treatment Aids</a>
+                <div class="dropdown-menu"
+                     aria-labelledby="navbarSupportedContentDropDown">
+                  <a class="dropdown-item" href="{% url 'flareaids:create' %}">FlareAid</a>
+                  <a class="dropdown-item" href="{% url 'ppxaids:create' %}">PpxAid</a>
+                  <a class="dropdown-item" href="{% url 'ultaids:create' %}">UltAid</a>
+                </div>
               </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'goalurates:create' %}">GoalUrate</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ppxaids:create' %}">PpxAid</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ppxs:create' %}">Ppx</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ultaids:create' %}">UltAid</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'ults:create' %}">Ult</a>
-              </li>
+              {% if request.session.patient %}
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle"
+                     href="#"
+                     id="navbarSupportedContentDropDown"
+                     data-bs-toggle="dropdown"
+                     aria-haspopup="true"
+                     aria-expanded="false">{{ request.session.patient }}</a>
+                  <div class="dropdown-menu"
+                       aria-labelledby="navbarSupportedContentDropDown">
+                    <a class="dropdown-item"
+                       href="{% url 'users:pseudopatient-detail' request.session.pk %}">Profile</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item"
+                       href="{% url 'flareaids:pseudopatient-detail' request.session.pk %}">FlareAid</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ppxaids:pseudopatient-detail' request.session.pk %}">PpxAid</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ultaids:pseudopatient-detail' request.session.pk %}">UltAid</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item"
+                       href="{% url 'flares:pseudopatient-list' request.session.pk %}">Flares</a>
+                    <a class="dropdown-item"
+                       href="{% url 'goalurates:pseudopatient-detail' request.session.pk %}">GoalUrate</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ppxs:pseudopatient-detail' request.session.pk %}">Ppx</a>
+                    <a class="dropdown-item"
+                       href="{% url 'ults:pseudopatient-detail' request.session.pk %}">Ult</a>
+                  </div>
+                </li>
+              {% endif %}
+              {% if request.session.recent_patients %}
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle"
+                     href="#"
+                     id="navbarSupportedContentDropDown"
+                     data-bs-toggle="dropdown"
+                     aria-haspopup="true"
+                     aria-expanded="false">GoutPatients</a>
+                  <div class="dropdown-menu"
+                       aria-labelledby="navbarSupportedContentDropDown">
+                    {% if request.user.is_authenticated %}
+                      <a class="dropdown-item"
+                         href="{% url 'users:pseudopatients' request.user.username %}">List</a>
+                      <a class="dropdown-item"
+                         href="{% url 'users:provider-pseudopatient-create' request.user.username %}">Create</a>
+                      <div class="dropdown-divider"></div>
+                    {% endif %}
+                    {% for patient, pk in request.session.recent_patients %}
+                      <a class="dropdown-item"
+                         href="{% url 'users:pseudopatient-detail' pk %}">{{ patient }}</a>
+                    {% endfor %}
+                  </div>
+                </li>
+              {% endif %}
               {% if request.user.is_authenticated %}
                 <li class="nav-item">
                   <a class="nav-link"
-                     href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
+                     href="{% url 'users:pseudopatients' request.user.username %}">{{ request.user }}</a>
                 </li>
                 <li class="nav-item">
                   {# URL provided by django-allauth/account/urls.py #}
@@ -128,10 +191,10 @@
         <header class="header container">
           {% block heading %}
           {% endblock heading %}
-          <p class="lead">
+          <span class="lead">
             {% block subheading %}
             {% endblock subheading %}
-          </p>
+          </span>
         </header>
       {% endblock header %}
       {% block content %}
@@ -177,12 +240,27 @@
         $("h1").addClass("display-4");
         $(".samepage-link").click(function() {
           var href = $(this).attr('href');
-          var explanation = href + "-explanation";
           // check if the link is collapsed
-          if (!$(explanation).hasClass('show')) {
-            // if so, expand it
-            $(explanation).collapse('show');
+          if (!$(href).hasClass('show')) {
+            var link_collapse = $(href + ' > .collapse');
+            if (link_collapse.length && link_collapse.hasClass('show') == false) {
+              new bootstrap.Collapse(link_collapse, {
+                toggle: true
+              });
+            };
           }
+          $(href).effect("highlight", 2000);
+        })
+        $(".samepage-parent-link").click(function() {
+          var href = $(this).attr('href');
+          // check if the link target has a child element with collapse_control in the id
+          var collapse_id = href + '_collapse';
+          var collapse = $(collapse_id);
+          if (collapse.length && collapse.hasClass('show') == false) {
+            new bootstrap.Collapse(collapse, {
+              toggle: true
+            });
+          };
           $(href).effect("highlight", 2000);
         });
         // https://stackoverflow.com/questions/34617802/load-page-and-highlight-anchor-div-using-jquery-ui

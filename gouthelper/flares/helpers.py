@@ -3,14 +3,14 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from ..genders.choices import Genders
-from ..medhistorys.helpers import medhistorys_get_cvdiseases, medhistorys_get_gout
-from .choices import LessLikelys, Likelihoods, LimitedJointChoices, Prevalences
+from ..medhistorys.choices import CVDiseases, MedHistoryTypes
+from ..medhistorys.helpers import medhistorys_get
+from .choices import LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .lists import COMMON_GOUT_JOINTS
 
 if TYPE_CHECKING:
     from datetime import date
 
-    from ..flares.models import Flare
     from ..genders.models import Gender
     from ..labs.models import Urate
     from ..medhistorys.models import MedHistory
@@ -61,7 +61,7 @@ def flares_calculate_prevalence_points(
     points = 0.0
     if gender.value == Genders.MALE:
         points += 2.0
-    gout = medhistorys_get_gout(medhistorys)
+    gout = medhistorys_get(medhistorys, medhistorytype=MedHistoryTypes.GOUT)
     if gout:
         points += 2.0
     if onset is True:
@@ -70,10 +70,10 @@ def flares_calculate_prevalence_points(
         points += 1.0
     if LimitedJointChoices.MTP1L in joints or LimitedJointChoices.MTP1R in joints:
         points += 2.5
-    cvdiseases = medhistorys_get_cvdiseases(medhistorys, hypertension=True)
+    cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + [MedHistoryTypes.HYPERTENSION])
     if cvdiseases:
         points += 1.5
-    if urate and urate.value > Decimal("5.88"):
+    if flares_diagnostic_rule_urate_high(urate):
         points += 3.5
     return points
 
@@ -82,6 +82,12 @@ def flares_common_joints(joints: list[LimitedJointChoices]) -> list[LimitedJoint
     """Method that takes a list of joints and returns a list of those joints that are
     in COMMON_GOUT_JOINTS."""
     return [joint for joint in joints if joint in COMMON_GOUT_JOINTS]
+
+
+def flares_diagnostic_rule_urate_high(urate: Union["Urate", None]) -> bool:
+    """Method that returns True if the urate is high enough to qualify as hyperuricemia
+    for the diagnostic rule for gout."""
+    return urate and urate.value > Decimal("5.88")
 
 
 def flares_get_less_likelys(
@@ -97,7 +103,7 @@ def flares_get_less_likelys(
     """Return list of strings of less likelys for a Flare."""
 
     less_likelys = []
-    if gender.value == Genders.FEMALE and age < 45 and not menopause and not ckd:
+    if gender.value == Genders.FEMALE and age < 60 and not menopause and not ckd:
         less_likelys.append(LessLikelys.FEMALE)
     if age < 18:
         less_likelys.append(LessLikelys.TOOYOUNG)
@@ -106,27 +112,24 @@ def flares_get_less_likelys(
         less_likelys.append(abnormal_duration)
     if not flares_common_joints(joints):
         less_likelys.append(LessLikelys.JOINTS)
-    if crystal_analysis is False:
+    if crystal_analysis is not None and crystal_analysis is False:
         less_likelys.append(LessLikelys.NEGCRYSTALS)
     return less_likelys
 
 
-def flares_get_likelihood_str(flare: "Flare") -> str:
-    if flare.likelihood == Likelihoods.UNLIKELY:
-        flare_str = "Gout isn't likely and alternative causes of the symptoms should be investigated."
-    elif flare.likelihood == Likelihoods.EQUIVOCAL:
-        flare_str = "Indeterminate likelihood of gout and it can't be ruled in or out. \
-Physician evaluation is recommended."
-    elif flare.likelihood == Likelihoods.LIKELY:
-        flare_str = "Gout is very likely. Not a whole lot else needs to be done, other than treat the gout!"
-    else:
-        flare_str = "Flare hasn't been processed yet..."
-    return flare_str
+def flares_get_more_likelys(
+    crystal_analysis: bool | None,
+) -> list[MoreLikelys]:
+    """Return list of strings of more likelys for a Flare."""
+    more_likelys = []
+    if crystal_analysis is not None and crystal_analysis is True:
+        more_likelys.append(MoreLikelys.POSCRYSTALS)
+    return more_likelys
 
 
 def flares_calculate_likelihood(
     less_likelys: list[LessLikelys],
-    diagnosed: bool,
+    diagnosed: bool | None,
     crystal_analysis: bool | None,
     prevalence: Prevalences,
 ) -> Likelihoods:
@@ -146,7 +149,7 @@ def flares_calculate_likelihood(
         # If the clinician performed and aspiration and found gout, then
         # gout is likely
         return Likelihoods.LIKELY
-    elif diagnosed and crystal_analysis is not None and crystal_analysis is False:
+    elif diagnosed is not None and diagnosed is False and crystal_analysis is not None and crystal_analysis is False:
         # If the clinician performed an aspiration and didn't find gout,
         # then gout is unlikely
         return Likelihoods.UNLIKELY
@@ -183,7 +186,7 @@ def flares_calculate_prevalence(
     """
     if prevalence_points >= 8:
         return Prevalences.HIGH
-    elif prevalence_points >= 4 and prevalence_points < 8:
+    elif prevalence_points > 4 and prevalence_points < 8:
         return Prevalences.MEDIUM
     else:
         return Prevalences.LOW

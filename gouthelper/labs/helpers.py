@@ -1,22 +1,169 @@
-from datetime import timedelta  # type: ignore
+import random
+from datetime import datetime, timedelta  # type: ignore
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.core.exceptions import ValidationError  # type: ignore
+from django.forms.models import BaseModelFormSet  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
 from ..genders.choices import Genders
 from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
-from .choices import LabTypes, LowerLimits, Units
-from .dicts import LABS_LABTYPES_LOWER_LIMITS, LABS_LABTYPES_UNITS, LABS_LABTYPES_UPPER_LIMITS
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
+    from django.forms import ModelForm  # type: ignore
 
-    from ..medhistorydetails.models import GoutDetail
-    from .models import Creatinine, Urate
+    from .forms import PpxUrateFormSet, UrateForm
+    from .models import BaselineCreatinine, Creatinine, Lab, Urate
+
+
+def labs_calculate_baseline_creatinine_range_from_ckd_stage(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> tuple[Decimal | None, Decimal | None]:
+    eGFR_min, eGFR_max = labs_eGFR_range_for_stage(stage)
+    return (
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(eGFR=eGFR_min, age=age, gender=gender),
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(eGFR=eGFR_max, age=age, gender=gender),
+    )
+
+
+def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+    eGFR: Decimal,
+    age: int,
+    gender: Genders,
+    value: Decimal = Decimal(2.50),
+) -> Decimal:
+    eGFR_calc = labs_eGFR_calculator(value, age, gender)
+    if abs(eGFR_calc - eGFR) >= 1:
+        if eGFR_calc < eGFR:
+            return labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                eGFR=eGFR,
+                age=age,
+                gender=gender,
+                value=value - value / 2,
+            )
+        else:
+            return labs_calculate_baseline_creatinine_from_eGFR_age_gender(
+                eGFR=eGFR, age=age, gender=gender, value=value + value / 2
+            )
+    return value if value < Decimal(10) else Decimal("9.99")
+
+
+def labs_creatinine_is_at_baseline_creatinine(
+    creatinine: "Creatinine",
+    baseline_creatinine: Decimal,
+) -> bool:
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=).-,Table%202.,-AKI%20definition%20and
+    return not (
+        creatinine.value >= baseline_creatinine + Decimal(0.3)
+        or creatinine.value >= baseline_creatinine * Decimal(1.5)
+    )
+
+
+def labs_creatinine_within_range_for_stage(
+    creatinine: "Creatinine",
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> bool:
+    min_creatinine, max_creatinine = labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender(
+        stage,
+        age,
+        gender,
+    )
+    return min_creatinine <= creatinine.value <= max_creatinine
+
+
+def labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+) -> tuple[Decimal, Decimal]:
+    min_eGFR, max_eGFR = labs_eGFR_range_for_stage(stage)
+    return (
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(max_eGFR, age, gender),
+        labs_calculate_baseline_creatinine_from_eGFR_age_gender(min_eGFR, age, gender),
+    )
+
+
+def labs_creatinine_is_at_baseline_eGFR(
+    creatinine_eGFR: Decimal,
+    baseline_eGFR: Decimal,
+) -> bool:
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=51%2C52-,Table%201.,-RIFLE%20criteria%20for
+    return not creatinine_eGFR < baseline_eGFR * 0.75
+
+
+def labs_creatinines_update_baselinecreatinine(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+    baselinecreatinine: Union["BaselineCreatinine", None],
+) -> None:
+    """This is required because there may be instances where creatinines already exist
+    but CKD +/- BaselineCreatinine are being added, at which point they may not have a
+    user assigned to their CKD related MedHistory and the reverse lookup will fail."""
+    if baselinecreatinine:
+        for creatinine in creatinines:
+            if creatinine.baselinecreatinine != baselinecreatinine:
+                creatinine.baselinecreatinine = baselinecreatinine
+
+
+def labs_creatinines_add_stage_to_new_objects(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+    stage: Stages | None,
+) -> None:
+    for creatinine in creatinines:
+        if creatinine._state.adding:
+            creatinine.stage = stage
+
+
+def labs_creatinines_improved(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    """Method that checks if a list or QuerySet of creatinines are improving."""
+    return current_creatinine.value - prior_creatinine.value >= Decimal(0.3)
+
+
+def labs_creatinines_are_improving(
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+) -> bool:
+    """Method that checks if a list or QuerySet of creatinines are improving."""
+    for creatinine_i, creatinine in enumerate(creatinines):
+        if (
+            creatinine_i > 0
+            and labs_creatinines_improved(creatinine, creatinines[creatinine_i - 1])
+            and creatinines[0].value <= creatinine.value
+        ):
+            return True
+    return False
+
+
+def labs_creatinines_are_drawn_more_than_x_days_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+    days: int,
+) -> bool:
+    labs_compare_chronological_order_by_date_drawn(current_creatinine, prior_creatinine, prior_creatinine)
+    return prior_creatinine.date_drawn - current_creatinine.date_drawn >= timedelta(days=days)
+
+
+def labs_creatinines_are_drawn_more_than_1_day_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    return labs_creatinines_are_drawn_more_than_x_days_apart(current_creatinine, prior_creatinine, 1)
+
+
+def labs_creatinines_are_drawn_more_than_2_days_apart(
+    current_creatinine: "Creatinine",
+    prior_creatinine: "Creatinine",
+) -> bool:
+    return labs_creatinines_are_drawn_more_than_x_days_apart(current_creatinine, prior_creatinine, 2)
 
 
 def labs_baselinecreatinine_max_value(value: Decimal):
@@ -30,10 +177,41 @@ This would typically mean the patient is on dialysis."
         )
 
 
+def labs_sort_list_by_date_drawn(
+    labs: list["Lab"],
+) -> None:
+    """Method that orders a list or QuerySet of labs by date_drawn."""
+    labs.sort(key=lambda x: x.date_drawn, reverse=True)
+
+
+def labs_round_decimal(value: Decimal, places: int) -> Decimal:
+    """Method that rounds a Decimal to a given number of places."""
+    if value is not None:
+        # see https://docs.python.org/2/library/decimal.html#decimal.Decimal.quantize for options
+        return value.quantize(Decimal(10) ** -places)
+    return value
+
+
+def labs_eGFR_range_for_stage(
+    stage: Stages,
+) -> tuple[int, int]:
+    """Method that takes a CKD stage and returns the eGFR range for that stage."""
+    if stage == Stages.ONE:
+        return 90, 120
+    elif stage == Stages.TWO:
+        return 60, 89
+    elif stage == Stages.THREE:
+        return 30, 59
+    elif stage == Stages.FOUR:
+        return 15, 29
+    elif stage == Stages.FIVE:
+        return 0, 14
+
+
 def labs_eGFR_calculator(
     creatinine: Union["Creatinine", Decimal],
-    age: int = 45,
-    gender: int = Genders.MALE,
+    age: int,
+    gender: int,
 ) -> Decimal:
     """
     Calculates eGFR from Creatinine value.
@@ -48,29 +226,19 @@ def labs_eGFR_calculator(
     returns: eGFR (decimal) rounded to 0 decimal points
     """
     # Check if creatinine is a Creatinine object or a Decimal
-    if (
-        hasattr(creatinine, "labtype")
-        and not isinstance(creatinine, Decimal)
-        and creatinine.labtype == LabTypes.CREATININE
-    ):
-        # If a Creatinine or BaselineCreatinine, set value to the creatinine.value attr
-        value = creatinine.value
-    # Check if creatinine is a Decimal
-    elif isinstance(creatinine, Decimal):
+    if isinstance(creatinine, Decimal):
         # If so, set value to the creatinine
         value = creatinine
     # If neither, raise a TypeError
     else:
-        raise TypeError(f"labs_eGFR_calculator() was called on a non-lab, non-Decimal object: {creatinine}")
+        try:
+            value = creatinine.value
+        except AttributeError as exc:
+            raise TypeError(
+                f"labs_eGFR_calculator() was called on a non-lab, non-Decimal object: {creatinine}"
+            ) from exc
     # Set gender-based variables for CKD-EPI Creatinine Equation
-    if gender == Genders.MALE:
-        sex_modifier = Decimal(1.000)
-        alpha = Decimal(-0.302)
-        kappa = Decimal(0.9)
-    else:
-        sex_modifier = Decimal(1.012)
-        alpha = Decimal(-0.241)
-        kappa = Decimal(0.7)
+    sex_modifier, alpha, kappa = get_sex_modifier_alpha_kappa(gender)
     # Calculate eGFR
     eGFR = (
         Decimal(142)
@@ -83,54 +251,38 @@ def labs_eGFR_calculator(
     return labs_round_decimal(eGFR, 0)
 
 
-def labs_get_default_labtype(lab_name: LabTypes) -> LabTypes:
-    """Method that returns the default LabType for a given Lab proxy model.
-    Will raise ValueError if called on Generic Lab parent model
-    because it won't find a LabType for LAB in LabTypes.
+def get_sex_modifier_alpha_kappa(gender: Genders) -> tuple[Decimal, Decimal, Decimal]:
+    if gender == Genders.MALE:
+        return Decimal(1.000), Decimal(-0.302), Decimal(0.9)
+    else:
+        return Decimal(1.012), Decimal(-0.241), Decimal(0.7)
+
+
+def labs_baselinecreatinine_calculator(
+    stage: Stages,
+    age: int,
+    gender: Genders,
+    creat: Decimal = Decimal(random.uniform(0, 10)),
+) -> Decimal:
+    """Method that calculates a baseline creatinine range based on the a CKD stage,
+    an age, and a Gender.
 
     Args:
-        lab_name (LabTypes enum): LabTypes enum object
+        stage (Stages enum): CKD stage
+        age (int): age of patient in years
+        gender (Genders enum): gender of the patient
 
     Returns:
-        LabTypes enum object: default LabType for a given Lab proxy model
-
-    Raises:
-        ValueError: if called on Generic Lab parent model or an invalid arg otherwise
-    """
-    try:
-        return LabTypes(lab_name)
-    except ValueError as exc:
-        # If the LabType doesn't exist, raise a KeyError
-        raise ValueError(f"labs_get_default_labtype() was called on a non-Lab object: {lab_name}") from exc
-
-
-def labs_get_default_lower_limit(lab_name: LabTypes) -> LowerLimits:
-    """Method that returns the default lower limit for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a LowerLimit for LAB in LowerLimits."""
-    return next(iter(LABS_LABTYPES_LOWER_LIMITS[lab_name].values()))
-
-
-def labs_get_default_units(lab_name: LabTypes) -> Units:
-    """Method that returns the default units for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a Units for LAB in Units."""
-    return LABS_LABTYPES_UNITS[lab_name][0]
-
-
-def labs_get_default_upper_limit(lab_name: LabTypes) -> Decimal:
-    """Method that returns the default upper limit for a given Lab proxy model.
-    Will raise an error if called on Generic Lab parent model
-    because it won't find a UpperLimit for LAB in UpperLimits."""
-    return next(iter(LABS_LABTYPES_UPPER_LIMITS[lab_name].values()))
-
-
-def labs_round_decimal(value: Decimal, places: int) -> Decimal:
-    """Method that rounds a Decimal to a given number of places."""
-    if value is not None:
-        # see https://docs.python.org/2/library/decimal.html#decimal.Decimal.quantize for options
-        return value.quantize(Decimal(10) ** -places)
-    return value
+        Decimal: a baseline creatinine value that falls within the eGFR range for the CKD stage"""
+    min_eGFR, max_eGFR = labs_eGFR_range_for_stage(stage)
+    creat = Decimal(random.uniform(0, 10))
+    eGFR = labs_eGFR_calculator(creat, age, gender)
+    while eGFR < min_eGFR or eGFR > max_eGFR:
+        if eGFR < min_eGFR:
+            return labs_baselinecreatinine_calculator(stage, age, gender, Decimal(random.uniform(0, float(creat))))
+        else:
+            return labs_baselinecreatinine_calculator(stage, age, gender, Decimal(random.uniform(float(creat), 10)))
+    return labs_round_decimal(creat, 2)
 
 
 def labs_stage_calculator(eGFR: Decimal) -> "Stages":
@@ -156,139 +308,233 @@ def labs_stage_calculator(eGFR: Decimal) -> "Stages":
     )
 
 
-def labs_urates_chronological_dates(
+def labs_urate_is_newer_than_goutdetail_set_date(urate, goutdetail):
+    return labs_urate_date_drawn_newer_than_set_date(urate.date, goutdetail.medhistory.set_date)
+
+
+def labs_check_chronological_order_by_date_drawn(
+    labs: Union["QuerySet[Lab]", list["Lab"]],
+) -> ValueError | None:
+    for lab_i, lab in enumerate(labs):
+        labs_compare_chronological_order_by_date_drawn(
+            current_lab=lab, previous_lab=labs[lab_i - 1] if lab_i > 0 else None, first_lab=labs[0]
+        )
+
+
+def labs_compare_chronological_order_by_date_drawn(
+    current_lab: "Lab", previous_lab: Union["Lab", None], first_lab: "Lab"
+) -> ValueError | None:
+    if (
+        current_lab.date_drawn > first_lab.date_drawn
+        or previous_lab
+        and current_lab.date_drawn > previous_lab.date_drawn
+    ):
+        raise ValueError("The Labs are not in chronological order. QuerySet must be ordered by date.")
+
+
+def labs_urates_check_chronological_order_by_date(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+) -> ValueError | None:
+    for urate_i, urate in enumerate(urates):
+        labs_urates_compare_chronological_order_by_date(
+            current_urate=urate, previous_urate=urates[urate_i - 1] if urate_i > 0 else None, first_urate=urates[0]
+        )
+
+
+def labs_urates_compare_chronological_order_by_date(
     current_urate: "Urate", previous_urate: Union["Urate", None], first_urate: "Urate"
 ) -> ValueError | None:
-    """Helper function to determine if a list or QuerySet of urates is in chronological order
-    from the newest urate by a date attr annotated by a QuerySet.
-
-    args:
-        current_urate (Urate): current Urate object
-        previous_urate (Urate, None): optional previous Urate object
-        first_urate (Urate): first Urate object in the list or QuerySet
-
-    returns:
-        None
-
-    raises:
-        ValueError: if the current Urate has a date attr or does but is None
-        ValueError: if the current Urate is newer than the first Urate or the last Urate that was
-            iterated over
-    """
-    # Check if the current Urate has a date attr or does but is None
-    if hasattr(current_urate, "date") is False or current_urate.date is None:
-        # If so, raise a ValueError
-        raise ValueError(f"Urate {current_urate} has no date_drawn, Flare, or annotated date.")
-    # Check to make sure the current Urate isn't newer than the first Urate or the last Urate that was
-    # iterated over, raise a ValueError if it is
-    if current_urate.date > first_urate.date or previous_urate and current_urate.date > previous_urate.date:
+    if (
+        current_urate.flare_date_or_date_drawn > first_urate.flare_date_or_date_drawn
+        or previous_urate
+        and current_urate.flare_date_or_date_drawn > previous_urate.flare_date_or_date_drawn
+    ):
         raise ValueError("The Urates are not in chronological order. QuerySet must be ordered by date.")
 
 
-def labs_urates_hyperuricemic(
-    urates: Union["QuerySet[Urate]", list["Urate"]],
-    goutdetail: Union["GoutDetail", None] = None,
-    goal_urate: GoalUrates = GoalUrates.SIX,
-    commit: bool = True,
-) -> bool:
-    """Method that takes a list of Urate objects and first checks that index 0
-    is the most recent and raises a ValueError if not. Then checks if the most
-    recent Urate is above goal_urate and if so, sets goutdetail.hyperuricemic to
-    True, saves, and returns True. Will not change goutdetail fields if the GoutDetail
-    medhistory has a set_date that is newer than the date attr of the
-    most recent Urate. If most recent Urate not hyperuricemic, returns False.
-
-    Args:
-        urates (QuerySet[Urate] or list[Urate]): QuerySet or list of Urates,
-            require using a QuerySet that annotates each Urate with a date, derived
-            either from the Urate.date_drawn or the Urate.flare.date_started.
-        goutdetail (GoutDetail): goutdetail object for Gout or None
-        goal_urate (GoalUrates enum): goal urate for the user, defaults to 6.0 mg/dL
-        commit (bool): defaults to True, True will clean/save, False will not
-
-    Returns:
-        bool: True if the most recent Urate is above goal_urate, False if not
-    """
-    # Check if the urates have date attrs and are in chronological order
-    # Raise error if not
-    for ui in range(len(urates)):
-        labs_urates_chronological_dates(
-            current_urate=urates[ui], previous_urate=urates[ui - 1] if ui > 0 else None, first_urate=urates[0]
-        )
-    # Check if the most recent Urate is above goal_urate
-    if urates and urates[0].value >= goal_urate:
-        # If so, check if there is a Gout MedHistory and if it is hyperuricemic and if the Gout can be edited
-        if (
-            goutdetail
-            and not goutdetail.hyperuricemic
-            and commit
-            # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
-            # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-            and (
-                not goutdetail.medhistory.set_date
-                or goutdetail.medhistory.set_date < urates[0].date
-                or goutdetail.hyperuricemic is None
-            )
-        ):
-            # If so, set gout.hyperuricemic to True and save
-            goutdetail.hyperuricemic = True
-            goutdetail.full_clean()
-            goutdetail.save()
-        # Then return True
-        return True
-    # If not, return False
-    else:
-        return False
+def labs_urates_annotate_order_by_flare_date_or_date_drawn(
+    urates: list["Urate"],
+) -> None:
+    urates.sort(key=lambda x: x.flare_date_or_date_drawn, reverse=True)
 
 
 def labs_urates_last_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goutdetail: Union["GoutDetail", None] = None,
     goal_urate: GoalUrates = GoalUrates.SIX,
-    commit: bool = True,
-    urates_sorted: bool = True,
 ) -> bool:
-    """Method that iterates over a list of urates annotated with a date attr
-    and determines if the most recent Urate in the list was at goal, meaning
-    below the goal urate. If there is a goutdetail object, will set the
-    goutdetail.hyperuricemic attr to False and save if commit is True."""
-    # Check if the urates_sorted arg is False
-    if not urates_sorted:
-        # Sort the urates by date
-        urates = sorted(urates, key=lambda x: x.date, reverse=True)
-    # Otherwise check to make sure they are sorted
-    else:
-        # Raise ValueError if not
-        for ui, urate in enumerate(urates):
-            labs_urates_chronological_dates(
-                current_urate=urate,
-                previous_urate=urates[ui - 1] if ui > 0 else None,
-                first_urate=urates[0],
-            )
-    # Check if the most recent Urate is below goal_urate
-    if urates and urates[0].value <= goal_urate:
-        # If so, check if there is a Gout MedHistory and if it is hyperuricemic
-        if (
-            goutdetail
-            and goutdetail.hyperuricemic is not False
-            and commit
-            # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
-            # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-            and (
-                not goutdetail.medhistory.set_date
-                or goutdetail.medhistory.set_date < urates[0].date
-                or goutdetail.hyperuricemic is None
-            )
-        ):
-            # If so, set gout.hyperuricemic to False and save
-            goutdetail.hyperuricemic = False
-            goutdetail.full_clean()
-            goutdetail.save()
-        # Then return True
+    """Methot that takes a list or QuerySet of urates and returns True if the last Urate
+    is less than the goal_urate, False if not. Raises a ValueError if the urates are not
+    in chronological order."""
+    labs_urates_check_chronological_order_by_date(urates)
+    return urates[0].value <= goal_urate if urates else False
+
+
+def labs_check_date_drawn_is_date(
+    date_drawn: datetime.date,
+    date: datetime.date,
+) -> bool:
+    """Method that checks if a date_drawn is the same as a date provided as an arg."""
+    return date_drawn == date
+
+
+def labs_check_date_drawn_is_within_x_days(
+    date_drawn: datetime.date,
+    x: int,
+) -> bool:
+    """Method that checks if a date_drawn is within x days of the current date."""
+    return date_drawn.date() >= timezone.now().date() - timedelta(days=x)
+
+
+def labs_check_date_drawn_within_a_week(
+    date_drawn: datetime.date,
+) -> bool:
+    """Method that checks if a date_drawn is within a week of the current date."""
+    return labs_check_date_drawn_is_within_x_days(date_drawn, 7)
+
+
+def labs_check_date_drawn_within_a_month(
+    date_drawn: datetime.date,
+) -> bool:
+    """Method that checks if a date_drawn is within a month of the current date."""
+    return labs_check_date_drawn_is_within_x_days(date_drawn, 30)
+
+
+def labs_check_date_drawn_within_a_day(
+    date_drawn: datetime.date,
+) -> bool:
+    """Method that checks if a date_drawn is the same as the date the form was filled out."""
+    return labs_check_date_drawn_is_date(date_drawn.date(), timezone.now().date())
+
+
+def labs_forms_get_date_drawn_value(form) -> tuple[str, Decimal]:
+    """Method that returns the value of the date_drawn and value fields on a form."""
+    return form.cleaned_data.get("date_drawn"), form.cleaned_data.get("value")
+
+
+def labs_forms_get_date_drawn_value_DELETE(form) -> tuple[str, Decimal, bool]:
+    """Method that returns the value of the DELETE field on a form."""
+    return labs_forms_get_date_drawn_value(form) + (form.cleaned_data.get("DELETE", False),)
+
+
+def labs_urate_form_at_goal_within_last_month(
+    urate_form: "UrateForm",
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Returns True if a UrateForm's uric acid was drawn within the last month and is
+    less than or equal to the goal urate."""
+    date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(urate_form)
+    if (
+        date_drawn
+        and labs_check_date_drawn_within_a_month(date_drawn)
+        and value
+        and not delete
+        and value <= goal_urate
+    ):
         return True
-    # If not, return False
+    return False
+
+
+def labs_urate_form_not_at_goal_within_last_month(
+    urate_form: "UrateForm",
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Returns True if a UrateForm's uric acid was drawn within the last month and is greater than the goal urate."""
+    date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(urate_form)
+    if date_drawn and labs_check_date_drawn_within_a_month(date_drawn) and value and not delete and value > goal_urate:
+        return True
+    return False
+
+
+def labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms(
+    formset: "BaseModelFormSet",
+) -> list["ModelForm"]:
+    """Method that orders a labs formset by date_drawn, removes blank forms and forms that have been deleted,
+    and returns a list of Lab objects."""
+
+    # Eliminate blank forms and forms that have been deleted
+    ordered_formset = [
+        form
+        for form in formset
+        if form.cleaned_data.get("date_drawn")
+        and form.cleaned_data.get("value")
+        and not form.cleaned_data.get("DELETE")
+    ]
+
+    # Order the formset by date_drawn
+    ordered_formset = sorted(ordered_formset, key=lambda x: x.cleaned_data.get("date_drawn"), reverse=True)
+
+    return ordered_formset
+
+
+def labs_get_list_of_instances_from_list_of_forms_cleaned_data(
+    list_of_forms: list["ModelForm"],
+) -> list["Lab"]:
+    """Method that returns a list of urate values from a labs formset."""
+    return [form.instance for form in list_of_forms]
+
+
+def labs_formset_get_most_recent_form(
+    ordered_formset: "BaseModelFormSet",
+) -> Union["ModelForm", None]:
+    """Method that returns the most recent LabForm object in an ordered labs formset.
+    Ordered: sorted by date_drawn in descending order, forms marked for deletion removed."""
+    return ordered_formset[0] if ordered_formset else None
+
+
+def labs_formset_has_one_or_more_valid_labs(
+    formset: "BaseModelFormSet",
+) -> bool:
+    """Method that checks if a urates formset has at least one valid Urate object."""
+    for form in formset:
+        date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(form)
+        if date_drawn and value and not delete:
+            return True
+    return False
+
+
+def labs_urate_formset_at_goal_for_x_months(
+    ordered_urate_formset: "PpxUrateFormSet",
+    months: int,
+    goal_urate: GoalUrates = GoalUrates.SIX,
+    r: int = 0,
+) -> bool:
+    """Recursive that iterates over urates formset cleaned data and checks if the urates suggest that
+    the Patient has been at goal for x months. If so, returns True, otherwise False."""
+    # If the recursion has run beyond the end of the list, a x month period where > 1 Urates were < goal_urate
+    # has not been found, thus returns False
+    if r >= len(ordered_urate_formset):
+        return False
+
+    # Check if urate at LabCheck[r] is under goal_urate
+    if ordered_urate_formset[r].cleaned_data.get("value") <= goal_urate:
+        if (
+            ordered_urate_formset[0].cleaned_data.get("date_drawn")
+            - ordered_urate_formset[r].cleaned_data.get("date_drawn")
+        ) >= timedelta(days=30 * months):
+            return True
+        else:
+            return labs_urate_formset_at_goal_for_x_months(
+                ordered_urate_formset=ordered_urate_formset,
+                goal_urate=goal_urate,
+                months=months,
+                r=r + 1,
+            )
     else:
         return False
+
+
+def labs_urate_formset_at_goal_for_six_months(
+    ordered_urate_formset: "PpxUrateFormSet",
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Calls the labs_urate_formset_at_goal_for_x_months function on an ordered urate_formset
+    with a default of 6 months. Ordered: sorted by date_drawn in descending order, forms marked for deletion
+    removed."""
+    return labs_urate_formset_at_goal_for_x_months(
+        ordered_urate_formset=ordered_urate_formset,
+        goal_urate=goal_urate,
+        months=6,
+    )
 
 
 def labs_urates_max_value(value: Decimal):
@@ -309,29 +555,72 @@ If this value is correct, an emergency medical evaluation is warranted."
         )
 
 
-def labs_urates_months_at_goal(
+def labs_urates_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goutdetail: Union["GoutDetail", None] = None,
     goal_urate: GoalUrates = GoalUrates.SIX,
-    months: int = 6,
-    r: int = 0,
-    commit: bool = True,
 ) -> bool:
-    """
-    Recursive function that determines if a set of Urates indicate the Uric acid has been
-    "at goal" for a variable number of months or longer. Very important for gout management,
-    because six months at goal means the Patient can be taken of flare prophylaxis and they
-    are much less likely to be having gout flares.
+    """Checks if the most recent urate in a list or QuerySet of Urates is at goal."""
+    labs_urates_check_chronological_order_by_date(urates)
+    return urates[0].value <= goal_urate if urates else False
+
+
+def labs_urates_not_at_goal(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Checks if the most recent urate in a list or QuerySet of Urates is not at goal."""
+    labs_urates_check_chronological_order_by_date(urates)
+    return urates[0].value > goal_urate if urates else False
+
+
+def labs_urates_at_goal_within_last_month(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Checks if the most recent urate in a list or QuerySet of Urates is at goal within the last month."""
+    return labs_urates_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+        urates[0].flare_date_or_date_drawn
+    )
+
+
+def labs_urates_not_at_goal_within_last_x_days(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    x: int,
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last x days."""
+    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_is_within_x_days(
+        urates[0].flare_date_or_date_drawn, x
+    )
+
+
+def labs_urates_not_at_goal_within_last_month(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    goal_urate: GoalUrates = GoalUrates.SIX,
+) -> bool:
+    """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last month."""
+    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+        urates[0].flare_date_or_date_drawn
+    )
+
+
+def labs_urates_at_goal_x_months(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    x: int,
+    goal_urate: GoalUrates = GoalUrates.SIX,
+    r: int = 0,
+) -> bool:
+    """Recursive function that determines if a set of Urates indicate the Uric acid has been
+    "at goal" for a variable number of months or longer. Raises a ValueError if the Urates are not
+    in chronological order.
 
     Args:
-        goutdetail (GoutDetail): goutdetail object for Gout or None
         urates (QuerySet[Urate] or list[Urate]): QuerySet or list of Urates,
             require using a QuerySet that annotates each Urate with a date, derived
             either from the Urate.date_drawn or the Urate.flare.date_started.
         goal_urate (GoalUrates enum): goal urate for the user, defaults to 6.0 mg/dL
-        months (int): number of months to check for, defaults to 6
+        x (int): number of months to check for, defaults to 6
         r (int): recursion counter, defaults to 0
-        commit (bool): defaults to True, True will clean/save, False will not
 
     Returns:
         bool: True if there is a 6 or greater month period where the current
@@ -345,70 +634,74 @@ def labs_urates_months_at_goal(
         return False
     # Check if urate at LabCheck[r] is under goal_urate
     if urates[r].value <= goal_urate:
-        # If so, check if urate at urates[r] is greater than 6 months apart from current urate at urates[0]
-        # First, check if the Urate date_drawn attr isn't None
-        labs_urates_chronological_dates(
+        # Return True if urates[r] is greater than x months apart from current urate at urates[0]
+        labs_urates_compare_chronological_order_by_date(
             current_urate=urates[r], previous_urate=urates[r - 1] if r > 0 else None, first_urate=urates[0]
         )
-        # Compare the date of the current Urate to the date of the Urate at urates[r]
-        # If the difference is greater than the number of months * 30 days
-        if (urates[0].date - urates[r].date) >= timedelta(days=30 * months):
-            # If so, check if there is a Gout MedHistory and if it is hyperuricemic
-            if (
-                goutdetail
-                and goutdetail.hyperuricemic is not False
-                and commit
-                # Check if the Gout MedHistory has a set_date attr and if it is older than the current Urate
-                # or if the GoutDetail hyperuricemic attr has never been set, i.e. is None
-                and (
-                    not goutdetail.medhistory.set_date
-                    or goutdetail.medhistory.set_date < urates[0].date
-                    or goutdetail.hyperuricemic is None
-                )
-            ):
-                # If so, set gout.hyperuricemic to False and save
-                goutdetail.hyperuricemic = False
-                goutdetail.full_clean()
-                goutdetail.save()
-            # Then return True
+        if (urates[0].flare_date_or_date_drawn - urates[r].flare_date_or_date_drawn) >= timedelta(days=30 * x):
             return True
-        # If Urates aren't 6 months apart but both are below goal_urate
+        # If Urates aren't x months apart but both are below goal_urate
         # Recurse to the next urate further back in time urates[r+1]
         else:
-            return labs_urates_months_at_goal(
-                urates=urates, goutdetail=goutdetail, goal_urate=goal_urate, months=months, r=r + 1
+            return labs_urates_at_goal_x_months(
+                urates=urates,
+                goal_urate=goal_urate,
+                x=x,
+                r=r + 1,
             )
-    # If Urate hasn't been under goal_urate for at least 6 months
-    # With 2 or more observations, return False
+    # If urate isn't at goal, return False
     else:
         return False
 
 
-def labs_urates_recent_urate(
+def labs_urate_date_drawn_newer_than_set_date(
+    date_drawn: datetime.date,
+    set_date: datetime.date,
+) -> bool:
+    """Method that checks if a date_drawn is newer than a set_date."""
+    return date_drawn > set_date
+
+
+def labs_urates_six_months_at_goal(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    goal_urate: GoalUrates = GoalUrates.SIX,
+    r: int = 0,
+) -> bool:
+    """Calls the labs_urates_at_goal_x_months function with a default of 6 months."""
+    return labs_urates_at_goal_x_months(
+        urates=urates,
+        goal_urate=goal_urate,
+        x=6,
+        r=r,
+    )
+
+
+def labs_urate_within_x_days(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    x: int,
+    sorted_by_date: bool = False,
+) -> bool:
+    if not sorted_by_date:
+        labs_urates_check_chronological_order_by_date(urates)
+    return (
+        urates[0].flare_date_or_date_drawn
+        and urates[0].flare_date_or_date_drawn > (timezone.now() - timedelta(days=x)).date()
+        if urates
+        else False
+    )
+
+
+def labs_urate_within_last_month(
     urates: Union["QuerySet[Urate]", list["Urate"]],
     sorted_by_date: bool = False,
 ) -> bool:
-    """Method that takes a list or QuerySet of Urates in chronological
-    order by a "date" attr with the most recent "date" being index 0
-    and returns True if the most recent Urate is less than 90 days old,
-    False if not.
+    """Calls the labs_urate_within_x_days function with a default of 30 days."""
+    return labs_urate_within_x_days(urates=urates, x=30, sorted_by_date=sorted_by_date)
 
-    Checks that list is chronologically sorted if sorted is False.
 
-    urates (QuerySet[Urate] or list[Urate]): QuerySet or list of Urates,
-        require using a QuerySet that annotates each Urate with a date, derived
-        either from the Urate.date_drawn or the Urate.flare.date_started.
-    sorted_by_date (bool): defaults to False, if False, will check that the list is
-        sorted by date, if True, will not check.
-
-    Returns:
-        bool: True if the most recent Urate is less than 90 days old,
-        False if not."""
-    # Check if the list is sorted
-    if not sorted_by_date:
-        # Check that the urates are in chronological order
-        for urate_i, urate in enumerate(urates):
-            labs_urates_chronological_dates(
-                current_urate=urate, previous_urate=urates[urate_i - 1] if urate_i > 0 else None, first_urate=urates[0]
-            )
-    return urates[0].date and urates[0].date > timezone.now() - timedelta(days=90) if urates else False
+def labs_urate_within_90_days(
+    urates: Union["QuerySet[Urate]", list["Urate"]],
+    sorted_by_date: bool = False,
+) -> bool:
+    """Calls the labs_urate_within_x_days function with a default of 90 days."""
+    return labs_urate_within_x_days(urates=urates, x=90, sorted_by_date=sorted_by_date)

@@ -3,11 +3,16 @@ from crispy_forms.layout import Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import forms_helper_insert_about_the_patient, forms_helper_insert_medhistory
+from ..utils.forms import (
+    ModelFormKwargMixin,
+    forms_helper_insert_about_the_patient_legend,
+    forms_helper_insert_medhistory,
+)
 from .models import GoalUrate
 
 
 class GoalUrateForm(
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     """
@@ -20,11 +25,11 @@ class GoalUrateForm(
             "goal_urate",
             "medhistorys",
             "ultaid",
+            "user",
         )
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        htmx = kwargs.pop("htmx", False)
+        self.htmx = kwargs.pop("htmx", False)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -33,7 +38,7 @@ class GoalUrateForm(
                 "",
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout, htmx=htmx)
+        forms_helper_insert_about_the_patient_legend(form=self)
         # Insert ErosionsForm
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.EROSIONS, layout=self.helper.layout)
         # Insert TophiForm

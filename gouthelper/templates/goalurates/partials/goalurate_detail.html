@@ -1,31 +1,43 @@
-<div class="col">
-  <div class="card card-body spacious-cards" id="goalurate">
-    <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+<div class="card card-body spacious-cards" id="goalurate">
+  <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+  <ul class="list-group list-group-horizontal minified-list-group">
+    <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.erosions_detail }}</li>
+    <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.tophi_detail }}</li>
+  </ul>
+  {% if ult %}
     <ul>
+      {% if object.user %}
+        <li>Target uric acid level for {{ object.user }}</li>
+      {% else %}
+        <li>Target uric acid level for the patient</li>
+      {% endif %}
       <li>
-        <a class="samepage-link" href="#erosions">Erosions</a>
-        {% if object.erosions %}
-          (+)
+        Adjust
+        {% if ult %}
+          {{ ult }}
         {% else %}
-          (-)
+          ULT
         {% endif %}
+        dose until serum uric acid is {{ object.get_goal_urate_display }} or less
       </li>
-      <li>
-        <a class="samepage-link" href="#tophi">Tophi</a>
-        {% if object.tophi %}
-          (+)
-        {% else %}
-          (-)
-        {% endif %}
-      </li>
+      <li>Once "at goal", a maintenance dose is prescribed to keep the uric acid at this level</li>
     </ul>
+  {% endif %}
+  {% if object.user %}
     <a type="button"
-       class="btn btn-primary btn-lg mini-button"
+       class="btn btn-primary btn-lg"
+       hx-get="{% url 'goalurates:pseudopatient-update' object.user.pk %}"
+       hx-target="#goalurate"
+       hx-trigger="click"
+       role="button">Update Goal Urate</a>
+  {% else %}
+    <a type="button"
+       class="btn btn-primary btn-lg"
        hx-get="{% url 'goalurates:update' object.pk %}"
        hx-target="#goalurate"
        hx-trigger="click"
        role="button">Update Goal Urate</a>
-  </div>
+  {% endif %}
 </div>
 {% block inline_javascript %}
   <link rel="stylesheet"

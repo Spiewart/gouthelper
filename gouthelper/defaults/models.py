@@ -505,17 +505,13 @@ class DefaultTrt(
             return f"{def_str}"
 
 
-class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class FlareAidSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default Flare Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
-                ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
-            ),
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_flaretrt1_valid",
                 check=models.Q(flaretrt1__in=Treatments.values),
@@ -536,6 +532,14 @@ class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel
                 name="%(app_label)s_%(class)s_flaretrt5_valid",
                 check=models.Q(flaretrt5__in=Treatments.values),
             ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_flareaid_exclusive",
+                check=(
+                    (models.Q(user__isnull=False) & models.Q(flareaid__isnull=True))
+                    | (models.Q(user__isnull=True) & models.Q(flareaid__isnull=False))
+                    | (models.Q(user__isnull=True) & models.Q(flareaid__isnull=True))
+                ),
+            ),
         ]
 
     colch_ckd = models.BooleanField(
@@ -549,6 +553,12 @@ class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel
         verbose_name="Colchicine Dose vs Frequency Adjustment",
         help_text="If colchicine will be adjusted for CKD, adjust dose? Otherwise will adjust frequency.",
         default=True,
+    )
+    flareaid = models.OneToOneField(
+        "flareaids.FlareAid",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     flaretrt1 = models.CharField(
         _("Flare Treatment Option 1"),
@@ -620,22 +630,20 @@ class DefaultFlareTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel
 
     def __str__(self):
         if self.user:
-            return f"{self.user.username}'s Default Flare Treatment Settings"
+            return f"{self.user.username}'s Default FlareAid Settings"
+        elif self.flareaid:
+            return f"{self.flareaid}'s Default FlareAid Settings"
         else:
-            return "GoutHelper Default Flare Treatment Settings"
+            return "GoutHelper Default FlareAid Settings"
 
 
-class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class PpxAidSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default PPx Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
-                ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
-            ),
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_ppxtrt1_valid",
                 check=models.Q(ppxtrt1__in=Treatments.values),
@@ -656,6 +664,14 @@ class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
                 name="%(app_label)s_%(class)s_ppxtrt5_valid",
                 check=models.Q(ppxtrt5__in=Treatments.values),
             ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_ppxaid_exclusive",
+                check=(
+                    (models.Q(user__isnull=False) & models.Q(ppxaid__isnull=True))
+                    | (models.Q(user__isnull=True) & models.Q(ppxaid__isnull=False))
+                    | (models.Q(user__isnull=True) & models.Q(ppxaid__isnull=True))
+                ),
+            ),
         ]
 
     colch_ckd = models.BooleanField(
@@ -669,6 +685,12 @@ class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
         verbose_name="Colchicine Dose vs Frequency Adjustment",
         help_text="If colchicine will be adjusted for CKD, adjust dose? Otherwise will adjust frequency.",
         default=True,
+    )
+    ppxaid = models.OneToOneField(
+        "ppxaids.PpxAid",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     ppxtrt1 = models.CharField(
         _("Ppx Treatment Option 1"),
@@ -738,21 +760,26 @@ class DefaultPpxTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
 
     def __str__(self):
         if self.user:
-            return f"{self.user.username}'s Default PPx Treatment Settings"
+            return f"{self.user.username}'s PpxAid Settings"
+        elif self.ppxaid:
+            return f"{self.ppxaid}'s PpxAid Settings"
         else:
-            return "GoutHelper Default PPx Treatment Settings"
+            return "GoutHelper Default PpxAid Settings"
 
 
-class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class UltAidSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     """Settings for default ULT Treatment options. Can be stored globally or on a per-User basis."""
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(
-                models.Q(
-                    user__isnull=True,
+            # TODO: when upgraded to Django 5.0, add UniqueConstraint on the user field with nulls_distinct=False
+            # https://docs.djangoproject.com/en/dev/ref/models/constraints/#uniqueconstraint
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_dose_adj_interval_valid",
+                check=(
+                    models.Q(dose_adj_interval__lte=timedelta(days=84))
+                    & models.Q(dose_adj_interval__gte=timedelta(days=14))
                 ),
-                name="%(app_label)s_%(class)s_gouthelper_default",
             ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_initial_febuxostat_dose_ckd",
@@ -761,6 +788,14 @@ class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_prob_ckd_contra_stage_valid",
                 check=(models.Q(prob_ckd_stage_contra__in=Stages.values)),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_ultaid_exclusive",
+                check=(
+                    (models.Q(user__isnull=False) & models.Q(ultaid__isnull=True))
+                    | (models.Q(user__isnull=True) & models.Q(ultaid__isnull=False))
+                    | (models.Q(user__isnull=True) & models.Q(ultaid__isnull=True))
+                ),
             ),
         ]
 
@@ -788,6 +823,15 @@ class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
         help_text="Use allopurinol in high risk ethnicity without HLA-B*5801?",
         default=False,
     )
+    dose_adj_interval = models.DurationField(
+        _("Dose Adjustment Interval"),
+        help_text="How often is the dose adjusted?",
+        validators=[
+            MaxValueValidator(timedelta(days=84)),
+            MinValueValidator(timedelta(days=14)),
+        ],
+        default=timedelta(days=42),
+    )
     febu_ckd_initial_dose = models.DecimalField(
         _("Initial Febuxostat CKD Dose"),
         max_digits=5,
@@ -807,6 +851,12 @@ class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
         verbose_name=_("Probenecid CKD Stage Contraindication"),
         default=Stages.THREE,
     )
+    ultaid = models.OneToOneField(
+        "ultaids.UltAid",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -817,6 +867,8 @@ class DefaultUltTrtSettings(RulesModelMixin, GoutHelperModel, TimeStampedModel, 
 
     def __str__(self):
         if self.user:
-            return f"{self.user.username}'s Default Ult Treatment Settings"
+            return f"{self.user.username}'s UltAid Settings"
+        elif self.ultaid:
+            return f"{self.ultaid}'s UltAid Settings"
         else:
-            return "GoutHelper Default Ult Treatment Settings"
+            return "GoutHelper Default UltAid Settings"

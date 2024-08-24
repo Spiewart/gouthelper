@@ -1,27 +1,35 @@
+from datetime import timedelta
+from decimal import Decimal
+
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
+from django.utils import timezone  # type: ignore
 
-from ...defaults.models import DefaultFlareTrtSettings
-from ...medallergys.tests.factories import MedAllergyFactory
+from ...akis.choices import Statuses
+from ...defaults.models import FlareAidSettings
+from ...flares.selectors import flares_user_qs
+from ...flares.tests.factories import CustomFlareFactory, create_flare
+from ...labs.tests.factories import CreatinineFactory
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
-from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
-from ...treatments.choices import FlarePpxChoices, Treatments
+from ...treatments.choices import ColchicineDoses, FlarePpxChoices, Treatments
 from ..models import FlareAid
-from .factories import FlareAidFactory, FlareAidUserFactory
+from .factories import CustomFlareAidFactory, create_flareaid
 
 pytestmark = pytest.mark.django_db
 
 
 class TestFlareAid(TestCase):
     def setUp(self):
-        self.flareaid = FlareAidFactory()
-        self.settings = DefaultFlareTrtSettings.objects.get(user=None)
-        self.user_flareaid = FlareAidUserFactory()
+        self.flareaid = create_flareaid()
+        self.settings = FlareAidSettings.objects.get(user=None)
+        self.user_flareaid = create_flareaid(user=True)
+        self.empty_flareaid = create_flareaid(mhs=[], mas=[])
+        self.empty_flareaid_mh_kwargs = {mhtype.lower(): None for mhtype in FLAREAID_MEDHISTORYS}
 
     def test___str__(self):
-        self.assertEqual(str(self.flareaid), f"FlareAid: created {self.flareaid.created.date()}")
-        self.assertEqual(str(self.user_flareaid), f"{self.user_flareaid.user.username.capitalize()}'s FlareAid")
+        self.assertEqual(str(self.flareaid), f"FlareAid: {self.flareaid.created.date()}")
+        self.assertEqual(str(self.user_flareaid), f"{str(self.user_flareaid.user)}'s FlareAid")
 
     def test__aid_dict(self):
         self.assertFalse(self.flareaid.decisionaid)
@@ -42,111 +50,134 @@ class TestFlareAid(TestCase):
         self.assertEqual(ats, FlarePpxChoices.values)
 
     def test__defaulttrtsettings(self):
-        self.assertIsInstance(self.flareaid.defaulttrtsettings, DefaultFlareTrtSettings)
-        self.assertEqual(self.flareaid.defaulttrtsettings, DefaultFlareTrtSettings.objects.get(user=None))
+        self.assertIsInstance(self.flareaid.defaulttrtsettings, FlareAidSettings)
+        self.assertEqual(self.flareaid.defaulttrtsettings, FlareAidSettings.objects.get(user=None))
 
     def test__get_absolute_url(self):
         self.assertEqual(self.flareaid.get_absolute_url(), f"/flareaids/{self.flareaid.id}/")
 
     def test__options(self):
-        self.assertIsInstance(self.flareaid.options, dict)
+        self.assertIsInstance(self.empty_flareaid.options, dict)
         for flare_trt in FlarePpxChoices.values:
-            self.assertIn(flare_trt, self.flareaid.options.keys())
-            self.assertIsInstance(self.flareaid.options[flare_trt], dict)
-
-    def test__add_medallergys_single(self):
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.flareaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.flareaid.medallergys.all())
-        self.assertIn(colch_allergy, self.flareaid.medallergys.all())
-
-    def test__add_multiple_medallergys_multiple(self):
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        self.flareaid.add_medallergys(
-            medallergys=[colch_allergy, pred_allergy], medallergys_qs=self.flareaid.medallergys.all()
-        )
-        self.assertIn(colch_allergy, self.flareaid.medallergys.all())
-        self.assertIn(pred_allergy, self.flareaid.medallergys.all())
-
-    def test__add_medallergys_duplicates_raises_TypeError(self):
-        """Test that adding duplicate medallergys raises TypeError"""
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.flareaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.flareaid.medallergys.all())
-        with self.assertRaises(TypeError):
-            self.flareaid.add_medallergys(medallergys=[colch_allergy], medallergys_qs=self.flareaid.medallergys.all())
-
-    def test__add_medhistorys_single(self):
-        """Test that adding a single medhistory works"""
-        mh = HeartattackFactory()
-        self.flareaid.add_medhistorys(medhistorys=[mh], medhistorys_qs=self.flareaid.medhistorys.all())
-        self.assertIn(mh, self.flareaid.medhistorys.all())
-
-    def test__add_medhistorys_multiple(self):
-        """Test that adding multiple medhistorys works"""
-        mh1 = HeartattackFactory()
-        mh2 = ColchicineinteractionFactory()
-        self.flareaid.add_medhistorys(medhistorys=[mh1, mh2], medhistorys_qs=self.flareaid.medhistorys.all())
-        self.assertIn(mh1, self.flareaid.medhistorys.all())
-        self.assertIn(mh2, self.flareaid.medhistorys.all())
-
-    def test__add_medhistorys_duplicates_raises_TypeError(self):
-        """Test that adding duplicate medhistorys raises TypeError"""
-        mh = HeartattackFactory()
-        self.flareaid.add_medhistorys(medhistorys=[mh], medhistorys_qs=self.flareaid.medhistorys.all())
-        with self.assertRaises(TypeError):
-            self.flareaid.add_medhistorys(medhistorys=[mh], medhistorys_qs=self.flareaid.medhistorys.all())
-
-    def test__remove_medhistorys_single(self):
-        """Test that removing a single medhistory works"""
-        mh = HeartattackFactory()
-        self.flareaid.medhistorys.add(mh)
-        self.flareaid.remove_medhistorys(medhistorys=[mh])
-        self.assertNotIn(mh, self.flareaid.medhistorys.all())
-        self.assertFalse(MedHistory.objects.filter(pk=mh.pk).exists())
-
-    def test__remove_medhistorys_multiple(self):
-        """Test that removing multiple medhistorys works"""
-        mh1 = HeartattackFactory()
-        mh2 = ColchicineinteractionFactory()
-        self.flareaid.medhistorys.add(mh1)
-        self.flareaid.medhistorys.add(mh2)
-        self.flareaid.remove_medhistorys(medhistorys=[mh1, mh2])
-        self.assertNotIn(mh1, self.flareaid.medhistorys.all())
-        self.assertNotIn(mh2, self.flareaid.medhistorys.all())
-        self.assertFalse(MedHistory.objects.filter(pk=mh1.pk).exists())
-        self.assertFalse(MedHistory.objects.filter(pk=mh2.pk).exists())
+            self.assertIn(flare_trt, self.empty_flareaid.options.keys())
+            self.assertIsInstance(self.empty_flareaid.options[flare_trt], dict)
 
     def test__recommendation_no_user(self):
-        self.assertIsInstance(self.flareaid.recommendation, tuple)
-        self.assertEqual(self.flareaid.recommendation[0], self.settings.flaretrt1)
-        heartattack = HeartattackFactory()
-        self.flareaid.medhistorys.add(heartattack)
-        # Need to delete flareaid cached_properties to get new recommendation
-        # Would not happen in the view as the cache would be reset
-        self.flareaid = self.flareaid.update()
-        self.assertIn(heartattack, self.flareaid.medhistorys.all())
-        self.assertEqual(self.flareaid.recommendation[0], Treatments.COLCHICINE)
-        self.flareaid.medhistorys.add(ColchicineinteractionFactory())
-        self.flareaid = self.flareaid.update()
-        self.assertEqual(self.flareaid.recommendation[0], Treatments.PREDNISONE)
-
-    def test__remove_medallergys_single(self):
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        self.flareaid.medallergys.add(colch_allergy)
-        self.flareaid.remove_medallergys([colch_allergy])
-        self.assertNotIn(colch_allergy, self.flareaid.medallergys.all())
-
-    def test__remove_medallergys_multiple(self):
-        colch_allergy = MedAllergyFactory(treatment=Treatments.COLCHICINE)
-        pred_allergy = MedAllergyFactory(treatment=Treatments.PREDNISONE)
-        self.flareaid.medallergys.add(colch_allergy)
-        self.flareaid.medallergys.add(pred_allergy)
-        self.flareaid.remove_medallergys([colch_allergy, pred_allergy])
-        self.assertNotIn(colch_allergy, self.flareaid.medallergys.all())
-        self.assertNotIn(pred_allergy, self.flareaid.medallergys.all())
+        self.assertIsInstance(self.empty_flareaid.recommendation, tuple)
+        self.assertEqual(self.empty_flareaid.recommendation[0], self.settings.flaretrt1)
+        HeartattackFactory(flareaid=self.empty_flareaid)
+        self.empty_flareaid = self.empty_flareaid.update_aid()
+        self.assertEqual(self.empty_flareaid.recommendation[0], Treatments.COLCHICINE)
+        ColchicineinteractionFactory(flareaid=self.empty_flareaid)
+        self.empty_flareaid = self.empty_flareaid.update_aid()
+        self.assertEqual(self.empty_flareaid.recommendation[0], Treatments.PREDNISONE)
 
     def test__update(self):
         self.assertFalse(self.flareaid.decisionaid)
-        self.flareaid.update()
+        self.flareaid.update_aid()
         self.flareaid.refresh_from_db()
         self.assertTrue(self.flareaid.decisionaid)
+
+    def test__related_flare(self):
+        flareaid = create_flareaid()
+        flare = create_flare(flareaid=flareaid)
+        self.assertEqual(flareaid.related_flare, flare)
+
+    def test__related_flare_with_user(self):
+        user_flareaid = create_flareaid(user=True)
+        user_flare = create_flare(user=user_flareaid.user)
+        user = flares_user_qs(pseudopatient=user_flareaid.user.pk, flare_pk=user_flare.pk).get()
+        flareaid = user.flareaid
+        flare = user.flare_qs[0]
+        self.assertEqual(flareaid.related_flare, flare)
+
+    def test__get_flare_options_without_aki(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki=None)
+        self.assertFalse(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertEqual(options, flareaid.options)
+        self.assertIn(Treatments.NAPROXEN, options.keys())
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_ongoing(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.ONGOING}, labs=None)
+        self.assertTrue(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_resolved(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.RESOLVED}, labs=None)
+        self.assertTrue(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertEqual(options, flareaid.options)
+        self.assertIn(Treatments.NAPROXEN, options.keys())
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_improving_no_creatinines(self):
+        flareaid = create_flareaid(mhs=[], mas=[])
+        flare = create_flare(flareaid=flareaid, mhs=[], aki={"status": Statuses.IMPROVING}, labs=None)
+        self.assertTrue(flare.aki)
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_with_aki_improving_not_at_baselinecreatinine(self):
+        flareaid = CustomFlareAidFactory(
+            baselinecreatinine=Decimal("2.0"),
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4))],
+            flareaid=flareaid,
+        ).create_object()
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertNotIn(Treatments.NAPROXEN, options.keys())
+        self.assertNotIn(Treatments.COLCHICINE, options.keys())
+
+    def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_stage(self) -> None:
+        flareaid = CustomFlareAidFactory(
+            dateofbirth=timezone.now() - timedelta(days=365 * 50),
+            colchicine_allergy=False,
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="1.4", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+            flareaid=flareaid,
+        ).create_object()
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+        colchicine_dosing_dict = options[Treatments.COLCHICINE]
+        self.assertEqual(colchicine_dosing_dict["dose"], ColchicineDoses.POINTTHREE)
+        self.assertEqual(colchicine_dosing_dict["dose2"], ColchicineDoses.POINTSIX)
+        self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)
+
+    def test__get_flare_options_colchicine_dose_adjusted_for_most_recent_creatinine_baselinecreatinine(self) -> None:
+        flareaid = CustomFlareAidFactory(
+            dateofbirth=timezone.now() - timedelta(days=365 * 40),
+            baselinecreatinine=Decimal("1.7"),
+            colchicine_allergy=False,
+            **self.empty_flareaid_mh_kwargs,
+        ).create_object()
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="2.0", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+            flareaid=flareaid,
+        ).create_object()
+        options = flareaid.get_flare_options(flare=flare)
+        self.assertIn(Treatments.COLCHICINE, options.keys())
+        colchicine_dosing_dict = options[Treatments.COLCHICINE]
+        self.assertEqual(colchicine_dosing_dict["dose"], ColchicineDoses.POINTTHREE)
+        self.assertEqual(colchicine_dosing_dict["dose2"], ColchicineDoses.POINTSIX)
+        self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)

@@ -8,44 +8,45 @@ function add_asterisk(input) {
   }
 }
 
-function check_plusminus(id) {
-  // function that checks whether (+) or (-) is in the text of the element with id=id
-  // and toggles collapse to open if (+) and close if (-)
-  var text = $('#' + id).text();
-  var explanation = '#' + id.split('-')[0] + '-explanation';
-  if (text.includes('(+)')) {
-    // check if explanation is collapsed
-    if ($(explanation).is('.collapse:not(.show)') == true) {
-      $(explanation).collapse('show');
-    }
+function check_medallergy(treatment) {
+  // function that checks whether a medallergy checkbox is checked for a treatment
+  // and shows the treatment_matype field if so
+  var id = 'medallergy_' + treatment;
+  if ($('#id_' + id).is(':checked')) {
+    $('#div_id_' + treatment + '_matype').show();
   } else {
-    // check if explanation is expanded
-    if ($(explanation).is('.collapse:not(.show)') == false) {
-      $(explanation).collapse('hide');
-    }
+    $('#div_id_' + treatment + '_matype').hide();
+    // uncheck the treatment_matype field
+    $('#id_' + treatment + '_matype')
+      .val('')
+      .removeAttr('checked');
   }
 }
 
 function collapse_control() {
-  // function that toggles [expand/collapse] text of element with id=id
-  var toggle_id = '#' + $(this).attr('id').split('-')[0] + '-toggle';
-  var control = $(toggle_id).find('.collapse-control');
-  control
-    .html(function () {
-      return '<small><italic>[expand]</italic></small>';
-    })
-    .css('font-style', 'italic');
+  // Function that toggles [show/hide] text of the button calling the function
+  // Find the control for the collapse
+  control = $('#' + $(this).attr('id') + '_control');
+  // Change the control's text to show
+  $(control).text('Show');
+}
+
+function datepickers() {
+  $('.datepick').each(function () {
+    $(this).datepicker({
+      changeYear: true,
+      minDate: '-2y',
+      maxDate: '0',
+    });
+  });
 }
 
 function expand_control() {
-  // function that toggles [expand/collapse] text of element with id=id
-  var toggle_id = '#' + $(this).attr('id').split('-')[0] + '-toggle';
-  var control = $(toggle_id).find('.collapse-control');
-  control
-    .html(function () {
-      return '<small>[collapse]</small>';
-    })
-    .css('font-style', 'italic');
+  // Function that toggles [show/hide] text of the button calling the function
+  // Find the control for the collapse
+  control = $('#' + $(this).attr('id') + '_control');
+  // Change the control's text to show
+  $(control).text('Hide');
 }
 
 function remove_asterisk(input) {
@@ -79,22 +80,125 @@ function update_plus(id) {
   }
 }
 
+function get_id_in_hyperlink() {
+  // function that checks for query parameters in the URL
+  var url = window.location.href;
+  // get url query parameter
+  var query_parametrs = url.split('?');
+  // get the related_object_id query parameter
+  var last_url_segment = query_parametrs[query_parametrs.length - 1];
+  // get the id from the last_url_segment
+  var id = last_url_segment.split('#');
+  return id[1];
+}
+
+function get_collapse_id_from_hyperlink_id(hyperlink_id) {
+  // function that gets the collapse id from the hyperlink id
+  //swap out - for _ in hyperlink_id
+  var last_dash = hyperlink_id.lastIndexOf('-');
+  return (
+    hyperlink_id.substring(0, last_dash) +
+    '_' +
+    hyperlink_id.substring(last_dash + 1) +
+    '_collapse'
+  );
+}
+
+function check_if_id_collapse_hidden(id) {
+  // function that checks if the collapse with id=id is hidden
+  var collapse = $('#' + id);
+  if (collapse.hasClass('show')) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+function expand_collapse_for_id_if_hidden(id) {
+  // check if there is a hyperlink id
+  if (id) {
+    // function that expands the collapse with id=id if it is hidden
+    collapse_id = get_collapse_id_from_hyperlink_id(id);
+    if (check_if_id_collapse_hidden(collapse_id)) {
+      $('#' + collapse_id).collapse('show');
+    }
+  }
+}
+
+function check_for_and_expand_collapse() {
+  // function that checks for query parameters in the URL
+  var id = get_id_in_hyperlink();
+  expand_collapse_for_id_if_hidden(id);
+}
+
 // function that checks whether or not CKD is checked and hides/shows dialysis/stage fields as appropriate
-function CKD_checker() {
+function CKD_checker(dob_optional, gender_optional, patient = false) {
   // function that checks whether CKD is checked or not, shows dialysis and stage fields or hides/empties them
   if ($('#id_CKD-value').find(':selected').val() == 'True') {
     $('#ckddetail').show();
     add_asterisk($('#dialysis'));
     dialysis_checker();
+    var baselinecreatinine = $('#id_baselinecreatinine-value').val();
+    if (
+      baselinecreatinine != '' &&
+      typeof baselinecreatinine != 'undefined' &&
+      !patient
+    ) {
+      $('#dateofbirth').show();
+      add_asterisk($('#dateofbirth'));
+      $('#id_dateofbirth').prop('required', true);
+      $('#gender').show();
+      add_asterisk($('#gender'));
+      $('#id_gender').prop('required', true);
+    } else if (!patient) {
+      if (dob_optional === 'True') {
+        $('#dateofbirth').hide();
+        remove_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', false);
+      } else {
+        $('#dateofbirth').show();
+        add_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', true);
+      }
+      if (gender_optional === 'True') {
+        $('#gender').hide();
+        remove_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      } else {
+        $('#gender').show();
+        add_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      }
+    }
   } else {
     $('#ckddetail').hide();
     remove_asterisk($('#dialysis'));
     dialysis_checker();
+    if (!patient) {
+      if (dob_optional === 'True') {
+        $('#dateofbirth').hide();
+        remove_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', false);
+      } else {
+        $('#dateofbirth').show();
+        add_asterisk($('#dateofbirth'));
+        $('#id_dateofbirth').prop('required', true);
+      }
+      if (gender_optional === 'True') {
+        $('#gender').hide();
+        remove_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      } else {
+        $('#gender').show();
+        add_asterisk($('#gender'));
+        $('#id_gender').prop('required', false);
+      }
+    }
   }
 }
 
 // function that checks whether an OPTIONAL CKD is checked and hides/shows dateofbirth and gender fields as appropriate
-function CKD_optional_checker(patient = false) {
+function CKD_optional_checker(dob_optional, gender_optional, patient = false) {
   // function that checks whether CKD is checked or not, shows/hides dateofbirth and gender forms
   var baselinecreatinine = $('#id_baselinecreatinine-value').val();
   // Check if there's a baseline creatinine to show/hide dateofbirth and gender forms
@@ -109,43 +213,18 @@ function CKD_optional_checker(patient = false) {
     $('#gender').show();
     add_asterisk($('#gender'));
     $('#id_gender').prop('required', true);
-  } else {
-    $('#dateofbirth').hide();
-    remove_asterisk($('#dateofbirth'));
-    $('#id_dateofbirth').prop('required', false);
-    $('#gender').hide();
-    remove_asterisk($('#gender'));
-    $('#id_gender').prop('required', false);
-  }
-}
-
-// function that duplicates a Lab ModelForm and adds it to a formset
-function cloneLab(selector, type) {
-  var newElement = $(selector).clone(true);
-  var total = $('#id_' + type + '-TOTAL_FORMS').val();
-  newElement.find(':input').each(function () {
-    var name = $(this)
-      .attr('name')
-      .replace('-' + (total - 1) + '-', '-' + total + '-');
-    var id = 'id_' + name;
-    // remove hasDatepicker class, required in order to refresh datepicker
-    var css_class = $(this).attr('class');
-    // check if css_class is not undefined and if it has 'hasDatepicker' in the class
-    if (css_class !== undefined && css_class.includes('hasDatepicker')) {
-      css_class = css_class.replace('hasDatepicker', '');
+  } else if (!patient) {
+    if (dob_optional === 'True') {
+      $('#dateofbirth').hide();
+      remove_asterisk($('#dateofbirth'));
+      $('#id_dateofbirth').prop('required', false);
     }
-    $(this).attr('class', css_class);
-    $(this).attr({ name: name, id: id }).val('').removeAttr('checked');
-  });
-  newElement.find('label').each(function () {
-    var newFor = $(this)
-      .attr('for')
-      .replace('-' + (total - 1) + '-', '-' + total + '-');
-    $(this).attr('for', newFor);
-  });
-  total++;
-  $('#id_' + type + '-TOTAL_FORMS').val(total);
-  $(selector).after(newElement);
+    if (gender_optional === 'True') {
+      $('#gender').hide();
+      remove_asterisk($('#gender'));
+      $('#id_gender').prop('required', false);
+    }
+  }
 }
 
 // Method that removes a UrateForm from the formset
@@ -383,6 +462,44 @@ function dialysis_checker() {
 }
 
 // Flare JS
+function flare_aki_checker() {
+  // checks if aki is checked and shows/hides the aki sub-form fields
+  // and removes the creatinines if aki is not checked
+  if ($('#id_aki-value').val() == 'True') {
+    $('#div_id_aki-status').show();
+    $('#div_id_aki-status').prop('required', true);
+    add_asterisk($('#div_id_aki-status'));
+    $('#creatinines').show();
+  } else {
+    $('#div_id_aki-status').hide();
+    $('#div_id_aki-status').prop('required', false);
+    remove_asterisk($('#div_id_aki-status'));
+    $('#creatinines').hide();
+    creatinines_remove();
+  }
+}
+function creatinines_remove() {
+  // method that removes all creatinine forms from the formset
+  var total = $('#id_creatinine-TOTAL_FORMS').val();
+  // get all the non-empty-form dynamic forms in the creatinines div
+  creatinine_forms = $('#creatinines').find('.dynamic-form').not('.empty-form');
+  non_empty_forms = creatinine_forms.filter(function () {
+    return $(this).find('input[id*="-value"]').val() != '';
+  });
+  for (var i = 0, formCount = non_empty_forms.length; i < formCount; i++) {
+    // get the first id in any of it's children
+    var id = $(non_empty_forms.get(i)).find(':input').first().attr('id');
+    // Find the first element in the form div that has -DELETE in the id
+    var delete_element = $(non_empty_forms.get(i))
+      .find('[id*="-DELETE"]')
+      .first();
+    console.log(delete_element);
+    // Get the anchor tag element from the delete_element
+    var delete_input = $(delete_element).find('.formset-delete');
+    console.log(delete_input);
+    delete_input.click();
+  }
+}
 
 function getAge(dateString) {
   var today = new Date();
@@ -431,39 +548,96 @@ function menopause_checker(
 function urate_checker() {
   if ($('#id_urate_check').val() == 'True') {
     $('#urate').show();
-    $('#id_urate-value').prop('required', true);
     add_asterisk($('#urate'));
   } else {
     $('#urate').hide();
     $('#id_urate-value').val('');
-    $('#id_urate-value').prop('required', false);
     remove_asterisk($('#urate'));
   }
 }
 
-function diagnosed_checker() {
-  if ($('#id_diagnosed').val() == 'True') {
-    $('#aspiration').show();
-    $('#div_id_aspiration').prop('required', true);
-    add_asterisk($('#div_id_aspiration'));
-    if ($('#id_aspiration').val() == 'True') {
-      $('#crystal_analysis').show();
-      $('#div_id_crystal_analysis').val('required', true);
-      add_asterisk($('#div_id_crystal_analysis'));
-    } else {
-      $('#crystal_analysis').hide();
-      $('#div_id_crystal_analysis').prop('required', false);
-      $('#id_crystal_analysis').val('');
-      remove_asterisk($('#div_id_crystal_analysis'));
+function flare_aki_date_ended() {
+  // method that checks if the date_ended field is blank and adjusts the
+  // first word of the aki help_text to "Does" if it is blank and "Did" if it is not
+  if ($('#id_date_ended').val() == '') {
+    // change the first word of the help_text to "Does"
+    var help_text = $('#hint_id_aki').text();
+    intro = help_text.replace(/ .*/, '');
+    if (intro != 'Does') {
+      $('#hint_id_aki').text(help_text.replace(/[^\s]*/, 'Does'));
     }
   } else {
-    $('#aspiration').hide();
+    // change the first word of the help_text to "Did"
+    var help_text = $('#hint_id_aki').text();
+    intro = help_text.replace(/ .*/, '');
+    if (intro != 'Did') {
+      $('#hint_id_aki').text(help_text.replace(/[^\s]*/, 'Did'));
+    }
+  }
+}
+
+function aki_show_subform() {
+  // method that shows the aki subform if the aki field is True
+  if ($('#id_aki_value').val() == 'True') {
+    $('#div_id_aki_resolved').show();
+    $('#div_id_aki_resolved').prop('required', true);
+    add_asterisk($('#div_id_aki_resolved'));
+    $('#creatinines').show();
+  } else {
+    $('#div_id_aki_resolved').hide();
+    $('#div_id_aki_resolved').prop('required', false);
+    remove_asterisk($('#div_id_aki_resolved'));
+    $('#creatinines').hide();
+  }
+}
+function aspiration_checker() {
+  if ($('#id_aspiration').val() == 'True') {
+    $('#crystal_analysis').show();
+    $('#id_crystal_analysis').prop('required', true);
+    add_asterisk($('#crystal_analysis'));
+  } else {
+    $('#crystal_analysis').hide();
+    $('#id_crystal_analysis').val('');
+    $('#id_crystal_analysis').prop('required', false);
+    remove_asterisk($('#crystal_analysis'));
+  }
+}
+
+function medical_evaluation_checker() {
+  if ($('#id_medical_evaluation').val() == 'True') {
+    $('#aki').show();
+    $('#div_id_aki').prop('required', true);
+    add_asterisk($('#div_id_aki'));
+    $('#urate-sub-form').show();
+    $('#div_id_urate_check').prop('required', true);
+    add_asterisk($('#div_id_urate_check'));
+    urate_checker();
+    $('#diagnosed').show();
+    $('#div_id_diagnosed').prop('required', true);
+    add_asterisk($('#div_id_diagnosed'));
+    $('#aspiration-sub-form').show();
+    $('#div_id_aspiration').prop('required', true);
+    add_asterisk($('#div_id_aspiration'));
+    aspiration_checker();
+  } else {
+    $('#aki').hide();
+    $('#div_id_aki').prop('required', false);
+    $('#id_aki').val('');
+    remove_asterisk($('#div_id_aki'));
+    $('#urate-sub-form').hide();
+    $('#div_id_urate_check').prop('required', false);
+    $('#id_urate_check').val('');
+    remove_asterisk($('#div_id_urate_check'));
+    urate_checker();
+    $('#diagnosed').hide();
+    $('#div_id_diagnosed').prop('required', false);
+    $('#id_diagnosed').val('');
+    remove_asterisk($('#div_id_diagnosed'));
+    $('#aspiration-sub-form').hide();
     $('#div_id_aspiration').prop('required', false);
     $('#id_aspiration').val('');
-    $('#crystal_analysis').hide();
-    $('#div_id_crystal_analysis').prop('required', false);
-    $('#id_crystal_analysis').val('');
-    remove_asterisk($('#div_id_crystal_analysis'));
+    remove_asterisk($('#div_id_aspiration'));
+    aspiration_checker();
   }
 }
 
@@ -488,24 +662,42 @@ function subject_checker() {
 }
 
 // Ppx JS
-function starting_ult_help_text() {
+function at_goal_checker() {
+  // function that checks whether the at_goal field is True and shows/hides the at_goal_long_term field
+  if ($('#id_at_goal').val() == 'True') {
+    $('#at_goal_long_term').show();
+  } else {
+    $('#at_goal_long_term').hide();
+    $('#id_at_goal_long_term').prop('value', 'False');
+  }
+}
+
+function starting_ult_checker(subject_the, Tobe, pos, gender_subject) {
   // function that updates the help text of the starting_ult field
   // first get the on_ult field value
   var on_ult = $('#id_on_ult').val();
   // then check if on_ult is true
   if (on_ult == 'True') {
+    $('#div_id_starting_ult').show();
+    $('#starting_ult_help_text_extra').hide();
     // if on_Ult is true, change help text to "Has the patient started
     // ULT in the last 3 months?"
-    $('#hint_id_starting_ult').text(
-      'Has the patient started ULT ("urate-lowering therapy") in the last 3 months?',
+    $('#starting_ult_help_text').text(
+      `${Tobe} ${subject_the} in the initial dose-adjustment phase (e.g. titration, usually first 6-12 months) of urate-lowering therapy (ULT)?`,
+    );
+  } else if (on_ult == 'False') {
+    $('#div_id_starting_ult').show();
+    $('#starting_ult_help_text_extra').show();
+    // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
+    $('#starting_ult_help_text').text(
+      `Is ${subject_the} just starting ULT (urate-lowering therapy) or ${pos} ${gender_subject} started ULT in the last 3 months?`,
     );
   } else {
-    // if on_ult is false or null, change help_text to "Is the patient starting ULT ("urate-lowering therapy")?"
-    $('#hint_id_starting_ult').text(
-      'Is the patient starting ULT ("urate-lowering therapy")?',
-    );
+    // hide the starting_ult field
+    $('#div_id_starting_ult').hide();
   }
 }
+
 // Ult JS
 function ult_checker() {
   if ($('#id_num_flares').val() != 2) {

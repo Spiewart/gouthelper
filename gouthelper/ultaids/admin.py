@@ -5,9 +5,9 @@ from .models import UltAid
 
 
 @admin.register(UltAid)
-class UltaidHistoryAdmin(SimpleHistoryAdmin):
+class UltAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "__str__",
+        "user",
         "pk",
     )
     history_list_display = ["status"]

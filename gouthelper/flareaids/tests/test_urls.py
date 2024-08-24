@@ -1,13 +1,13 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
-from .factories import FlareAidFactory, FlareAidUserFactory
+from .factories import create_flareaid
 
 
 class TestFlareAidUrls(TestCase):
     def setUp(self):
-        self.flareaid = FlareAidFactory()
-        self.user_flareaid = FlareAidUserFactory()
+        self.flareaid = create_flareaid()
+        self.user_flareaid = create_flareaid(user=True)
 
     def test_detail(self):
         assert reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}) == f"/flareaids/{self.flareaid.pk}/"
@@ -24,30 +24,33 @@ class TestFlareAidUrls(TestCase):
     def test_pseudopatient_create(self):
         """Test that the pseudopatient create url is correct."""
         self.assertEqual(
-            reverse("flareaids:pseudopatient-create", kwargs={"username": self.user_flareaid.user.username}),
-            f"/flareaids/{self.user_flareaid.user.username}/create/",
+            reverse("flareaids:pseudopatient-create", kwargs={"pseudopatient": self.user_flareaid.user.pk}),
+            f"/flareaids/goutpatient-create/{self.user_flareaid.user.pk}/",
         )
         assert (
-            resolve(f"/flareaids/{self.user_flareaid.user.username}/create/").view_name
+            resolve(f"/flareaids/goutpatient-create/{self.user_flareaid.user.pk}/").view_name
             == "flareaids:pseudopatient-create"
         )
 
     def test_pseudopatient_detail(self):
         """Test that the pseudopatient detail url is correct."""
         self.assertEqual(
-            reverse("flareaids:pseudopatient-detail", kwargs={"username": self.user_flareaid.user.username}),
-            f"/flareaids/{self.user_flareaid.user.username}/",
+            reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.user_flareaid.user.pk}),
+            f"/flareaids/goutpatient-detail/{self.user_flareaid.user.pk}/",
         )
-        assert resolve(f"/flareaids/{self.user_flareaid.user.username}/").view_name == "flareaids:pseudopatient-detail"
+        assert (
+            resolve(f"/flareaids/goutpatient-detail/{self.user_flareaid.user.pk}/").view_name
+            == "flareaids:pseudopatient-detail"
+        )
 
     def test_pseudopatient_update(self):
         """Test that the pseudopatient update url is correct."""
         self.assertEqual(
-            reverse("flareaids:pseudopatient-update", kwargs={"username": self.user_flareaid.user.username}),
-            f"/flareaids/{self.user_flareaid.user.username}/update/",
+            reverse("flareaids:pseudopatient-update", kwargs={"pseudopatient": self.user_flareaid.user.pk}),
+            f"/flareaids/goutpatient-update/{self.user_flareaid.user.pk}/",
         )
         assert (
-            resolve(f"/flareaids/{self.user_flareaid.user.username}/update/").view_name
+            resolve(f"/flareaids/goutpatient-update/{self.user_flareaid.user.pk}/").view_name
             == "flareaids:pseudopatient-update"
         )
 

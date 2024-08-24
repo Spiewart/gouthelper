@@ -1,1 +1,0 @@
-Organ transplantation is a complicated affair, and the management of an individuals medications thereafter even more so. Anyone who has had an organ transplant should discuss any medication changes with whoever is managing his or her transplant therapies.

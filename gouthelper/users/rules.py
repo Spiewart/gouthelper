@@ -24,7 +24,7 @@ def is_user(obj, user):
 @rules.predicate
 def is_an_admin(user):
     """Expects a User object."""
-    return user.role == Roles.ADMIN
+    return user.role == Roles.ADMIN if hasattr(user, "role") else False
 
 
 @rules.predicate
@@ -42,7 +42,7 @@ def is_provider(user, obj):
 @rules.predicate
 def is_a_provider(user):
     """Expects a User object."""
-    return user.role == Roles.PROVIDER
+    return user.role == Roles.PROVIDER if hasattr(user, "role") else False
 
 
 @rules.predicate
@@ -80,7 +80,7 @@ def list_belongs_to_user(user, obj):
 
 is_providerless_pseudopatient = is_pseudopatient & has_no_provider
 
-add_user_with_provider = is_an_admin | is_a_provider
+add_user_with_provider = (is_an_admin | is_a_provider) & provider_kwarg_is_provider
 change_user = is_user | is_provider
 change_pseudopatient = is_providerless_pseudopatient | is_user | is_provider
 delete_user = is_user | is_provider

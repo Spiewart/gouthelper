@@ -1,0 +1,64 @@
+{% load project_tags %}
+
+<div id="goalurate-card" class="card spacious-cards">
+  <div class="card-body">
+    {% if goalurate %}
+      <div class="row">
+        <div class="col">
+          <h4>
+            {% if goalurate.user %}
+              <!-- djlint:off --><a href="{% url 'goalurates:pseudopatient-detail' goalurate.user.pk %}"><!-- djlint:on -->
+            {% else %}
+              <a href="{% url 'goalurates:detail' goalurate.pk %}">
+              {% endif %}
+            {{ goalurate }}</a>
+          </h4>
+        </div>
+        <div class="col-auto align-items-center d-flex justify-content-end">
+          <button class="btn btn-secondary"
+                  id="goalurate_card_collapse_control"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#goalurate_card_collapse"
+                  type="button"
+                  aria-expanded="true"
+                  aria-controls="goalurate_card_collapse">Show</button>
+        </div>
+      </div>
+      <div class="collapse mini-card-content" id="goalurate_card_collapse">
+        <div class="row">
+          <div class="col-md-12">
+            {% call_method goalurate 'get_interpretation' False as interpretation %}
+            <p class="card-text">{{ interpretation }}</p>
+          </div>
+        </div>
+        {% if goalurate.user %}
+          <a class="btn btn-primary"
+             href="{% url 'goalurates:pseudopatient-update' goalurate.user.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% else %}
+          <a class="btn btn-primary"
+             href="{% url 'goalurates:update' goalurate.pk %}?next={{ object.get_absolute_url }}">Update</a>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'goalurates:about' %}">About</a>
+      </div>
+    {% else %}
+      <div class="row">
+        <div class="col">
+          <h4 class="card-title">
+            <a href="{% url 'goalurates:about' %}">Goal Urate</a>: none
+          </h4>
+        </div>
+        {% if object|is_pseudopatient %}
+          <div class="col-auto align-items-center d-flex justify-content-end">
+            <a class="btn btn-primary"
+               href="{% url 'goalurates:pseudopatient-create' object.pk %}?next={{ request.path }}">Create</a>
+          </div>
+        {% else %}
+          <div class="col-auto align-items-center d-flex justify-content-end">
+            <a class="btn btn-primary"
+               href="{% url 'goalurates:create' %}?next={{ request.path }}">Create</a>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>

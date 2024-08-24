@@ -109,35 +109,25 @@ class TestGoutDetailForm(TestCase):
             self.form.fields["flaring"].help_text,
         )
         self.assertFalse(self.form.fields["flaring"].required)
-        # Test hyperuricemic
-        self.assertIsNone(self.form.fields["hyperuricemic"].initial)
-        self.assertEqual(
-            self.form.fields["hyperuricemic"].help_text,
-            format_lazy(
-                """Has the patient had a <a href="{}" target="_blank">uric acid</a> greater \
-than 6.0 mg/dL in the past 6 months?""",
-                reverse_lazy("labs:about-urate"),
-            ),
+
+        self.assertIsNone(self.form.fields["at_goal"].initial)
+        self.assertIn(
+            "Is the patient at goal",
+            self.form.fields["at_goal"].help_text,
         )
         # Test on_ppx
         self.assertIsNone(self.form.fields["on_ppx"].initial)
-        self.assertEqual(self.form.fields["on_ppx"].label, "Already on PPx?")
+        self.assertEqual(self.form.fields["on_ppx"].label, "Prophylaxis")
         self.assertEqual(
             self.form.fields["on_ppx"].help_text,
             format_lazy(
-                """Is the patient already on <a href="{}" target="_blank">prophylaxis</a> (PPx) for gout?""",
+                """Is the patient on anti-inflammatories for gout flare prevention \
+(<a href="{}" target="_blank">prophylaxis</a>)?""",
                 reverse_lazy("treatments:about-ppx"),
             ),
         )
         self.assertTrue(self.form.fields["on_ppx"].required)
         # Test on_ult
-        self.assertEqual(self.form.fields["on_ult"].label, "Already on ULT?")
-        self.assertEqual(
-            self.form.fields["on_ult"].help_text,
-            format_lazy(
-                """Is the patient on <a href="{}" target="_blank">urate lowering therapy</a> (ULT)?""",
-                reverse_lazy("treatments:about-ult"),
-            ),
-        )
+        self.assertEqual(self.form.fields["on_ult"].label, "Urate-Lowering Therapy")
         self.assertIsNone(self.form.fields["on_ult"].initial)
         self.assertTrue(self.form.fields["on_ult"].required)

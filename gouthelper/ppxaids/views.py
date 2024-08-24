@@ -1,65 +1,42 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any  # pylint: disable=e0401, e0015 # type: ignore
 
-from django.apps import apps  # type: ignore
-from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.http import HttpResponseRedirect  # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.apps import apps  # pylint: disable=e0401 # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
+from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=e0401 # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=e0401 # type: ignore
+from django.views.generic import CreateView, TemplateView, UpdateView  # pylint: disable=e0401 # type: ignore
+from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
+    AutoPermissionRequiredMixin,
+    PermissionRequiredMixin,
+)
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthForm
-from ..dateofbirths.models import DateOfBirth
-from ..genders.forms import GenderFormOptional
-from ..genders.models import Gender
-from ..medhistorydetails.forms import CkdDetailForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import (
-    AnginaForm,
-    AnticoagulationForm,
-    BleedForm,
-    CadForm,
-    ChfForm,
-    CkdForm,
-    ColchicineinteractionForm,
-    DiabetesForm,
-    GastricbypassForm,
-    HeartattackForm,
-    HypertensionForm,
-    IbdForm,
-    OrgantransplantForm,
-    PvdForm,
-    StrokeForm,
+from ..ppxs.models import Ppx
+from ..users.models import Pseudopatient
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    MedAllergyFormMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
 )
-from ..medhistorys.models import (
-    Angina,
-    Anticoagulation,
-    Bleed,
-    Cad,
-    Chf,
-    Ckd,
-    Colchicineinteraction,
-    Diabetes,
-    Gastricbypass,
-    Heartattack,
-    Hypertension,
-    Ibd,
-    Organtransplant,
-    Pvd,
-    Stroke,
+from .dicts import (
+    MEDALLERGY_FORMS,
+    MEDHISTORY_DETAIL_FORMS,
+    MEDHISTORY_FORMS,
+    OTO_FORMS,
+    PATIENT_OTO_FORMS,
+    PATIENT_REQ_OTOS,
 )
-from ..treatments.choices import FlarePpxChoices
-from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
 from .forms import PpxAidForm
 from .models import PpxAid
-from .selectors import ppxaid_userless_qs
 
 if TYPE_CHECKING:
-    from django.db.models import Model, QuerySet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
+    from uuid import UUID
 
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import GoutDetailForm
-    from ..medhistorys.models import MedHistory
+    from django.db.models import QuerySet  # type: ignore
+
+User = get_user_model()
 
 
 class PpxAidAbout(TemplateView):
@@ -77,202 +54,130 @@ class PpxAidAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.PPXAID, tag=None)
 
 
-class PpxAidBase(View):
+class PpxAidEditBase(MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
-    model = PpxAid
     form_class = PpxAidForm
+    model = PpxAid
+    success_message = "PpxAid successfully created."
 
-    # Assign onetoones dict with key as the name of the model and value as a
-    # dict of the model's form and model.
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthForm, "model": DateOfBirth},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-    }
-    # Assign medallergys as the Treatment choices for PpxAid
-    medallergys = FlarePpxChoices
-    # Assign medhistorys dict with key as the name of the model and value as a
-    # dict of the model's form and model.
-    medhistorys = {
-        MedHistoryTypes.ANGINA: {"form": AnginaForm, "model": Angina},
-        MedHistoryTypes.ANTICOAGULATION: {"form": AnticoagulationForm, "model": Anticoagulation},
-        MedHistoryTypes.BLEED: {"form": BleedForm, "model": Bleed},
-        MedHistoryTypes.CAD: {"form": CadForm, "model": Cad},
-        MedHistoryTypes.CHF: {"form": ChfForm, "model": Chf},
-        MedHistoryTypes.CKD: {"form": CkdForm, "model": Ckd},
-        MedHistoryTypes.COLCHICINEINTERACTION: {"form": ColchicineinteractionForm, "model": Colchicineinteraction},
-        MedHistoryTypes.DIABETES: {"form": DiabetesForm, "model": Diabetes},
-        MedHistoryTypes.GASTRICBYPASS: {"form": GastricbypassForm, "model": Gastricbypass},
-        MedHistoryTypes.HEARTATTACK: {"form": HeartattackForm, "model": Heartattack},
-        MedHistoryTypes.HYPERTENSION: {"form": HypertensionForm, "model": Hypertension},
-        MedHistoryTypes.IBD: {"form": IbdForm, "model": Ibd},
-        MedHistoryTypes.ORGANTRANSPLANT: {"form": OrgantransplantForm, "model": Organtransplant},
-        MedHistoryTypes.PVD: {"form": PvdForm, "model": Pvd},
-        MedHistoryTypes.STROKE: {"form": StrokeForm, "model": Stroke},
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
+    MEDALLERGY_FORMS = MEDALLERGY_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
-class PpxAidCreate(PpxAidBase, MedHistorysModelCreateView, SuccessMessageMixin):
+class PpxAidCreate(PpxAidEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """
     Create a new PpxAid instance.
     """
 
-    def form_valid(
-        self,
-        form: PpxAid,
-        onetoones_to_save: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately, as parent method doesn't redirect at all."""
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        self.object.update(qs=self.object)
-        return HttpResponseRedirect(self.get_success_url())
-
-    def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # object_data
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
-        else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
-            )
-
-
-class PpxAidDetail(DetailView):
-    """DetailView for PpxAid model."""
-
-    model = PpxAid
-    object: PpxAid
+    permission_required = "ppxaids.can_add_ppxaid"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
+        context.update({"ppx": self.ppx})
         return context
 
-    def get_queryset(self) -> "QuerySet[Any]":
-        return ppxaid_userless_qs(self.kwargs["pk"])
-
-    def get_object(self, *args, **kwargs) -> PpxAid:
-        ppxaid: PpxAid = super().get_object(*args, **kwargs)  # type: ignore
-        # Check if PpxAid is up to date and update if not update
-        if not self.request.GET.get("updated", None):
-            ppxaid.update(qs=ppxaid)
-        return ppxaid
-
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(context=Contexts.PPXAID, tag__isnull=False)
-
-
-class PpxAidUpdate(PpxAidBase, MedHistorysModelUpdateView, SuccessMessageMixin):
-    """Updates a PpxAid"""
-
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
-
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        # Update object / form instance
-        self.object.update(qs=self.object)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
-
-    def get_queryset(self):
-        return ppxaid_userless_qs(self.kwargs["pk"])
+    def get_permission_object(self):
+        if self.ppx and self.ppx.user:
+            raise PermissionError("Trying to create a PpxAid for a Ppx with a user with an anonymous view.")
+        return None
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            labs_to_save,
-            labs_to_remove,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
-            )
+            return self.form_valid(**kwargs)
+
+    @cached_property
+    def ppx(self) -> Ppx | None:
+        ppx_kwarg = self.kwargs.pop("ppx", None)
+        return Ppx.related_objects.get(pk=ppx_kwarg) if ppx_kwarg else None
+
+    @cached_property
+    def related_object(self) -> Ppx:
+        return self.ppx
+
+
+class PpxAidDetail(GoutHelperDetailMixin):
+    model = PpxAid
+    object: PpxAid
+
+
+class PpxAidPatientBase(PpxAidEditBase):
+    class Meta:
+        abstract = True
+
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
+
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        """Used to set the user attribute on the view, with associated related models
+        select_related and prefetch_related."""
+        return Pseudopatient.objects.ppxaid_qs().filter(pk=pseudopatient)
+
+
+class PpxAidPseudopatientCreate(PpxAidPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    """View for creating a PpxAid for a patient."""
+
+    permission_required = "ppxaids.can_add_ppxaid"
+    success_message = "%(user)s's PpxAid successfully created."
+
+    def get_permission_object(self):
+        return self.user
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()
+
+
+class PpxAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = PpxAid
+    object: PpxAid
+
+
+class PpxAidPseudopatientUpdate(PpxAidPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    success_message = "%(user)s's PpxAid successfully updated."
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
+
+    def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For PpxAid, no additional processing is needed."""
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()
+
+
+class PpxAidUpdate(PpxAidEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    """Updates a PpxAid"""
+
+    success_message = "PpxAid successfully updated."
+
+    def get_queryset(self):
+        return PpxAid.related_objects.filter(pk=self.kwargs["pk"])
+
+    def get_permission_object(self):
+        return self.object
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()

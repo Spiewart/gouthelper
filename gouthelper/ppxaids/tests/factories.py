@@ -1,126 +1,157 @@
-import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Union
 
-import factory  # type: ignore
 import pytest  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
-from factory.faker import faker
-from factory.fuzzy import FuzzyChoice  # type: ignore
+from factory.faker import faker  # type: ignore
 
-from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.tests.factories import DateOfBirthFactory
-from ...genders.choices import Genders
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
-from ...medhistorydetails.choices import DialysisChoices
-from ...medhistorydetails.models import CkdDetail
+from ...genders.tests.factories import GenderFactory
+from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import PPXAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices
-from ...users.tests.factories import PseudopatientFactory
+from ...utils.factories import (
+    MedAllergyCreatorMixin,
+    MedAllergyDataMixin,
+    MedHistoryCreatorMixin,
+    MedHistoryDataMixin,
+    OneToOneCreatorMixin,
+    OneToOneDataMixin,
+)
 from ..models import PpxAid
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model  # type: ignore
 
+    from ...medallergys.models import MedAllergy
+    from ...medhistorys.models import MedHistory
+
     User = get_user_model()
 
 pytestmark = pytest.mark.django_db
 
-DialysisDurations = CkdDetail.DialysisDurations.values
-DialysisDurations.remove("")
-Stages = CkdDetail.Stages.values
+Stages = Stages.values
 Stages.remove(None)
 
+fake = faker.Faker()
 
-def create_flareaid_data(user: "User" = None) -> dict[str, str]:
-    """Method that returns fake data for a FlareAid object.
-    takes an optional User *arg that will pull date of birth and gender
-    from the user object."""
 
-    fake = faker.Faker()
+class CreatePpxAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMixin):
+    """Overwritten to add functionality for OneToOnes."""
 
-    def get_True_or_empty_str() -> bool | str:
-        return fake.boolean() or ""
+    def create(self):
+        ma_data = self.create_ma_data()
+        mh_data = self.create_mh_data()
+        oto_data = self.create_oto_data()
+        return {**ma_data, **mh_data, **oto_data}
 
-    data = {}
-    # Create OneToOneField data based on whether or not there is a user *arg
-    if not user:
-        data["dateofbirth-value"] = age_calc(fake("date_of_birth", minimum_age=18, maximum_age=100))
-        data["gender-value"] = FuzzyChoice(Genders.choices, getter=lambda c: c[0])
-    # Create MedHistory data
-    for medhistory in PPXAID_MEDHISTORYS:
-        if medhistory == MedHistoryTypes.CKD:
-            ckd_value = fake.boolean()
-            data[f"{medhistory}-value"] = ckd_value
-            if ckd_value:
-                dialysis_value = fake.boolean()
-                data["dialysis"] = dialysis_value
-                if dialysis_value:
-                    data["dialysis_duration"] = random.choice(DialysisDurations)
-                    data["dialysis_type"] = random.choice(DialysisChoices.values)
-                else:
-                    # 50/50 chance of having stage data
-                    if fake.boolean():
-                        # 50/50 chance of having baseline creatinine
-                        if fake.boolean():
-                            data["baselinecreatinine-value"] = fake.pydecimal(
-                                left_digits=2,
-                                right_digits=2,
-                                positive=True,
-                                min_value=2,
-                                max_value=10,
-                            )
-                            data["stage"] = labs_stage_calculator(
-                                eGFR=labs_eGFR_calculator(
-                                    creatinine=data["baselinecreatinine-value"],
-                                    age=age_calc(data["dateofbirth-value"] if not user else user.dateofbirth.value),
-                                    gender=data["gender-value"] if not user else user.gender.value,
-                                )
-                            )
-                        else:
-                            data["stage"] = random.choice(Stages)
-                    else:
-                        # Then there is just a baselinecreatinine
-                        data["baselinecreatinine-value"] = fake.pydecimal(
-                            left_digits=2,
-                            right_digits=2,
-                            positive=True,
-                            min_value=2,
-                            max_value=10,
-                        )
-            else:
-                # Check if the user has ckddetail or baseline creatinine, as those
-                # will still be included in the post data
-                if user.ckd and hasattr(user.ckd, "ckddetail"):
-                    data["dialysis"] = user.ckddetail.dialysis
-                    data["dialysis_duration"] = user.ckddetail.dialysis_duration if user.ckddetail.dialysis else ""
-                    data["dialysis_type"] = user.ckddetail.dialysis_type if user.ckddetail.dialysis else ""
-                    data["stage"] = user.ckddetail.stage if user.ckddetail.stage else ""
-                if user.ckd and hasattr(user.ckd, "baselinecreatinine"):
-                    data["baselinecreatinine-value"] = (
-                        user.ckddetail.baselinecreatinine if hasattr(user.ckddetail, "baselinecreatinine") else ""
-                    )
-        elif (
-            medhistory == MedHistoryTypes.DIABETES
-            or medhistory == MedHistoryTypes.ORGANTRANSPLANT
-            or medhistory == MedHistoryTypes.COLCHICINEINTERACTION
-        ):
-            data[f"{medhistory}-value"] = fake.boolean()
+
+def ppxaid_data_factory(
+    user: "User" = None,
+    ppxaid: "PpxAid" = None,
+    mas: list[FlarePpxChoices.values] | None = None,
+    mhs: list[MedHistoryTypes] | None = None,
+    mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
+    otos: dict[str:Any] | None = None,
+) -> dict[str, str]:
+    """Method to create data for a PpxAid to test forms.
+
+    Args:
+        user: The user to create the data for (can't have with ppxaid).
+        ppxaid: The PpxAid to create the data for (can't have with user).
+        mas: The MedAllergys to create the data for. Pass empty list to not create any.
+        mhs: The MedHistorys to create the data for. Pass empty list to not create any.
+        mh_dets: The MedHistoryDetails to create the data for.
+        otos: The OneToOne to create the data for.
+
+    Returns:
+        dict: The data to use to test forms."""
+    return CreatePpxAidData(
+        aid_mas=FlarePpxChoices.values,
+        aid_mhs=PPXAID_MEDHISTORYS,
+        mas=mas,
+        mhs=mhs,
+        bool_mhs=[
+            MedHistoryTypes.CKD,
+            MedHistoryTypes.COLCHICINEINTERACTION,
+            MedHistoryTypes.DIABETES,
+            MedHistoryTypes.ORGANTRANSPLANT,
+        ],
+        aid_mh_dets=[MedHistoryTypes.CKD],
+        mh_dets=mh_dets,
+        req_mh_dets=[MedHistoryTypes.CKD],
+        aid_otos=["dateofbirth", "gender"],
+        otos=otos,
+        req_otos=["dateofbirth"],
+        user_otos=["dateofbirth", "gender"],
+        user=user,
+        aid_obj=ppxaid,
+    ).create()
+
+
+class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreatorMixin):
+    """Inherits from Mixins to create OneToOne fields and related ForeignKeys."""
+
+    onetoones: dict[str:DjangoModelFactory] = {"dateofbirth": DateOfBirthFactory, "gender": GenderFactory}
+
+    def create(self, **kwargs):
+        # Call the super() create method to generate modify the onetoones via kwargs
+        kwargs = super().create(**kwargs)
+        # Pop the mas_specified and mhs_specified from the kwargs so they don't get passed to the GoalUrate constructor
+        mas_specified = kwargs.pop("mas_specified", False)
+        mhs_specified = kwargs.pop("mhs_specified", False)
+        # Create the PpxAid
+        ppxaid = PpxAid(**kwargs)
+        # Create the OneToOne fields and add them to the PpxAid
+        self.create_otos(ppxaid)
+        # Save the PpxAid
+        ppxaid.save()
+        # Create the MedAllergys related to the PpxAid
+        self.create_mas(ppxaid, specified=mas_specified)
+        # Create the MedHistorys related to the PpxAid
+        self.create_mhs(ppxaid, specified=mhs_specified)
+        # Return the PpxAid
+        return ppxaid
+
+
+def create_ppxaid(
+    user: Union["User", bool, None] = None,
+    mas: list[FlarePpxChoices.values, "MedAllergy"] | None = None,
+    mhs: list[PPXAID_MEDHISTORYS, "MedHistory"] | None = None,
+    **kwargs,
+) -> PpxAid:
+    """Method to create a PpxAid with or without a User as well as all its related
+    objects, which can be pre-assigned through medallergys or medhistorys or, for
+    onetoones, through kwargs."""
+
+    if mas is None:
+        mas = FlarePpxChoices.values
+        mas_specified = False
+    else:
+        mas_specified = True
+    if mhs is None:
+        if user and not isinstance(user, bool):
+            mhs = (
+                user.medhistorys_qs
+                if hasattr(user, "medhistorys_qs")
+                else user.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS).all()
+            )
         else:
-            data[f"{medhistory}-value"] = get_True_or_empty_str()
-    # Create MedAllergy data
-    for treatment in FlarePpxChoices.values:
-        data[f"medallergy_{treatment}"] = get_True_or_empty_str()
-    return data
+            mhs = PPXAID_MEDHISTORYS
+        mhs_specified = False
+    else:
+        mhs_specified = True
+    # Call the constructor Class Method
+    return CreatePpxAid(
+        mas=mas,
+        mhs=mhs,
+        mh_dets={MedHistoryTypes.CKD: {}},
+        otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
+        req_otos=["dateofbirth"],
+        user=user,
+    ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 
 class PpxAidFactory(DjangoModelFactory):
     class Meta:
         model = PpxAid
-
-    dateofbirth = factory.SubFactory(DateOfBirthFactory)
-
-
-class PpxAidUserFactory(PpxAidFactory):
-    user = factory.SubFactory(PseudopatientFactory)
-    dateofbirth = None

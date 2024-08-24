@@ -1,12 +1,15 @@
 from crispy_forms.helper import FormHelper  # type: ignore
 from crispy_forms.layout import HTML, Div, Field, Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
+from django.urls import reverse  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 
 from ..choices import YES_OR_NO_OR_NONE
 from ..medhistorys.choices import MedHistoryTypes
+from ..utils.forms import ModelFormKwargMixin
+from ..utils.links import get_citation_tophi_gout_education_society, get_link_gouty_arthropathy
 from .models import (
-    Allopurinolhypersensitivity,
     Angina,
     Anticoagulation,
     Bleed,
@@ -16,16 +19,17 @@ from .models import (
     Colchicineinteraction,
     Diabetes,
     Erosions,
-    Febuxostathypersensitivity,
     Gastricbypass,
     Gout,
     Heartattack,
+    Hepatitis,
     Hypertension,
     Hyperuricemia,
     Ibd,
     MedHistory,
     Menopause,
     Organtransplant,
+    Pud,
     Pvd,
     Stroke,
     Tophi,
@@ -34,11 +38,24 @@ from .models import (
 )
 
 
-class MedHistoryForm(forms.ModelForm):
+class MedHistoryForm(ModelFormKwargMixin, forms.ModelForm):
     class Meta:
         abstract = True
         model = MedHistory
-        exclude = ["last_modified", "setter", "set_date", "user", "visit"]
+        exclude = [
+            "flareaid",
+            "flare",
+            "goalurate",
+            "last_modified",
+            "ppxaid",
+            "ppx",
+            "setter",
+            "set_date",
+            "ultaid",
+            "ult",
+            "user",
+            "visit",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,30 +81,6 @@ class MHCheckForm(MedHistoryForm):
         )
 
 
-class AllopurinolhypersensitivityForm(MedHistoryForm):
-    class Meta(MedHistoryForm.Meta):
-        model = Allopurinolhypersensitivity
-        prefix = MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields.update(
-            {
-                self.value: forms.TypedChoiceField(
-                    choices=YES_OR_NO_OR_NONE,
-                    required=True,
-                    initial=None,
-                    empty_value=None,
-                    coerce=lambda x: x == "True",
-                )
-            }
-        )
-        self.fields[self.value].label = "Allopurinol Hypersensitivity"
-        self.fields[
-            self.value
-        ].help_text = "Does the patient have any history of allopurinol hypersensitivity syndrome?"
-
-
 class AnginaForm(MHCheckForm):
     class Meta(MedHistoryForm.Meta):
         model = Angina
@@ -107,7 +100,10 @@ class AnticoagulationForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Anticoagulation"
-        self.fields[self.value].help_text = "Is the patient on anticoagulation?"
+        self.fields[
+            self.value
+        ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} on \
+blood thinners (other than aspirin)?"
 
 
 class BleedForm(MHCheckForm):
@@ -118,7 +114,7 @@ class BleedForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Bleed"
-        self.fields[self.value].help_text = "Has the patient had a major bleed (GI, etc.)?"
+        self.fields[self.value].help_text = "History of major bleeding without truama?"
 
 
 class CadForm(MHCheckForm):
@@ -162,7 +158,10 @@ class CkdForm(MedHistoryForm):
                 )
             }
         )
-        self.fields[self.value].help_text = "Does the patient have chronic kidney disease (CKD)?"
+        self.fields[
+            self.value
+        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have chronic \
+kidney disease (CKD)?"
         self.fields[self.value].label = "CKD"
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -177,11 +176,13 @@ class CkdForm(MedHistoryForm):
                         ),
                         div_class="row",
                     ),
+                    css_id="ckd-form",
+                    **self.fieldset_div_kwargs,
                 ),
             ),
         )
         if ckddetail:
-            self.helper.layout[0].append(
+            self.helper.layout[0][0].append(
                 Div(
                     Div(
                         Div(
@@ -220,8 +221,9 @@ class ColchicineinteractionForm(MedHistoryForm):
         )
         self.fields[self.value].label = "Colchicine Interaction"
         self.fields[self.value].help_text = mark_safe(
-            "Is the patient on any <a href='https://www.goodrx.com/colchicine/interactions' target='_blank'>\
-medications that interact with colchicine</a> (simvastatin, clarithromycin, diltiazem, etc.)?"
+            f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} on any \
+<a href='https://www.goodrx.com/colchicine/interactions' \
+target='_blank'> medications that interact with colchicine</a> (simvastatin, clarithromycin, diltiazem, etc.)?"
         )
 
 
@@ -244,7 +246,7 @@ class DiabetesForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Diabetes"
-        self.fields[self.value].help_text = "Is the patient a diabetic?"
+        self.fields[self.value].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} a diabetic?"
 
 
 class ErosionsForm(MedHistoryForm):
@@ -269,31 +271,11 @@ class ErosionsForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Erosions"
-        self.fields[self.value].help_text = "Does the patient have gouty erosions on x-ray?"
-
-
-class FebuxostathypersensitivityForm(MedHistoryForm):
-    class Meta(MedHistoryForm.Meta):
-        model = Febuxostathypersensitivity
-        prefix = MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields.update(
-            {
-                self.value: forms.TypedChoiceField(
-                    choices=YES_OR_NO_OR_NONE,
-                    required=True,
-                    initial=None,
-                    empty_value=None,
-                    coerce=lambda x: x == "True",
-                )
-            }
+        self.fields[self.value].help_text = (
+            f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have "
+            f"<a target='_blank' href={get_link_gouty_arthropathy()}>gouty erosions</a>"
+            " on x-ray?"
         )
-        self.fields[self.value].label = "Febuxostat Hypersensitivity"
-        self.fields[
-            self.value
-        ].help_text = "Does the patient have any history of febuxostat hypersensitivity syndrome?"
 
 
 class GastricbypassForm(MHCheckForm):
@@ -306,7 +288,7 @@ class GastricbypassForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Gastric Bypass"
-        self.fields[self.value].help_text = "Has the patient had a gastric bypass?"
+        self.fields[self.value].help_text = "Sleave, roux-en-y, or duodenal switch?"
 
 
 class GoutForm(MedHistoryForm):
@@ -336,7 +318,14 @@ class GoutForm(MedHistoryForm):
             # Hide the field
             self.fields[self.value].widget = forms.HiddenInput()
         else:
-            self.fields[self.value].help_text = "Has the patient had gout or symptoms compatible with gout before?"
+            self.fields[self.value].help_text = mark_safe(
+                format_lazy(
+                    """{} {} had gout or <a target='_next' href={}>symptoms of gout</a> before?""",
+                    self.str_attrs["Pos"],
+                    self.str_attrs["subject_the"],
+                    reverse("flares:about"),
+                )
+            )
             self.fields[self.value].label = "Gout"
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -383,6 +372,40 @@ class HeartattackForm(MHCheckForm):
         self.fields[self.value].help_text = "Myocardial infarction"
 
 
+class HepatitisForm(MedHistoryForm):
+    """Form to create or delete a Hepatitis object.
+    Widget is a select box with Yes, No, or blank as options."""
+
+    class Meta(MedHistoryForm.Meta):
+        model = Hepatitis
+        prefix = MedHistoryTypes.HEPATITIS
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields.update(
+            {
+                self.value: forms.TypedChoiceField(
+                    choices=YES_OR_NO_OR_NONE,
+                    required=True,
+                    initial=None,
+                    empty_value=None,
+                    coerce=lambda x: x == "True",
+                )
+            }
+        )
+        self.fields[self.value].label = "Hepatitis"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} have <a href={} target='_next'>hepatitis</a> or <a href={} target='_next'>cirrhosis</a> of \
+the liver?""",
+                self.str_attrs["Query"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Hepatitis",
+                "https://en.wikipedia.org/wiki/Cirrhosis",
+            )
+        )
+
+
 class HypertensionForm(MedHistoryForm):
     class Meta(MedHistoryForm.Meta):
         model = Hypertension
@@ -418,7 +441,18 @@ class HyperuricemiaForm(MedHistoryForm):
         self.fields[self.value].label = "Hyperuricemia"
         self.fields[
             self.value
-        ].help_text = "Does the patient have an elevated serum uric acid (greater than 9.0 mg/dL)?"
+        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have an elevated serum uric acid \
+(greater than 9.0 mg/dL)?"
+        if self.patient and hasattr(self.patient, "hyperuricemia_urates") and self.patient.hyperuricemia_urates:
+            list_of_urate_strs = [
+                mark_safe(f"{urate.value} {urate.get_units_display()} on {urate.date.strftime('%-m/%d/%y')}")
+                for urate in self.patient.hyperuricemia_urates
+            ]
+            self.fields[self.value].help_text += mark_safe(
+                f"<br />{self.str_attrs['subject_the_pos']} serum uric acid has been at or higher than \
+this level {'in more than one instance' if len(list_of_urate_strs) > 1 else 'previously'}: \
+{(', ').join(map(str, list_of_urate_strs))}."
+            )
 
 
 class IbdForm(MHCheckForm):
@@ -429,7 +463,7 @@ class IbdForm(MHCheckForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[self.value].label = "Inflammatory Bowel Disease"
-        self.fields[self.value].help_text = "Does the patient have a history of inflammatory bowel disease?"
+        self.fields[self.value].help_text = "Crohn's disease or ulcerative colitis"
 
 
 class MenopauseForm(MedHistoryForm):
@@ -452,7 +486,7 @@ class MenopauseForm(MedHistoryForm):
         )
         self.fields[
             self.value
-        ].help_text = "Has the patient gone through menopause? (Either biologically or medically)"
+        ].help_text = f"{self.str_attrs['Tobe']} {self.str_attrs['subject_the']} menopausal or post-menopausal?"
         self.fields[self.value].label = "Menopause"
 
 
@@ -475,7 +509,21 @@ class OrgantransplantForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Organ Transplant"
-        self.fields[self.value].help_text = "Has the patient had an organ transplant?"
+        self.fields[
+            self.value
+        ].help_text = f"{self.str_attrs['Pos']} {self.str_attrs['subject_the']} had \
+an organ transplant?"
+
+
+class PudForm(MHCheckForm):
+    class Meta(MedHistoryForm.Meta):
+        model = Pud
+        prefix = MedHistoryTypes.PUD
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.value].label = "Peptic Ulcer Disease"
+        self.fields[self.value].help_text = "Peptic, gastric, or other gastroinestinal ulcers?"
 
 
 class PvdForm(MHCheckForm):
@@ -522,7 +570,10 @@ class TophiForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Tophi"
-        self.fields[self.value].help_text = "Does the patient have gouty tophi?"
+        self.fields[
+            self.value
+        ].help_text = f"{self.str_attrs['Query']} {self.str_attrs['subject_the']} have gouty \
+tophi? (Some {get_citation_tophi_gout_education_society()})"
 
 
 class UratestonesForm(MedHistoryForm):
@@ -547,7 +598,15 @@ class UratestonesForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Urate Kidney Stones"
-        self.fields[self.value].help_text = "Does the patient have a history of urate kidney stones?"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} have a history of <a href={} target='_next'>urate kidney stones</a>?""",
+                self.str_attrs["Query"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Kidney_stone_disease#:~:text=microscopy.%5B74%5D-,Uric%20acid%20stones,\
+-%5Bedit%5D",
+            )
+        )
 
 
 class XoiinteractionForm(MedHistoryForm):
@@ -569,4 +628,13 @@ class XoiinteractionForm(MedHistoryForm):
             }
         )
         self.fields[self.value].label = "Xanthine Oxidase Inhibitor Interaction"
-        self.fields[self.value].help_text = "Is the patient on 6-mercaptopurine or azathioprine?"
+        self.fields[self.value].help_text = mark_safe(
+            format_lazy(
+                """{} {} on <a href={} target='_next'>6-mercaptopurine</a> or <a href={} \
+target='_next'>azathioprine</a>?""",
+                self.str_attrs["Tobe"],
+                self.str_attrs["subject_the"],
+                "https://en.wikipedia.org/wiki/Mercaptopurine",
+                "https://en.wikipedia.org/wiki/Azathioprine",
+            )
+        )

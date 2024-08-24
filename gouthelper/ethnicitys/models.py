@@ -37,4 +37,4 @@ class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Ru
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.value}"
+        return self.get_value_display()

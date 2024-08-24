@@ -8,7 +8,7 @@ from .models import FlareAid
 @admin.register(FlareAid)
 class FlareAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "__str__",
-        "pk",
+        "user",
         "created",
+        "pk",
     )

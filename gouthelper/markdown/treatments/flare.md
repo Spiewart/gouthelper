@@ -17,9 +17,15 @@ they do NOT treat the underlying cause of gout, which is high uric acid levels, 
 
 ## <span id="flare-treatments">Flare Treatments</span>
 
+<span id="nsaids"></span>
+
 -**NSAIDs**: Cheap, available over-the-counter, and generally well-tolerated. However, they should be used cautiously in patients who have cardiovascular diseases or any of a relatively long and hard-to-remember list of relative contraindications, even if for a short duration. See the [FlareAid](/flareaids/about/) page for more information, or just use [FlareAid](/flareaids/create/) to help you decide.
 
+<span id="colchicine"></span>
+
 -**Colchicine**: Should be cheap, but in the US it's not and is prescription only. It is effective, particularly if started within the first 36 hours of gout flare symptom onset. It is generally well-tolerated. However, it can cause diarrhea and other gastrointestinal symptoms, particularly when used at higher doses for gout flares. It also has a long list of drug interactions, some of which are serious. It is also contraindicated in patients with severe kidney problems. Interestingly, in other countries it is cheap and readily available.
+
+<span id="steroids"></span>
 
 -**Steroids**: Prednisone is cheap but also prescription only in the US. It is sort of last resort because of the well-described side effects of corticosteroids, but is used all the time for gout flares. It can raise blood sugar, cause weight gain, and increase the risk of infections. It can also cause mood changes and insomnia. It's also not a great choice for patients with diabetes, but winds up being used in this circumstance not uncommonly due to lack of other options.
 

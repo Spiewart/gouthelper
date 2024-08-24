@@ -16,9 +16,18 @@ urlpatterns = [
     path("about/", GoalUrateAbout.as_view(), name="about"),
     path("create/", GoalUrateCreate.as_view(), name="create"),
     path("<uuid:pk>/", GoalUrateDetail.as_view(), name="detail"),
+    path("ppx/<uuid:ppx>/create", GoalUrateCreate.as_view(), name="ppx-create"),
     path("ultaid/<uuid:ultaid>/create", GoalUrateCreate.as_view(), name="ultaid-create"),
     path("update/<uuid:pk>/", GoalUrateUpdate.as_view(), name="update"),
-    path("<str:username>/create/", GoalUratePseudopatientCreate.as_view(), name="pseudopatient-create"),
-    path("<str:username>/", view=GoalUratePseudopatientDetail.as_view(), name="pseudopatient-detail"),
-    path("<str:username>/update/", GoalUratePseudopatientUpdate.as_view(), name="pseudopatient-update"),
+    path(
+        "goutpatient-create/<uuid:pseudopatient>/", GoalUratePseudopatientCreate.as_view(), name="pseudopatient-create"
+    ),
+    path(
+        "goutpatient-detail/<uuid:pseudopatient>/",
+        view=GoalUratePseudopatientDetail.as_view(),
+        name="pseudopatient-detail",
+    ),
+    path(
+        "goutpatient-update/<uuid:pseudopatient>/", GoalUratePseudopatientUpdate.as_view(), name="pseudopatient-update"
+    ),
 ]

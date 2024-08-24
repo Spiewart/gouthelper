@@ -1,7 +1,7 @@
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.dispatch import receiver  # type: ignore
-from django.urls import reverse  # type: ignore
+from django.urls import reverse
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
@@ -120,6 +120,16 @@ class PseudopatientProfile(Profile):
     """Profile for a fake patient.
     Used to aggregate DecisionAid's and other GoutHelper data."""
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(provider__isnull=False) | models.Q(provider__isnull=True, provider_alias__isnull=True)
+                ),
+                name="%(class)s_alias_requires_provider",
+            ),
+        ]
+
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -127,5 +137,11 @@ class PseudopatientProfile(Profile):
         null=True,
         blank=True,
         default=None,
+    )
+    provider_alias = models.IntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        editable=False,
     )
     history = HistoricalRecords()

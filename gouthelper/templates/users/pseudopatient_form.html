@@ -11,23 +11,77 @@
   {% endif %}
 {% endblock title %}
 {% block heading %}
-  <h1>GoutPatient</h1>
+  {% if form.instance.created %}
+    <h1>Edit GoutPatient</h1>
+  {% else %}
+    <h1>New GoutPatient</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  GoutPatients are the starting point for building a comprehensive plan for a patient's gout.
+  {% if form.instance.created %}
+    Update {{ form.instance }}'s general information.
+  {% else %}
+    GoutHelper starts with baseline information about the
+    {% if flare %}
+      patient ({{ age }} year old {{ gender|get_gender_display_value|lower }}), {{ str_attrs.gender_pos }}
+    {% else %}
+      patient, his or her
+    {% endif %}
+    gout, and its related treatments.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
+    <hr size="3" color="dark" />
+    <!-- djlint:off --><span><strong>IMPORTANT:</strong> <u>All GoutPatients are assumed to have a history of gout.</u>{% if not flare %} If the patient doesn't have a history of gout<!-- djlint:on -->
+    and it's unclear if the symptoms are due to gout, create a <a href="{% url 'flares:create' %}">Flare</a> instead.
+    <!-- djlint:off -->This can always be converted into a GoutPatient.{% endif %}<span><!-- djlint:on -->
     {% if form.instance.created and request.user.is_authenticated %}
       <form class="form-horizontal"
             method="post"
-            action="{% url 'users:pseudopatient-update' object.username %}">
+            action="{% url 'users:pseudopatient-update' object.pk %}">
         {% csrf_token %}
         {% crispy form %}
         {% include '_submit_button.html' %}
       </form>
     {% else %}
-      {% if request.user.is_authenticated %}{% endif %}
+      {% if request.user.is_authenticated %}
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:provider-pseudopatient-flare-create' user.username flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:provider-pseudopatient-create' user.username %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
+      {% else %}
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:pseudopatient-flare-create' flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'users:pseudopatient-create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
@@ -35,9 +89,6 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      // call starting_ult_help_text() to set the help text for the starting_ult field
-      starting_ult_help_text();
-      $('#id_on_ult').change(starting_ult_help_text);
       menopause_checker(patient = false);
       $('#id_dateofbirth-value').change(function() {
         menopause_checker(patient = false, change = true);
@@ -47,4 +98,5 @@
       });
     });
   </script>
+  {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

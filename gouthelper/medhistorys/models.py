@@ -2,16 +2,25 @@ from django.apps import apps  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
+from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GoutHelperModel
+from ..medhistorys.lists import (
+    FLARE_MEDHISTORYS,
+    FLAREAID_MEDHISTORYS,
+    GOALURATE_MEDHISTORYS,
+    PPX_MEDHISTORYS,
+    PPXAID_MEDHISTORYS,
+    ULT_MEDHISTORYS,
+    ULTAID_MEDHISTORYS,
+)
+from ..utils.models import DecisionAidRelation, GoutHelperModel, TreatmentAidRelation
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
 from .managers import (
-    AllopurinolhypersensitivityManager,
     AnginaManager,
     AnticoagulationManager,
     BleedManager,
@@ -22,17 +31,18 @@ from .managers import (
     ColchicineinteractionManager,
     DiabetesManager,
     ErosionsManager,
-    FebuxostathypersensitivityManager,
     GastricbypassManager,
     GoutManager,
     GoutRelationsManager,
     HeartattackManager,
+    HepatitisManager,
     HypertensionManager,
     HyperuricemiaManager,
     IbdManager,
     MenopauseManager,
     OrgantransplantManager,
     OsteoporosisManager,
+    PudManager,
     PvdManager,
     StrokeManager,
     TophiManager,
@@ -43,13 +53,50 @@ from .managers import (
 User = get_user_model()
 
 
-class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class MedHistory(
+    RulesModelMixin,
+    GoutHelperModel,
+    DecisionAidRelation,
+    TreatmentAidRelation,
+    TimeStampedModel,
+    metaclass=RulesModelBase,
+):
     """GoutHelper MedHistory model to store medical, family, social history data
     for Patients. value field is a Boolean that is required and defaults to False.
     """
 
     class Meta:
         constraints = [
+            # If there's a User, there can be no associated Aid objects
+            # Likewise, if there's an Aid object, there can be no User
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_aid_exclusive",
+                check=(
+                    models.Q(
+                        user__isnull=False,
+                        flare__isnull=True,
+                        flareaid__isnull=True,
+                        goalurate__isnull=True,
+                        ppxaid__isnull=True,
+                        ppx__isnull=True,
+                        ultaid__isnull=True,
+                        ult__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                    )
+                    | models.Q(
+                        user__isnull=True,
+                        flare__isnull=True,
+                        flareaid__isnull=True,
+                        goalurate__isnull=True,
+                        ppxaid__isnull=True,
+                        ppx__isnull=True,
+                        ultaid__isnull=True,
+                        ult__isnull=True,
+                    )
+                ),
+            ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_set_date_valid",
                 check=(
@@ -65,6 +112,122 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
             models.UniqueConstraint(
                 fields=["user", "medhistorytype"],
                 name="%(app_label)s_%(class)s_unique_user",
+            ),
+            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
+            # MedHistory objects with medhistorytypes that are in their respective lists
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_flare_mhtype",
+                check=(
+                    models.Q(
+                        flare__isnull=False,
+                        medhistorytype__in=FLARE_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        flare__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_flareaid_mhtype",
+                check=(
+                    models.Q(
+                        flareaid__isnull=False,
+                        medhistorytype__in=FLAREAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        flareaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_goalurate_mhtype",
+                check=(
+                    models.Q(
+                        goalurate__isnull=False,
+                        medhistorytype__in=GOALURATE_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        goalurate__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ppx_mhtype",
+                check=(
+                    models.Q(
+                        ppx__isnull=False,
+                        medhistorytype__in=PPX_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ppx__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ppxaid_mhtype",
+                check=(
+                    models.Q(
+                        ppxaid__isnull=False,
+                        medhistorytype__in=PPXAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ppxaid__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ult_mhtype",
+                check=(
+                    models.Q(
+                        ult__isnull=False,
+                        medhistorytype__in=ULT_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ult__isnull=True,
+                    )
+                ),
+            ),
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_ultaid_mhtype",
+                check=(
+                    models.Q(
+                        ultaid__isnull=False,
+                        medhistorytype__in=ULTAID_MEDHISTORYS,
+                    )
+                    | models.Q(
+                        ultaid__isnull=True,
+                    )
+                ),
+            ),
+            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
+            # one of each type of MedHistory
+            models.UniqueConstraint(
+                fields=["flare", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_flare",
+            ),
+            models.UniqueConstraint(
+                fields=["flareaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_flareaid",
+            ),
+            models.UniqueConstraint(
+                fields=["goalurate", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_goalurate",
+            ),
+            models.UniqueConstraint(
+                fields=["ppxaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ppxaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ppx", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ppx",
+            ),
+            models.UniqueConstraint(
+                fields=["ultaid", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ultaid",
+            ),
+            models.UniqueConstraint(
+                fields=["ult", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_ult",
             ),
         ]
 
@@ -88,7 +251,13 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
     objects = models.Manager()
 
     def __str__(self):
-        return f"{self.MedHistoryTypes(self.medhistorytype).label}"
+        try:
+            return f"{self.MedHistoryTypes(self.medhistorytype).label}"
+        except ValueError:
+            try:
+                return f"{self.MedHistoryTypes(self._meta.model_name).label}"
+            except ValueError:
+                return f"{medhistorys_get_default_medhistorytype(self)} pre-save"
 
     def delete(
         self,
@@ -123,14 +292,11 @@ class MedHistory(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=R
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
 
-
-class Allopurinolhypersensitivity(MedHistory):
-    """Patient has had a hypersensitivity reaction to allopurinol."""
-
-    class Meta:
-        proxy = True
-
-    objects = AllopurinolhypersensitivityManager()
+    def update_set_date_and_save(self, commit: bool = True) -> None:
+        """Update the set_date field to the current date and time."""
+        self.set_date = timezone.now()
+        if commit:
+            self.save()
 
 
 class Angina(MedHistory):
@@ -219,15 +385,6 @@ class Erosions(MedHistory):
     objects = ErosionsManager()
 
 
-class Febuxostathypersensitivity(MedHistory):
-    """Whether or not a Patient has had a hypersensitivity reaction to febuxostat."""
-
-    class Meta:
-        proxy = True
-
-    objects = FebuxostathypersensitivityManager()
-
-
 class Gastricbypass(MedHistory):
     """Whether or not a Patient has had gastric bypass surgery."""
 
@@ -255,6 +412,15 @@ class Heartattack(MedHistory):
         proxy = True
 
     objects = HeartattackManager()
+
+
+class Hepatitis(MedHistory):
+    """Whether or not a Patient has hepatitis or cirrhosis of the lvier."""
+
+    class Meta:
+        proxy = True
+
+    objects = HepatitisManager()
 
 
 class Hypertension(MedHistory):
@@ -324,6 +490,15 @@ class Osteoporosis(MedHistory):
         proxy = True
 
     objects = OsteoporosisManager()
+
+
+class Pud(MedHistory):
+    """Records medical history of peptic ulcer disease."""
+
+    class Meta:
+        proxy = True
+
+    objects = PudManager()
 
 
 class Pvd(MedHistory):

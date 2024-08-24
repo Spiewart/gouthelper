@@ -1,33 +1,35 @@
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any  # pylint: disable=E0013, E0015 # type: ignore
 
-from django.apps import apps  # type: ignore
-from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
-from django.db.models import Q  # type: ignore
-from django.http import HttpResponseRedirect  # type: ignore
-from django.views.generic import DetailView, TemplateView, View  # type: ignore
+from django.apps import apps  # pylint: disable=E0401 # type: ignore
+from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401 # type: ignore
+from django.views.generic import CreateView, TemplateView, UpdateView  # pylint: disable=E0401 # type: ignore
+from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignore
+    AutoPermissionRequiredMixin,
+    PermissionRequiredMixin,
+)
 
 from ..contents.choices import Contexts
-from ..dateofbirths.forms import DateOfBirthFormOptional
-from ..dateofbirths.models import DateOfBirth
-from ..genders.forms import GenderFormOptional
-from ..genders.models import Gender
-from ..medhistorydetails.forms import CkdDetailForm
-from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.forms import CkdForm, ErosionsForm, HyperuricemiaForm, TophiForm, UratestonesForm
-from ..medhistorys.models import Ckd, Erosions, Hyperuricemia, Tophi, Uratestones
-from ..utils.views import MedHistorysModelCreateView, MedHistorysModelUpdateView
+from ..labs.selectors import hyperuricemia_urates_prefetch
+from ..users.models import Pseudopatient
+from ..utils.views import (
+    GoutHelperDetailMixin,
+    GoutHelperPseudopatientDetailMixin,
+    MedHistoryFormMixin,
+    OneToOneFormMixin,
+)
+from .dicts import MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS, PATIENT_OTO_FORMS, PATIENT_REQ_OTOS
 from .forms import UltForm
 from .models import Ult
-from .selectors import ult_userless_qs
 
 if TYPE_CHECKING:
-    from django.db.models import Model, QuerySet  # type: ignore
-    from django.http import HttpResponse  # type: ignore
+    from uuid import UUID
 
-    from ..labs.models import BaselineCreatinine, Lab
-    from ..medallergys.models import MedAllergy
-    from ..medhistorydetails.forms import GoutDetailForm
+    from django.contrib.auth import get_user_model  # type: ignore
+    from django.db.models import QuerySet  # type: ignore
+
     from ..medhistorys.models import MedHistory
+
+    User = get_user_model()
 
 
 class UltAbout(TemplateView):
@@ -45,202 +47,123 @@ class UltAbout(TemplateView):
         return apps.get_model("contents.Content").objects.get(slug="about", context=Contexts.ULT, tag=None)
 
 
-class UltBaseView(View):
+class UltEditBase(MedHistoryFormMixin, OneToOneFormMixin):
     class Meta:
         abstract = True
 
-    model = Ult
     form_class = UltForm
+    model = Ult
 
-    # Assign onetoones dict with key as the name of the model and value as a
-    # dict of the model's form and model.
-    onetoones = {
-        "dateofbirth": {"form": DateOfBirthFormOptional, "model": DateOfBirth},
-        "gender": {"form": GenderFormOptional, "model": Gender},
-    }
-    # Assign medhistory manytomanys to a dict of ULT_MEDHISTORYS
-    medhistorys = {
-        MedHistoryTypes.CKD: {
-            "form": CkdForm,
-            "model": Ckd,
-        },
-        MedHistoryTypes.EROSIONS: {
-            "form": ErosionsForm,
-            "model": Erosions,
-        },
-        MedHistoryTypes.HYPERURICEMIA: {
-            "form": HyperuricemiaForm,
-            "model": Hyperuricemia,
-        },
-        MedHistoryTypes.TOPHI: {
-            "form": TophiForm,
-            "model": Tophi,
-        },
-        MedHistoryTypes.URATESTONES: {
-            "form": UratestonesForm,
-            "model": Uratestones,
-        },
-    }
-    medhistory_details = {MedHistoryTypes.CKD: CkdDetailForm}
+    MEDHISTORY_DETAIL_FORMS = MEDHISTORY_DETAIL_FORMS
+    MEDHISTORY_FORMS = MEDHISTORY_FORMS
+    OTO_FORMS = OTO_FORMS
 
 
-class UltCreate(UltBaseView, MedHistorysModelCreateView, SuccessMessageMixin):
-    """View to create a new Ult instance."""
+class UltCreate(UltEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    """View to create a new Ult without a user."""
 
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"],
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"],
-        medallergys_to_save: list["MedAllergy"],
-        medhistorys_to_save: list["MedHistory"],
-        labs_to_save: list["Lab"],
-        **kwargs,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately."""
-        # Object will be returned by the super().form_valid() call
-        self.object = super().form_valid(
-            form,
-            onetoones_to_save=onetoones_to_save,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medallergys_to_save=medallergys_to_save,
-            medhistorys_to_save=medhistorys_to_save,
-            labs_to_save=labs_to_save,
-            **kwargs,
-        )
-        # Update object / form instance
-        self.object.update(qs=self.object)
-        return HttpResponseRedirect(self.get_success_url())
+    permission_required = "ults.can_add_ult"
+    success_message = "ULT successfully created."
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # object_data
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            medallergys_to_save,
-            medhistorys_to_save,
-            medhistorydetails_to_save,
-            labs_to_save,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorys_to_save=medhistorys_to_save,
-                labs_to_save=labs_to_save,
-            )
+            return self.form_valid()
 
 
-class UltDetail(DetailView):
-    """DetailView for Ult model."""
-
+class UltDetail(GoutHelperDetailMixin):
     model = Ult
     object: Ult
 
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        for content in self.contents:
-            context.update({content.slug: {content.tag: content}})  # type: ignore
-        return context
 
-    def get_queryset(self) -> "QuerySet[Any]":
-        return ult_userless_qs(self.kwargs["pk"])
+class UltPatientBase(UltEditBase):
+    """Base class for UltCreate/Update views for Ults that have a user."""
 
-    def get_object(self, *args, **kwargs) -> Ult:
-        ult: Ult = super().get_object(*args, **kwargs)  # type: ignore
-        # Check if Ult is up to date and update if not update
-        if not self.request.GET.get("updated", None):
-            ult.update(qs=ult)
-        return ult
+    class Meta:
+        abstract = True
 
-    @property
-    def contents(self):
-        return apps.get_model("contents.Content").objects.filter(Q(tag__isnull=False), context=Contexts.ULT)
+    OTO_FORMS = PATIENT_OTO_FORMS
+    REQ_OTOS = PATIENT_REQ_OTOS
+
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        """Used to set the user attribute on the view, with associated related models
+        select_related and prefetch_related."""
+        return Pseudopatient.objects.ult_qs().filter(pk=pseudopatient)
 
 
-class UltUpdate(UltBaseView, MedHistorysModelUpdateView, SuccessMessageMixin):
-    """Updates a Ult"""
+class UltPseudopatientCreate(UltPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+    """View for creating a Ult for a patient."""
 
-    def form_valid(
-        self,
-        form,
-        onetoones_to_save: list["Model"] | None,
-        onetoones_to_delete: list["Model"] | None,
-        medhistorydetails_to_save: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medhistorydetails_to_remove: list[CkdDetailForm, "BaselineCreatinine", "GoutDetailForm"] | None,
-        medallergys_to_save: list["MedAllergy"] | None,
-        medallergys_to_remove: list["MedAllergy"] | None,
-        medhistorys_to_save: list["MedHistory"] | None,
-        medhistorys_to_remove: list["MedHistory"] | None,
-        labs_to_save: list["Lab"] | None,
-        labs_to_remove: list["Lab"] | None,
-    ) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        """Overwritten to redirect appropriately and update the form instance."""
+    permission_required = "ults.can_add_ult"
+    success_message = "%(user)s's Ult successfully created."
 
-        self.object = super().form_valid(
-            form=form,
-            onetoones_to_save=onetoones_to_save,
-            onetoones_to_delete=onetoones_to_delete,
-            medhistorys_to_save=medhistorys_to_save,
-            medhistorys_to_remove=medhistorys_to_remove,
-            medhistorydetails_to_save=medhistorydetails_to_save,
-            medhistorydetails_to_remove=medhistorydetails_to_remove,
-            medallergys_to_save=medallergys_to_save,
-            medallergys_to_remove=medallergys_to_remove,
-            labs_to_save=labs_to_save,
-            labs_to_remove=labs_to_remove,
-        )
-        # Update the object / form instance
-        self.object.update(qs=self.object)
-        # Add a querystring to the success_url to trigger the DetailView to NOT re-update the object
-        return HttpResponseRedirect(self.get_success_url() + "?updated=True")
+    def get_permission_object(self):
+        """Returns the object the permission is being checked against. For this view,
+        that is the username kwarg indicating which Psuedopatient the view is trying to create
+        a Ult for."""
+        return self.user
 
-    def get_queryset(self):
-        return ult_userless_qs(self.kwargs["pk"])
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
+
+    def get_HYPERURICEMIA_initial_value(self, mh_object: "MedHistory") -> bool:
+        # Called by get_mh_initial method in GoutHelperAidMixin
+        return True if mh_object or self.user.hyperuricemia_urates else None
+
+    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+        qs = super().get_user_queryset(pseudopatient=pseudopatient)
+        return qs.prefetch_related(hyperuricemia_urates_prefetch())
 
     def post(self, request, *args, **kwargs):
-        (
-            errors,
-            form,
-            _,  # onetoone_forms
-            _,  # medallergys_forms
-            _,  # medhistorys_forms
-            _,  # medhistorydetails_forms
-            _,  # lab_formset
-            onetoones_to_save,
-            onetoones_to_delete,
-            medallergys_to_save,
-            medallergys_to_remove,
-            medhistorys_to_save,
-            medhistorys_to_remove,
-            medhistorydetails_to_save,
-            medhistorydetails_to_remove,
-            labs_to_save,
-            labs_to_remove,
-        ) = super().post(request, *args, **kwargs)
-        if errors:
-            return errors
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
         else:
-            return self.form_valid(
-                form=form,  # type: ignore
-                medallergys_to_save=medallergys_to_save,
-                medallergys_to_remove=medallergys_to_remove,
-                onetoones_to_delete=onetoones_to_delete,
-                onetoones_to_save=onetoones_to_save,
-                medhistorydetails_to_save=medhistorydetails_to_save,
-                medhistorydetails_to_remove=medhistorydetails_to_remove,
-                medhistorys_to_save=medhistorys_to_save,
-                medhistorys_to_remove=medhistorys_to_remove,
-                labs_to_save=labs_to_save,
-                labs_to_remove=labs_to_remove,
-            )
+            return self.form_valid()
+
+
+class UltPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+    model = Ult
+    object: Ult
+
+
+class UltPseudopatientUpdate(UltPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    """UpdateView for Ults with a User."""
+
+    success_message = "%(user)s's Ult successfully updated."
+
+    def get_permission_object(self):
+        return self.object
+
+    def get_success_message(self, cleaned_data) -> str:
+        return self.success_message % dict(cleaned_data, user=self.user)
+
+    def post(self, request, *args, **kwargs):
+        """Overwritten to finish the post() method and avoid conflicts with the MRO.
+        For Ult, no additional processing is needed."""
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()
+
+
+class UltUpdate(UltEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
+    """Updates a Ult"""
+
+    success_message = "ULT updated successfully."
+
+    def get_queryset(self):
+        return Ult.related_objects.filter(pk=self.kwargs["pk"])
+
+    def get_permission_object(self):
+        return self.object
+
+    def post(self, request, *args, **kwargs):
+        super().post(request, *args, **kwargs)
+        if self.errors:
+            return self.errors
+        else:
+            return self.form_valid()

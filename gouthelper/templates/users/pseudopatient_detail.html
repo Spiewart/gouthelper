@@ -1,56 +1,83 @@
 {% extends "base.html" %}
 
 {% load static %}
+{% load project_tags %}
 
 {% block title %}
   {{ object }}
 {% endblock title %}
-{% block content %}
-  <div class="container">
-    <div class="row">
-      <div class="col">
-        <h2>{{ object }}</h2>
-      </div>
-      <div class="col align-items-center d-flex justify-content-end">
-        <a type="button"
-           class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'users:pseudopatient-update' object.username %}"
-           role="button">Update Profile</a>
-        <a type="button"
-           class="btn btn-primary btn-lg spacious-buttons"
-           href="{% url 'users:pseudopatient-delete' object.username %}"
-           role="button">Delete</a>
-      </div>
+{% block heading %}
+  <div class="row">
+    <div class="col">
+      <h1>{{ object }}</h1>
     </div>
-    <a class="btn btn-primary"
-       href="{% url 'flareaids:pseudopatient-detail' object.username %}"
-       role="button">FlareAid</a>
-    <a class="btn btn-primary"
-       href="{% url 'flares:pseudopatient-list' object.username %}"
-       role="button">Flares</a>
-    <a class="btn btn-primary"
-       href="{% url 'goalurates:pseudopatient-detail' object.username %}"
-       role="button">GoalUrate</a>
-    <div class="row">
-      <div class="col-sm-6">{% include 'users/demographics.html' with object=object %}</div>
-      <div class="col-sm-6">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>
+    <div class="col-auto align-items-center d-flex justify-content-end">
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'users:pseudopatient-update' object.pk %}"
+         role="button">Update</a>
+      <a type="button"
+         class="btn btn-primary btn-lg spacious-buttons"
+         href="{% url 'users:pseudopatient-delete' object.pk %}"
+         role="button">Delete</a>
     </div>
   </div>
-  {% if object == request.user %}
-    <!-- Action buttons -->
-    <div class="row">
-      <div class="col-sm-12">
-        <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
-        <a class="btn btn-primary"
-           href="{% url 'account_email' %}"
-           role="button">E-Mail</a>
-        <a class="btn btn-primary"
-           href="{% url 'users:pseudopatients' object.username %}"
-           role="button">Pseudo-Patients</a>
-        <a class="btn btn-primary" href="{% url 'users:delete' %}" role="button">Delete Account</a>
-        <!-- Your Stuff: Custom user template urls -->
+{% endblock heading %}
+{% block content %}
+  <main role="main">
+    <div class="container">
+      <hr size="3" color="dark" />
+      <div class="row">
+        <div class="col">{% include 'medhistorydetails/goutdetail.html' with object=object.goutdetail %}</div>
+        <div class="col-auto">{% include 'users/demographics.html' with object=object %}</div>
+      </div>
+      <hr size="3" color="dark" />
+      <div class="row">
+        <div class="col">
+          <h4>Decision Aids</h4>
+          {% include 'ults/ult_detail_card.html' with ult=object.ult %}
+          {% include 'ppxs/ppx_detail_card.html' with ppx=object.ppx %}
+          {% include 'flares/flare_detail_card.html' with flare=object.most_recent_flare.0 card_title='Latest Flare ' %}
+          {% include 'goalurates/goalurate_detail_card.html' with goalurate=object.goalurate %}
+        </div>
+        <div class="col">
+          <h4>Treatment Aids</h4>
+          {% include 'flareaids/flareaid_detail_card.html' with flareaid=object.flareaid %}
+          {% include 'ppxaids/ppxaid_detail_card.html' with ppxaid=object.ppxaid %}
+          {% include 'ultaids/ultaid_detail_card.html' with ultaid=object.ultaid %}
+        </div>
       </div>
     </div>
-    <!-- End Action buttons -->
-  {% endif %}
+    {% if object == request.user %}
+      <!-- Action buttons -->
+      <div class="row">
+        <div class="col-sm-12">
+          <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
+          <a class="btn btn-primary"
+             href="{% url 'account_email' %}"
+             role="button">E-Mail</a>
+          <a class="btn btn-primary"
+             href="{% url 'users:pseudopatients' object.username %}"
+             role="button">Pseudo-Patients</a>
+          <a class="btn btn-primary" href="{% url 'users:delete' %}" role="button">Delete Account</a>
+          <!-- Your Stuff: Custom user template urls -->
+        </div>
+      </div>
+      <!-- End Action buttons -->
+    {% endif %}
+  </main>
 {% endblock content %}
+{% block inline_javascript %}
+  {{ block.super }}
+  <script>
+    $(document).ready(function() {
+      $('.collapse').each(function() {
+        $(this).on("hidden.bs.collapse", collapse_control);
+      });
+      $('.collapse').each(function() {
+        $(this).on('shown.bs.collapse', expand_control);
+      });
+      check_for_and_expand_collapse();
+    });
+  </script>
+{% endblock inline_javascript %}

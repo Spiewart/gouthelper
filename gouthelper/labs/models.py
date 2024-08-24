@@ -1,7 +1,6 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal, Union
 
-from django.apps import apps  # type: ignore
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -12,88 +11,82 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
+from ..dateofbirths.helpers import age_calc
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.models import GoutHelperModel
-from .choices import Abnormalitys, LabTypes, LowerLimits, Units, UpperLimits
+from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
+from ..utils.models import GoalUrateMixin, GoutHelperModel
+from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import (
+    labs_creatinine_is_at_baseline_creatinine,
+    labs_creatinine_within_range_for_stage,
     labs_eGFR_calculator,
-    labs_get_default_labtype,
-    labs_get_default_lower_limit,
-    labs_get_default_units,
-    labs_get_default_upper_limit,
     labs_stage_calculator,
 )
-from .managers import CreatinineManager, UrateManager
 
 if TYPE_CHECKING:
+    from ..dateofbirths.models import DateOfBirth
+    from ..genders.models import Gender
     from ..medhistorydetails.choices import Stages
+    from ..medhistorydetails.models import CkdDetail
+    from ..medhistorys.models import Ckd
 
 
-class CreatinineBase:
+class CreatinineBase(models.Model):
     class Meta:
         abstract = True
 
-    @property
-    def eGFR(self: "BaselineCreatinine") -> Decimal:  # type: ignore
+    LowerLimits = LowerLimits
+    Units = Units
+    UpperLimits = UpperLimits
+
+    lower_limit = models.DecimalField(max_digits=4, decimal_places=2, default=LowerLimits.CREATININEMGDL)
+    units = models.CharField(_("Units"), choices=Units.choices, max_length=10, default=Units.MGDL)
+    upper_limit = models.DecimalField(max_digits=4, decimal_places=2, default=UpperLimits.CREATININEMGDL)
+    value = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+    )
+
+    @classmethod
+    def medhistorytype(cls):
+        return MedHistoryTypes.CKD
+
+    @cached_property
+    def value_str(self) -> str:
+        return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+
+    def __str__(self):
+        return f"Creatinine: {self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+
+    def calculate_eGFR(
+        self: "BaselineCreatinine",
+        age: int,
+        gender: int,
+    ) -> Decimal:  # type: ignore
         """
         Method for calculating eGFR.
         Requires age, gender, race, and a creatinine value.
         Required variables can be called with method or pulled from object's user's profile.
         """
-        return labs_eGFR_calculator(creatinine=self)
+        return labs_eGFR_calculator(creatinine=self.value, age=age, gender=gender)
 
-    @property
-    def stage(self: "BaselineCreatinine") -> "Stages":  # type: ignore
+    def calculate_stage(
+        self: "BaselineCreatinine",
+        age: int,
+        gender: int,
+    ) -> "Stages":  # type: ignore
         """Method that takes calculated eGFR and returns Ckd stage
 
         Returns:
             [Stages / int]: [CKD stage]
         """
         # self.eGFR returns a Decimal for labs_stage_calculator()
-        return labs_stage_calculator(self.eGFR)
+        return labs_stage_calculator(self.calculate_eGFR(age=age, gender=gender))
 
 
 class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         abstract = True
-        constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_labtype_valid",
-                check=models.Q(labtype__in=LabTypes.values),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
-                check=(
-                    (
-                        models.Q(labtype=LabTypes.CREATININE)
-                        & models.Q(lower_limit=LowerLimits.CREATININEMGDL)
-                        & models.Q(units=Units.MGDL)
-                        & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
-                    )
-                    | (
-                        models.Q(labtype=LabTypes.URATE)
-                        & models.Q(lower_limit=LowerLimits.URATEMGDL)
-                        & models.Q(units=Units.MGDL)
-                        & models.Q(upper_limit=UpperLimits.URATEMGDL)
-                        & models.Q(value__lte=Decimal("30.00"))
-                    )
-                ),
-            ),
-        ]
-
-    LabTypes = LabTypes
-    LowerLimits = LowerLimits
-    Units = Units
-    UpperLimits = UpperLimits
-
-    labtype = models.CharField(_("Lab Type"), max_length=30, choices=LabTypes.choices, editable=False)
-    lower_limit = models.DecimalField(max_digits=6, decimal_places=2)
-    units = models.CharField(_("Units"), choices=Units.choices, max_length=10)
-    upper_limit = models.DecimalField(max_digits=6, decimal_places=2)
-    value = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
-    )
 
     @cached_property
     def abnormality(self) -> Literal[Abnormalitys.HIGH] | None:
@@ -110,45 +103,19 @@ class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rule
     def low(self):
         return self.value < self.lower_limit
 
-    def set_fields(self):
-        """Method that sets the default values for the labtype, lower_limit, units, and upper_limit."""
-        lab_name = self._meta.model.__name__.upper()
-        if lab_name.startswith("BASELINE"):
-            lab_name = lab_name.replace("BASELINE", "")
-        if not self.labtype:
-            self.labtype = labs_get_default_labtype(lab_name=lab_name)
-        if not self.lower_limit:
-            self.lower_limit = labs_get_default_lower_limit(lab_name=lab_name)
-        if not self.units:
-            self.units = labs_get_default_units(lab_name=lab_name)
-        if not self.upper_limit:
-            self.upper_limit = labs_get_default_upper_limit(lab_name=lab_name)
-
 
 class BaselineLab(LabBase):
-    class Meta(LabBase.Meta):
+    class Meta:
         abstract = True
-        constraints = LabBase.Meta.constraints
 
     medhistory = models.OneToOneField("medhistorys.MedHistory", on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f"{self.labtype}: {self.value} {self.units}"
-
-    def save(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Overwritten to set fields on object creation."""
-        if self._state.adding is True:
-            self.set_fields()
-        super().save(*args, **kwargs)
+    history = HistoricalRecords(inherit=True)
 
 
 class Lab(LabBase):
-    class Meta(LabBase.Meta):
-        constraints = LabBase.Meta.constraints + [
+    class Meta:
+        abstract = True
+        constraints = [
             models.CheckConstraint(
                 check=models.Q(date_drawn__lte=models.functions.Now()),
                 name="%(app_label)s_%(class)s_date_drawn_not_in_future",
@@ -162,57 +129,8 @@ class Lab(LabBase):
         null=True,
         blank=True,
     )
-    history = HistoricalRecords()
+    history = HistoricalRecords(inherit=True)
     objects = models.Manager()
-
-    def delete(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Overwritten to change class before and after calling super().delete()
-        so Django-Simple-History works."""
-        # Change class to Lab, call super().delete(), then change class back
-        # to proxy model class in order for Django-Simple-History to work properly
-        self.__class__ = Lab
-        super().delete(*args, **kwargs)
-        self.__class__ = apps.get_model(f"labs.{self.labtype}")
-
-    def save(
-        self,
-        *args,
-        **kwargs,
-    ):
-        """Overwritten to change class before and after calling super().save()
-        so Django-Simple-History works."""
-        # Change class to MedHistory, call super().save(), then change class back
-        # to proxy model class in order for Django-Simple-History to work properly
-        if self._state.adding is True:
-            self.set_fields()
-        self.__class__ = Lab
-        super().save(*args, **kwargs)
-        self.__class__ = apps.get_model(f"labs.{self.labtype}")
-
-    def __str__(self):
-        return apps.get_model("labs", self.labtype).__str__(self)
-
-    def get_medhistorytype(
-        self,
-    ) -> MedHistoryTypes:
-        """Method that returns the medhistorytype that is specific for this lab and
-        its associated abnormality (HIGH or LOW).
-
-        Returns:
-            Literal[MedHistoryTypes]
-        """
-        model: Any = apps.get_model(f"labs.{self.labtype}")
-        method = model.get_medhistorytype
-        return method(self)
-
-    def medhistorytypes(self) -> list[MedHistoryTypes]:
-        model: Any = apps.get_model("labs", self.labtype)
-        method = model.medhistorytypes
-        return method(self)
 
     def var_x_high(
         self,
@@ -252,40 +170,212 @@ class Lab(LabBase):
 
 
 class BaselineCreatinine(CreatinineBase, BaselineLab):
-    class Meta(BaselineLab.Meta):
-        constraints = BaselineLab.Meta.constraints
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
 
-    history = HistoricalRecords()
-    objects = CreatinineManager()
+    def __str__(self):
+        return f"Baseline {super().__str__()}"
+
+
+class Creatinine(CreatinineBase, Lab):
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.CREATININEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.CREATININEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
+
+    aki = models.ForeignKey(
+        "akis.Aki",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
 
     @cached_property
-    def value_str(self) -> str:
-        return f"{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+    def age(self):
+        return age_calc(date_of_birth=self.dateofbirth.value) if self.dateofbirth else None
+
+    @cached_property
+    def ckd(self) -> Union["Ckd", None]:
+        if self.user:
+            return medhistory_attr(
+                MedHistoryTypes.CKD, self.user, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
+            )
+        elif self.aki and hasattr(self.aki, "flare"):
+            return medhistory_attr(
+                MedHistoryTypes.CKD, self.aki.flare, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
+            )
+        else:
+            return None
+
+    @cached_property
+    def ckddetail(self) -> Union["CkdDetail", None]:
+        if self.ckd:
+            return getattr(self.ckd, "ckddetail", None)
+        else:
+            return None
+
+    @cached_property
+    def baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
+        if self.ckd:
+            return getattr(self.ckd, "baselinecreatinine", None)
+        else:
+            return None
+
+    def check_for_age_and_gender(self) -> None:
+        if not self.age or not self.gender:
+            if not self.age and not self.gender:
+                raise ValueError(f"{self} has no associated age or gender")
+            elif not self.age:
+                raise ValueError(f"{self} has no associated age.")
+            else:
+                raise ValueError(f"{self} has no associated gender.")
+
+    @cached_property
+    def current_eGFR(self) -> Decimal:
+        self.check_for_age_and_gender()
+        return self.calculate_eGFR(age=self.age, gender=self.gender)
+
+    @cached_property
+    def current_stage(self) -> "Stages":
+        return self.calculate_stage(age=self.age, gender=self.gender)
+
+    @cached_property
+    def dateofbirth(self) -> Union["DateOfBirth", None]:
+        if self.user:
+            return self.user.dateofbirth
+        elif self.aki and hasattr(self.aki, "flare"):
+            return self.aki.flare.dateofbirth
+        else:
+            return None
+
+    @cached_property
+    def gender(self) -> Union["Gender", None]:
+        if self.user:
+            return self.user.gender
+        elif self.aki and hasattr(self.aki, "flare"):
+            return self.aki.flare.gender
+        else:
+            return None
+
+    @cached_property
+    def is_at_baseline(self) -> bool:
+        if not self.baselinecreatinine or not self.baselinecreatinine.value:
+            raise ValueError(f"{self} has no BaselineCreatinine to compare for baseline equivalence.")
+        elif self.ckddetail and self.ckddetail.dialysis:
+            raise ValueError(f"Comparing {self} to {self.ckddetail.explanation}.")
+        return labs_creatinine_is_at_baseline_creatinine(self, self.baselinecreatinine.value)
+
+    @cached_property
+    def is_within_normal_limits(self) -> bool:
+        return self.value <= self.upper_limit
+
+    @cached_property
+    def is_within_range_for_stage(self) -> bool:
+        if not self.ckddetail:
+            raise ValueError(f"{self} has no associated CkdDetail.")
+        elif self.ckddetail.dialysis:
+            raise ValueError(f"Comparing {self} to {self.ckddetail.explanation}.")
+        self.check_for_age_and_gender()
+        return labs_creatinine_within_range_for_stage(self, self.ckddetail.stage, self.age, self.gender.value)
+
+    @classmethod
+    def related_models(cls) -> list[Literal["aki"]]:
+        return ["aki"]
+
+    @cached_property
+    def stage(self) -> Union["Stages", None]:
+        if self.ckddetail:
+            return self.ckddetail.stage
+        else:
+            return None
+
+
+class Urate(Lab, GoalUrateMixin):
+    class Meta(Lab.Meta):
+        constraints = Lab.Meta.constraints + [
+            # If there's a User, there can be no associated Ppx objects
+            models.CheckConstraint(
+                name="%(app_label)s_%(class)s_user_ppx_exclusive",
+                check=(
+                    models.Q(user__isnull=False, ppx__isnull=True)
+                    | models.Q(user__isnull=True, ppx__isnull=False)
+                    | models.Q(user__isnull=True, ppx__isnull=True)
+                ),
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(lower_limit=LowerLimits.URATEMGDL)
+                    & models.Q(units=Units.MGDL)
+                    & models.Q(upper_limit=UpperLimits.URATEMGDL)
+                ),
+                name="%(app_label)s_%(class)s_units_upper_lower_limits_valid",
+            ),
+        ]
+
+    LowerLimits = LowerLimits
+    Units = Units
+    UpperLimits = UpperLimits
+
+    lower_limit = models.DecimalField(max_digits=3, decimal_places=1, default=LowerLimits.URATEMGDL)
+    ppx = models.ForeignKey(
+        "ppxs.Ppx",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    units = models.CharField(_("Units"), choices=Units.choices, max_length=10, default=Units.MGDL)
+    upper_limit = models.DecimalField(max_digits=3, decimal_places=1, default=UpperLimits.URATEMGDL)
+    value = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+    )
 
     def __str__(self):
-        return f"Baseline {self.get_labtype_display()}: \
-{self.value.quantize(Decimal('1.00'))} {self.get_units_display()}"
+        if self.value:
+            return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+        else:
+            return "Urate: No value"
 
+    @cached_property
+    def at_goal(self) -> bool:
+        return self.value <= self.goal_urate
 
-class Urate(Lab):
-    class Meta:
-        proxy = True
+    @cached_property
+    def flare_date_or_date_drawn(self):
+        if hasattr(self, "flare"):
+            return self.flare.date_started
+        elif self.date_drawn:
+            return self.date_drawn.date()
+        else:
+            raise ValueError(f"Urate ({self}) has no date_drawn or associated flare.")
 
-    objects = UrateManager()
+    @property
+    def meets_definition_of_hyperuricemia(self) -> bool:
+        return self.value > Decimal("9.0")
 
-    def __str__(self):
-        return f"{self.get_labtype_display()}: \
-{self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
-
-    def get_medhistorytype(self) -> Literal[MedHistoryTypes.GOUT]:
-        return MedHistoryTypes.GOUT
+    @classmethod
+    def related_models(cls) -> list[Literal["ppx"]]:
+        return ["ppx"]
 
     @cached_property
     def value_str(self):
         return f"{self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
-
-    def medhistorytypes(self) -> list[Literal[MedHistoryTypes.GOUT]]:
-        return [MedHistoryTypes.GOUT]
 
 
 class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -303,4 +393,15 @@ class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rul
         verbose_name=_("HLA-B*5801"),
         help_text=_("HLA-B*5801 genotype present?"),
     )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+
     history = HistoricalRecords()
+    objects = models.Manager()
+
+    def __str__(self):
+        return f"HLA-B*5801: {'positive' if self.value else 'negative'}"

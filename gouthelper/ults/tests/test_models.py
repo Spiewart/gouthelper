@@ -1,56 +1,45 @@
 import pytest  # type: ignore
 from django.db.utils import IntegrityError  # type: ignore
 from django.test import TestCase  # type: ignore
+from factory.faker import faker  # type: ignore
 
 from ...medhistorydetails.choices import Stages
-from ...medhistorydetails.tests.factories import CkdDetailFactory
+from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULT_MEDHISTORYS
-from ...medhistorys.tests.factories import (
-    CkdFactory,
-    ErosionsFactory,
-    HyperuricemiaFactory,
-    TophiFactory,
-    UratestonesFactory,
-)
+from ...users.tests.factories import create_psp
 from ..choices import FlareFreqs, FlareNums, Indications
 from ..models import Ult
-from .factories import UltFactory
+from .factories import create_ult
 
 pytestmark = pytest.mark.django_db
 
-
-def remove_cps(ult: Ult) -> None:
-    """Remove all related medhistorys and medhistorydetails from an Ult instance.
-    Meant to clear cached_properties for testing."""
-    ult.medhistorys.all().delete()
-    attrs = ["ckd", "ckddetail", "erosions", "hyperuricemia", "tophi", "uratestones"]
-    for attr in attrs:
-        try:
-            delattr(ult, attr)
-        except AttributeError:
-            pass
+fake = faker.Faker()
 
 
-class TestUltAid(TestCase):
+class TestUlt(TestCase):
     def setUp(self):
-        self.ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        for _ in range(10):
+            create_ult(user=create_psp() if fake.boolean() else None)
+        self.ult_without_user = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        self.ult_with_user = Ult.related_objects.filter(user__isnull=False).first()
+        self.ults = Ult.related_objects.all()
 
     def test__num_flares_valid_constraint(self):
-        self.ult.num_flares = 100
+        self.ult_without_user.num_flares = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult.save()
+            self.ult_without_user.save()
         self.assertIn("num_flares_valid", str(e.exception))
 
     def test__freq_flares_valid_constraint(self):
-        self.ult.freq_flares = 100
+        self.ult_without_user.freq_flares = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult.save()
+            self.ult_without_user.save()
         self.assertIn("freq_flares_valid", str(e.exception))
 
     def test__indication_valid_constraint(self):
-        self.ult.indication = 100
+        self.ult_without_user.indication = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult.save()
+            self.ult_without_user.save()
         self.assertIn("indication_valid", str(e.exception))
 
     def test__freq_num_flares_valid_constraint_1(self):
@@ -69,186 +58,135 @@ class TestUltAid(TestCase):
         self.assertIn("freq_num_flares_valid", str(e.exception))
 
     def test__aid_medhistorys(self):
-        self.assertEqual(self.ult.aid_medhistorys(), ULT_MEDHISTORYS)
+        self.assertEqual(self.ult_without_user.aid_medhistorys(), ULT_MEDHISTORYS)
 
     def test__ckd(self):
-        ckd = CkdFactory()
-        self.ult.medhistorys.add(ckd)
-        self.assertFalse(self.ult.ckd)
-        del self.ult.ckd
-        ckddetail = CkdDetailFactory(medhistory=ckd, stage=Stages.TWO)
-        self.assertFalse(self.ult.ckd)
-        del self.ult.ckd
-        ckddetail.stage = Stages.THREE
-        ckddetail.save()
-        self.assertTrue(self.ult.ckd)
+        for ult in self.ults:
+            if getattr(ult, "user"):
+                if next(
+                    iter(mh for mh in ult.user.medhistory_set.all() if mh.medhistorytype == MedHistoryTypes.CKD), None
+                ):
+                    self.assertTrue(ult.ckd)
+                else:
+                    self.assertFalse(ult.ckd)
+            else:
+                if next(iter(mh for mh in ult.medhistorys_qs if mh.medhistorytype == MedHistoryTypes.CKD), None):
+                    self.assertTrue(ult.ckd)
+                else:
+                    self.assertFalse(ult.ckd)
+
+    def test__ckd3(self):
+        for ult in self.ults:
+            if getattr(ult, "user"):
+                if next(
+                    iter(
+                        mh
+                        for mh in ult.user.medhistory_set.select_related("ckddetail").all()
+                        if mh.medhistorytype == MedHistoryTypes.CKD
+                        and mh.ckddetail
+                        and mh.ckddetail.stage >= Stages.THREE
+                    ),
+                    None,
+                ):
+                    self.assertTrue(ult.ckd3)
+                else:
+                    self.assertFalse(ult.ckd3)
+            else:
+                if next(
+                    iter(
+                        mh
+                        for mh in ult.medhistorys_qs
+                        if mh.medhistorytype == MedHistoryTypes.CKD
+                        and hasattr(mh, "ckddetail")
+                        and mh.ckddetail.stage >= Stages.THREE
+                    ),
+                    None,
+                ):
+                    self.assertTrue(ult.ckd3)
+                else:
+                    self.assertFalse(ult.ckd3)
 
     def test__conditional_indication(self):
-        self.assertFalse(self.ult.conditional_indication)
-        self.ult.indication = Indications.CONDITIONAL
-        self.ult.save()
-        del self.ult.conditional_indication
-        self.assertTrue(self.ult.conditional_indication)
+        for ult in self.ults:
+            if ult.indication == Indications.CONDITIONAL:
+                self.assertTrue(ult.conditional_indication)
+            else:
+                self.assertFalse(ult.conditional_indication)
 
     def test__contraindicated(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertTrue(ult1.contraindicated)
-        del ult1.contraindicated
-        ckd = CkdFactory()
-        ult1.medhistorys.add(ckd)
-        CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        del ult1.ckd
-        del ult1.ckddetail
-        self.assertFalse(ult1.contraindicated)
-        ult1.medhistorys.all().delete()
-        del ult1.contraindicated
-        del ult1.ckd
-        del ult1.ckddetail
-        del ult1.uratestones
-        ult1.medhistorys.add(UratestonesFactory())
-        self.assertFalse(ult1.contraindicated)
-        del ult1.contraindicated
-        del ult1.uratestones
-        ult1.medhistorys.all().delete()
-        self.assertTrue(ult1.contraindicated)
-        del ult1.contraindicated
-        del ult1.hyperuricemia
-        ult1.medhistorys.add(HyperuricemiaFactory())
-        self.assertFalse(ult1.contraindicated)
-        ult2 = UltFactory(num_flares=FlareNums.ZERO, freq_flares=None)
-        self.assertTrue(ult2.contraindicated)
-        ult2.medhistorys.add(ErosionsFactory())
-        del ult2.contraindicated
-        del ult2.erosions
-        self.assertFalse(ult2.contraindicated)
-        ult2.medhistorys.all().delete()
-        del ult2.contraindicated
-        del ult2.erosions
-        self.assertTrue(ult2.contraindicated)
-        del ult2.contraindicated
-        del ult2.tophi
-        ult2.medhistorys.add(TophiFactory())
-        self.assertFalse(ult2.contraindicated)
+        for ult in self.ults:
+            if (
+                ult.num_flares == FlareNums.ONE
+                and not (ult.ckd3 or ult.erosions or ult.hyperuricemia or ult.tophi or ult.uratestones)
+                or (ult.num_flares == FlareNums.ZERO and not (ult.erosions or ult.tophi))
+            ):
+                self.assertTrue(ult.contraindicated)
+            else:
+                self.assertFalse(ult.contraindicated)
 
     def test__firstflare(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertTrue(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        ckd = CkdFactory()
-        CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ult1.medhistorys.add(ckd)
-        self.assertFalse(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        self.assertTrue(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        # Add an erosions
-        ult1.medhistorys.add(ErosionsFactory())
-        self.assertFalse(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        self.assertTrue(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        # Add a tophi
-        ult1.medhistorys.add(TophiFactory())
-        self.assertFalse(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        self.assertTrue(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        # Add a uratestones
-        ult1.medhistorys.add(UratestonesFactory())
-        self.assertFalse(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        self.assertTrue(ult1.firstflare)
-        del ult1.firstflare
-        remove_cps(ult1)
-        # Add a hyperuricemia
-        ult1.medhistorys.add(HyperuricemiaFactory())
-        self.assertFalse(ult1.firstflare)
+        for ult in self.ults:
+            if ult.num_flares == FlareNums.ONE:
+                self.assertTrue(ult.firstflare)
+            else:
+                self.assertFalse(ult.firstflare)
 
     def test__firstflare_plus(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertFalse(ult1.firstflare_plus)
-        del ult1.firstflare_plus
-        remove_cps(ult1)
-        ckd = CkdFactory()
-        CkdDetailFactory(medhistory=ckd, stage=Stages.THREE)
-        ult1.medhistorys.add(ckd)
-        self.assertTrue(ult1.firstflare_plus)
-        del ult1.firstflare_plus
-        remove_cps(ult1)
-        self.assertFalse(ult1.firstflare_plus)
-        del ult1.firstflare_plus
-        remove_cps(ult1)
-        # Add a hyperuricemia
-        ult1.medhistorys.add(HyperuricemiaFactory())
-        self.assertTrue(ult1.firstflare_plus)
-        del ult1.firstflare_plus
-        remove_cps(ult1)
-        self.assertFalse(ult1.firstflare_plus)
-        del ult1.firstflare_plus
-        remove_cps(ult1)
-        # Add a uratestones
-        ult1.medhistorys.add(UratestonesFactory())
-        self.assertTrue(ult1.firstflare_plus)
+        for ult in self.ults:
+            if ult.num_flares == FlareNums.ONE and (ult.ckd3 or ult.hyperuricemia or ult.uratestones):
+                self.assertTrue(ult.firstflare_plus)
+            else:
+                self.assertFalse(ult.firstflare_plus)
 
     def test__frequentflares(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertFalse(ult1.frequentflares)
-        ult2 = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
-        self.assertTrue(ult2.frequentflares)
+        for ult in self.ults:
+            if ult.num_flares == FlareNums.TWOPLUS and ult.freq_flares == FlareFreqs.TWOORMORE:
+                self.assertTrue(ult.frequentflares)
+            else:
+                self.assertFalse(ult.frequentflares)
 
     def test__get_absolute_url(self):
-        self.assertEqual(self.ult.get_absolute_url(), f"/ults/{self.ult.pk}/")
+        for ult in self.ults:
+            if ult.user:
+                self.assertEqual(ult.get_absolute_url(), f"/ults/goutpatient-detail/{ult.user.pk}/")
+            else:
+                self.assertEqual(self.ult_without_user.get_absolute_url(), f"/ults/{self.ult_without_user.pk}/")
 
     def test__indicated(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None, indication=Indications.NOTINDICATED)
-        self.assertFalse(ult1.indicated)
-        ult2 = UltFactory(
-            num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE, indication=Indications.INDICATED
-        )
-        self.assertTrue(ult2.indicated)
-        ult3 = UltFactory(
-            num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE, indication=Indications.CONDITIONAL
-        )
-        self.assertTrue(ult3.indicated)
+        for ult in self.ults:
+            if ult.indication == Indications.INDICATED or ult.indication == Indications.CONDITIONAL:
+                self.assertTrue(ult.indicated)
+            else:
+                self.assertFalse(ult.indicated)
 
     def test__multipleflares(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertFalse(ult1.multipleflares)
-        ult2 = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.ONEORLESS)
-        self.assertTrue(ult2.multipleflares)
+        for ult in self.ults:
+            if ult.freq_flares == FlareFreqs.ONEORLESS and ult.num_flares == FlareNums.TWOPLUS:
+                self.assertTrue(ult.multipleflares)
+            else:
+                self.assertFalse(ult.multipleflares)
 
     def test__noflares(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertFalse(ult1.noflares)
-        ult2 = UltFactory(num_flares=FlareNums.ZERO, freq_flares=None)
-        self.assertTrue(ult2.noflares)
+        for ult in self.ults:
+            if ult.num_flares == FlareNums.ZERO:
+                self.assertTrue(ult.noflares)
+            else:
+                self.assertFalse(ult.noflares)
 
     def test___str__(self):
-        self.assertEqual(str(self.ult), f"Ult: {Indications(self.ult.indication).label}")
+        self.assertEqual(str(self.ult_without_user), f"Ult: {self.ult_without_user.get_indication_display()}")
+        self.assertEqual(str(self.ult_with_user), f"Ult: {self.ult_with_user.get_indication_display()}")
 
     def test__strong_indication(self):
-        ult1 = UltFactory(num_flares=FlareNums.ONE, freq_flares=None)
-        self.assertFalse(ult1.strong_indication)
-        ult2 = UltFactory(
-            num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE, indication=Indications.INDICATED
-        )
-        self.assertTrue(ult2.strong_indication)
-        ult3 = UltFactory(
-            num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE, indication=Indications.CONDITIONAL
-        )
-        self.assertFalse(ult3.strong_indication)
+        for ult in self.ults:
+            if ult.indication == Indications.INDICATED:
+                self.assertTrue(ult.strong_indication)
+            else:
+                self.assertFalse(ult.strong_indication)
 
-    def test__update(self):
-        ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+    def test__update_aid(self):
+        ult = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
         self.assertEqual(ult.indication, Indications.NOTINDICATED)
-        ult.update()
+        ult.update_aid()
         ult.refresh_from_db()
         self.assertEqual(ult.indication, Indications.INDICATED)

@@ -5,12 +5,12 @@ from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ..utils.exceptions import EmptyRelatedModel
-from ..utils.forms import OneToOneForm
+from ..utils.forms import ModelFormKwargMixin, OneToOneForm
 from .helpers import yearsago
 from .models import DateOfBirth
 
 
-class DateOfBirthForm(OneToOneForm):
+class DateOfBirthForm(ModelFormKwargMixin, OneToOneForm):
     class Meta:
         model = DateOfBirth
         fields = ("value",)
@@ -25,7 +25,9 @@ class DateOfBirthForm(OneToOneForm):
         self.fields["value"] = IntegerField(
             label=_("Age"),
             help_text=format_lazy(
-                """How old is the patient (range: 18-120)? <a href="{}" target="_next">Why do we need to know?</a>""",
+                """How old {} {}? <a href="{}" target="_next">Why do we need to know?</a>""",
+                self.str_attrs["tobe"],
+                self.str_attrs["subject_the"],
                 reverse_lazy("dateofbirths:about"),
             ),
             min_value=18,
@@ -55,7 +57,7 @@ class DateOfBirthForm(OneToOneForm):
             except ValueError:
                 pass
             else:
-                return yearsago(value)
+                return yearsago(value, use_datetime=False)
 
 
 class DateOfBirthFormOptional(DateOfBirthForm):

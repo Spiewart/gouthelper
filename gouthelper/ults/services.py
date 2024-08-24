@@ -1,33 +1,32 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps  # pylint: disable=E0401 # type: ignore
+from django.contrib.auth import get_user_model  # pylint: disable=E0401 # type: ignore
+
 from ..medhistorys.lists import ULT_MEDHISTORYS
-from ..utils.helpers.aid_helpers import aids_assign_ckddetail
+from ..utils.services import AidService, aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .choices import FlareFreqs, FlareNums, Indications
-from .selectors import ult_userless_qs
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from ..medhistorydetails.models import CkdDetail
     from ..medhistorys.models import MedHistory
-    from ..ults.models import Ult
+    from .models import Ult
+
+User = get_user_model()
 
 
-class UltDecisionAid:
+class UltDecisionAid(AidService):
     """Class method for creating/updating Ult indication fields."""
 
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["Ult", None] = None,
+        qs: Union["Ult", User, None] = None,
     ):
-        if qs is not None:
-            self.ult = qs
-        else:
-            self.ult = ult_userless_qs(pk=pk).get()
-        self.medhistorys = self.ult.medhistorys_qs
-        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
+        super().__init__(qs=qs, model=apps.get_model(app_label="ults", model_name="Ult"))
         self._assign_medhistorys()
+        self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
+        self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
+        self.initial_indication = self.model_attr.indication
 
     ckd: Union["MedHistory", None]
     ckddetail: Union["CkdDetail", None]
@@ -45,8 +44,18 @@ class UltDecisionAid:
         for each medhistory in ULT_MEDHISTORYS. Assign the attribute to the matching
         medhistory in self.medhistorys if it exists, None if not."""
         for medhistorytype in ULT_MEDHISTORYS:
-            medhistory = [medhistory for medhistory in self.medhistorys if medhistory.medhistorytype == medhistorytype]
-            setattr(self, medhistorytype.lower(), medhistory[0] if medhistory else None)
+            setattr(
+                self,
+                medhistorytype.lower(),
+                next(
+                    iter(
+                        [medhistory for medhistory in self.medhistorys if medhistory.medhistorytype == medhistorytype],
+                    ),
+                    None,
+                )
+                if self.medhistorys
+                else None,
+            )
 
     def _get_indication(self) -> Indications:
         """Calculates the indication for the Ult object.
@@ -60,37 +69,39 @@ class UltDecisionAid:
                 # or more flares per year.
                 self.erosions
                 or self.tophi
-                or self.ult.freq_flares == FlareFreqs.TWOORMORE
+                or self.model_attr.freq_flares == FlareFreqs.TWOORMORE
             )
-            else Indications.CONDITIONAL
-            if (
-                # ULT is conditionally indicated if there is one flare per year but with a history of more than 1 gout
-                # flare, or if there is a first and only gout flare with either CKD >= III, hyperuricemia, or history
-                # of urate kidney stones.
-                self.ult.freq_flares == FlareFreqs.ONEORLESS
-                and self.ult.num_flares == FlareNums.TWOPLUS
-                or self.ult.num_flares == FlareNums.ONE
-                and (
-                    (self.ckddetail is not None and self.ckddetail.stage >= 3)
-                    or self.hyperuricemia
-                    or self.uratestones
+            else (
+                Indications.CONDITIONAL
+                if (
+                    # ULT is conditionally indicated if there is one flare per year
+                    # but with a history of more than 1 gout flare, or if there is
+                    # a first and only gout flare with either CKD >= III,
+                    # hyperuricemia, or history of urate kidney stones.
+                    self.model_attr.freq_flares == FlareFreqs.ONEORLESS
+                    and self.model_attr.num_flares == FlareNums.TWOPLUS
+                    or self.model_attr.num_flares == FlareNums.ONE
+                    and (
+                        (self.ckddetail is not None and self.ckddetail.stage >= 3)
+                        or self.hyperuricemia
+                        or self.uratestones
+                    )
+                    # Otherwise, ULT is not indicated.
                 )
-                # Otherwise, ULT is not indicated.
+                else Indications.NOTINDICATED
             )
-            else Indications.NOTINDICATED
         )
 
     def _update(self, commit=True) -> "Ult":
-        """Updates Ult indication field.
+        """Overwritten to update the indication field."""
+        self.set_model_attr_indication()
+        return super()._update(commit=commit)
 
-        Args:
-            commit (bool): defaults to True, True will clean/save, False will not
+    def set_model_attr_indication(self) -> None:
+        self.model_attr.indication = self._get_indication()
 
-        Returns:
-            ult: Ult object
-        """
-        self.ult.indication = self._get_indication()
-        if commit:
-            self.ult.full_clean()
-            self.ult.save()
-        return self.ult
+    def aid_needs_2_be_saved(self) -> bool:
+        return self.indication_has_changed()
+
+    def indication_has_changed(self) -> bool:
+        return self.model_attr.indication != self.initial_indication

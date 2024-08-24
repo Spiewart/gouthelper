@@ -5,14 +5,14 @@ from django.test import TestCase  # type: ignore
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
 from ...profiles.models import PseudopatientProfile
 from ..selectors import goalurate_user_qs, goalurate_userless_qs
-from .factories import GoalUrateFactory, GoalUrateUserFactory
+from .factories import create_goalurate
 
 pytestmark = pytest.mark.django_db
 
 
 class TestGoalUrateUserlessQuerySet(TestCase):
     def setUp(self):
-        self.goalurate = GoalUrateFactory(tophi=True, erosions=True)
+        self.goalurate = create_goalurate(mhs=[*GOALURATE_MEDHISTORYS])
 
     def test_goalurate_userless_qs(self):
         """Test that the goalurate_userless_qs returns a queryset."""
@@ -28,13 +28,13 @@ class TestGoalUrateUserlessQuerySet(TestCase):
 
 class TestGoalUrateUserQuerySet(TestCase):
     def setUp(self):
-        self.user_goalurate = GoalUrateUserFactory(erosions=True, tophi=True)
+        self.user_goalurate = create_goalurate(mhs=[*GOALURATE_MEDHISTORYS], user=True)
 
     def test_goalurate_user_qs(self):
         """Test that the goalurate_user_qs returns a queryset."""
-        qs = goalurate_user_qs(self.user_goalurate.user.username)
+        qs = goalurate_user_qs(self.user_goalurate.user.pk)
         self.assertIsInstance(qs, QuerySet)
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             qs = qs.get()
             self.assertEqual(qs, self.user_goalurate.user)
             self.assertIsInstance(qs.pseudopatientprofile, PseudopatientProfile)

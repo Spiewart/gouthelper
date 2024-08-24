@@ -5,12 +5,8 @@ from django.test import TestCase  # type: ignore
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import ChfFactory, GastricbypassFactory, HeartattackFactory
 from ...treatments.choices import TrtTypes
-from ..models import DefaultFlareTrtSettings, DefaultMedHistory, DefaultTrt
-from ..selectors import (
-    defaults_defaultflaretrtsettings,
-    defaults_defaultmedhistorys_trttype,
-    defaults_defaulttrts_trttype,
-)
+from ..models import DefaultMedHistory, DefaultTrt, FlareAidSettings
+from ..selectors import defaults_defaultmedhistorys_trttype, defaults_defaulttrts_trttype, defaults_flareaidsettings
 
 pytestmark = pytest.mark.django_db
 
@@ -85,8 +81,8 @@ class TestDefaultsTrtTypeTrts(TestCase):
             self.assertTrue(default.trttype == TrtTypes.FLARE)
 
 
-class TestDefaultsDefaultFlareTrtSettings(TestCase):
+class TestDefaultsFlareAidSettings(TestCase):
     def test__no_user_returns_gouthelper_default(self):
-        qs = defaults_defaultflaretrtsettings(user=None)
-        self.assertTrue(isinstance(qs, DefaultFlareTrtSettings))
+        qs = defaults_flareaidsettings(user=None)
+        self.assertTrue(isinstance(qs, FlareAidSettings))
         self.assertIsNone(qs.user)

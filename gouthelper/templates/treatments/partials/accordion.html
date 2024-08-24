@@ -1,0 +1,27 @@
+{% load project_tags %}
+
+<div class="accordion" id="accordion{{ parent }}">
+  {% for trt in options %}
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#collapse{{ trt }}{{ parent }}"
+                aria-expanded="false"
+                aria-controls="collapse{{ trt }}{{ parent }}">
+          {% if modify_header %}
+            {{ trt.lower.capitalize }}
+          {% else %}
+            {{ trt }}
+          {% endif %}
+        </button>
+      </h2>
+      <div id="collapse{{ trt }}{{ parent }}"
+           class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+           data-bs-parent="#accordion{{ parent }}">
+        <div class="accordion-body">{% include accordion_body with trt=trt %}</div>
+      </div>
+    </div>
+  {% endfor %}
+</div>

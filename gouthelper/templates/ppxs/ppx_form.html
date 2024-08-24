@@ -5,34 +5,74 @@
 {% load static %}
 
 {% block title %}
-  New PpxAid
+  {% if form.instance.created %}
+    Edit Ppx
+  {% else %}
+    New Ppx
+  {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>PPx</h1>
 {% endblock heading %}
 {% block subheading %}
-  Does a patient need flare prophylaxis?
+  Does {{ str_attrs.subject_the }} need flare prophylaxis?
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            id="ppx-form"
-            method="post"
-            action="{% url 'ppxs:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:pseudopatient-update' object.user.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:update' object.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            id="ppx-form"
-            method="post"
-            action="{% url 'ppxs:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:pseudopatient-create' view.kwargs.pseudopatient %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% elif view.kwargs.ppxaid %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:ppxaid-create' view.kwargs.ppxaid %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              id="ppx-form"
+              method="post"
+              action="{% url 'ppxs:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
@@ -42,7 +82,7 @@
     $(document).ready(function() {
       $(function() {
         $('#ppx-form tbody tr').formset({
-          prefix: '{{ lab_formset.prefix }}',
+          prefix: '{{ urate_formset.prefix}}',
           added: function() {
             $('input[id*="date_drawn"]').each(function() {
               var css_class = $(this).attr('class');
@@ -73,10 +113,10 @@
             // Check if the input has a value
             if (id_input.val()) {
               // If it does, check if TOTAL_FORMS is less than INITIAL_FORMS
-              var initial_forms = '{{ lab_formset.prefix }}' + '-INITIAL_FORMS';
+              var initial_forms = '{{ urate_formset.prefix}}' + '-INITIAL_FORMS';
               var initial_forms_input = $('#id_' + initial_forms);
               // If it does, then add one back to formset TOTAL_FORMS
-              var total_forms = '{{ lab_formset.prefix }}' + '-TOTAL_FORMS';
+              var total_forms = '{{ urate_formset.prefix}}' + '-TOTAL_FORMS';
               var total_forms_input = $('#id_' + total_forms);
               var total_initial_dif = (parseInt(initial_forms_input.val()) - parseInt(total_forms_input.val()) + 1);
               if (total_initial_dif > 0) {
@@ -86,18 +126,8 @@
           },
         });
       })
+      datepickers();
     });
-    $('input[id*="date_drawn"]').each(function() {
-      $(this).datepicker({
-        changeYear: true,
-        minDate: "-2y",
-        maxDate: "0",
-      });
-    });
-    document.ready = function() {
-      // call starting_ult_help_text() to set the help text for the starting_ult field
-      $('#id_on_ult').change(starting_ult_help_text);
-      starting_ult_help_text($('#id_on_ult'));
-    };
   </script>
+  {% include 'medhistorydetails/_goutdetail_js.html' %}
 {% endblock inline_javascript %}

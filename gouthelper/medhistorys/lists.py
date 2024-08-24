@@ -41,6 +41,7 @@ FLAREAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
 ]
@@ -50,6 +51,7 @@ OTHER_NSAID_CONTRAS: list[MedHistoryTypes] = [
     MedHistoryTypes.BLEED,  # History of Serious Bleeding
     MedHistoryTypes.GASTRICBYPASS,  # Gastric Bypass
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
 ]
 
 PPX_MEDHISTORYS: list[MedHistoryTypes] = [
@@ -66,11 +68,11 @@ PPXAID_MEDHISTORYS: list[MedHistoryTypes] = [
     MedHistoryTypes.COLCHICINEINTERACTION,  # Colchicine Interaction
     MedHistoryTypes.DIABETES,  # Diabetes
     MedHistoryTypes.GASTRICBYPASS,  # Gastric Bypass
-    MedHistoryTypes.GOUT,  # Gout
     MedHistoryTypes.HEARTATTACK,  # Heart Attack
     MedHistoryTypes.HYPERTENSION,  # Hypertension
     MedHistoryTypes.IBD,  # Inflammatory Bowel Disease
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
+    MedHistoryTypes.PUD,  # Peptic Ulcer Disease
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
 ]
@@ -84,15 +86,15 @@ ULT_MEDHISTORYS: list[MedHistoryTypes] = [
 ]
 
 ULTAID_MEDHISTORYS: list[MedHistoryTypes] = [
-    MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY,  # Allopurinol Hypersensitivity
     MedHistoryTypes.ANGINA,  # Angina
     MedHistoryTypes.CAD,  # Coronary Artery Disease
     MedHistoryTypes.CHF,  # Congestive Heart Failure
     MedHistoryTypes.CKD,  # Chronic Kidney Disease
-    MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY,  # Febuxostat Hypersensitivity
     MedHistoryTypes.HEARTATTACK,  # Heart Attack
+    MedHistoryTypes.HEPATITIS,  # Hepatitis or Cirrhosis
     MedHistoryTypes.ORGANTRANSPLANT,  # Organ Transplant
     MedHistoryTypes.PVD,  # Peripheral Vascular Disease
     MedHistoryTypes.STROKE,  # Stroke
+    MedHistoryTypes.URATESTONES,  # Urate Stones
     MedHistoryTypes.XOIINTERACTION,  # XOI Interaction
 ]

@@ -17,7 +17,7 @@
   <main class="container">
     <form class="form-horizontal"
           method="post"
-          action="{% url 'flares:pseudopatient-delete' username=object.user.username pk=object.pk %}">
+          action="{% url 'flares:pseudopatient-delete' object.user.pk object.pk %}">
       {% csrf_token %}
       <p>Are you sure you want to delete {{ object }}?</p>
       <p>This will permanently the Flare and any data related to it (i.e. Urate).</p>

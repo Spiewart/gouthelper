@@ -2,11 +2,9 @@ import pytest  # type: ignore
 from django.forms import BooleanField, HiddenInput, TypedChoiceField
 from django.test import TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
-from django.utils.safestring import mark_safe  # type: ignore
 
 from ..choices import MedHistoryTypes
 from ..forms import (
-    AllopurinolhypersensitivityForm,
     AnginaForm,
     AnticoagulationForm,
     BleedForm,
@@ -16,10 +14,10 @@ from ..forms import (
     ColchicineinteractionForm,
     DiabetesForm,
     ErosionsForm,
-    FebuxostathypersensitivityForm,
     GastricbypassForm,
     GoutForm,
     HeartattackForm,
+    HepatitisForm,
     HypertensionForm,
     HyperuricemiaForm,
     IbdForm,
@@ -33,30 +31,6 @@ from ..forms import (
 )
 
 pytestmark = pytest.mark.django_db
-
-
-class TestAllopurinolhypersensitivityForm(TestCase):
-    def test___init__(self):
-        form = AllopurinolhypersensitivityForm()
-        # Assert value field is correct
-        self.assertIn(
-            f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value",
-            form.fields,
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"].label,
-            "Allopurinol Hypersensitivity",
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"].help_text,
-            "Does the patient have any history of allopurinol hypersensitivity syndrome?",
-        )
-        self.assertTrue(
-            isinstance(
-                form.fields[f"{MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY}-value"],
-                TypedChoiceField,
-            )
-        )
 
 
 class TestAnginaForm(TestCase):
@@ -97,7 +71,7 @@ class TestAnticoagulationForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.ANTICOAGULATION}-value"].help_text,
-            "Is the patient on anticoagulation?",
+            "Is the patient on blood thinners (other than aspirin)?",
         )
         self.assertTrue(
             isinstance(
@@ -121,7 +95,7 @@ class TestBleedForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.BLEED}-value"].help_text,
-            "Has the patient had a major bleed (GI, etc.)?",
+            "History of major bleeding without truama?",
         )
         self.assertTrue(
             isinstance(
@@ -206,10 +180,11 @@ class TestCkdForm(TestCase):
         self.assertIn("ckddetail-form", response.rendered_content)
 
     def test___init__without_ckddetail_kwarg(self):
-        CkdForm(ckddetail=False)
+        form = CkdForm(ckddetail=False)
+        # render the form
+        rendered_form = form.as_p()
         # Test that CkdDetailForm is not inserted
-        response = self.client.get(reverse("flares:create"))
-        self.assertNotIn("ckddetail-form", response.rendered_content)
+        self.assertNotIn("ckddetail-form", rendered_form)
 
 
 class TestColchicineinteractionForm(TestCase):
@@ -224,12 +199,9 @@ class TestColchicineinteractionForm(TestCase):
             form.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].label,
             "Colchicine Interaction",
         )
-        self.assertEqual(
+        self.assertIn(
+            "medications that interact with colchicin",
             form.fields[f"{MedHistoryTypes.COLCHICINEINTERACTION}-value"].help_text,
-            mark_safe(
-                "Is the patient on any <a href='https://www.goodrx.com/colchicine/interactions' target='_blank'>\
-medications that interact with colchicine</a> (simvastatin, clarithromycin, diltiazem, etc.)?"
-            ),
         )
         self.assertTrue(
             isinstance(
@@ -275,37 +247,13 @@ class TestErosionsForm(TestCase):
             form.fields[f"{MedHistoryTypes.EROSIONS}-value"].label,
             "Erosions",
         )
-        self.assertEqual(
+        self.assertIn(
+            "erosions",
             form.fields[f"{MedHistoryTypes.EROSIONS}-value"].help_text,
-            "Does the patient have gouty erosions on x-ray?",
         )
         self.assertTrue(
             isinstance(
                 form.fields[f"{MedHistoryTypes.EROSIONS}-value"],
-                TypedChoiceField,
-            )
-        )
-
-
-class TestFebuxostathypersensitivityForm(TestCase):
-    def test___init__(self):
-        form = FebuxostathypersensitivityForm()
-        # Assert value field is correct
-        self.assertIn(
-            f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value",
-            form.fields,
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"].label,
-            "Febuxostat Hypersensitivity",
-        )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"].help_text,
-            "Does the patient have any history of febuxostat hypersensitivity syndrome?",
-        )
-        self.assertTrue(
-            isinstance(
-                form.fields[f"{MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY}-value"],
                 TypedChoiceField,
             )
         )
@@ -325,7 +273,7 @@ class TestGastricbypassForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.GASTRICBYPASS}-value"].help_text,
-            "Has the patient had a gastric bypass?",
+            "Sleave, roux-en-y, or duodenal switch?",
         )
         self.assertTrue(
             isinstance(
@@ -347,9 +295,9 @@ class TestGoutForm(TestCase):
             form.fields[f"{MedHistoryTypes.GOUT}-value"].label,
             "Gout",
         )
-        self.assertEqual(
+        self.assertIn(
+            "Has the patient had gout",
             form.fields[f"{MedHistoryTypes.GOUT}-value"].help_text,
-            "Has the patient had gout or symptoms compatible with gout before?",
         )
         self.assertTrue(
             isinstance(
@@ -417,6 +365,30 @@ class TestHeartattackForm(TestCase):
         )
 
 
+class TestHepatitisForm(TestCase):
+    def test___init__(self):
+        form = HepatitisForm()
+        # Assert value field is correct
+        self.assertIn(
+            f"{MedHistoryTypes.HEPATITIS}-value",
+            form.fields,
+        )
+        self.assertEqual(
+            form.fields[f"{MedHistoryTypes.HEPATITIS}-value"].label,
+            "Hepatitis",
+        )
+        self.assertIn(
+            "Does the patient have",
+            form.fields[f"{MedHistoryTypes.HEPATITIS}-value"].help_text,
+        )
+        self.assertTrue(
+            isinstance(
+                form.fields[f"{MedHistoryTypes.HEPATITIS}-value"],
+                TypedChoiceField,
+            )
+        )
+
+
 class TestHypertensionForm(TestCase):
     def test___init__(self):
         form = HypertensionForm()
@@ -479,7 +451,7 @@ class TestIbdForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.IBD}-value"].help_text,
-            "Does the patient have a history of inflammatory bowel disease?",
+            "Crohn's disease or ulcerative colitis",
         )
         self.assertTrue(
             isinstance(
@@ -503,7 +475,7 @@ class TestMenopauseForm(TestCase):
         )
         self.assertEqual(
             form.fields[f"{MedHistoryTypes.MENOPAUSE}-value"].help_text,
-            "Has the patient gone through menopause? (Either biologically or medically)",
+            "Is the patient menopausal or post-menopausal?",
         )
         self.assertTrue(
             isinstance(
@@ -597,9 +569,9 @@ class TestTophiForm(TestCase):
             form.fields[f"{MedHistoryTypes.TOPHI}-value"].label,
             "Tophi",
         )
-        self.assertEqual(
-            form.fields[f"{MedHistoryTypes.TOPHI}-value"].help_text,
+        self.assertIn(
             "Does the patient have gouty tophi?",
+            form.fields[f"{MedHistoryTypes.TOPHI}-value"].help_text,
         )
         self.assertTrue(
             isinstance(
@@ -621,9 +593,9 @@ class TestUratestonesForm(TestCase):
             form.fields[f"{MedHistoryTypes.URATESTONES}-value"].label,
             "Urate Kidney Stones",
         )
-        self.assertEqual(
+        self.assertIn(
+            "Does the patient have a history of",
             form.fields[f"{MedHistoryTypes.URATESTONES}-value"].help_text,
-            "Does the patient have a history of urate kidney stones?",
         )
         self.assertTrue(
             isinstance(
@@ -645,7 +617,7 @@ class TestXoiinteractionForm(TestCase):
             form.fields[f"{MedHistoryTypes.XOIINTERACTION}-value"].label,
             "Xanthine Oxidase Inhibitor Interaction",
         )
-        self.assertEqual(
+        self.assertIn(
+            "Is the patient on",
             form.fields[f"{MedHistoryTypes.XOIINTERACTION}-value"].help_text,
-            "Is the patient on 6-mercaptopurine or azathioprine?",
         )

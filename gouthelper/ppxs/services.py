@@ -1,65 +1,45 @@
 from typing import TYPE_CHECKING, Union
 
-from django.utils.functional import cached_property  # type: ignore
+from django.apps import apps  # type: ignore
+from django.contrib.auth import get_user_model
+from django.db.models.query import QuerySet
 
-from ..defaults.helpers import defaults_get_goalurate
-from ..labs.helpers import labs_urates_hyperuricemic, labs_urates_months_at_goal, labs_urates_recent_urate
-from ..medhistorys.lists import PPX_MEDHISTORYS
+from ..labs.helpers import labs_urate_within_90_days, labs_urate_within_last_month
+from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.helpers import medhistorys_get
 from ..ults.choices import Indications
-from ..utils.helpers.aid_helpers import aids_assign_userless_goutdetail
-from .selectors import ppx_userless_qs
+from ..utils.services import AidService, aids_assign_goutdetail
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
-    from ..goalurates.choices import GoalUrates
     from ..medhistorydetails.models import GoutDetail
     from ..medhistorys.models import MedHistory
     from ..ppxs.models import Ppx
 
+User = get_user_model()
 
-class PpxDecisionAid:
+
+class PpxDecisionAid(AidService):
     """Class method for creating/updating Ppx indication field."""
 
     def __init__(
         self,
-        pk: "UUID",
-        qs: Union["Ppx", None] = None,
+        qs: Union["Ppx", User, QuerySet] = None,
     ):
-        if qs is not None:
-            self.ppx = qs
-        else:
-            self.ppx = ppx_userless_qs(pk=pk).get()
-        self.medhistorys = self.ppx.medhistorys_qs
-        self.goutdetail = aids_assign_userless_goutdetail(medhistorys=self.medhistorys)
-        self.urates = self.ppx.labs_qs
-        # Break here if introducing a User to the class method
-        self._assign_medhistorys()
+        super().__init__(qs=qs, model=apps.get_model(app_label="ppxs", model_name="Ppx"))
+        self.gout = medhistorys_get(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
+        self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None
         self._check_for_gout_and_detail()
-        # Process the urates to figure out if the Urates indicate that the patient
-        # has been at goal uric acid for the past 6 months or longer
-        if labs_urates_hyperuricemic(urates=self.urates, goutdetail=self.goutdetail):
-            self.at_goal = False
-        else:
-            self.at_goal = labs_urates_months_at_goal(urates=self.urates, goutdetail=self.goutdetail)
-        # Check if there is a recent_urate
-        self.recent_urate = labs_urates_recent_urate(urates=self.urates, sorted_by_date=True)
+        self.urates = self.qs.urates_qs
+        self.urate_within_last_month = labs_urate_within_last_month(urates=self.urates, sorted_by_date=True)
+        self.urate_within_90_days: bool = labs_urate_within_90_days(urates=self.urates, sorted_by_date=True)
+        self.at_goal = self.model_attr.urates_at_goal
+        self.at_goal_long_term = self.model_attr.urates_at_goal_long_term
+        self.initial_indication = self.model_attr.indication
 
     gout: Union["MedHistory", None]
     goutdetail: Union["GoutDetail", None]
 
     Indications = Indications
-
-    def _assign_medhistorys(self) -> None:
-        """Iterates over PPX_MEDHISTORYS and assigns attributes to the class method
-        for each medhistory in PPX_MEDHISTORYS. Assign the attribute to the matching
-        medhistory in self.medhistorys if it exists, None if not."""
-        for medhistorytype in PPX_MEDHISTORYS:
-            medhistory = [medhistory for medhistory in self.medhistorys if medhistory.medhistorytype == medhistorytype]
-            if medhistory:
-                setattr(self, medhistorytype.lower(), medhistory[0])
-            else:
-                setattr(self, medhistorytype.lower(), None)
 
     def _check_for_gout_and_detail(self) -> None:
         """This class method requires a Gout MedHistory and GoutDetail MedHistoryDetail.
@@ -71,37 +51,23 @@ class PpxDecisionAid:
         if not self.goutdetail:
             raise TypeError("No GoutDetail associated with Ppx.gout.")
 
-    @cached_property
-    def goalurate(self) -> "GoalUrates":
-        """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
-        returns the GoutHelper default GoalUrates.SIX enum object"""
-        return defaults_get_goalurate(self.ppx)
-
-    @property
-    def flaring(self) -> bool:
-        """Returns True the Gout MedHistory flaring attr is True,
-        False if not or there is no Gout."""
-        if self.goutdetail:
-            return self.goutdetail.flaring if self.goutdetail.flaring else False
-        return False
-
     def _get_indication(self) -> Indications:
         """Determines the indication for the Ppx object.
 
         Returns: Indications enum
         """
         # First check if the patient is on or starting ULT
-        if self.goutdetail and (self.goutdetail.on_ult or self.ppx.starting_ult):
+        if self.goutdetail and (self.goutdetail.on_ult or self.goutdetail.starting_ult):
             # If the patient is on ULT but isn't starting ULT
-            if self.ppx.starting_ult is False:
+            if self.goutdetail.starting_ult is False:
                 # Check if their is a "conditional" indication for prophylaxis
                 # This is not guidelines-based, rather GoutHelper-based
                 # The rationale is that if they are on ULT and still hyperuricemic or flaring,
                 # they are at risk of gout flares and should be on prophylaxis while ULT is titrated
                 if (
                     self.goutdetail.flaring
-                    or self.goutdetail.hyperuricemic
-                    and not (self.at_goal and self.recent_urate)
+                    or not self.goutdetail.at_goal
+                    and not (self.at_goal_long_term and self.urate_within_90_days)
                 ):
                     return Indications.CONDITIONAL
                 # If the patient is on ULT and it's not a new start and they aren't flaring
@@ -110,21 +76,13 @@ class PpxDecisionAid:
                     return Indications.NOTINDICATED
             # If they are starting ULT, the ACR guidelines say they should be on prophylaxis
             else:
-                if self.at_goal and self.recent_urate:
+                if self.at_goal_long_term and self.urate_within_90_days:
                     return Indications.NOTINDICATED
                 else:
                     return Indications.INDICATED
         # If the patient is not on ULT, they should not be on prophylaxis
         else:
             return Indications.NOTINDICATED
-
-    @property
-    def hyperuricemic(self) -> bool:
-        """Returns True if the Gout MedHistory hyperuricemic attr is True,
-        False if not or there is no Gout."""
-        if self.goutdetail:
-            return self.goutdetail.hyperuricemic if self.goutdetail.hyperuricemic else False
-        return False
 
     def _update(self, commit=True) -> "Ppx":
         """Updates Ppx indication fields.
@@ -135,8 +93,29 @@ class PpxDecisionAid:
         Returns:
             ppx: Ppx object
         """
-        self.ppx.indication = self._get_indication()
-        if commit:
-            self.ppx.full_clean()
-            self.ppx.save()
-        return self.ppx
+
+        def _goutdetail_at_goal_needs_update() -> bool:
+            return self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month
+
+        def _goutdetail_at_goal_long_term_needs_update() -> bool:
+            return (
+                self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month
+            )
+
+        # Check and update the at_goal and at_goal_long_term fields in the GoutDetail
+        if _goutdetail_at_goal_needs_update() or _goutdetail_at_goal_long_term_needs_update():
+            self.model_attr.goutdetail.update_at_goal(at_goal=self.at_goal)
+            self.model_attr.goutdetail.update_at_goal_long_term(at_goal_long_term=self.at_goal_long_term)
+            self.model_attr.goutdetail.full_clean()
+            self.model_attr.goutdetail.save()
+        self.set_model_attr_indication()
+        return super()._update(commit=commit)
+
+    def aid_needs_2_be_saved(self) -> bool:
+        return self.indication_has_changed()
+
+    def indication_has_changed(self) -> bool:
+        return self.model_attr.indication != self.initial_indication
+
+    def set_model_attr_indication(self) -> None:
+        self.model_attr.indication = self._get_indication()

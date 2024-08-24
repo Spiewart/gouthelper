@@ -6,13 +6,16 @@ from django import forms  # type: ignore
 from django.contrib.auth import forms as admin_forms
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
+from django_recaptcha.fields import ReCaptchaField
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
-    forms_helper_insert_about_the_patient,
+from ..utils.forms import (
+    ModelFormKwargMixin,
     forms_helper_insert_dateofbirth,
+    forms_helper_insert_demographics,
     forms_helper_insert_ethnicity,
     forms_helper_insert_gender,
+    forms_helper_insert_goutdetail,
     forms_helper_insert_medhistory,
 )
 from .models import Pseudopatient
@@ -20,7 +23,7 @@ from .models import Pseudopatient
 User = get_user_model()
 
 
-class PseudopatientForm(forms.ModelForm):
+class PseudopatientForm(ModelFormKwargMixin, forms.ModelForm):
     """Model form for creating Pseudopatient objects."""
 
     class Meta:
@@ -34,6 +37,7 @@ class PseudopatientForm(forms.ModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        self.flare = kwargs.pop("flare", None)
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -42,15 +46,16 @@ class PseudopatientForm(forms.ModelForm):
                 "",
             ),
         )
-        forms_helper_insert_about_the_patient(layout=self.helper.layout)
-        # Insert dateofbirth and gender forms above menopause form
-        forms_helper_insert_dateofbirth(layout=self.helper.layout)
-        forms_helper_insert_gender(layout=self.helper.layout)
-        # Insert MenopauseForm
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
+        forms_helper_insert_demographics(layout=self.helper.layout)
+        if not self.flare:
+            # Insert dateofbirth and gender forms above menopause form
+            forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            forms_helper_insert_gender(layout=self.helper.layout)
+            # Insert MenopauseForm
+            forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.MENOPAUSE, layout=self.helper.layout)
         # Insert ethnicity and gout/detail forms
         forms_helper_insert_ethnicity(layout=self.helper.layout)
-        forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.GOUT, layout=self.helper.layout)
+        forms_helper_insert_goutdetail(layout=self.helper.layout)
 
 
 class UserAdminChangeForm(admin_forms.UserChangeForm):
@@ -77,6 +82,10 @@ class UserSignupForm(SignupForm):
     Default fields will be added automatically.
     Check UserSocialSignupForm for accounts created from social.
     """
+
+    captcha = ReCaptchaField()
+
+    field_order = ["email", "username", "password1", "password2", "captcha"]
 
 
 class UserSocialSignupForm(SocialSignupForm):

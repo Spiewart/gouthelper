@@ -5,39 +5,108 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Update UltAid
+    Edit
   {% else %}
-    New UltAid
+    New
   {% endif %}
+  UltAid
 {% endblock title %}
 {% block heading %}
-  <h1>UltAid</h1>
+  {% if form.instance.created %}
+    <h1>Edit UltAid</h1>
+  {% else %}
+    <h1>New UltAid</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Make a customized ULT strategy. Tell us about the patient.
+  {% if form.instance.created %}
+    Edit
+    {% if patient %}
+      {{ patient }}'s
+    {% else %}
+      this
+    {% endif %}
+    UltAid for updated recommendations.
+  {% else %}
+    Get a ULT recommendation
+    {% if view.related_object %}
+      based on <a href={{ view.related_object.get_absolute_url }}>{{ view.related_object }}</a>.
+    {% else %}
+      for {{ str_attrs.subject_the }}.
+    {% endif %}
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ultaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:pseudopatient-update' object.user.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:update' object.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ultaids:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ultaids:pseudopatient-create' view.kwargs.pseudopatient %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        {% if view.related_object %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ultaids:ult-create' view.related_object.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ultaids:create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  {% include 'medhistorys/_ckd_js.html' with optional=True %}
+  {% with dob_optional=True gender_optional=True %}
+    {% include 'medhistorydetails/_ckddetail_js.html' with optional=True %}
+  {% endwith %}
+  <script>
+    $(document).ready(function() {
+      check_medallergy("ALLOPURINOL");
+      check_medallergy("FEBUXOSTAT");
+      $('#id_medallergy_ALLOPURINOL').change(function() {
+        check_medallergy("ALLOPURINOL")
+      });
+      $('#id_medallergy_FEBUXOSTAT').change(function() {
+        check_medallergy("FEBUXOSTAT")
+      });
+    });
+  </script>
 {% endblock inline_javascript %}

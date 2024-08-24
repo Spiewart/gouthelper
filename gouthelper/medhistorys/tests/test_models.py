@@ -37,17 +37,21 @@ class TestMedHistory(TestCase):
 
 class TestMedHistoryDeleteSave(TestCase):
     def test__delete_creates_medhistory_history(self):
+        """Test that deleting a MedHistory creates a MedHistory.history object."""
+        # Count the number of MedHistory history objects with medhistorytype=MedHistoryTypes.ANGINA
+
+        anginas = MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count()
         angina = MedHistoryFactory(medhistorytype=MedHistoryTypes.ANGINA)
-        self.assertTrue(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).exists())
-        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), 1)
         angina.delete()
-        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), 2)
+        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), anginas + 2)
 
     def test__save_creates_medhistory_history(self):
-        angina = MedHistoryFactory(medhistorytype=MedHistoryTypes.ANGINA)
-        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), 1)
+        """Test that saving a MedHistory creates a MedHistory.history object."""
+        # Count the number of MedHistory history objects with medhistorytype=MedHistoryTypes.ANGINA
+        anginas = MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count()
+        angina = MedHistory(medhistorytype=MedHistoryTypes.ANGINA)
         angina.save()
-        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), 2)
+        self.assertEqual(MedHistory.history.filter(medhistorytype=MedHistoryTypes.ANGINA).count(), anginas + 1)
 
     def test__save_adds_medhistorytype(self):
         xoiinteraction = Xoiinteraction()

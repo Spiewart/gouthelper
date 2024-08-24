@@ -1,9 +1,11 @@
-from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
-from django import forms  # type: ignore
+from crispy_forms.helper import FormHelper  # pylint:disable=E0401 # type: ignore
+from crispy_forms.layout import HTML, Div, Fieldset, Layout  # pylint:disable=E0401 # type: ignore
+from django import forms  # pylint:disable=E0401 # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
+from ..utils.forms import (
+    ModelFormKwargMixin,
+    forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
@@ -12,6 +14,7 @@ from .models import Ult
 
 
 class UltForm(
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     """
@@ -27,6 +30,13 @@ class UltForm(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields[
+            "freq_flares"
+        ].help_text = f"How many gout flares {self.str_attrs['query']} {self.str_attrs['subject_the']} have per year?"
+        self.fields[
+            "num_flares"
+        ].help_text = f"How many gout flares {self.str_attrs['pos']} {self.str_attrs['subject_the']} had in \
+{self.str_attrs['gender_pos']} life?"
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -34,9 +44,9 @@ class UltForm(
                 "",
                 Div(
                     HTML(
-                        """
+                        f"""
                         <hr size="3" color="dark">
-                        <legend>About the Patient's Gout</legend>
+                        <legend>About {self.str_attrs['subject_the_pos']} gout</legend>
                         """
                     ),
                     Div(
@@ -57,20 +67,13 @@ class UltForm(
                     ),
                     css_id="about-the-gout",
                 ),
-                Div(
-                    HTML(
-                        """
-                        <hr size="3" color="dark">
-                        <legend>About the Patient</legend>
-                        """
-                    ),
-                ),
             ),
         )
-        # Insert forms for related MedHistorys
+        forms_helper_insert_about_the_patient_legend(form=self)
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.CKD, layout=self.helper.layout)
-        forms_helper_insert_dateofbirth(layout=self.helper.layout)
-        forms_helper_insert_gender(layout=self.helper.layout)
+        if not self.patient:
+            forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.EROSIONS, layout=self.helper.layout)
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.HYPERURICEMIA, layout=self.helper.layout)
         forms_helper_insert_medhistory(medhistorytype=MedHistoryTypes.TOPHI, layout=self.helper.layout)
@@ -88,13 +91,13 @@ class UltForm(
         if (num_flares == Ult.FlareNums.ZERO or num_flares == Ult.FlareNums.ONE) and freq_flares:
             self.add_error(
                 "freq_flares",
-                "You indicated that the patient has had one or zero flares, but also indicated a frequency of flares. \
-This doesn't make sense to us. Please correct.",
+                f"You indicated that {self.str_attrs['subject_the']} {self.str_attrs['pos']} had one or zero flares, \
+but also indicated a frequency of flares. This doesn't make sense to us. Please correct.",
             )
         elif num_flares == Ult.FlareNums.TWOPLUS and not freq_flares:
             self.add_error(
                 "freq_flares",
-                "You indicated that the patient has had two or more flares, but did not indicate a \
-frequency of flares. This doesn't make sense to us. Please correct.",
+                f"You indicated that {self.str_attrs['subject_the']} {self.str_attrs['pos']} had two or more flares, \
+but did not indicate a frequency of flares. This doesn't make sense to us. Please correct.",
             )
         return cleaned_data

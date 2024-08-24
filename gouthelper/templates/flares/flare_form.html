@@ -4,46 +4,58 @@
 {% load project_tags %}
 
 {% block title %}
-  {% if form.instance.pk %}
-    Update Flare
+  {% if form.instance.created %}
+    Edit Flare
   {% else %}
     New Flare
   {% endif %}
 {% endblock title %}
 {% block heading %}
-  <h1>Gout Flare</h1>
-  {{ form.errors }}
+  {% if form.instance.created %}
+    <h1>Edit Flare</h1>
+  {% else %}
+    <h1>New Flare</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Are the patient's symptoms due to gout? Tell us about the symptoms and the patient to find out.
+  {% if form.instance.created %}
+    Edit
+    {{ str_attrs.subject_the_pos }}
+    Flare for updated information.
+  {% else %}
+    Are {{ str_attrs.subject_the_pos }} symptoms due to gout? Find out.
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flares:pseudopatient-update' object.user.username object.pk %}">
+              action="{% url 'flares:pseudopatient-update' object.user.pk object.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flares:update' form.instance.pk %}">
+              action="{% url 'flares:update' object.pk %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
     {% else %}
-      {% if view.kwargs.username %}
+      {% if view.kwargs.pseudopatient %}
         <form class="form-horizontal"
               method="post"
-              action="{% url 'flares:pseudopatient-create' view.kwargs.username %}">
+              action="{% url 'flares:pseudopatient-create' view.kwargs.pseudopatient %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% else %}
@@ -52,6 +64,7 @@
               action="{% url 'flares:create' %}">
           {% csrf_token %}
           {% crispy form %}
+          {% include '_next_inputs.html' %}
           {% include '_submit_button.html' %}
         </form>
       {% endif %}
@@ -62,25 +75,67 @@
   {{ block.super }}
   <script>
     $(document).ready(function() {
-      // For Flare datepicker
-      $('input[id*="date_started"]').each(function() {
-        $(this).datepicker({
-          changeYear: true
-        });
-      });
-      $('input[id*="date_ended"]').each(function() {
-        $(this).datepicker({
-          changeYear: true
-        });
-      });
-      $('#id_diagnosed').change(diagnosed_checker);
-      diagnosed_checker($('#id_diagnosed'));
-      $('#id_aspiration').change(diagnosed_checker);
-      diagnosed_checker($('#id_aspiration'));
+      $('#id_aki-value').change(flare_aki_checker);
+      flare_aki_checker($('#id_aki-value'));
+      $('#id_date_ended').change(flare_aki_date_ended);
+      flare_aki_date_ended($('#id_date_ended'));
+      $('#id_medical_evaluation').change(medical_evaluation_checker);
+      medical_evaluation_checker($('#id_medical_evaluation'));
+      $('#id_aspiration').change(aspiration_checker);
+      aspiration_checker($('#id_aspiration'));
       $('#id_urate_check').change(urate_checker);
       urate_checker($('#id_urate_check'));
+      $(function() {
+        $('#aki-form tbody tr').formset({
+          prefix: '{{ creatinine_formset.prefix}}',
+          added: function() {
+            $('input[id*="date_drawn"]').each(function() {
+              var css_class = $(this).attr('class');
+              // check if css_class is not undefined and if it has 'hasDatepicker' in the class
+              // https://stackoverflow.com/questions/44624656/js-jquery-how-to-dynamically-update-refresh-datepicker-value-after-changing-th
+              // datepicker class needs to be removed by the cloneUrate function
+              if (css_class !== undefined && css_class.includes('hasDatepicker')) {
+                css_class = css_class.replace('hasDatepicker', '');
+                $(this).attr('class', css_class)
+              }
+              $(this).datepicker({
+                changeYear: true,
+                minDate: "-2y",
+                maxDate: "0",
+              });
+            })
+          },
+          addCssClass: 'formset-add',
+          addText: "Add Creatinine",
+          deleteCssClass: 'formset-delete',
+          deleteText: "Remove",
+          // Giant patch of monkies to use the remove button from django-dynamic-formsets
+          // which was meant to be used with an inlineformset, not a regular formset,
+          // on a regular formset. The remove button would decrement the TOTAL_FORMS count
+          // and the view would delete extra forms because they wouldn't make it to cleaned_data.
+          removed: function(row) {
+            id_input = $(row).find("input[id$='-id']")
+            // Check if the input has a value
+            if (id_input.val()) {
+              // If it does, check if TOTAL_FORMS is less than INITIAL_FORMS
+              var initial_forms = '{{ creatinine_formset.prefix}}' + '-INITIAL_FORMS';
+              var initial_forms_input = $('#id_' + initial_forms);
+              // If it does, then add one back to formset TOTAL_FORMS
+              var total_forms = '{{ creatinine_formset.prefix}}' + '-TOTAL_FORMS';
+              var total_forms_input = $('#id_' + total_forms);
+              var total_initial_dif = (parseInt(initial_forms_input.val()) - parseInt(total_forms_input.val()) + 1);
+              if (total_initial_dif > 0) {
+                total_forms_input.val(parseInt(total_forms_input.val()) + total_initial_dif);
+              }
+            }
+          },
+        });
+      })
+      datepickers();
     });
   </script>
-  {% include 'medhistorys/_ckd_js.html' %}
+  {% with dob_optional=False gender_optional=False %}
+    {% include 'medhistorydetails/_ckddetail_js.html' %}
+  {% endwith %}
   {% include 'medhistorys/_menopause_js.html' %}
 {% endblock inline_javascript %}

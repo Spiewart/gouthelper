@@ -1,13 +1,13 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
-from .factories import GoalUrateFactory, GoalUrateUserFactory
+from .factories import create_goalurate
 
 
 class TestGoalUrateUrls(TestCase):
     def setUp(self):
-        self.goalurate = GoalUrateFactory()
-        self.goalurateuser = GoalUrateUserFactory()
+        self.goalurate = create_goalurate()
+        self.goalurateuser = create_goalurate(user=True)
 
     def test_goalurate_about_url(self):
         path = reverse("goalurates:about")
@@ -22,13 +22,13 @@ class TestGoalUrateUrls(TestCase):
         assert resolve(path).view_name == "goalurates:detail"
 
     def test_goalurate_pseudopatient_create_url(self):
-        path = reverse("goalurates:pseudopatient-create", kwargs={"username": self.goalurateuser.user.username})
+        path = reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.goalurateuser.user.pk})
         assert resolve(path).view_name == "goalurates:pseudopatient-create"
 
     def test_goalurate_pseudopatient_detail_url(self):
-        path = reverse("goalurates:pseudopatient-detail", kwargs={"username": self.goalurateuser.user.username})
+        path = reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.goalurateuser.user.pk})
         assert resolve(path).view_name == "goalurates:pseudopatient-detail"
 
     def test_goalurate_pseudopatient_update_url(self):
-        path = reverse("goalurates:pseudopatient-update", kwargs={"username": self.goalurateuser.user.username})
+        path = reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.goalurateuser.user.pk})
         assert resolve(path).view_name == "goalurates:pseudopatient-update"

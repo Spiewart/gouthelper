@@ -4,3 +4,10 @@ class EmptyRelatedModel(Exception):
     not to save or potentially to delete the related model."""
 
     pass
+
+
+class Continue(Exception):
+    """Exception raised by GoutHelper when some element of the program wants
+    the for loop that called the function raising the exception to continue."""
+
+    pass

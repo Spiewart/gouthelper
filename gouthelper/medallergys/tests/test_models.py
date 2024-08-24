@@ -14,7 +14,7 @@ class TestMedAllergy(TestCase):
     def test___str__(self):
         self.assertEqual(
             str(self.medallergy),
-            "Allergy: " + self.medallergy.treatment.lower().capitalize(),
+            f"{self.medallergy.treatment.lower().capitalize()} allergy",
         )
 
     def test__treatment_valid_constraint(self):

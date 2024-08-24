@@ -3,40 +3,40 @@
     <h2 class="card-title">Gout Details</h2>
     <ul>
       <li>
-        Flare status:
+        Flaring:
         {% if object.flaring %}
-          recently flared
+          gout is not in remission
         {% elif object.flaring is None %}
-          unknown if recently flared
+          unknown if gout is in remission
         {% else %}
-          no recent flares
+          gout is in remission
         {% endif %}
       </li>
       <li>
-        Uric acid status:
-        {% if object.hyperuricemic %}
+        Uric acid:
+        {% if object.at_goal %}
+          at goal (under {{ object.goal_urate.get_goal_urate_display }})
+        {% elif object.at_goal is None %}
+          status unknown
+        {% else %}
           hyperuricemic
-        {% elif object.hyperuricemic is None %}
-          unknown
-        {% else %}
-          under 6.0 mg/dL
         {% endif %}
       </li>
       <li>
-        Prophylactic therapy:
-        {% if object.on_ppx %}
-          INSERT PPX
-        {% else %}
-          none
-        {% endif %}
+        Prophylaxis:
+        {% if not object.on_ppx %}not{% endif %}
+        on anti-inflammatories for flare prevention
       </li>
       <li>
-        Urate-lowering therapy:
-        {% if object.on_ult %}
-          INSERT ULT
+        ULT:
+        {% if object.starting_ult %}
+          starting
+        {% elif not object.on_ult %}
+          not on
         {% else %}
-          none
+          on
         {% endif %}
+        urate-lowering therapy to achieve gout remission
       </li>
     </ul>
   </div>

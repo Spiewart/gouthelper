@@ -2,7 +2,7 @@
 
 {% block heading %}
   {% if id == "hlab5801" %}
-    {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801 %}
+    {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.ultaidsettings.allo_risk_ethnicity_no_hlab5801 %}
       <li>
         <a class="samepage-link" href="#hlab5801">HLA-B*58:01</a> unknown
       </li>
@@ -15,7 +15,17 @@
     <li>
       <a class="samepage-link" href="#{{ id }}">
         {% if id == "medallergys" %}
-          {% with object|getattribute:allergy as allergy_list %}{{ allergy_list.0 }}{% endwith %}
+          {% with object|getattribute:allergy as allergy_obj %}
+            {% if allergy_obj|is_list %}
+              {% if allergy_obj|length == 1 %}
+                {{ allergy_obj.0 }}
+              {% else %}
+                Allergies: {{ allergy_obj|comprehend_list_attr:"treatment"|join:", "|lower }}
+              {% endif %}
+            {% else %}
+              {{ allergy_obj }}
+            {% endif %}
+          {% endwith %}
         {% else %}
           {{ object|getattribute:id }}
         {% endif %}
@@ -44,7 +54,7 @@
     </ul>
   {% elif id == "hlab5801" %}
     <ul>
-      {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.defaultulttrtsettings.allo_risk_ethnicity_no_hlab5801 %}
+      {% if object.hlab5801 is None and object.ethnicity is not None and object.ethnicity|risk_ethnicity and not object.ultaidsettings.allo_risk_ethnicity_no_hlab5801 %}
         <ul>
           <li>Ethnicity ({{ ethnicity.value }}) high prevalence</li>
         </ul>

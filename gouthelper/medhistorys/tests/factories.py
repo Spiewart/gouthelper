@@ -3,7 +3,6 @@ from factory.django import DjangoModelFactory  # type: ignore
 
 from ..choices import MedHistoryTypes
 from ..models import (
-    Allopurinolhypersensitivity,
     Angina,
     Anticoagulation,
     Bleed,
@@ -13,10 +12,10 @@ from ..models import (
     Colchicineinteraction,
     Diabetes,
     Erosions,
-    Febuxostathypersensitivity,
     Gastricbypass,
     Gout,
     Heartattack,
+    Hepatitis,
     Hypertension,
     Hyperuricemia,
     Ibd,
@@ -37,11 +36,6 @@ class MedHistoryFactory(DjangoModelFactory):
         model = MedHistory
 
     medhistorytype = fuzzy.FuzzyChoice(MedHistoryTypes.values)
-
-
-class AllopurinolhypersensitivityFactory(MedHistoryFactory):
-    class Meta:
-        model = Allopurinolhypersensitivity
 
 
 class AnginaFactory(MedHistoryFactory):
@@ -91,11 +85,6 @@ class ErosionsFactory(MedHistoryFactory):
         model = Erosions
 
 
-class FebuxostathypersensitivityFactory(MedHistoryFactory):
-    class Meta:
-        model = Febuxostathypersensitivity
-
-
 class GastricbypassFactory(MedHistoryFactory):
     class Meta:
         model = Gastricbypass
@@ -109,6 +98,11 @@ class GoutFactory(MedHistoryFactory):
 class HeartattackFactory(MedHistoryFactory):
     class Meta:
         model = Heartattack
+
+
+class HepatitisFactory(MedHistoryFactory):
+    class Meta:
+        model = Hepatitis
 
 
 class HypertensionFactory(MedHistoryFactory):

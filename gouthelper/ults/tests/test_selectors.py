@@ -1,8 +1,8 @@
-import pytest  # type: ignore
-from django.db import connection  # type: ignore
-from django.db.models import QuerySet  # type: ignore
-from django.test import TestCase  # type: ignore
-from django.test.utils import CaptureQueriesContext  # type: ignore
+import pytest  # pylint: disable=E0401  # type: ignore
+from django.db import connection  # pylint: disable=E0401  # type: ignore
+from django.db.models import QuerySet  # pylint: disable=E0401  # type: ignore
+from django.test import TestCase  # pylint: disable=E0401  # type: ignore
+from django.test.utils import CaptureQueriesContext  # pylint: disable=E0401  # type: ignore
 
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
@@ -10,7 +10,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory, StrokeFactory, UratestonesFactory
 from ..choices import FlareFreqs, FlareNums
 from ..selectors import ult_userless_qs
-from .factories import UltFactory
+from .factories import create_ult
 
 pytestmark = pytest.mark.django_db
 
@@ -21,8 +21,12 @@ class TestUltUserlessQuerySet(TestCase):
         self.ckddetail = CkdDetailFactory(medhistory=self.ckd, stage=Stages.THREE)
         self.stroke = StrokeFactory()
         self.uratestones = UratestonesFactory()
-        self.ult = UltFactory(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.ONEORLESS)
-        self.ult.medhistorys.add(self.ckd, self.uratestones)
+        self.ult = create_ult(
+            num_flares=FlareNums.TWOPLUS,
+            freq_flares=FlareFreqs.ONEORLESS,
+            mhs=[self.ckd, self.uratestones],
+            ckddetail={"stage": Stages.THREE},
+        )
 
     def test__queryset_returns_correctly(self):
         queryset = ult_userless_qs(pk=self.ult.pk)

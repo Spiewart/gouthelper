@@ -5,40 +5,93 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Update
+    Edit
   {% else %}
     New
   {% endif %}
   PpxAid
 {% endblock title %}
 {% block heading %}
-  <h1>Gout PpxAid</h1>
+  {% if form.instance.created %}
+    <h1>Edit PpxAid</h1>
+  {% else %}
+    <h1>New PpxAid</h1>
+  {% endif %}
 {% endblock heading %}
 {% block subheading %}
-  Determine what prophylactic (preventative) treatment is best for a patient during the intitiation phase of ULT.
+  {% if form.instance.created %}
+    Edit
+    {% if patient %}
+      {{ patient }}'s
+    {% else %}
+      this
+    {% endif %}
+    PpxAid for updated recommendations.
+  {% else %}
+    Get a gout flare prophylaxis (prevention) recommendation
+    {% if patient %}for {{ patient }}{% endif %}
+    .
+  {% endif %}
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ppxaids:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:pseudopatient-update' object.user.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:update' object.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ppxaids:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ppxaids:pseudopatient-create' view.kwargs.pseudopatient %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        {% if view.related_object %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ppxaids:ppx-create' view.related_object.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'ppxaids:create' %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  {% include 'medhistorys/_ckd_js.html' %}
+  {% with dob_optional=False gender_optional=True %}
+    {% include 'medhistorydetails/_ckddetail_js.html' %}
+  {% endwith %}
 {% endblock inline_javascript %}

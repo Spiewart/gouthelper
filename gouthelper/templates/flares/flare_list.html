@@ -6,24 +6,31 @@
 {% block heading %}
   <div class="row">
     <div class="col">
-      <h1 class="display-4">Flares</h1>
+      <h1>Flares</h1>
     </div>
-    <div class="col align-items-center d-flex">
+    <div class="col-auto align-items-center d-flex justify-content-end">
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
          href="{% url 'flares:about' %}"
          role="button">About</a>
       <a type="button"
          class="btn btn-primary btn-lg spacious-buttons"
-         href="{% url 'flares:pseudopatient-create' username=patient.username %}"
+         href="{% url 'flares:pseudopatient-create' pseudopatient=patient.pk %}"
          role="button">Create</a>
     </div>
   </div>
 {% endblock heading %}
+{% block subheading %}
+  {{ patient }}
+{% endblock subheading %}
 {% block content %}
   <main role="main">
-    {% for flare in object_list %}
-      <a href="{% url 'flares:pseudopatient-detail' username=patient.username pk=flare.pk %}">{{ flare }}</a>
-    {% endfor %}
+    <div class="container bodytainer">
+      <div id="flare-list">
+        {% for flare in object_list %}
+          {% include "flares/flare_detail_card.html" with object=flare %}
+        {% endfor %}
+      </div>
+    </div>
   </main>
 {% endblock content %}

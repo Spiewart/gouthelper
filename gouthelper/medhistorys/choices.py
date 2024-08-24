@@ -9,10 +9,6 @@ class Contraindications(IntegerChoices):
 
 
 class MedHistoryTypes(TextChoices):
-    ALLOPURINOLHYPERSENSITIVITY = (
-        "ALLOPURINOLHYPERSENSITIVITY",
-        _("Allopurinol Hypersensitivity Syndrome"),
-    )
     ANGINA = "ANGINA", _("Angina")
     ANTICOAGULATION = "ANTICOAGULATION", _("Anticoagulation")
     BLEED = "BLEED", _("Bleed")
@@ -22,21 +18,17 @@ class MedHistoryTypes(TextChoices):
     COLCHICINEINTERACTION = "COLCHICINEINTERACTION", _("Colchicine Medication Interaction")
     DIABETES = "DIABETES", _("Diabetes")
     EROSIONS = "EROSIONS", _("Erosions")
-    FEBUXOSTATHYPERSENSITIVITY = (
-        "FEBUXOSTATHYPERSENSITIVITY",
-        _(
-            "Febuxostat Hypersensitivity Syndrome",
-        ),
-    )
     GASTRICBYPASS = "GASTRICBYPASS", _("Gastric Bypass")
     GOUT = "GOUT", _("Gout")
     HEARTATTACK = "HEARTATTACK", _("Heart Attack")
+    HEPATITIS = "HEPATITIS", _("Hepatitis or Cirrhosis")
     HYPERTENSION = "HYPERTENSION", _("Hypertension")
     HYPERURICEMIA = "HYPERURICEMIA", _("Hyperuricemia")
     IBD = "IBD", _("Inflammatory Bowel Disease")
     MENOPAUSE = "MENOPAUSE", _("Post-Menopausal")
     ORGANTRANSPLANT = "ORGANTRANSPLANT", _("Organ Transplant")
     OSTEOPOROSIS = "OSTEOPOROSIS", _("Osteoporosis")
+    PUD = "PUD", _("Peptic Ulcer Disease")
     PVD = "PVD", _("Peripheral Vascular Disease")
     STROKE = "STROKE", _("Stroke")
     TOPHI = "TOPHI", _("Tophi")

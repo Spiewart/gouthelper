@@ -6,8 +6,9 @@ from django.test import RequestFactory, TestCase  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils import timezone
 
+from ...genders.choices import Genders
 from ...medhistorys.lists import CV_DISEASES, MedHistoryTypes
-from ...users.tests.factories import PseudopatientPlusFactory
+from ...users.tests.factories import create_psp
 from ..choices import LimitedJointChoices
 from ..forms import FlareForm
 
@@ -30,13 +31,14 @@ class TestFlareForm(TestCase):
 
     def test__form_fields(self):
         self.assertTrue(isinstance(self.form.fields["crystal_analysis"], forms.TypedChoiceField))
-        self.assertEqual(
-            self.form.fields["crystal_analysis"].help_text, "Was monosodium urate found in the synovial fluid?"
+        self.assertIn(
+            "Was monosodium urate found in",
+            self.form.fields["crystal_analysis"].help_text,
         )
-        self.assertEqual(self.form.fields["joints"].help_text, "Which joints were affected?")
+        self.assertIn("joints were affected?", self.form.fields["joints"].help_text)
         self.assertEqual(self.form.fields["joints"].label, "Joint(s)")
         self.assertTrue(isinstance(self.form.fields["onset"], forms.TypedChoiceField))
-        self.assertEqual(self.form.fields["onset"].help_text, "Did the symptoms start and peak in a day or less?")
+        self.assertIn("symptoms start and peak in a day or less?", self.form.fields["onset"].help_text)
         self.assertEqual(self.form.fields["onset"].label, "Rapid Onset")
         # TODO: Finish testing all the rest of the form fields...
 
@@ -55,19 +57,19 @@ class TestFlareForm(TestCase):
     def test__menopause_form_inserted(self):
         """Test that the MENOPAUSE_form is inserted when patient is False and
         that it isn't when patient is True."""
-        user = PseudopatientPlusFactory()
+        user = create_psp(gender=Genders.FEMALE, dateofbirth=timezone.now() - timedelta(days=365 * 50))
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
-        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
+        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"pseudopatient": user.pk}))
         self.assertNotIn(f"{MedHistoryTypes.MENOPAUSE}-value", response.rendered_content)
 
     def test__gout_form_inserted(self):
         """Test that the GOUT_form is inserted when patient is False and
         that it isn't when patient is True."""
-        user = PseudopatientPlusFactory()
+        user = create_psp()
         response = self.client.get(reverse("flares:create"))
         self.assertIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
-        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"username": user.username}))
+        response = self.client.get(reverse("flares:pseudopatient-create", kwargs={"pseudopatient": user.pk}))
         self.assertNotIn(f"{MedHistoryTypes.GOUT}-value", response.rendered_content)
 
     def test__clean(self):
@@ -75,6 +77,7 @@ class TestFlareForm(TestCase):
             {
                 "date_started": timezone.now() + timedelta(days=8),
                 "date_ended": timezone.now() + timedelta(days=1),
+                "medical_evaluation": True,
                 "diagnosed": True,
                 "aspiration": "",
                 "crystal_analysis": True,
@@ -84,10 +87,8 @@ class TestFlareForm(TestCase):
         self.form.clean()
         self.assertEqual(self.form.errors["date_started"][0], "Date started must be in the past.")
         self.assertEqual(self.form.errors["date_ended"][0], "Date ended must be after date started.")
-        self.assertEqual(
-            self.form.errors["aspiration"][0], "Joint aspiration must be selected if a clinician diagnosed the flare."
-        )
-        self.assertEqual(self.form.cleaned_data["crystal_analysis"], "")
+        self.assertIn("Joint aspiration must be selected", self.form.errors["aspiration"][0])
+        self.assertEqual(self.form.cleaned_data["crystal_analysis"], True)
         self.flare_data.update(
             {
                 "aspiration": True,

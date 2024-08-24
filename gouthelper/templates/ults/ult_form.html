@@ -5,41 +5,67 @@
 
 {% block title %}
   {% if form.instance.created %}
-    Update Ult
+    Edit Ult
   {% else %}
-    Create Ult
+    New Ult
   {% endif %}
 {% endblock title %}
 {% block heading %}
   <h1>Ult</h1>
 {% endblock heading %}
 {% block subheading %}
-  Does a patient need ULT? Tell us about their gout and related medical history to find out.
+  Does {{ str_attrs.subject_the }} need <a href="{% url 'treatments:about-ult' %}" target="_blank">ULT</a>?
 {% endblock subheading %}
 {% block content %}
   <main class="container">
     {% if form.instance.created %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ults:update' form.instance.pk %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:pseudopatient-update' object.user.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:update' object.pk %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% else %}
-      <form class="form-horizontal"
-            method="post"
-            action="{% url 'ults:create' %}">
-        {% csrf_token %}
-        {% crispy form %}
-        {% include '_submit_button.html' %}
-      </form>
+      {% if view.kwargs.pseudopatient %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:pseudopatient-create' view.kwargs.pseudopatient %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% else %}
+        <form class="form-horizontal"
+              method="post"
+              action="{% url 'ults:create' %}">
+          {% csrf_token %}
+          {% crispy form %}
+          {% include '_next_inputs.html' %}
+          {% include '_submit_button.html' %}
+        </form>
+      {% endif %}
     {% endif %}
   </main>
 {% endblock content %}
 {% block inline_javascript %}
   {{ block.super }}
-  {% include 'medhistorys/_ckd_js.html' with optional=True %}
+  {% with dob_optional=True gender_optional=True %}
+    {% include 'medhistorydetails/_ckddetail_js.html' with optional=True %}
+  {% endwith %}
   <script>
     $(document).ready(function() {
       // For Flare datepicker

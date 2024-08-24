@@ -1,5 +1,3 @@
-version: '3'
-
 volumes:
   gouthelper_local_postgres_data: {}
   gouthelper_local_postgres_data_backups: {}

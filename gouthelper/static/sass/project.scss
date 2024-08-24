@@ -35,6 +35,18 @@ $red: #b94a48;
   color: $red;
 }
 
+.btn-group.fullwidth {
+  display: flex;
+}
+
+.explanation-references {
+  font-size: smaller;
+}
+
+.fullwidth .btn {
+  flex: 1;
+}
+
 .footer-blockquote {
   font-size: 0.8rem;
   margin: 10px;
@@ -52,6 +64,10 @@ $red: #b94a48;
   margin-bottom: 8px;
 }
 
+.indicator-badge {
+  margin-left: 5px;
+}
+
 .medhistory_form-check {
   padding: 0;
 }
@@ -64,6 +80,17 @@ $red: #b94a48;
   margin-bottom: 0 !important;
 }
 
+.mini-card-content {
+  margin-top: 10px;
+}
+
+.minified-list-group {
+  margin-bottom: 5px;
+  .list-group-item {
+    padding: 4px;
+  }
+}
+
 .spacious-buttons {
   margin: 5px;
 }
@@ -73,7 +100,23 @@ $red: #b94a48;
   margin-top: 5px;
 }
 
+.stacked-column-p {
+  margin-bottom: 5px !important;
+}
+
+.sub-form {
+  border: 1px solid #020202;
+  padding: 2px;
+  border-radius: 10px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
 .then {
   padding-top: 30px;
   padding-bottom: 30px;
+}
+
+.yellow-hyperlink {
+  color: #ffc107;
 }

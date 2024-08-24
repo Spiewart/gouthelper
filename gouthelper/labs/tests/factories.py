@@ -5,8 +5,7 @@ from factory import Faker  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
 from ...medhistorys.tests.factories import CkdFactory
-from ..choices import LabTypes, LowerLimits, Units, UpperLimits
-from ..models import BaselineCreatinine, Hlab5801, Lab, Urate
+from ..models import BaselineCreatinine, Creatinine, Hlab5801, Lab, Urate
 
 pytestmark = pytest.mark.django_db
 
@@ -18,6 +17,11 @@ pytestmark = pytest.mark.django_db
 class LabFactory(DjangoModelFactory):
     class Meta:
         model = Lab
+
+    class Params:
+        dated = factory.Trait(
+            date_drawn=Faker("date_between", start_date="-3y", end_date="today"),
+        )
 
 
 class BaselineLabFactory(DjangoModelFactory):
@@ -37,10 +41,6 @@ class CreatinineBase(DjangoModelFactory):
         min_value=1,
         max_value=30,
     )
-    labtype = LabTypes.CREATININE
-    lower_limit = LowerLimits.CREATININEMGDL
-    units = Units.MGDL
-    upper_limit = UpperLimits.CREATININEMGDL
 
 
 class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
@@ -56,6 +56,20 @@ class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
         min_value=2,
         max_value=10,
     )
+
+
+class CreatinineFactory(CreatinineBase, LabFactory):
+    value = Faker(
+        "pydecimal",
+        left_digits=2,
+        right_digits=2,
+        positive=True,
+        min_value=1,
+        max_value=10,
+    )
+
+    class Meta:
+        model = Creatinine
 
 
 class Hlab5801Factory(DjangoModelFactory):
@@ -74,10 +88,6 @@ class UrateFactory(LabFactory):
         min_value=1,
         max_value=30,
     )
-    labtype = LabTypes.URATE
-    lower_limit = Urate.LowerLimits.URATEMGDL
-    units = Urate.Units.MGDL
-    upper_limit = Urate.UpperLimits.URATEMGDL
 
     class Meta:
         model = Urate

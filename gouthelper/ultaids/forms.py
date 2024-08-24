@@ -1,9 +1,11 @@
 from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import HTML, Div, Fieldset, Layout  # type: ignore
+from crispy_forms.layout import Fieldset, Layout  # type: ignore
 from django import forms  # type: ignore
 
 from ..medhistorys.choices import MedHistoryTypes
-from ..utils.helpers.form_helpers import (
+from ..utils.forms import (
+    ModelFormKwargMixin,
+    forms_helper_insert_about_the_patient_legend,
     forms_helper_insert_cvdiseases,
     forms_helper_insert_dateofbirth,
     forms_helper_insert_ethnicity,
@@ -16,6 +18,7 @@ from .models import UltAid
 
 
 class UltAidForm(
+    ModelFormKwargMixin,
     forms.ModelForm,
 ):
     """
@@ -29,47 +32,38 @@ class UltAidForm(
             "decisionaid",
             "gender",
             "hlab5801",
-            "medallergys",
-            "medhistorys",
             "ethnicity",
+            "user",
         )
 
     def __init__(self, *args, **kwargs):
-        # pop medallergys from kwargs in order to populate form from the view
+        self.ult = kwargs.pop("ult", None)
         self.medallergys = kwargs.pop("medallergys")
+        self.ethnicity = True
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Fieldset(
                 "",
-                Div(
-                    HTML(
-                        """
-                            <hr size="3" color="dark">
-                            <legend>About the Patient</legend>
-                            """
-                    ),
-                ),
             ),
         )
-        forms_helper_insert_ethnicity(layout=self.helper.layout)
+        forms_helper_insert_about_the_patient_legend(form=self)
+        if not self.patient:
+            forms_helper_insert_ethnicity(layout=self.helper.layout)
         forms_helper_insert_hlab5801(layout=self.helper.layout)
-        forms_helper_insert_cvdiseases(layout=self.helper.layout)
-        # Insert CkdForm
+        forms_helper_insert_cvdiseases(layout=self.helper.layout, subject_the=self.str_attrs["subject_the"])
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.CKD)
-        forms_helper_insert_dateofbirth(layout=self.helper.layout)
-        forms_helper_insert_gender(layout=self.helper.layout)
-        # Insert XoiInteractionForm
+        if not self.patient and not self.ult:
+            forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            forms_helper_insert_gender(layout=self.helper.layout)
+        elif self.ult:
+            if not self.ult.dateofbirth:
+                forms_helper_insert_dateofbirth(layout=self.helper.layout)
+            if not self.ult.gender:
+                forms_helper_insert_gender(layout=self.helper.layout)
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.XOIINTERACTION)
-        # Insert OrganTransplantForm
         forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.ORGANTRANSPLANT)
         forms_helper_insert_medallergys(layout=self.helper.layout, treatments=self.medallergys)
-        # Insert AllopurinolHypersensitivityForm
-        forms_helper_insert_medhistory(
-            layout=self.helper.layout, medhistorytype=MedHistoryTypes.ALLOPURINOLHYPERSENSITIVITY
-        )
-        # Insert FebuxostatHypersensitivityForm
-        forms_helper_insert_medhistory(
-            layout=self.helper.layout, medhistorytype=MedHistoryTypes.FEBUXOSTATHYPERSENSITIVITY
-        )
+        forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.HEPATITIS)
+        forms_helper_insert_medhistory(layout=self.helper.layout, medhistorytype=MedHistoryTypes.URATESTONES)
