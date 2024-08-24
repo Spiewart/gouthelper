@@ -932,7 +932,7 @@ class TestPseudopatientDeleteView(TestCase):
         request = self.rf.get("/fake-url/")
         view.request = request
         view.object = self.provider_pseudopatient
-        assert view.get_success_message(cleaned_data={}) == _("Pseudopatient successfully deleted")
+        assert view.get_success_message(cleaned_data={}) == _("GoutPatient successfully deleted")
 
     def test__get_success_url(self):
         view = PseudopatientDeleteView()
@@ -1148,7 +1148,7 @@ class TestUserDeleteView(TestCase):
         view.object = self.provider
         request = self.rf.get("/fake-url/")
         view.request = request
-        assert view.get_success_message(cleaned_data={}) == _("User successfully deleted")
+        assert view.get_success_message(cleaned_data={}) == _("Account successfully deleted")
 
     def test__get_success_url(self):
         view = UserDeleteView()
