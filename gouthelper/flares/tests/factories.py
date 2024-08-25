@@ -49,7 +49,7 @@ from ...utils.factories import (
     get_menopause_val,
     get_or_create_medhistory_atomic,
 )
-from ..choices import LimitedJointChoices
+from ..choices import DiagnosedChoices, LimitedJointChoices
 from ..models import Flare
 
 if TYPE_CHECKING:
@@ -360,7 +360,7 @@ def flare_data_factory(
     # 50/50 chance of having clinician diagnosis and 50/50 chance of having aspiration
     if fake.boolean() or data.get("urate-value", None) or data.get("aki-value", None) or creatinines:
         data["medical_evaluation"] = True
-        data["diagnosed"] = fake.boolean() if fake.boolean() else ""
+        data["diagnosed"] = get_random_diagnosed()
         if fake.boolean():
             data["aspiration"] = True
             data["crystal_analysis"] = fake.boolean()
@@ -398,6 +398,10 @@ def get_random_joints():
         LimitedJointChoices.values,
         random.randint(1, len(LimitedJointChoices.values)),
     )
+
+
+def get_random_diagnosed() -> DiagnosedChoices:
+    return random.choice(DiagnosedChoices.values)
 
 
 def check_menopause_gender(gender: Genders) -> bool:

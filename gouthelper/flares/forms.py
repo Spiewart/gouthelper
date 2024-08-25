@@ -15,7 +15,6 @@ from ..utils.forms import (
     forms_helper_insert_gender,
     forms_helper_insert_medhistory,
 )
-from .choices import DIAGNOSED_CHOCIES
 from .models import Flare
 
 
@@ -141,18 +140,7 @@ red (erythematous)?"
             "urate_check"
         ].help_text = f"Was {self.str_attrs.get('subject_the_pos')} uric acid level \
 checked during the flare?"
-        self.fields.update(
-            {
-                "diagnosed": forms.TypedChoiceField(
-                    widget=forms.Select,
-                    choices=DIAGNOSED_CHOCIES,
-                    required=False,
-                    initial=None,
-                    empty_value=None,
-                    coerce=lambda x: x == "True",
-                )
-            }
-        )
+
         self.fields["diagnosed"].help_text = _(
             f"Did the medical provider diagnose \
 {self.str_attrs.get('subject_the_pos')} symptoms as a gout flare?"
@@ -371,6 +359,14 @@ medical examination.",
             elif aspiration and crystal_analysis is None:
                 self.add_error(
                     "crystal_analysis", "Results of crystal analysis must be selected if aspiration is selected."
+                )
+            if diagnosed is None:
+                self.add_error(
+                    "diagnosed",
+                    (
+                        "A diagnosis, even if it is that the clinician was uncertain, must be selected if "
+                        "there was a clinical evaluation of the flare."
+                    ),
                 )
             if urate_check is None:
                 self.add_error(

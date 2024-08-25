@@ -21,7 +21,7 @@ from ...medhistorys.choices import CVDiseases, MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ...users.tests.factories import create_psp
 from ...utils.test_helpers import date_days_ago
-from ..choices import LimitedJointChoices
+from ..choices import DiagnosedChoices, LimitedJointChoices
 from ..models import Flare
 from .factories import CustomFlareFactory, create_flare, flare_data_factory
 
@@ -52,7 +52,7 @@ def test__flare_data_factory():
             assert isinstance(data["date_ended"], str)
         if data["medical_evaluation"]:
             assert "diagnosed" in data
-            assert isinstance(data["diagnosed"], bool) or data["diagnosed"] == ""
+            assert data["diagnosed"] in DiagnosedChoices.values or data["diagnosed"] == ""
             assert "aspiration" in data
             assert isinstance(data["aspiration"], bool)
             if data["aspiration"]:
@@ -116,7 +116,7 @@ def test__flare_data_factory():
         assert isinstance(data["medical_evaluation"], bool)
         if data["medical_evaluation"]:
             assert "diagnosed" in data
-            assert isinstance(data["diagnosed"], bool) or data["diagnosed"] == ""
+            assert data["diagnosed"] in DiagnosedChoices.values or data["diagnosed"] == ""
             assert "aspiration" in data
             assert isinstance(data["aspiration"], bool)
             if data["aspiration"]:

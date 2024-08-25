@@ -244,12 +244,10 @@
               <h4 class="card-title">Medical Info</h4>
               <ul>
                 <li>
-                  {% if flare.diagnosed %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: gout
-                  {% elif flare.diagnosed is not None %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: not gout
+                  {% if flare.diagnosed is not None %}
+                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: {{ flare.get_diagnosed_display.lower }}
                   {% else %}
-                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: unclear
+                    <a class="samepage-link" href="#diagnosed">Diagnosis</a>: no clinical evaluation
                   {% endif %}
                 </li>
                 <li>

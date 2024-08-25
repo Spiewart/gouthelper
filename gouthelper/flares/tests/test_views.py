@@ -39,7 +39,7 @@ from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.factories import medhistory_diff_obj_data, oto_random_age, oto_random_gender, oto_random_urate_or_None
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
-from ..choices import Likelihoods, LimitedJointChoices, Prevalences
+from ..choices import DiagnosedChoices, Likelihoods, LimitedJointChoices, Prevalences
 from ..models import Flare
 from ..selectors import flares_user_qs
 from ..views import (
@@ -105,7 +105,7 @@ class TestFlareCreate(TestCase):
             "aspiration": False,
             "urate_check": False,
             "urate": "",
-            "diagnosed": False,
+            "diagnosed": DiagnosedChoices.NO,
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.GOUT}-value": False,
             f"{MedHistoryTypes.MENOPAUSE}-value": True,
@@ -251,7 +251,7 @@ class TestFlareCreate(TestCase):
             "aspiration": False,
             "urate_check": True,
             "urate-value": Decimal("5.0"),
-            "diagnosed": False,
+            "diagnosed": DiagnosedChoices.NO,
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.GOUT}-value": False,
             f"{MedHistoryTypes.MENOPAUSE}-value": True,
@@ -286,7 +286,7 @@ class TestFlareCreate(TestCase):
             "aspiration": False,
             "urate_check": True,
             "urate-value": Decimal("5.0"),
-            "diagnosed": False,
+            "diagnosed": DiagnosedChoices.NO,
         }
         response = self.client.post(reverse("flares:create"), flare_data)
         self.assertEqual(response.status_code, 200)
@@ -821,7 +821,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             {
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": "",
             }
         )
@@ -856,7 +856,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "joints": [LimitedJointChoices.MTP1L, LimitedJointChoices.MTP1R],
                 "urate_check": True,
                 "urate-value": Decimal("9.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": True,
                 "crystal_analysis": True,
                 "date_started": timezone.now().date() - timedelta(days=35),
@@ -895,7 +895,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "date_ended": "",
                 "urate_check": True,
                 "urate-value": Decimal("7.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": False,
                 "crystal_analysis": "",
             }
@@ -935,7 +935,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
                 "medical_evaluation": True,
-                "diagnosed": False,
+                "diagnosed": DiagnosedChoices.NO,
                 "aspiration": False,
                 "crystal_analysis": "",
                 "date_started": timezone.now().date() - timedelta(days=135),
@@ -2188,7 +2188,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             {
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": "",
             }
         )
@@ -2224,7 +2224,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "joints": [LimitedJointChoices.MTP1L, LimitedJointChoices.MTP1R],
                 "urate_check": True,
                 "urate-value": Decimal("9.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": True,
                 "crystal_analysis": True,
                 "date_started": timezone.now().date() - timedelta(days=35),
@@ -2261,7 +2261,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
-                "diagnosed": True,
+                "diagnosed": DiagnosedChoices.YES,
                 "aspiration": False,
                 "crystal_analysis": "",
             }
@@ -2299,7 +2299,7 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
                 "medical_evaluation": True,
                 "urate_check": True,
                 "urate-value": Decimal("5.0"),
-                "diagnosed": False,
+                "diagnosed": DiagnosedChoices.NO,
                 "aspiration": False,
                 "crystal_analysis": "",
                 "date_started": timezone.now().date() - timedelta(days=135),
@@ -2444,7 +2444,7 @@ class TestFlareUpdate(TestCase):
             "urate-value": Decimal("14.4"),
             f"{MedHistoryTypes.CKD}-value": False,
             f"{MedHistoryTypes.GOUT}-value": False,
-            "diagnosed": True,
+            "diagnosed": DiagnosedChoices.YES,
             "aspiration": True,
         }
 

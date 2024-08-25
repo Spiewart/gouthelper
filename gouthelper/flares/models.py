@@ -25,7 +25,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
 from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date, shorten_date_for_str
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
-from .choices import LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
+from .choices import DiagnosedChoices, LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .helpers import (
     flares_abnormal_duration,
     flares_calculate_prevalence_points,
@@ -186,8 +186,8 @@ monosodium urate crystals on polarized microscopy?"
         help_text=_("What day did this flare start?"),
         default=now_date,
     )
-    diagnosed = models.BooleanField(
-        choices=BOOL_CHOICES,
+    diagnosed = models.IntegerField(
+        choices=DiagnosedChoices.choices,
         verbose_name=_("Provider Diagnosis"),
         help_text=_("Did a medical provider think these symptoms were from gout?"),
         blank=True,
