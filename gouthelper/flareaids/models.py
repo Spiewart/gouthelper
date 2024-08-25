@@ -5,6 +5,7 @@ from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
+from django.utils.text import format_lazy  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
@@ -152,6 +153,28 @@ treatment is typically very short and the risk of bleeding is low."
                     },
                 )
         return None
+
+    def colchicine_info_dict(self, samepage_links: bool = True) -> str:
+        info_dict = super().colchicine_info_dict(samepage_links=samepage_links)
+        if self.colchicine_dose_adjusted_for_aki:
+            info_dict["Dosing-AKI"] = mark_safe(
+                format_lazy(
+                    """Dose adjusted for {}.""",
+                    "<a class='samepage-link' href='#aki'>acute kidney injury</a>"
+                    if samepage_links
+                    else "acute kidney injury",
+                )
+            )
+        return info_dict
+
+    @property
+    def colchicine_dose_adjusted_for_aki(self) -> bool:
+        return (
+            self.related_flare
+            and self.related_flare.aki
+            and self.related_flare.aki.status == Statuses.IMPROVING
+            and self.colchicine_should_be_dose_adjusted_for_aki(options=self.options, aki=self.related_flare.aki)
+        )
 
     @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:

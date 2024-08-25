@@ -276,6 +276,21 @@
                     not checked
                   {% endif %}
                 </li>
+                <li>
+                  <a class="samepage-link" href="#aki">Acute kidney injury</a>:
+                  {% if flare.aki %}
+                    {{ flare.aki.get_status_display.lower }}
+                    {% if flare.aki.creatinines_qs %}
+                      <ol>
+                        {% for creatinine in flare.aki.creatinines_qs %}
+                          <li>{{ creatinine }}, {{ creatinine.date_drawn.date }}</li>
+                        {% endfor %}
+                      </ol>
+                    {% endif %}
+                  {% else %}
+                    none
+                  {% endif %}
+                </li>
               </ul>
             </div>
           </div>
