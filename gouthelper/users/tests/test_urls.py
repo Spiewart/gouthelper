@@ -18,6 +18,21 @@ def test_redirect():
     assert resolve("/users/~redirect/").view_name == "users:redirect"
 
 
+def test_create_pseudopatient():
+    assert reverse("users:pseudopatient-create") == "/users/pseudopatients/create/"
+    assert resolve("/users/pseudopatients/create/").view_name == "users:pseudopatient-create"
+
+
+def test_provider_create_pseudopatient():
+    assert (
+        reverse("users:provider-pseudopatient-create", kwargs={"username": "fake-user"})
+        == "/users/pseudopatients/provider-create/fake-user/"
+    )
+    assert (
+        resolve("/users/pseudopatients/provider-create/fake-user/").view_name == "users:provider-pseudopatient-create"
+    )
+
+
 def test_pseudopatients():
     assert reverse("users:pseudopatients", kwargs={"username": "fake-user"}) == "/users/fake-user/pseudopatients/"
     assert resolve("/users/fake-user/pseudopatients/").view_name == "users:pseudopatients"
