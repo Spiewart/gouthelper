@@ -1019,8 +1019,8 @@ score."
             if self.crystal_unproven:
                 likelihood_exp_str += " whose likelihood was lowered because " + self.crystal_unproven_explanation
                 if self.less_likelys:
-                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
-been lowered due to:"
+                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, \
+it would have been lowered due to:"
                 else:
                     likelihood_exp_str += "."
             else:
@@ -1045,12 +1045,11 @@ without any less likely factors"
         elif self.prevalence == self.Prevalences.LOW:
             if self.crystal_unproven:
                 likelihood_exp_str += " whose likelihood was lowered because " + self.crystal_unproven_explanation
+            else:
+                likelihood_exp_str += "."
             if self.less_likelys:
-                if self.crystal_unproven:
-                    likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
+                likelihood_exp_str += " Additionally, had the likelihood not already been unlikely, it would have \
 been lowered due to:"
-                else:
-                    likelihood_exp_str += " that was lowered due to:"
         else:
             raise ValueError("Trying to explain a Flare likelihood without a prevalence")
         return mark_safe(likelihood_exp_str)
