@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
@@ -52,6 +52,7 @@ class Aki(
         ]
 
     Statuses = Statuses
+    user_foreign_key_fields: list[Literal["creatinine"]] = ["creatinine"]
 
     status = models.CharField(
         choices=Statuses.choices,

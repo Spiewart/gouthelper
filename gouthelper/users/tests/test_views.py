@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from ...akis.choices import Statuses
 from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import age_calc, yearsago
 from ...ethnicitys.choices import Ethnicitys
@@ -547,6 +548,22 @@ class TestPseudopatientFlareCreateView(TestCase):
         assert user.medallergy_set.exists()
         assert user.medallergy_set.filter(treatment=Treatments.DICLOFENAC).exists()
         assert user.medallergy_set.filter(treatment=Treatments.PREDNISONE).exists()
+
+    def test__flare_with_flareaid_and_aki_with_creatinines_sets_creatinines_user(self) -> None:
+        flareaid = CustomFlareAidFactory().create_object()
+        flare = CustomFlareFactory(
+            flareaid=flareaid,
+            aki=Statuses.IMPROVING,
+            date_started=(timezone.now() - timedelta(days=5)).date(),
+            creatinines=[
+                (Decimal("2.0"), (timezone.now() - timedelta(days=5)).date()),
+                (Decimal("1.4"), (timezone.now() - timedelta(days=3)).date()),
+            ],
+        ).create_object()
+        _, _, user = self.return_flare_response_user(flare=flare)
+        for creatinine in flare.aki.creatinine_set.all():
+            self.assertTrue(creatinine.user)
+            self.assertEqual(creatinine.user, user)
 
 
 class TestPseudopatientDetailView(TestCase):

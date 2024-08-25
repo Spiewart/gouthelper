@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from ...dateofbirths.models import DateOfBirth
     from ...flares.models import Flare
     from ...genders.models import Gender
+    from ...labs.models import Creatinine
     from ...medallergys.models import MedAllergy
     from ...medhistorydetails.choices import Stages
 
@@ -195,6 +196,7 @@ class CustomFlareAidFactory(
         pvd: bool | MedHistory | None = Auto,
         stroke: bool | MedHistory | None = Auto,
         aki: Union[Statuses, "Aki", None] = Auto,
+        creatinines: list["Creatinine", "Decimal"] | None = Auto,
         dateofbirth: Union["date", "DateOfBirth", None] = Auto,
         gender: Union[Genders, "Gender", None] = Auto,
         celecoxib_allergy: Union["MedAllergy", bool, None] = Auto,
@@ -230,6 +232,7 @@ class CustomFlareAidFactory(
         self.pvd = pvd
         self.stroke = stroke
         self.aki = aki
+        self.creatinines = creatinines
         self.dateofbirth = dateofbirth
         self.gender = gender
         self.celecoxib_allergy = celecoxib_allergy

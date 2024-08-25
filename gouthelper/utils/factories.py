@@ -1438,10 +1438,12 @@ class CustomFactoryAkiMixin:
     user: Union["User", bool, None]
 
     def get_or_create_aki(self) -> Aki:
-        def create_aki():
+        def create_aki(status: Statuses | None = None) -> Aki:
             kwargs = {}
             if hasattr(self, "creatinines") and self.creatinines:
                 kwargs["creatinines"] = self.creatinines
+            if status:
+                kwargs["status"] = status
             return AkiFactory(user=self.user, **kwargs)
 
         if self.aki is Auto:
@@ -1458,11 +1460,7 @@ class CustomFactoryAkiMixin:
             else:
                 if not isinstance(self.aki, Statuses):
                     raise TypeError(f"Invalid type for aki: {type(self.aki)}")
-                return AkiFactory(
-                    status=self.aki,
-                    user=self.user,
-                    creatinines=self.creatinines if hasattr(self, "creatinines") else None,
-                )
+                return create_aki(status=self.aki)
         elif hasattr(self, "creatinines") and self.creatinines:
             raise ValueError("Cannot create creatinines for a Flare without an Aki!")
         else:

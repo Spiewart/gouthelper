@@ -1986,6 +1986,18 @@ class GoutHelperUserEditMixin(
             self.update_related_object_and_otos(self.related_object)
             self.update_related_object_medhistorys_qs(self.related_object, self.related_object_attr)
 
+    def form_valid_update_related_object_oto_user_foreign_keys(
+        self,
+        related_object_oto: Any,
+    ) -> None:
+        if hasattr(related_object_oto, "user_foreign_key_fields"):
+            for fk_field in related_object_oto.user_foreign_key_fields:
+                for fk in getattr(related_object_oto, f"{fk_field}s_qs"):
+                    if fk.user is None:
+                        fk.user = self.user
+                        fk.full_clean()
+                        fk.save()
+
     def update_related_obj_medhistory(
         self, mh: "MedHistory", mh_related_obj: Any | None, related_object_attr: str
     ) -> None:
@@ -2076,6 +2088,7 @@ class GoutHelperUserEditMixin(
                 elif self.update_related_object_oto_user(related_obj_oto):
                     if not save_related_obj:
                         save_related_obj = True
+            self.form_valid_update_related_object_oto_user_foreign_keys(related_obj_oto)
         return save_related_obj
 
     def form_valid_save_medhistory_details(self) -> None:
