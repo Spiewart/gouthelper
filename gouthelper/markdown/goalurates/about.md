@@ -23,7 +23,7 @@ The solubility of uric acid in the blood is 6.8 mg/dL[<sup>1</sup>](#ref-1). Gui
 
 ## <span id="interpretation">Interpretation</span>
 
-If the goal uric acid is 6.0 mg/dL, this means that the provider should aim for the patient's uric acid to be 6.0 mg/dL or lower when adjusting the dose of urate-lowering therapy. Similarly, if the goal uric acid is 5.0 mg/dL, this means that the provider should aim for the patient's uric acid to be 5.0 mg/dL or lower when adjusting the dose of urate-lowering therapy.
+If the goal uric acid is 6.0 mg/dL, this means that the provider should aim for the patient's uric acid to be 6.0 mg/dL or lower when adjusting the dose of urate-lowering therapy. Similarly, if the goal uric acid is 5.0 mg/dL, this means that the provider should aim for the patient's uric acid to be 5.0 mg/dL or lower when adjusting the dose of urate-lowering therapy. There are really only two scenarios where a patient should have the lower uric acid. The first is when he or she has gouty erosions on x-rays or other medical imaging. The other is in the presence of gouty tophi.
 
 ---
 

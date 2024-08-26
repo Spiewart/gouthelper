@@ -9,12 +9,20 @@ env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
   # Set global variables for the images
-  WEB_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/web
+  GOUTHELPER_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper
   TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
   POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/postgres
+  REDIS_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/redis
+  AWSCLI_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/awscli
 
 on:
-  workflow_call:
+  pull_request:
+    branches: ['master', 'main']
+    paths-ignore: ['docs/**']
+
+  push:
+    branches: ['master', 'main']
+    paths-ignore: ['docs/**']
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
@@ -33,9 +41,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Set environment variables
         run: |
-          echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> $GITHUB_ENV
+          echo "GOUTHELPER_IMAGE=$(echo ${{ env.GOUTHELPER_IMAGE }} )" >> $GITHUB_ENV
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
+          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> $GITHUB_ENV
+          echo "AWSCLI_IMAGE=$(echo ${{ env.AWSCLI_IMAGE }} )" >> $GITHUB_ENV
           mkdir -p .envs/.production
           echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
           echo "${{secrets.GOUTHELPER_POSTGRES_ENV_BUILD }}" >> .envs/.production/.postgres
@@ -45,22 +55,28 @@ jobs:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       - name: Pull images
         run: |
-          docker pull ${{ env.WEB_IMAGE }} || true
+          docker pull ${{ env.GOUTHELPER_IMAGE }} || true
           docker pull ${{ env.TRAEFIK_IMAGE }} || true
           docker pull ${{ env.POSTGRES_IMAGE }} || true
+          docker pull ${{ env.REDIS_IMAGE }} || true
+          docker pull ${{ env.AWSCLI_IMAGE }} || true
       - name: Build images
         run: |
           docker compose -f production.yml build
       - name: Tag images
         run: |
-          docker tag gouthelper_production_django ${{ env.WEB_IMAGE }}:latest
+          docker tag gouthelper_production_django ${{ env.GOUTHELPER_IMAGE }}:latest
           docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
           docker tag gouthelper_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
+          docker tag redis ${{ env.REDIS_IMAGE }}:latest
+          docker tag gouthelper-awscli ${{ env.AWSCLI_IMAGE }}:latest
       - name: Push images
         run: |
-          docker push ${{ env.WEB_IMAGE }}
+          docker push ${{ env.GOUTHELPER_IMAGE }}
           docker push ${{ env.TRAEFIK_IMAGE }}
           docker push ${{ env.POSTGRES_IMAGE }}
+          docker push ${{ env.REDIS_IMAGE }}
+          docker push ${{ env.AWSCLI_IMAGE }}
 
   deploy:
     name: Deploy to DigitalOcean
@@ -72,9 +88,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Add environment variables to .env
         run: |
-          echo "WEB_IMAGE=$(echo ${{ env.WEB_IMAGE }} )" >> .env
+          echo "GOUTHELPER_IMAGE=$(echo ${{ env.GOUTHELPER_IMAGE }} )" >> .env
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> .env
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> .env
+          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> .env
+          echo "AWSCLI_IMAGE=$(echo ${{ env.AWSCLI_IMAGE }} )" >> .env
           echo NAMESPACE=${{ secrets.NAMESPACE }} >> .env
           echo PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }} >> .env
       - name: Add the private SSH key to the ssh-agent
@@ -95,9 +113,11 @@ jobs:
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
             git fetch
-            docker pull $WEB_IMAGE
+            docker pull $GOUTHELPER_IMAGE
             docker pull $TRAEFIK_IMAGE
             docker pull $POSTGRES_IMAGE
+            docker pull $REDIS_IMAGE
+            docker pull $AWSCLI_IMAGE
             docker compose -f production.yml down
             docker compose -f production.yml up -d
           ENDSSH
