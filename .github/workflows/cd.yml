@@ -73,6 +73,31 @@ jobs:
           docker push ${{ env.POSTGRES_IMAGE }}
           docker push ${{ env.AWSCLI_IMAGE }}
 
+  create-envfiles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Make .postgres envfile
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          envkey_POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          envkey_POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          envkey_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          envkey_POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          envkey_POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          directory: .envs/.production/
+          file_name: .postgres
+          fail_on_empty: true
+          sort_keys: false
+
+      - name: Make .django envfile
+        uses: SpicyPizza/create-envfile@v2.0
+        with:
+          directory: .envs/.production/
+          file_name: .django
+          fail_on_empty: true
+          sort_keys: false
+
   deploy:
     name: Deploy to DigitalOcean
     runs-on: ubuntu-latest
@@ -101,7 +126,7 @@ jobs:
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
-          scp -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
+          scp -o StrictHostKeyChecking=no -r ./.env ./production.yml ./.envs/.production root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /gouthelper
             source .env
