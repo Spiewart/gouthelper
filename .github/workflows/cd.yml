@@ -12,7 +12,6 @@ env:
   GOUTHELPER_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper
   TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/traefik
   POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/postgres
-  REDIS_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/redis
   AWSCLI_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/awscli
 
 on:
@@ -44,7 +43,6 @@ jobs:
           echo "GOUTHELPER_IMAGE=$(echo ${{ env.GOUTHELPER_IMAGE }} )" >> $GITHUB_ENV
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> $GITHUB_ENV
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> $GITHUB_ENV
-          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> $GITHUB_ENV
           echo "AWSCLI_IMAGE=$(echo ${{ env.AWSCLI_IMAGE }} )" >> $GITHUB_ENV
           mkdir -p .envs/.production
           echo "${{secrets.GOUTHELPER_DJANGO_ENV_BUILD }}" >> .envs/.production/.django
@@ -58,7 +56,6 @@ jobs:
           docker pull ${{ env.GOUTHELPER_IMAGE }} || true
           docker pull ${{ env.TRAEFIK_IMAGE }} || true
           docker pull ${{ env.POSTGRES_IMAGE }} || true
-          docker pull ${{ env.REDIS_IMAGE }} || true
           docker pull ${{ env.AWSCLI_IMAGE }} || true
       - name: Build images
         run: |
@@ -68,14 +65,12 @@ jobs:
           docker tag gouthelper_production_django ${{ env.GOUTHELPER_IMAGE }}:latest
           docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
           docker tag gouthelper_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
-          docker tag redis ${{ env.REDIS_IMAGE }}:latest
           docker tag gouthelper-awscli ${{ env.AWSCLI_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.GOUTHELPER_IMAGE }}
           docker push ${{ env.TRAEFIK_IMAGE }}
           docker push ${{ env.POSTGRES_IMAGE }}
-          docker push ${{ env.REDIS_IMAGE }}
           docker push ${{ env.AWSCLI_IMAGE }}
 
   deploy:
@@ -91,7 +86,6 @@ jobs:
           echo "GOUTHELPER_IMAGE=$(echo ${{ env.GOUTHELPER_IMAGE }} )" >> .env
           echo "TRAEFIK_IMAGE=$(echo ${{ env.TRAEFIK_IMAGE }} )" >> .env
           echo "POSTGRES_IMAGE=$(echo ${{ env.POSTGRES_IMAGE }} )" >> .env
-          echo "REDIS_IMAGE=$(echo ${{ env.REDIS_IMAGE }} )" >> .env
           echo "AWSCLI_IMAGE=$(echo ${{ env.AWSCLI_IMAGE }} )" >> .env
           echo NAMESPACE=${{ secrets.NAMESPACE }} >> .env
           echo PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }} >> .env
@@ -116,7 +110,6 @@ jobs:
             docker pull $GOUTHELPER_IMAGE
             docker pull $TRAEFIK_IMAGE
             docker pull $POSTGRES_IMAGE
-            docker pull $REDIS_IMAGE
             docker pull $AWSCLI_IMAGE
             docker compose -f production.yml down
             docker compose -f production.yml up -d
