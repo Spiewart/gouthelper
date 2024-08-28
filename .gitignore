@@ -282,6 +282,5 @@ vendors.js
 !htmx.min.js
 *.min.js.map
 .env
+.envs/*
 !.envs/.local/
-.envs/.production/.django
-.envs/.production/.postgres
