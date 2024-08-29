@@ -57,12 +57,6 @@ jobs:
       - name: Build images
         run: |
           docker compose -f production.yml build
-      - name: Tag images
-        run: |
-          docker tag gouthelper_production_django ${{ env.GOUTHELPER_IMAGE }}:latest
-          docker tag gouthelper_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
-          docker tag gouthelper_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
-          docker tag gouthelper-awscli ${{ env.AWSCLI_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.GOUTHELPER_IMAGE }}
