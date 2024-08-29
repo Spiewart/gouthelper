@@ -127,7 +127,11 @@ jobs:
           scp -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           scp -o StrictHostKeyChecking=no -r ./.postgres ./.django root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
+            pwd
+            ls -a
             cd /gouthelper
+            pwd
+            ls -a
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
             git fetch
