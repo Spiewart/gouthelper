@@ -9,10 +9,10 @@ env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
   # Set global variables for the images
-  GOUTHELPER_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper_production_django
-  TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper_production_traefik
-  POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper_production_postgres
-  AWSCLI_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/gouthelper-awscli
+  GOUTHELPER_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_django
+  TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_traefik
+  POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_postgres
+  AWSCLI_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')-awscli
 
 on:
   pull_request:
@@ -57,6 +57,12 @@ jobs:
       - name: Build images
         run: |
           docker compose -f production.yml build
+      - name: Tag images
+        run: |
+          docker tag ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_django ${{ env.GOUTHELPER_IMAGE }}:latest
+          docker tag ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_traefik ${{ env.TRAEFIK_IMAGE }}:latest
+          docker tag ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_postgres ${{ env.POSTGRES_IMAGE }}:latest
+          docker tag ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')-awscli ${{ env.AWSCLI_IMAGE }}:latest
       - name: Push images
         run: |
           docker push ${{ env.GOUTHELPER_IMAGE }}
@@ -124,11 +130,7 @@ jobs:
           scp -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           scp -o StrictHostKeyChecking=no -r ./.postgres ./.django root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper/.envs/.production
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
-            pwd
-            ls -a
             cd /gouthelper
-            pwd
-            ls -a
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
             git fetch
