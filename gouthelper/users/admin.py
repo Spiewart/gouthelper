@@ -47,4 +47,27 @@ class ProviderAdmin(UserAdmin):
 
 @admin.register(Pseudopatient)
 class PseudopatientAdmin(UserAdmin):
-    pass
+    form = UserAdminChangeForm
+    add_form = UserAdminCreationForm
+    fieldsets = (
+        (None, {"fields": ()}),
+        (_("Personal info"), {"fields": ("name", "email")}),
+        (
+            _("Permissions"),
+            {
+                "fields": (
+                    "is_active",
+                    "groups",
+                    "user_permissions",
+                ),
+            },
+        ),
+        (_("Important dates"), {"fields": ("last_login",)}),
+    )
+    list_display = ["id", "provider", "created"]
+    search_fields = ["id", "provider", "created"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related("pseudopatientprofile__provider")
+        return qs
