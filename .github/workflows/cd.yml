@@ -9,10 +9,10 @@ env:
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
   # Set global variables for the images
-  GOUTHELPER_IMAGE: $(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_django
-  TRAEFIK_IMAGE: $(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_traefik
-  POSTGRES_IMAGE: $(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_postgres
-  AWSCLI_IMAGE: $(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')-awscli
+  GOUTHELPER_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_django
+  TRAEFIK_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_traefik
+  POSTGRES_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')_production_postgres
+  AWSCLI_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')-awscli
 
 on:
   pull_request:
