@@ -132,13 +132,10 @@ jobs:
             cd /gouthelper
             source .env
             docker login ghcr.io -u $NAMESPACE -p $PERSONAL_ACCESS_TOKEN
-            git fetch
             docker pull $GOUTHELPER_IMAGE
             docker pull $TRAEFIK_IMAGE
             docker pull $POSTGRES_IMAGE
             docker pull $AWSCLI_IMAGE
             docker compose -f production.yml down
-            docker compose -f production.yml run --rm django python manage.py update_contents
-            docker compose -f production.yml run --rm django python manage.py update_defaults
             docker compose -f production.yml up -d
           ENDSSH
