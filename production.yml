@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/django/Dockerfile
-    image: gouthelper_production_django
+    image: '${GOUTHELPER_IMAGE}'
     depends_on:
       - postgres
       - redis
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
-    image: gouthelper_production_postgres
+    image: '${POSTGRES_IMAGE}'
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
       - production_postgres_data_backups:/backups
@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/traefik/Dockerfile
-    image: gouthelper_production_traefik
+    image: '${TRAEFIK_IMAGE}'
     depends_on:
       - django
     volumes:
