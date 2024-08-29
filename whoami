@@ -1,0 +1,59 @@
+Welcome to Ubuntu 22.04.2 LTS (GNU/Linux 5.15.0-91-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+  System information as of Thu Aug 29 13:00:58 UTC 2024
+
+  System load:                      0.0
+  Usage of /:                       30.3% of 48.27GB
+  Memory usage:                     55%
+  Swap usage:                       0%
+  Processes:                        116
+  Users logged in:                  1
+  IPv4 address for br-153d6d4949cb: 192.168.16.1
+  IPv4 address for docker0:         172.17.0.1
+  IPv4 address for eth0:            64.23.142.90
+  IPv4 address for eth0:            10.48.0.5
+  IPv4 address for eth1:            10.124.0.2
+
+Expanded Security Maintenance for Applications is not enabled.
+
+103 updates can be applied immediately.
+To see these additional updates run: apt list --upgradable
+
+1 additional security update can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+
+*** System restart required ***
+********************************************************************************
+
+Welcome to DigitalOcean's 1-Click Docker Droplet.
+To keep this Droplet secure, the UFW firewall is enabled.
+All ports are BLOCKED except 22 (SSH), 2375 (Docker) and 2376 (Docker).
+
+* The Docker 1-Click Quickstart guide is available at:
+  https://do.co/3j6j3po#start
+
+* You can SSH to this Droplet in a terminal as root: ssh root@64.23.142.90
+
+* Docker is installed and configured per Docker's recommendations:
+  https://docs.docker.com/install/linux/docker-ce/ubuntu/
+
+* Docker Compose is installed and configured per Docker's recommendations:
+  https://docs.docker.com/compose/install/#install-compose
+
+For help and more information, visit https://do.co/3j6j3po
+
+********************************************************************************
+
+To delete this message of the day: rm -rf /etc/update-motd.d/99-one-click
+Last login: Thu Aug 29 11:33:01 2024 from 73.65.123.222
+[?2004h]0;root@docker-ubuntu-s-1vcpu-2gb-sfo3-01: ~root@docker-ubuntu-s-1vcpu-2gb-sfo3-01:~# gout [K[K[Kgouthelper rules
+[?2004lgogouthelper: command not found
+[?2004h]0;root@docker-ubuntu-s-1vcpu-2gb-sfo3-01: ~root@docker-ubuntu-s-1vcpu-2gb-sfo3-01:~# quit9)
+[?2004l-bash: syntax error near unexpected token `)'
+[?2004h]0;root@docker-ubuntu-s-1vcpu-2gb-sfo3-01: ~root@docker-ubuntu-s-1vcpu-2gb-sfo3-01:~# ^C[?2004l[?2004h[?2004l
+[?2004h]0;root@docker-ubuntu-s-1vcpu-2gb-sfo3-01: ~root@docker-ubuntu-s-1vcpu-2gb-sfo3-01:~#
