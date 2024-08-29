@@ -88,7 +88,6 @@ jobs:
           echo PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }} >> .env
       - name: Create and populate .django and .postgres
         run: |
-          mkdir -p .envs/.production
           echo "POSTGRES_DB=$(echo ${{ secrets.POSTGRES_DB }} ) " >> .postgres
           echo "POSTGRES_HOST=$(echo ${{ secrets.POSTGRES_HOST }} ) " >> .postgres
           echo "POSTGRES_PASSWORD=$(echo ${{ secrets.POSTGRES_PASSWORD }} ) " >> .postgres
@@ -125,7 +124,7 @@ jobs:
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
-          scp -o StrictHostKeyChecking=no -r ./.env ./production.yml ./.envs/.production root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
+          scp -o StrictHostKeyChecking=no -r ./.env ./production.yml root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper
           scp -o StrictHostKeyChecking=no -r ./.postgres ./.django root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }}:/gouthelper/.envs/.production
           ssh -o StrictHostKeyChecking=no root@${{ secrets.DIGITAL_OCEAN_IP_ADDRESS }} << 'ENDSSH'
             cd /gouthelper
