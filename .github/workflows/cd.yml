@@ -1,7 +1,5 @@
-### This is a workflow template for deploying a Django application on DigitalOcean using Docker Compose
-### and GitHub Actions. IT DOES NOT WORK. PLEASE PROVIDE FEEDBACK ON HOW I CAN DEPLOY A NESTED DOCKER
-### COMPOSE FOLDER WITH DOCKER IMAGES.
-### It is based on the following tutorial: https://testdriven.io/blog/deploying-django-to-digitalocean-with-docker-compose/
+### Based on the following tutorial: https://testdriven.io/blog/deploying-django-to-digitalocean-with-docker-compose/
+### Modified to integrate with GoutHelper and Cookiecutter Django. I am by no means good at CI/CD, so please feel free to suggest improvements.
 name: CD
 
 # Enable Buildkit and let compose use it to speed up image building
@@ -35,6 +33,7 @@ jobs:
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
+    needs: quality-assurance
     steps:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
@@ -139,5 +138,7 @@ jobs:
             docker pull $POSTGRES_IMAGE
             docker pull $AWSCLI_IMAGE
             docker compose -f production.yml down
+            docker compose -f production.yml run --rm django python manage.py update_contents
+            docker compose -f production.yml run --rm django python manage.py update_defaults
             docker compose -f production.yml up -d
           ENDSSH

@@ -15,13 +15,13 @@
 GoutHelper is a web application to inform patients and providers about gout and contains a suite of tools that answers
 common clinical questions in gout management like:
 
-1. Flare: Are the symptoms (joint pain, etc) due to gout?
-2. FlareAid: If so, how should the gout [flare](/treatments/about/flare/) be treated?
-3. Ult: Does someone need urate lowering therapy ([ULT](/treatments/about/ult/))?
-4. ULtAid: If so, what is the best choice of ULT?
-5. GoalUrate: What's the goal uric acid?
-6. Ppx: Is [prophylaxis](/treatments/about/ppx/) for gout flares needed?
-7. PpxAid: If so, what is the best choice of prophylaxis?
+- Flare: Are the symptoms (joint pain, etc) due to gout?
+- FlareAid: If so, how should the gout [flare](/treatments/about/flare/) be treated?
+- Ult: Does someone need urate lowering therapy ([ULT](/treatments/about/ult/))?
+- ULtAid: If so, what is the best choice of ULT?
+- GoalUrate: What's the goal uric acid?
+- Ppx: Is [prophylaxis](/treatments/about/ppx/) for gout flares needed?
+- PpxAid: If so, what is the best choice of prophylaxis?
 
 ## <span id="development">How was GoutHelper developed?</span>
 
