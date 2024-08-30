@@ -27,6 +27,8 @@ FlareAid takes into account the following factors:
 - **Cardiovascular disease** - NSAIDs are generally contraindicated in patients with cardiovascular disease.
   It's probably safe to use them for a limited, short-duration, but out of caution GoutHelper defaults to avoiding NSAIDs in patients with cardiovascular disease.
 
+- **Acute kidney injury** - NSAIDs are can cause or worsen acute kidney injuries (AKI) and thus are avoided in patient's who have an AKI. Colchicine is excreted / metabolized by the kidney and is either dose-reduced in the setting of AKI or is avoided entirely.
+
 - **Anticoagulation** - NSAIDs can increase the risk of bleeding. Thus, anticoagulation is generally a contraindication to NSAID use.
 
 - **Bleed** - NSAIDs can increase the risk of bleeding. Thus, a recent bleed or a history of a serious bleed is generally a contraindication to NSAID use.

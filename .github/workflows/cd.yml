@@ -138,4 +138,6 @@ jobs:
             docker pull $AWSCLI_IMAGE
             docker compose -f production.yml down
             docker compose -f production.yml up -d
+            docker compose -f production.yml run --rm django python manage.py update_contents
+            docker compose -f production.yml run --rm django python manage.py update_defaults
           ENDSSH
