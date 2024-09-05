@@ -23,22 +23,16 @@ class TestCanViewProfile(TestCase):
         self.admin_pseudopatient.profile.save()
 
     def test__user_provider(self):
-        assert rules.test_rule("can_view_profile", self.provider, self.provider.profile)
         assert rules.test_rule("can_view_profile", self.provider, self.provider_pseudopatient.profile)
         assert not rules.test_rule("can_view_profile", self.provider, self.patient.profile)
-        assert not rules.test_rule("can_view_profile", self.provider, self.admin.profile)
         assert not rules.test_rule("can_view_profile", self.provider, self.admin_pseudopatient.profile)
 
     def test__user_admin(self):
-        assert not rules.test_rule("can_view_profile", self.admin, self.provider.profile)
         assert not rules.test_rule("can_view_profile", self.admin, self.provider_pseudopatient.profile)
         assert not rules.test_rule("can_view_profile", self.admin, self.patient.profile)
-        assert rules.test_rule("can_view_profile", self.admin, self.admin.profile)
         assert rules.test_rule("can_view_profile", self.admin, self.admin_pseudopatient.profile)
 
     def test__user_patient(self):
-        assert not rules.test_rule("can_view_profile", self.patient, self.provider.profile)
         assert not rules.test_rule("can_view_profile", self.patient, self.provider_pseudopatient.profile)
         assert rules.test_rule("can_view_profile", self.patient, self.patient.profile)
-        assert not rules.test_rule("can_view_profile", self.patient, self.admin.profile)
         assert not rules.test_rule("can_view_profile", self.patient, self.admin_pseudopatient.profile)

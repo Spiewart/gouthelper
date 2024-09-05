@@ -59,7 +59,7 @@ class PseudopatientCreateView(GoutHelperUserEditMixin, PermissionRequiredMixin, 
         """Returns the list of permissions that the user must have in order to access the view."""
         perms = ["users.can_add_user"]
         if self.kwargs.get("username", None):
-            perms += ["users.can_add_user_with_provider"]
+            perms += ["users.can_add_pseudopatient_with_provider"]
         return perms
 
     def post(self, request, *args, **kwargs):
@@ -128,7 +128,7 @@ class PseudopatientFlareCreateView(GoutHelperUserEditMixin, PermissionRequiredMi
         """Returns the list of permissions that the user must have in order to access the view."""
         perms = ["users.can_add_user"]
         if self.kwargs.get("username", None):
-            perms += ["users.can_add_user_with_provider"]
+            perms += ["users.can_add_pseudopatient_with_provider"]
         return perms
 
     def goutdetail_mh_context(

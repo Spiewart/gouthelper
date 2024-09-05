@@ -1,13 +1,10 @@
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
-from django.dispatch import receiver  # type: ignore
 from django.urls import reverse
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..users.choices import Roles
-from ..users.models import Admin, Provider
 from ..utils.models import GoutHelperModel
 
 
@@ -61,22 +58,6 @@ class AdminProfile(ProviderBase):
     history = HistoricalRecords(get_user=get_user_change)
 
 
-# post_save() signal to create AdminProfile at User creation
-@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
-def update_or_create_adminprofile_via_user(sender, instance, created, **kwargs):
-    # Check if the User is an Admin and is being created
-    if instance.role == Roles.ADMIN and created:
-        AdminProfile.objects.create(user=instance)
-
-
-# post_save() signal to create AdminProfile at User creation
-@receiver(models.signals.post_save, sender=Admin)
-def update_or_create_adminprofile(sender, instance, created, **kwargs):
-    # Check if the User is an Admin and is being created
-    if instance.role == Roles.ADMIN and created:
-        AdminProfile.objects.create(user=instance)
-
-
 class PatientProfile(Profile):
     """Profile for an actual patient.
     Can be created by a Patient his or her self, a Provider, or an Admin."""
@@ -98,22 +79,6 @@ class ProviderProfile(ProviderBase):
     """
 
     history = HistoricalRecords(get_user=get_user_change)
-
-
-# post_save() signal to create ProviderProfile at User creation
-@receiver(models.signals.post_save, sender=settings.AUTH_USER_MODEL)
-def update_or_create_providerprofile_via_user(sender, instance, created, **kwargs):
-    # Check if the User is a Provider and is being created
-    if instance.role == Roles.PROVIDER and created:
-        ProviderProfile.objects.create(user=instance)
-
-
-# post_save() signal to create ProviderProfile at User creation
-@receiver(models.signals.post_save, sender=Provider)
-def update_or_create_providerprofile(sender, instance, created, **kwargs):
-    # Check if the User is a Provider and is being created
-    if instance.role == Roles.PROVIDER and created:
-        ProviderProfile.objects.create(user=instance)
 
 
 class PseudopatientProfile(Profile):
