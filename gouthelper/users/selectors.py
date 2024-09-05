@@ -10,6 +10,8 @@ from ..medhistorys.choices import MedHistoryTypes
 from ..medhistorys.selectors import medhistorys_prefetch
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.db.models import QuerySet  # type: ignore
 
     from ..genders.choices import Genders
@@ -68,10 +70,21 @@ def pseudopatient_profile_medhistory_prefetch() -> Prefetch:
     )
 
 
-def pseudopatient_qs(username: str) -> "QuerySet":
+def pseudopatient_base_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "pseudopatientprofile__provider",
+        "dateofbirth",
+        "ethnicity",
+        "gender",
+    ).prefetch_related(
+        pseudopatient_profile_medhistory_prefetch(),
+    )
+
+
+def pseudopatient_qs(pk: "UUID") -> "QuerySet":
     return (
         apps.get_model("users.Pseudopatient")
-        .objects.filter(username=username)
+        .objects.filter(pk=pk)
         .select_related(
             "pseudopatientprofile",
             "dateofbirth",

@@ -13,8 +13,15 @@ from ..utils.helpers import shorten_date_for_str
 from ..utils.models import GoutHelperModel, GoutHelperPatientModel
 from .choices import Roles
 from .helpers import get_user_change
-from .managers import AdminManager, GoutHelperUserManager, PatientManager, ProviderManager, PseudopatientManager
-from .rules import change_user, delete_user, view_user
+from .managers import (
+    AdminManager,
+    GoutHelperUserManager,
+    PatientManager,
+    ProviderManager,
+    PseudopatientManager,
+    PseudopatientProfileManager,
+)
+from .rules import add_pseudopatient, change_user, delete_user, view_user
 
 
 class User(RulesModelMixin, GoutHelperModel, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
@@ -132,10 +139,12 @@ class Pseudopatient(GoutHelperPatientModel, User):
 
     # Ensures queries on the Pseudopatient model return only Pseudopatients
     objects = PseudopatientManager()
+    profile_objects = PseudopatientProfileManager()
 
     class Meta(User.Meta):
         proxy = True
         rules_permissions = {
+            "add": add_pseudopatient,
             "change": change_user,
             "delete": delete_user,
             "view": view_user,

@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.db import models  # type: ignore
 from django.urls import reverse_lazy
 from django.utils.text import format_lazy
@@ -9,8 +9,6 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..utils.models import GoutHelperModel  # type: ignore
 from .choices import Ethnicitys
-
-User = get_user_model()
 
 
 class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -33,8 +31,17 @@ class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Ru
             reverse_lazy("ethnicitys:about"),
         ),
     )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self):
         return self.get_value_display()
+
+    def value_needs_update(self, value: Ethnicitys) -> bool:
+        return self.value != value
+
+    def update_value(self, value: Ethnicitys, commit: bool = True) -> None:
+        self.value = value
+        if commit:
+            self.full_clean()
+            self.save()

@@ -114,7 +114,7 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
         flare_relations(qs)
         .select_related(
             "aki",
-            "flareaid",
+            "flareaid__user",
             "user",
             "urate",
         )

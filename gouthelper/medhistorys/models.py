@@ -1,5 +1,5 @@
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
+from django.conf import settings
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -49,8 +49,6 @@ from .managers import (
     UratestonesManager,
     XoiinteractionManager,
 )
-
-User = get_user_model()
 
 
 class MedHistory(
@@ -246,7 +244,7 @@ class MedHistory(
         null=True,
         blank=True,
     )
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
     objects = models.Manager()
 

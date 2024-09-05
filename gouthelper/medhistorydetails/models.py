@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING, Union
-
 from django.db import models  # type: ignore
 from django.db.models.fields import BooleanField, IntegerField  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
@@ -9,16 +7,9 @@ from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..choices import BOOL_CHOICES
-from ..goalurates.choices import GoalUrates
-from ..labs.helpers import labs_urates_six_months_at_goal
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
-
-if TYPE_CHECKING:
-    from django.db.models.query import QuerySet
-
-    from ..labs.models import Urate
 
 
 class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -191,38 +182,136 @@ dose adjustment (titration) phase?",
 
     def at_goal_needs_update(
         self,
-        most_recent_urate: "Urate",
-        goal_urate: GoalUrates = GoalUrates.SIX,
+        at_goal: bool | None,
     ) -> bool:
-        """Returns True if the at_goal field needs updating."""
-        return self.at_goal != (most_recent_urate.value <= goal_urate)
-
-    def at_goal_long_term_needs_update(
-        self,
-        urates: Union["QuerySet[Urate]", list["Urate"]],
-        goal_urate: GoalUrates = GoalUrates.SIX,
-    ) -> bool:
-        """Returns True if the at_goal_long_term field needs updating."""
-        return self.at_goal_long_term != labs_urates_six_months_at_goal(urates, goal_urate)
+        return self.at_goal != at_goal
 
     def update_at_goal(
         self,
-        at_goal: bool,
+        at_goal: bool | None,
         commit: bool = False,
     ) -> None:
-        """Updates the at_goal field based on the arg."""
         self.at_goal = at_goal
         if commit:
+            self.full_clean()
             self.save()
+
+    def at_goal_long_term_needs_update(
+        self,
+        at_goal_long_term: bool,
+    ) -> bool:
+        return self.at_goal_long_term != at_goal_long_term
 
     def update_at_goal_long_term(
         self,
         at_goal_long_term: bool,
         commit: bool = False,
     ) -> None:
-        """Updates the at_goal_long_term field based on the arg."""
         self.at_goal_long_term = at_goal_long_term
         if commit:
+            self.full_clean()
+            self.save()
+
+    def flaring_needs_update(
+        self,
+        flaring: bool | None,
+    ) -> bool:
+        return self.flaring != flaring
+
+    def update_flaring(
+        self,
+        flaring: bool | None,
+        commit: bool = False,
+    ) -> None:
+        self.flaring = flaring
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def on_ppx_needs_update(
+        self,
+        on_ppx: bool,
+    ) -> bool:
+        return self.on_ppx != on_ppx
+
+    def update_on_ppx(
+        self,
+        on_ppx: bool,
+        commit: bool = False,
+    ) -> None:
+        self.on_ppx = on_ppx
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def on_ult_needs_update(
+        self,
+        on_ult: bool,
+    ) -> bool:
+        return self.on_ult != on_ult
+
+    def update_on_ult(
+        self,
+        on_ult: bool,
+        commit: bool = False,
+    ) -> None:
+        self.on_ult = on_ult
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def starting_ult_needs_update(
+        self,
+        starting_ult: bool,
+    ) -> bool:
+        return self.starting_ult != starting_ult
+
+    def update_starting_ult(
+        self,
+        starting_ult: bool,
+        commit: bool = False,
+    ) -> None:
+        self.starting_ult = starting_ult
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def editable_fields_need_update(
+        self,
+        at_goal: bool | None,
+        at_goal_long_term: bool,
+        flaring: bool | None,
+        on_ppx: bool,
+        on_ult: bool,
+        starting_ult: bool,
+    ) -> bool:
+        return (
+            self.at_goal_needs_update(at_goal)
+            or self.at_goal_long_term_needs_update(at_goal_long_term)
+            or self.flaring_needs_update(flaring)
+            or self.on_ppx_needs_update(on_ppx)
+            or self.on_ult_needs_update(on_ult)
+            or self.starting_ult_needs_update(starting_ult)
+        )
+
+    def update_editable_fields(
+        self,
+        at_goal: bool | None,
+        at_goal_long_term: bool,
+        flaring: bool | None,
+        on_ppx: bool,
+        on_ult: bool,
+        starting_ult: bool,
+        commit: bool = False,
+    ) -> None:
+        self.update_at_goal(at_goal, commit=False)
+        self.update_at_goal_long_term(at_goal_long_term, commit=False)
+        self.update_flaring(flaring, commit=False)
+        self.update_on_ppx(on_ppx, commit=False)
+        self.update_on_ult(on_ult, commit=False)
+        self.update_starting_ult(starting_ult, commit=False)
+        if commit:
+            self.full_clean()
             self.save()
 
     @classmethod

@@ -29,15 +29,15 @@ class TestCanAddUserWithSpecificProvider(TestCase):
 class TestCanAddUserWithProvider:
     def test__user_provider(self):
         """Test that a User with the Provider role can add a User."""
-        assert rules.test_rule("can_add_user_with_provider", UserFactory(role=Roles.PROVIDER))
+        assert rules.test_rule("can_add_pseudopatient_with_provider", UserFactory(role=Roles.PROVIDER))
 
     def test__user_admin(self):
         """Test that a User with the Admin role can add a User."""
-        assert rules.test_rule("can_add_user_with_provider", UserFactory(role=Roles.ADMIN))
+        assert rules.test_rule("can_add_pseudopatient_with_provider", UserFactory(role=Roles.ADMIN))
 
     def test__user_patient(self):
         """Test that a User with the Patient role cannot add a User."""
-        assert not rules.test_rule("can_add_user_with_provider", UserFactory(role=Roles.PATIENT))
+        assert not rules.test_rule("can_add_pseudopatient_with_provider", UserFactory(role=Roles.PATIENT))
 
 
 class TestCanAddUser:

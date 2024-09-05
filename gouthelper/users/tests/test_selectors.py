@@ -29,7 +29,7 @@ class TestPseudopatientQuerySet(TestCase):
 
     def test__qs_returns_correctly(self):
         """Test that the pseudopatient_qs returns the correct QuerySet."""
-        qs = pseudopatient_qs(self.pseudopatient.username)
+        qs = pseudopatient_qs(self.pseudopatient.pk)
         assert isinstance(qs, QuerySet)
         with self.assertNumQueries(2):
             qs = qs.get()
