@@ -21,7 +21,14 @@ from .managers import (
     PseudopatientManager,
     PseudopatientProfileManager,
 )
-from .rules import add_pseudopatient, change_user, delete_user, view_user
+from .rules import (
+    add_pseudopatient,
+    add_pseudopatient_with_provider,
+    change_pseudopatient,
+    change_user,
+    delete_user,
+    view_user,
+)
 
 
 class User(RulesModelMixin, GoutHelperModel, TimeStampedModel, AbstractUser, metaclass=RulesModelBase):
@@ -145,7 +152,8 @@ class Pseudopatient(GoutHelperPatientModel, User):
         proxy = True
         rules_permissions = {
             "add": add_pseudopatient,
-            "change": change_user,
+            "add_pseudopatient_with_provider": add_pseudopatient_with_provider,
+            "change": change_pseudopatient,
             "delete": delete_user,
             "view": view_user,
         }

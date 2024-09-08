@@ -30,13 +30,8 @@ def is_an_admin(user):
 @rules.predicate
 def is_provider(user, obj):
     """Expects User objects for both arguments."""
-    try:
-        return getattr(obj.pseudopatientprofile, "provider", None) == user
-    except AttributeError:
-        try:
-            return getattr(obj.patientprofile, "provider", None) == user
-        except AttributeError:
-            return False
+    profile = getattr(obj, "profile")
+    return profile and profile.provider == user
 
 
 @rules.predicate
@@ -57,13 +52,13 @@ def is_not_pseudopatient(user):
 @rules.predicate
 def is_pseudopatient(_, obj):
     """Expects a User object."""
-    return obj.role == Roles.PSEUDOPATIENT
+    return obj and obj.role == Roles.PSEUDOPATIENT
 
 
 @rules.predicate
 def provider_kwarg_is_provider(user, obj):
-    """Expects a string or None as obj."""
-    return obj == user.username if obj else True
+    """Takes a User/Provider object or a username string as obj."""
+    return (obj.id == user.id if hasattr(obj, "id") else False or obj == user.username) if obj else True
 
 
 @rules.predicate
@@ -91,7 +86,7 @@ change_pseudopatient = is_providerless_pseudopatient | is_user | is_provider
 delete_user = is_user | is_provider
 view_user = is_providerless_pseudopatient | is_user | is_provider
 view_provider_list = list_belongs_to_user
-add_pseudopatient = no_provider_kwarg | add_pseudopatient_with_provider
+add_pseudopatient = is_providerless_pseudopatient | add_pseudopatient_with_provider
 
 rules.add_rule("can_add_pseudopatient", add_pseudopatient)
 rules.add_perm("users.can_add_pseudopatient", add_pseudopatient)

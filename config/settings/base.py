@@ -288,13 +288,13 @@ LOGGING = {
             "formatter": "verbose",
         }
     },
-    # "loggers": {
-    #     "rules": {
-    #         "handlers": ["console"],  # noqa
-    #         "level": "DEBUG",
-    #         "propagate": True,
-    #     },
-    # },
+    "loggers": {
+        "rules": {
+            "handlers": ["console"],  # noqa
+            "level": "DEBUG",
+            "propagate": True,
+        },
+    },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
 
