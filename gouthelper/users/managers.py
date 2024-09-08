@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, Union
 
-from django.apps import apps
 from django.contrib.auth.base_user import BaseUserManager
 
 from ..dateofbirths.models import DateOfBirth
@@ -138,7 +137,7 @@ class PseudopatientProfileManager(BaseUserManager):
         dateofbirth: "date",
         gender: "Genders",
         ethnicity: "Ethnicitys",
-        provider_id: Union["UUID", None],
+        provider: Union["User", None],
         at_goal: bool | None,
         at_goal_long_term: bool,
         flaring: bool | None,
@@ -154,7 +153,7 @@ class PseudopatientProfileManager(BaseUserManager):
         Ethnicity.objects.create(user=pseudopatient, value=ethnicity)
         PseudopatientProfile.objects.create(
             user=pseudopatient,
-            provider=apps.get_model("users.Provider").objects.get(id=provider_id) if provider_id else None,
+            provider=provider,
         )
         GoutDetail.objects.create(
             medhistory=Gout.objects.create(user=pseudopatient),

@@ -1,14 +1,16 @@
 import uuid
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.utils.functional import cached_property
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rules.contrib.rest_framework import AutoPermissionViewSetMixin
 
 from ..models import Pseudopatient
+from .rules import PseudopatientAddPermissionViewSetMixin
 from .serializers.base import UserSerializer
 from .serializers.nested import PseudopatientSerializer
 
@@ -30,6 +32,38 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
         return Response(status=status.HTTP_200_OK, data=serializer.data)
 
 
-class PseudopatientViewSet(AutoPermissionViewSetMixin, ModelViewSet):
+class PseudopatientViewSet(PseudopatientAddPermissionViewSetMixin, ModelViewSet):
     serializer_class = PseudopatientSerializer
     queryset = Pseudopatient.objects.profile_qs().all()
+
+    def get_queryset(self):
+        return self.queryset.filter(
+            Q(pseudopatientprofile__provider=self.request.user) | Q(pseudopatientprofile__provider__isnull=True)
+        )
+
+    @action(detail=False, methods=["post"])
+    def provider_create(self, request):
+        if not self.provider:
+            return Response(
+                {"provider_username": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Add the provider to the serializer kwargs, which will be incorporated into
+        # creating the Pseudopatient instance.
+        serializer = PseudopatientSerializer(data=request.data, provider=self.provider)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @cached_property
+    def provider(self) -> User | None:
+        if hasattr(self, "object"):
+            return self.object.provider
+        else:
+            provider_username = self.request.data.pop("provider_username", None)
+            return User.objects.get(username=provider_username) if provider_username else None
