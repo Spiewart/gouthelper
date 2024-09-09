@@ -34,7 +34,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
 
 class PseudopatientViewSet(PseudopatientAddPermissionViewSetMixin, ModelViewSet):
     serializer_class = PseudopatientSerializer
-    queryset = Pseudopatient.objects.profile_qs().all()
+    queryset = Pseudopatient.profile_objects.all()
 
     def get_queryset(self):
         return self.queryset.filter(

@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Union
 
 from django.contrib.auth.base_user import BaseUserManager
 
+from ..dateofbirths.helpers import age_calc
 from ..dateofbirths.models import DateOfBirth
 from ..ethnicitys.models import Ethnicity
 from ..flareaids.selectors import flareaid_user_relations
@@ -13,6 +14,7 @@ from ..medhistorydetails.models import GoutDetail
 from ..medhistorys.models import Gout
 from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
+from ..profiles.helpers import get_provider_alias
 from ..profiles.models import PseudopatientProfile
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
@@ -151,9 +153,22 @@ class PseudopatientProfileManager(BaseUserManager):
         DateOfBirth.objects.create(user=pseudopatient, value=dateofbirth)
         Gender.objects.create(user=pseudopatient, value=gender)
         Ethnicity.objects.create(user=pseudopatient, value=ethnicity)
+        provider_alias = get_provider_alias(
+            provider,
+            age_calc(dateofbirth),
+            gender,
+        )
+        print(provider_alias)
         PseudopatientProfile.objects.create(
             user=pseudopatient,
             provider=provider,
+            provider_alias=get_provider_alias(
+                provider,
+                age_calc(dateofbirth),
+                gender,
+            )
+            if provider
+            else None,
         )
         GoutDetail.objects.create(
             medhistory=Gout.objects.create(user=pseudopatient),

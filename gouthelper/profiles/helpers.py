@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
+from django.apps import apps
 from django.utils import timezone
 
 from ..dateofbirths.selectors import annotate_pseudopatient_queryset_with_age
-from ..users.models import Pseudopatient
 from ..users.selectors import pseudopatient_filter_age_gender
 
 if TYPE_CHECKING:
@@ -22,11 +22,13 @@ def get_provider_alias(
     todays_date = timezone.now().date()
 
     queryset = annotate_pseudopatient_queryset_with_age(
-        Pseudopatient.objects.select_related(
+        apps.get_model("users.Pseudopatient")
+        .objects.select_related(
             "dateofbirth",
             "gender",
             "pseudopatientprofile__provider",
-        ).filter(
+        )
+        .filter(
             pseudopatientprofile__provider=provider,
             created__date=todays_date,
         )
