@@ -17,7 +17,7 @@ client = APIClient()
 
 
 def filter_pseudopatients_by_provider(user):
-    return Pseudopatient.objects.profile_qs().filter(
+    return Pseudopatient.profile_objects.filter(
         Q(pseudopatientprofile__provider=user) | Q(pseudopatientprofile__provider=None)
     )
 
