@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from django.core.exceptions import ValidationError  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -11,13 +11,238 @@ from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
 from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
-from ..medhistorydetails.choices import Stages
+from ..utils.exceptions import GoutHelperValidationError
+from .choices import Stages
+from .models import CkdDetail
 
 if TYPE_CHECKING:
+    from ..genders.choices import Genders
     from ..labs.forms import BaselineCreatinineForm
     from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.forms import CkdDetailForm
     from ..medhistorys.models import Ckd
+    from ..utils.types import CkdDetailFieldOptions
+    from .choices import DialysisChoices, DialysisDurations
+
+
+class CkdDetailFieldRelationsMixin:
+    """Mixin class that checks a child class for conflicts in CkdDetail attributes."""
+
+    def __init__(
+        self,
+        ckddetail: Union["CkdDetail", None],
+        ckd: Union["Ckd", None],
+        dialysis: bool | None,
+        dialysis_type: Union["DialysisChoices", None],
+        dialysis_duration: Union["DialysisDurations", None],
+        stage: Stages | None,
+        age: int | None,
+        baselinecreatinine: Union["Decimal", None],
+        gender: Union["Genders", None],
+    ):
+        self.ckddetail = ckddetail
+        self.ckd = ckd
+        self.dialysis = dialysis
+        self.dialysis_type = dialysis_type
+        self.dialysis_duration = dialysis_duration
+        self.stage = stage
+        self.age = age
+        self.baselinecreatinine = baselinecreatinine
+        self.gender = gender
+        self.errors: list[tuple[str, str]] = []
+
+    def update_errors(self) -> None:
+        if self.stage_calculated_stage_conflict:
+            self.errors.append(("stage", "Stage does not match calculated stage."))
+        if self.dialysis_stage_conflict:
+            self.errors.append(("stage", "Stage must be 5 if dialysis is True."))
+        if self.dialysis_type_conflict:
+            self.errors.append(("dialysis_type", "Dialysis type is required if dialysis is True."))
+        if self.dialysis_duration_conflict:
+            self.errors.append(("dialysis_duration", "Dialysis duration is required if dialysis is True."))
+        if self.baselinecreatinine_age_gender_conflict:
+            self.errors.append(
+                (
+                    "baselinecreatinine",
+                    "Age and gender are required to interpret baseline creatinine (to calculate a stage).",
+                )
+            )
+        if self.ckd_ckddetail_conflict:
+            self.errors.append(("non_field_errors", f"{self.ckddetail} is not related to {self.ckd}."))
+        elif self.incomplete_information:
+            self.errors.append(("non_field_errors", "Incomplete information for CkdDetail."))
+
+    @property
+    def no_ckddetail(self) -> bool:
+        return self.ckddetail is None and not hasattr(self.ckd, "ckddetail")
+
+    @property
+    def ckd_ckddetail_conflict(self) -> bool:
+        return (
+            self.ckd
+            and self.ckddetail
+            and (
+                (self.ckddetail.medhistory and self.ckddetail.medhistory != self.ckd)
+                or (self.ckd.ckddetail and self.ckd.ckddetail != self.ckddetail)
+            )
+        )
+
+    @property
+    def incomplete_information(self) -> bool:
+        return self.no_ckddetail and self.dialysis is None and self.stage is None and not self.can_calculate_stage
+
+    @property
+    def can_calculate_stage(self) -> bool:
+        return self.baselinecreatinine and self.age and self.gender is not None
+
+    @property
+    def calculated_stage(self) -> "Stages":
+        return labs_stage_calculator(
+            labs_eGFR_calculator(
+                age=self.age,
+                creatinine=self.baselinecreatinine,
+                gender=self.gender,
+            )
+        )
+
+    @property
+    def stage_calculated_stage_conflict(self) -> bool:
+        return self.stage and self.can_calculate_stage and self.calculated_stage != self.stage
+
+    @property
+    def dialysis_stage_conflict(self) -> bool:
+        return (
+            self.dialysis
+            and self.stage != Stages.FIVE
+            or self.dialysis
+            and self.can_calculate_stage
+            and self.calculated_stage != Stages.FIVE
+        )
+
+    @property
+    def dialysis_type_conflict(self) -> bool:
+        return self.dialysis and self.dialysis_type is None
+
+    @property
+    def dialysis_duration_conflict(self) -> bool:
+        return self.dialysis and self.dialysis_duration is None
+
+    @property
+    def baselinecreatinine_age_gender_conflict(self) -> bool:
+        return self.baselinecreatinine and not self.can_calculate_stage
+
+    @property
+    def conflicts(self) -> bool:
+        return (
+            self.stage_calculated_stage_conflict
+            or self.dialysis_stage_conflict
+            or self.dialysis_type_conflict
+            or self.dialysis_duration_conflict
+            or self.baselinecreatinine_age_gender_conflict
+        )
+
+    @property
+    def has_errors(self) -> bool:
+        return self.conflicts or self.incomplete_information or self.ckd_ckddetail_conflict
+
+
+class CkdDetailEditor(CkdDetailFieldRelationsMixin):
+    def __init__(
+        self,
+        ckddetail: Union["CkdDetail", None],
+        ckd: Union["Ckd", None],
+        dialysis: bool | None,
+        dialysis_type: Union["DialysisChoices", None],
+        dialysis_duration: Union["DialysisDurations", None],
+        stage: Stages | None,
+        age: int | None,
+        baselinecreatinine: Union["Decimal", None],
+        gender: Union["Genders", None],
+        initial: Union["CkdDetailFieldOptions", None] = None,
+    ):
+        super().__init__(
+            ckddetail=ckddetail,
+            ckd=ckd,
+            dialysis=dialysis,
+            dialysis_type=dialysis_type,
+            dialysis_duration=dialysis_duration,
+            stage=stage,
+            age=age,
+            baselinecreatinine=baselinecreatinine,
+            gender=gender,
+        )
+        self.initial = initial
+
+    @property
+    def ckddetail_initial_conflict(self) -> bool:
+        return (
+            self.ckddetail
+            and self.initial
+            and next(iter([getattr(self.ckddetail, key) != val for key, val in self.initial.items()]))
+        )
+
+    @property
+    def no_ckddetail_and_no_ckd(self) -> bool:
+        return self.no_ckddetail and not self.ckd
+
+    def check_ckddetail_initial_error(self) -> None:
+        if self.ckddetail_initial_conflict:
+            raise ValueError("Initial values do not match CkdDetail instance values.")
+
+    def create(self) -> CkdDetail:
+        if self.ckddetail:
+            raise ValueError(f"CkdDetail instance already exists for {self.ckd}.")
+        elif self.no_ckddetail_and_no_ckd:
+            raise ValueError("Ckd instance required for CkdDetail creation.")
+        if not hasattr(self, "errors"):
+            self.update_errors()
+        if self.errors:
+            self.raise_gouthelper_validation_error()
+        self._update_attrs()
+        return CkdDetail.objects.create(
+            dialysis=self.dialysis,
+            dialysis_type=self.dialysis_type,
+            dialysis_duration=self.dialysis_duration,
+            stage=self.stage,
+            medhistory=self.ckd,
+        )
+
+    def update(self) -> CkdDetail:
+        if not self.ckddetail:
+            raise ValueError("CkdDetail instance required for update.")
+        self.check_ckddetail_initial_error()
+        if not hasattr(self, "errors"):
+            self.update_errors()
+        if self.errors:
+            self.raise_gouthelper_validation_error()
+        self._update_attrs()
+        if self.ckddetail_has_changed():
+            self.update_ckddetail_fields()
+        return self.ckddetail
+
+    def raise_gouthelper_validation_error(self) -> None:
+        raise GoutHelperValidationError(
+            message=f"Args for {'updating' if self.ckddetail else 'creating'} CkdDetail contain errors.",
+            errors=self.errors,
+        )
+
+    def _update_attrs(self) -> None:
+        if not self.stage and self.can_calculate_stage:
+            self.stage = self.calculated_stage
+        elif self.dialysis and self.stage is None:
+            self.stage = Stages.FIVE
+
+    def ckddetail_has_changed(self) -> bool:
+        return any([getattr(self.ckddetail, key) != val for key, val in self.initial.items()])
+
+    def update_ckddetail_fields(self) -> None:
+        for key, val in self.ckddetail_changed_fields():
+            setattr(self.ckddetail, key, val)
+        self.ckddetail.full_clean()
+        self.ckddetail.save()
+
+    def ckddetail_changed_fields(self) -> list[tuple[str, Any]]:
+        return [(key, val) for key, val in self.initial.items() if getattr(self.ckddetail, key) != val]
 
 
 class CkdDetailFormProcessor:

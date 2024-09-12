@@ -153,12 +153,6 @@ class PseudopatientProfileManager(BaseUserManager):
         DateOfBirth.objects.create(user=pseudopatient, value=dateofbirth)
         Gender.objects.create(user=pseudopatient, value=gender)
         Ethnicity.objects.create(user=pseudopatient, value=ethnicity)
-        provider_alias = get_provider_alias(
-            provider,
-            age_calc(dateofbirth),
-            gender,
-        )
-        print(provider_alias)
         PseudopatientProfile.objects.create(
             user=pseudopatient,
             provider=provider,
