@@ -13,8 +13,11 @@ from ...dateofbirths.helpers import age_calc
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
+from ...utils.exceptions import GoutHelperValidationError
+from ..api.serializers import CkdDetailSerializer
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
+from ..services import CkdDetailFieldRelationsMixin
 
 pytestmark = pytest.mark.django_db
 
@@ -144,6 +147,91 @@ def create_ckddetail(
 
     ckddetail.save()
     return ckddetail
+
+
+class CkdDetailDataFactory(CkdDetailFieldRelationsMixin):
+    def __init__(
+        self,
+        ckddetail: Union["CkdDetail", None] = None,
+        ckd: Union["Ckd", None] = None,
+        dialysis: bool | None = None,
+        dialysis_type: Union["DialysisChoices", None] = None,
+        dialysis_duration: Union["DialysisDurations", None] = None,
+        stage: Stages | None = None,
+        age: int | None = None,
+        baselinecreatinine: Union["Decimal", None] = None,
+        gender: Union["Genders", None] = None,
+    ):
+        super().__init__(
+            ckddetail=ckddetail,
+            ckd=ckd,
+            dialysis=dialysis,
+            dialysis_type=dialysis_type,
+            dialysis_duration=dialysis_duration,
+            stage=stage,
+            age=age,
+            baselinecreatinine=baselinecreatinine,
+            gender=gender,
+        )
+        self.update_attrs()
+        if self.has_errors:
+            self.update_errors()
+
+    def update_attrs(self) -> None:
+        if self.dialysis is None:
+            if self.dialysis_duration or self.dialysis_type:
+                self.dialysis = True
+            elif self.ckddetail:
+                self.dialysis = self.ckddetail.dialysis
+            elif self.stage and self.stage != Stages.FIVE:
+                self.dialysis = False
+            elif fake.boolean():
+                self.dialysis = True
+                self.set_dialysis_type_duration()
+            else:
+                self.dialysis = False
+        elif self.dialysis:
+            self.set_dialysis_type_duration()
+        if self.stage is None:
+            if self.ckddetail:
+                self.stage = self.ckddetail.stage
+            elif self.baselinecreatinine and self.age and self.gender:
+                self.stage = self.calculated_stage
+            elif not self.dialysis:
+                self.stage = random.choice(Stages.values)
+            else:
+                self.stage = Stages.FIVE
+
+    def set_dialysis_type_duration(self) -> None:
+        if self.dialysis_type is None:
+            self.dialysis_type = random.choice(DialysisChoices.values)
+        if self.dialysis_duration is None:
+            self.dialysis_duration = random.choice(DialysisDurations)
+
+    def create_api_data(self) -> dict:
+        if self.has_errors:
+            raise GoutHelperValidationError(
+                message=f"Errors found in CkdDetailDataFactory: {self.errors}.", errors=self.errors
+            )
+        self.update_attrs()
+        if self.ckddetail:
+            data = CkdDetailSerializer(self.ckddetail).data
+        else:
+            data = {}
+        data.update(
+            {
+                "ckddetail": self.ckddetail,
+                "ckd": self.ckd,
+                "stage": self.stage,
+                "dialysis": self.dialysis,
+                "dialysis_type": self.dialysis_type,
+                "dialysis_duration": self.dialysis_duration,
+                "age": self.age,
+                "baselinecreatinine": self.baselinecreatinine,
+                "gender": self.gender,
+            }
+        )
+        return data
 
 
 class GoutDetailFactory(DjangoModelFactory):

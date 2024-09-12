@@ -11,3 +11,10 @@ class Continue(Exception):
     the for loop that called the function raising the exception to continue."""
 
     pass
+
+
+class GoutHelperValidationError(Exception):
+    def __init__(self, message, errors):
+        super().__init__(message)
+
+        self.errors = errors

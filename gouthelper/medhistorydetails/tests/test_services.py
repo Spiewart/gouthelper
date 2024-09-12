@@ -21,8 +21,8 @@ from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Sta
 from ...medhistorys.tests.factories import CkdFactory
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
-from ..services import CkdDetailFormProcessor
-from .factories import CkdDetailFactory
+from ..services import CkdDetailEditor, CkdDetailFieldRelationsMixin, CkdDetailFormProcessor
+from .factories import CkdDetailDataFactory, CkdDetailFactory
 
 if TYPE_CHECKING:
     from ...medhistorys.models import Ckd
@@ -862,15 +862,19 @@ class TestCkdProcessorCheckForErrors(TestCase):
         self.assertEqual(
             self.dateofbirth_form.errors["value"],
             [
-                "Age is required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Age is required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
         self.assertEqual(
             self.baselinecreatinine_form.errors["value"],
             [
-                "Age is required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Age is required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
 
@@ -909,15 +913,19 @@ Please double check and try again."
         self.assertEqual(
             self.gender_form.errors["value"],
             [
-                "Gender is required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Gender is required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
         self.assertEqual(
             self.baselinecreatinine_form.errors["value"],
             [
-                "Gender is required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Gender is required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
 
@@ -960,22 +968,28 @@ Please double check and try again."
         self.assertEqual(
             self.dateofbirth_form.errors["value"],
             [
-                "Age and gender are required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
         self.assertEqual(
             self.gender_form.errors["value"],
             [
-                "Age and gender are required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
         self.assertEqual(
             self.baselinecreatinine_form.errors["value"],
             [
-                "Age and gender are required to interpret a baseline creatinine (calculate a stage). \
-Please double check and try again."
+                (
+                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
+                    "Please double check and try again."
+                )
             ],
         )
 
@@ -1018,3 +1032,517 @@ Please double check and try again."
             "calculated from the baseline creatinine, age, and gender.",
             self.ckddetail_form.errors["stage"][0],
         )
+
+
+class TestCkdDetailFieldRelationsMixin(TestCase):
+    """Test suite for the CkdDetailEditor class."""
+
+    def setUp(self):
+        self.data = CkdDetailDataFactory().create_api_data()
+
+    def test__init(self):
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertEqual(editor.ckddetail, self.data["ckddetail"])
+        self.assertEqual(editor.ckd, self.data["ckd"])
+        self.assertEqual(editor.dialysis, self.data["dialysis"])
+        self.assertEqual(editor.dialysis_type, self.data["dialysis_type"])
+        self.assertEqual(editor.dialysis_duration, self.data["dialysis_duration"])
+        self.assertEqual(editor.stage, self.data["stage"])
+        self.assertEqual(editor.age, self.data["age"])
+        self.assertEqual(editor.baselinecreatinine, self.data["baselinecreatinine"])
+        self.assertEqual(editor.gender, self.data["gender"])
+        self.assertEqual(editor.errors, [])
+
+    def test__no_ckddetail(self):
+        self.data["ckddetail"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.no_ckddetail)
+
+    def test__ckd_ckddetai_conflict(self):
+        ckd = CkdDetailFactory(medhistory=CkdFactory()).medhistory
+        ckddetail = CkdDetailFactory()
+        self.data.update(
+            {
+                "ckd": ckd,
+                "ckddetail": ckddetail,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.ckd_ckddetail_conflict)
+
+    def test__incomplete_information(self):
+        self.data["dialysis"] = None
+        self.data["stage"] = None
+        self.data["age"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.incomplete_information)
+
+    def test__can_calculate_stage(self):
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.can_calculate_stage)
+        self.data.update({"age": 50, "gender": Genders.FEMALE, "baselinecreatinine": Decimal("1.5")})
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.can_calculate_stage)
+
+    def test__calculate_stage(self):
+        self.data.update({"age": 50, "gender": Genders.MALE, "baselinecreatinine": Decimal("1.5")})
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertEqual(
+            editor.calculated_stage,
+            labs_stage_calculator(
+                labs_eGFR_calculator(
+                    age=50,
+                    gender=Genders.MALE,
+                    creatinine=Decimal("1.5"),
+                )
+            ),
+        )
+
+    def test__stage_calculated_stage_conflict_no_stage(self):
+        """Test when stage is None."""
+        self.data["stage"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.stage_calculated_stage_conflict)
+
+    def test__stage_calculated_stage_conflict_cannot_calculate_stage(self):
+        """Test when can_calculate_stage is False."""
+        self.data["age"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.stage_calculated_stage_conflict)
+
+    def test__stage_calculated_stage_conflict_stage_matches(self):
+        """Test when calculated stage matches the given stage."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": labs_stage_calculator(
+                    labs_eGFR_calculator(
+                        age=50,
+                        gender=Genders.MALE,
+                        creatinine=Decimal("1.5"),
+                    )
+                ),
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.stage_calculated_stage_conflict)
+
+    def test__stage_calculated_stage_conflict_stage_does_not_match(self):
+        """Test when calculated stage does not match the given stage."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.ONE,  # Intentionally setting a different stage
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.stage_calculated_stage_conflict)
+
+    def test__dialysis_stage_conflict_no_dialysis(self):
+        """Test when dialysis is False."""
+        self.data["dialysis"] = False
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_stage_conflict)
+
+    def test__dialysis_stage_conflict_stage_not_five(self):
+        """Test when dialysis is True and stage is not FIVE."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "stage": Stages.FOUR,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.dialysis_stage_conflict)
+
+    def test__dialysis_stage_conflict_stage_five(self):
+        """Test when dialysis is True and stage is FIVE."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "stage": Stages.FIVE,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_stage_conflict)
+
+    def test__dialysis_stage_conflict_calculated_stage_not_five(self):
+        """Test when dialysis is True, can calculate stage, and calculated stage is not FIVE."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.FOUR,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.dialysis_stage_conflict)
+
+    def test__dialysis_stage_conflict_calculated_stage_five(self):
+        """Test when dialysis is True, can calculate stage, and calculated stage is FIVE."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("10.0"),
+                "stage": Stages.FIVE,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_stage_conflict)
+
+    def test__dialysis_type_conflict_no_dialysis(self):
+        """Test when dialysis is False."""
+        self.data["dialysis"] = False
+        self.data["dialysis_type"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_type_conflict)
+
+    def test__dialysis_type_conflict_dialysis_no_type(self):
+        """Test when dialysis is True and dialysis_type is None."""
+        self.data["dialysis"] = True
+        self.data["dialysis_type"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.dialysis_type_conflict)
+
+    def test__dialysis_type_conflict_dialysis_with_type(self):
+        """Test when dialysis is True and dialysis_type is provided."""
+        self.data["dialysis"] = True
+        self.data["dialysis_type"] = DialysisChoices.PERITONEAL
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_type_conflict)
+
+    def test__dialysis_duration_conflict_no_dialysis(self):
+        """Test when dialysis is False."""
+        self.data["dialysis"] = False
+        self.data["dialysis_duration"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_duration_conflict)
+
+    def test__dialysis_duration_conflict_dialysis_no_duration(self):
+        """Test when dialysis is True and dialysis_duration is None."""
+        self.data["dialysis"] = True
+        self.data["dialysis_duration"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.dialysis_duration_conflict)
+
+    def test__dialysis_duration_conflict_dialysis_with_duration(self):
+        """Test when dialysis is True and dialysis_duration is provided."""
+        self.data["dialysis"] = True
+        self.data["dialysis_duration"] = DialysisDurations.LESSTHANSIX
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.dialysis_duration_conflict)
+
+    def test__baselinecreatinine_age_gender_conflict_no_baselinecreatinine(self):
+        """Test when baselinecreatinine is None."""
+        self.data["baselinecreatinine"] = None
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.baselinecreatinine_age_gender_conflict)
+
+    def test__baselinecreatinine_age_gender_conflict_can_calculate_stage(self):
+        """Test when can_calculate_stage is True."""
+        self.data.update(
+            {
+                "baselinecreatinine": Decimal("1.5"),
+                "age": 50,
+                "gender": Genders.MALE,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.baselinecreatinine_age_gender_conflict)
+
+    def test__baselinecreatinine_age_gender_conflict_cannot_calculate_stage(self):
+        """Test when can_calculate_stage is False."""
+        self.data.update(
+            {
+                "baselinecreatinine": Decimal("1.5"),
+                "age": None,
+                "gender": Genders.MALE,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.baselinecreatinine_age_gender_conflict)
+
+    def test_conflicts_no_conflicts(self):
+        """Test when there are no conflicts."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": labs_stage_calculator(
+                    labs_eGFR_calculator(
+                        age=50,
+                        gender=Genders.MALE,
+                        creatinine=Decimal("1.5"),
+                    )
+                ),
+                "dialysis": False,
+                "dialysis_type": None,
+                "dialysis_duration": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.conflicts)
+
+    def test_conflicts_stage_calculated_stage_conflict(self):
+        """Test when there is a stage_calculated_stage_conflict."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.ONE,  # Intentionally setting a different stage
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_conflicts_dialysis_stage_conflict(self):
+        """Test when there is a dialysis_stage_conflict."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "stage": Stages.FOUR,
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_conflicts_dialysis_type_conflict(self):
+        """Test when there is a dialysis_type_conflict."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "dialysis_type": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_conflicts_dialysis_duration_conflict(self):
+        """Test when there is a dialysis_duration_conflict."""
+        self.data.update(
+            {
+                "dialysis": True,
+                "dialysis_duration": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_conflicts_baselinecreatinine_age_gender_conflict(self):
+        """Test when there is a baselinecreatinine_age_gender_conflict."""
+        self.data.update(
+            {
+                "baselinecreatinine": Decimal("1.5"),
+                "age": None,
+                "gender": Genders.MALE,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_conflicts_multiple_conflicts(self):
+        """Test when there are multiple conflicts."""
+        self.data.update(
+            {
+                "age": None,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.ONE,  # Intentionally setting a different stage
+                "dialysis": True,
+                "dialysis_type": None,
+                "dialysis_duration": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.conflicts)
+
+    def test_has_errors_no_conflicts(self):
+        """Test when there are no conflicts, incomplete information, or ckd_ckddetail_conflict."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": labs_stage_calculator(
+                    labs_eGFR_calculator(
+                        age=50,
+                        gender=Genders.MALE,
+                        creatinine=Decimal("1.5"),
+                    )
+                ),
+                "dialysis": False,
+                "dialysis_type": None,
+                "dialysis_duration": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertFalse(editor.has_errors)
+
+    def test_has_errors_with_conflicts(self):
+        """Test when there are conflicts."""
+        self.data.update(
+            {
+                "age": 50,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.ONE,  # Intentionally setting a different stage
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.has_errors)
+
+    def test_has_errors_with_incomplete_information(self):
+        """Test when there is incomplete information."""
+        self.data.update(
+            {
+                "dialysis": None,
+                "stage": None,
+                "age": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.has_errors)
+
+    def test_has_errors_with_ckd_ckddetail_conflict(self):
+        """Test when there is a ckd_ckddetail_conflict."""
+        ckd = CkdDetailFactory(medhistory=CkdFactory()).medhistory
+        ckddetail = CkdDetailFactory()
+        self.data.update(
+            {
+                "ckd": ckd,
+                "ckddetail": ckddetail,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.has_errors)
+
+    def test_has_errors_with_multiple_issues(self):
+        """Test when there are multiple issues causing errors."""
+        self.data.update(
+            {
+                "age": None,
+                "gender": Genders.MALE,
+                "baselinecreatinine": Decimal("1.5"),
+                "stage": Stages.ONE,  # Intentionally setting a different stage
+                "dialysis": True,
+                "dialysis_type": None,
+                "dialysis_duration": None,
+            }
+        )
+        editor = CkdDetailFieldRelationsMixin(**self.data)
+        self.assertTrue(editor.has_errors)
+
+
+class TestCkdDetailEditor(TestCase):
+    """Test suite for the CkdDetailEditor.__init__ method."""
+
+    def setUp(self):
+        self.ckddetail = CkdDetailFactory()
+        self.ckd = CkdFactory()
+        self.dialysis = True
+        self.dialysis_type = DialysisChoices.HEMODIALYSIS
+        self.dialysis_duration = DialysisDurations.LESSTHANSIX
+        self.stage = Stages.THREE
+        self.age = 45
+        self.baselinecreatinine = Decimal("1.2")
+        self.gender = Genders.MALE
+        self.initial = {
+            "dialysis": self.ckddetail.dialysis,
+            "dialysis_type": self.ckddetail.dialysis_type,
+            "dialysis_duration": self.ckddetail.dialysis_duration,
+            "stage": self.ckddetail.stage,
+        }
+        self.editor = CkdDetailEditor(
+            ckddetail=self.ckddetail,
+            ckd=self.ckd,
+            dialysis=self.dialysis,
+            dialysis_type=self.dialysis_type,
+            dialysis_duration=self.dialysis_duration,
+            stage=self.stage,
+            age=self.age,
+            baselinecreatinine=self.baselinecreatinine,
+            gender=self.gender,
+            initial=self.initial,
+        )
+
+    def test__init_with_all_parameters(self):
+        editor = CkdDetailEditor(
+            ckddetail=self.ckddetail,
+            ckd=self.ckd,
+            dialysis=self.dialysis,
+            dialysis_type=self.dialysis_type,
+            dialysis_duration=self.dialysis_duration,
+            stage=self.stage,
+            age=self.age,
+            baselinecreatinine=self.baselinecreatinine,
+            gender=self.gender,
+            initial=self.initial,
+        )
+        self.assertEqual(editor.ckddetail, self.ckddetail)
+        self.assertEqual(editor.ckd, self.ckd)
+        self.assertEqual(editor.dialysis, self.dialysis)
+        self.assertEqual(editor.dialysis_type, self.dialysis_type)
+        self.assertEqual(editor.dialysis_duration, self.dialysis_duration)
+        self.assertEqual(editor.stage, self.stage)
+        self.assertEqual(editor.age, self.age)
+        self.assertEqual(editor.baselinecreatinine, self.baselinecreatinine)
+        self.assertEqual(editor.gender, self.gender)
+        self.assertEqual(editor.initial, self.initial)
+        self.assertEqual(editor.errors, [])
+
+    def test__init_with_none_parameters(self):
+        editor = CkdDetailEditor(
+            ckddetail=None,
+            ckd=None,
+            dialysis=None,
+            dialysis_type=None,
+            dialysis_duration=None,
+            stage=None,
+            age=None,
+            baselinecreatinine=None,
+            gender=None,
+            initial=None,
+        )
+        self.assertIsNone(editor.ckddetail)
+        self.assertIsNone(editor.ckd)
+        self.assertIsNone(editor.dialysis)
+        self.assertIsNone(editor.dialysis_type)
+        self.assertIsNone(editor.dialysis_duration)
+        self.assertIsNone(editor.stage)
+        self.assertIsNone(editor.age)
+        self.assertIsNone(editor.baselinecreatinine)
+        self.assertIsNone(editor.gender)
+        self.assertIsNone(editor.initial)
+        self.assertEqual(editor.errors, [])
+
+    def test_ckddetail_initial_conflict_no_conflict(self):
+        """Test when there is no conflict between ckddetail and initial values."""
+        self.assertFalse(self.editor.ckddetail_initial_conflict)
+
+    def test_ckddetail_initial_conflict_with_conflict(self):
+        """Test when there is a conflict between ckddetail and initial values."""
+        self.editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
+        self.assertTrue(self.editor.ckddetail_initial_conflict)
+
+    def test_ckddetail_initial_conflict_no_ckddetail(self):
+        """Test when ckddetail is None."""
+        self.editor.ckddetail = None
+        self.assertFalse(self.editor.ckddetail_initial_conflict)
+
+    def test_ckddetail_initial_conflict_no_initial(self):
+        """Test when initial is None."""
+        self.editor.initial = None
+        self.assertFalse(self.editor.ckddetail_initial_conflict)
