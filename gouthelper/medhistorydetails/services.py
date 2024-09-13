@@ -192,10 +192,9 @@ class CkdDetailEditor(CkdDetailFieldRelationsMixin):
     def create(self) -> CkdDetail:
         if self.ckddetail:
             raise ValueError(f"CkdDetail instance already exists for {self.ckd}.")
-        elif self.no_ckddetail_and_no_ckd:
+        elif not self.ckd:
             raise ValueError("Ckd instance required for CkdDetail creation.")
-        if not hasattr(self, "errors"):
-            self.update_errors()
+        self.update_errors()
         if self.errors:
             self.raise_gouthelper_validation_error()
         self._update_attrs()
@@ -231,6 +230,8 @@ class CkdDetailEditor(CkdDetailFieldRelationsMixin):
             self.stage = self.calculated_stage
         elif self.dialysis and self.stage is None:
             self.stage = Stages.FIVE
+        if self.dialysis is None:
+            self.dialysis = False
 
     def ckddetail_has_changed(self) -> bool:
         return any([getattr(self.ckddetail, key) != val for key, val in self.initial.items()])

@@ -19,6 +19,7 @@ from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 from ...medhistorys.tests.factories import CkdFactory
+from ...utils.exceptions import GoutHelperValidationError
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
 from ..services import CkdDetailEditor, CkdDetailFieldRelationsMixin, CkdDetailFormProcessor
@@ -1455,7 +1456,7 @@ class TestCkdDetailEditor(TestCase):
         self.dialysis = True
         self.dialysis_type = DialysisChoices.HEMODIALYSIS
         self.dialysis_duration = DialysisDurations.LESSTHANSIX
-        self.stage = Stages.THREE
+        self.stage = Stages.FIVE
         self.age = 45
         self.baselinecreatinine = Decimal("1.2")
         self.gender = Genders.MALE
@@ -1546,3 +1547,115 @@ class TestCkdDetailEditor(TestCase):
         """Test when initial is None."""
         self.editor.initial = None
         self.assertFalse(self.editor.ckddetail_initial_conflict)
+
+    def test_no_ckddetail_and_no_ckd_false(self):
+        """Test when both ckddetail and ckd are provided."""
+        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
+
+    def test_no_ckddetail_and_no_ckd_true_no_ckddetail(self):
+        """Test when ckddetail is None and ckd is not provided."""
+        self.editor.ckddetail = None
+        self.editor.ckd = None
+        self.assertTrue(self.editor.no_ckddetail_and_no_ckd)
+
+    def test_no_ckddetail_and_no_ckd_true_no_ckd(self):
+        """Test when ckd is None and ckddetail is not provided."""
+        self.editor.ckddetail = None
+        self.editor.ckd = None
+        self.assertTrue(self.editor.no_ckddetail_and_no_ckd)
+
+    def test_no_ckddetail_and_no_ckd_false_ckddetail_provided(self):
+        """Test when ckddetail is provided and ckd is None."""
+        self.editor.ckddetail = self.ckddetail
+        self.editor.ckd = None
+        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
+
+    def test_no_ckddetail_and_no_ckd_false_ckd_provided(self):
+        """Test when ckd is provided and ckddetail is None."""
+        self.editor.ckddetail = None
+        self.editor.ckd = self.ckd
+        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
+
+    def test_check_ckddetail_initial_error_no_conflict(self):
+        """Test when there is no conflict between ckddetail and initial values."""
+        try:
+            self.editor.check_ckddetail_initial_error()
+        except ValueError:
+            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
+
+    def test_check_ckddetail_initial_error_with_conflict(self):
+        """Test when there is a conflict between ckddetail and initial values."""
+        self.editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
+        with self.assertRaises(ValueError) as context:
+            self.editor.check_ckddetail_initial_error()
+        self.assertEqual(str(context.exception), "Initial values do not match CkdDetail instance values.")
+
+    def test_check_ckddetail_initial_error_no_ckddetail(self):
+        """Test when ckddetail is None."""
+        self.editor.ckddetail = None
+        try:
+            self.editor.check_ckddetail_initial_error()
+        except ValueError:
+            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
+
+    def test_check_ckddetail_initial_error_no_initial(self):
+        """Test when initial is None."""
+        self.editor.initial = None
+        try:
+            self.editor.check_ckddetail_initial_error()
+        except ValueError:
+            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
+
+    def test_create_success(self):
+        """Test successful creation of CkdDetail."""
+        self.editor.ckddetail = None
+        created_ckddetail = self.editor.create()
+        self.assertIsInstance(created_ckddetail, CkdDetail)
+        self.assertEqual(created_ckddetail.dialysis, self.dialysis)
+        self.assertEqual(created_ckddetail.dialysis_type, self.dialysis_type)
+        self.assertEqual(created_ckddetail.dialysis_duration, self.dialysis_duration)
+        self.assertEqual(created_ckddetail.stage, self.stage)
+        self.assertEqual(created_ckddetail.medhistory, self.ckd)
+
+    def test_create_ckddetail_already_exists(self):
+        """Test creation when CkdDetail instance already exists."""
+        self.editor.ckddetail = self.ckddetail
+        with self.assertRaises(ValueError) as context:
+            self.editor.create()
+        self.assertEqual(str(context.exception), f"CkdDetail instance already exists for {self.ckd}.")
+
+    def test_create_no_ckd_instance(self):
+        """Test creation when no Ckd instance is provided."""
+        self.editor.ckddetail = None
+        self.editor.ckd = None
+        with self.assertRaises(ValueError) as context:
+            self.editor.create()
+        self.assertEqual(str(context.exception), "Ckd instance required for CkdDetail creation.")
+
+    def test_create_with_errors(self):
+        """Test creation when there are validation errors."""
+        self.editor.ckddetail = None
+        self.editor.dialysis = None  # This will cause an error
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.editor.create()
+        self.assertIn("Args for creating CkdDetail contain errors.", str(context.exception))
+        self.assertTrue(self.editor.errors)
+
+    def test_create_update_attrs(self):
+        """Test that _update_attrs is called during creation."""
+        self.editor.ckddetail = None
+        self.editor.stage = None
+        self.editor.baselinecreatinine = Decimal("1.5")
+        self.editor.age = 50
+        self.editor.gender = Genders.MALE
+        created_ckddetail = self.editor.create()
+        self.assertEqual(
+            created_ckddetail.stage,
+            labs_stage_calculator(
+                labs_eGFR_calculator(
+                    age=50,
+                    creatinine=Decimal("1.5"),
+                    gender=Genders.MALE,
+                )
+            ),
+        )
