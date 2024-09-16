@@ -1,9 +1,14 @@
 from typing import TYPE_CHECKING, Union
 
+from django.db import transaction
 from django.db.models import Manager, QuerySet
 
 from ..akis.choices import Statuses  # type: ignore
+from ..akis.services import AkiCreator
+from ..dateofbirths.helpers import age_calc
 from ..medhistorydetails.choices import DialysisChoices
+from ..medhistorydetails.services import CkdDetailCreator
+from ..utils.exceptions import GoutHelperValidationError
 from .choices import DiagnosedChoices
 from .selectors import flare_userless_relations
 
@@ -63,22 +68,56 @@ class FlareManager(Manager):
         stroke: bool,
         urate: Union["Decimal", None],
     ) -> "Flare":
-        # Check for errors in the arguments
-        # CkdDetailEditor
-        # AkiEditor
-        # UrateEditor
-        # FlareEditor
+        errors = []
+        with transaction.atomic():
+            if ckd:
+                ckddetail_service = CkdDetailCreator(
+                    ckd=None,
+                    dialysis=ckddetail__dialysis,
+                    dialysis_duration=ckddetail__dialysis_duration,
+                    dialysis_type=ckddetail__dialysis_type,
+                    stage=ckddetail__stage,
+                    age=age_calc(dateofbirth),
+                    baselinecreatinine=baselinecreatinine,
+                    gender=gender,
+                )
+                try:
+                    ckddetail_service.process_args()
+                except GoutHelperValidationError:
+                    errors.append(ckddetail_service.errors)
+            if aki:
+                try:
+                    aki_service = AkiCreator(
+                        status=aki__status,
+                        creatinines=aki__creatinines,
+                        baselinecreatinine=baselinecreatinine,
+                        stage=ckddetail_service.stage if ckd else None,
+                    )
+                except GoutHelperValidationError:
+                    errors.append(aki_service.errors)
+            else:
+                aki_service = None
+                # AkiEditor
+                # UrateEditor
+                # FlareEditor
 
-        # Modify the arguments to be passed to the create method
+                # Modify the arguments to be passed to the create method
 
-        # Create directly related objects
-        # aki = AkiEditor.create()
-        # urate = UrateEditor.create()
+                # Create directly related objects
+                # if aki:
+                # aki = AkiEditor(status=aki__status, creatinines=aki__creatinines)
+                # if urate:
+                # urate = UrateEditor.create()
+                # else:
+                # urate = None
 
-        # Create the flare
-        # flare = self.create()
-
+                # Create the flare
+                # flare = self.create(
+                #     aki=aki,
+                #     urate=urate,
+                # )
+        if errors:
+            raise GoutHelperValidationError(message="Args for flare has errors.", errors=errors)
         # Create indirectly related objects and update their querysets on their relations
 
         # Return the flare
-        pass

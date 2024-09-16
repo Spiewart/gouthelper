@@ -17,6 +17,38 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
+class AkiFieldRelationsMixin:
+    """Mixin class that checks for conflicts in Aki attributes and relatated objects."""
+
+    def __init__(
+        self,
+        status: Statuses,
+        creatinines: list["Creatinine"],
+        baselinecreatinine: Union["BaselineCreatinine", None],
+        stage: Union["Stages", None] = None,
+    ):
+        self.status = status
+        self.creatinines = creatinines
+        self.baselinecreatinine = baselinecreatinine
+        self.stage = stage
+
+
+class AkiCreator(AkiFieldRelationsMixin):
+    def __init__(
+        self,
+        status: Statuses,
+        creatinines: list["Creatinine"],
+        baselinecreatinine: Union["BaselineCreatinine", None],
+        stage: Union["Stages", None] = None,
+    ):
+        super().__init__(
+            status=status,
+            creatinines=creatinines,
+            baselinecreatinine=baselinecreatinine,
+            stage=stage,
+        )
+
+
 class AkiProcessor:
     """Class method to process Aki-related data."""
 
