@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from django.db.models import Manager  # type: ignore
 
 from .selectors import ckddetail_relations
-from .services import CkdDetailEditor
+from .services import CkdDetailCreator
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -29,7 +29,7 @@ class CkdDetailManager(Manager):
         gender: Union["Genders", None],
         **kwargs,
     ):
-        return CkdDetailEditor(
+        return CkdDetailCreator(
             ckddetail=None,
             ckd=ckd,
             dialysis=dialysis,

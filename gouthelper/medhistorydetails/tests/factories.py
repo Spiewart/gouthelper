@@ -87,7 +87,7 @@ def create_ckddetail(
             )
             ckddetail.stage = calc_stage
         else:
-            ckddetail.stage = random.choice(Stages.values)
+            ckddetail.stage = random.choice([1, 2, 3, 4, 5])
 
     ckddetail = CkdDetailFactory.build(
         medhistory=medhistory,
@@ -129,7 +129,9 @@ def create_ckddetail(
             and dialysis
         ):
             raise ValueError("Stage must be FIVE if dialysis is True.")
-        if dialysis is None or dialysis_duration is None or dialysis_type is None:
+        if not dialysis and dialysis is not None:
+            set_non_dialysis_fields(ckddetail, medhistory, dateofbirth, gender)
+        elif dialysis is None or dialysis_duration is None or dialysis_type is None:
             if stage and stage != Stages.FIVE or ckddetail.stage and ckddetail.stage != Stages.FIVE:
                 ckddetail.dialysis = False
             elif (

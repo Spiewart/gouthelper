@@ -2,7 +2,9 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.db import connection  # type: ignore
 from django.test import TestCase  # type: ignore
+from django.test.utils import CaptureQueriesContext  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...dateofbirths.forms import DateOfBirthForm, DateOfBirthFormOptional
@@ -22,8 +24,8 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...utils.exceptions import GoutHelperValidationError
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
-from ..services import CkdDetailEditor, CkdDetailFieldRelationsMixin, CkdDetailFormProcessor
-from .factories import CkdDetailDataFactory, CkdDetailFactory
+from ..services import CkdDetailCreator, CkdDetailFieldRelationsMixin, CkdDetailFormProcessor, CkdDetailUpdater
+from .factories import CkdDetailDataFactory, CkdDetailFactory, create_ckddetail
 
 if TYPE_CHECKING:
     from ...medhistorys.models import Ckd
@@ -1036,7 +1038,7 @@ class TestCkdProcessorCheckForErrors(TestCase):
 
 
 class TestCkdDetailFieldRelationsMixin(TestCase):
-    """Test suite for the CkdDetailEditor class."""
+    """Test suite for the CkdDetailCreator class."""
 
     def setUp(self):
         self.data = CkdDetailDataFactory().create_api_data()
@@ -1076,7 +1078,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
         self.data["stage"] = None
         self.data["age"] = None
         editor = CkdDetailFieldRelationsMixin(**self.data)
-        self.assertTrue(editor.incomplete_information)
+        self.assertTrue(editor.incomplete_info)
 
     def test__can_calculate_stage(self):
         editor = CkdDetailFieldRelationsMixin(**self.data)
@@ -1135,8 +1137,9 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
         self.data.update(
             {
                 "age": 50,
+                "dialysis": False,
                 "gender": Genders.MALE,
-                "baselinecreatinine": Decimal("1.5"),
+                "baselinecreatinine": Decimal("3.5"),
                 "stage": Stages.ONE,  # Intentionally setting a different stage
             }
         )
@@ -1447,11 +1450,9 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
         self.assertTrue(editor.has_errors)
 
 
-class TestCkdDetailEditor(TestCase):
-    """Test suite for the CkdDetailEditor.__init__ method."""
-
+class TestCkdDetailCreator(TestCase):
     def setUp(self):
-        self.ckddetail = CkdDetailFactory()
+        self.ckddetail = create_ckddetail(dialysis=False, medhistory=CkdFactory())
         self.ckd = CkdFactory()
         self.dialysis = True
         self.dialysis_type = DialysisChoices.HEMODIALYSIS
@@ -1466,8 +1467,19 @@ class TestCkdDetailEditor(TestCase):
             "dialysis_duration": self.ckddetail.dialysis_duration,
             "stage": self.ckddetail.stage,
         }
-        self.editor = CkdDetailEditor(
-            ckddetail=self.ckddetail,
+        self.create_editor = CkdDetailCreator(
+            ckd=self.ckd,
+            dialysis=self.dialysis,
+            dialysis_type=self.dialysis_type,
+            dialysis_duration=self.dialysis_duration,
+            stage=self.stage,
+            age=self.age,
+            baselinecreatinine=None,
+            gender=self.gender,
+        )
+
+    def test__init_with_all_parameters(self):
+        editor = CkdDetailCreator(
             ckd=self.ckd,
             dialysis=self.dialysis,
             dialysis_type=self.dialysis_type,
@@ -1476,13 +1488,152 @@ class TestCkdDetailEditor(TestCase):
             age=self.age,
             baselinecreatinine=self.baselinecreatinine,
             gender=self.gender,
+        )
+        self.assertIsNone(editor.ckddetail)
+        self.assertEqual(editor.ckd, self.ckd)
+        self.assertEqual(editor.dialysis, self.dialysis)
+        self.assertEqual(editor.dialysis_type, self.dialysis_type)
+        self.assertEqual(editor.dialysis_duration, self.dialysis_duration)
+        self.assertEqual(editor.stage, self.stage)
+        self.assertEqual(editor.age, self.age)
+        self.assertEqual(editor.baselinecreatinine, self.baselinecreatinine)
+        self.assertEqual(editor.gender, self.gender)
+        self.assertEqual(editor.errors, [])
+
+    def test__init_with_none_parameters(self):
+        editor = CkdDetailCreator(
+            ckd=None,
+            dialysis=None,
+            dialysis_type=None,
+            dialysis_duration=None,
+            stage=None,
+            age=None,
+            baselinecreatinine=None,
+            gender=None,
+        )
+        self.assertIsNone(editor.ckddetail)
+        self.assertIsNone(editor.ckd)
+        self.assertIsNone(editor.dialysis)
+        self.assertIsNone(editor.dialysis_type)
+        self.assertIsNone(editor.dialysis_duration)
+        self.assertIsNone(editor.stage)
+        self.assertIsNone(editor.age)
+        self.assertIsNone(editor.baselinecreatinine)
+        self.assertIsNone(editor.gender)
+        self.assertEqual(editor.errors, [])
+
+    def test_create(self):
+        """Test successful creation of CkdDetail."""
+        self.create_editor.ckddetail = None
+        created_ckddetail = self.create_editor.create()
+        self.assertIsInstance(created_ckddetail, CkdDetail)
+        self.assertEqual(created_ckddetail.dialysis, self.dialysis)
+        self.assertEqual(created_ckddetail.dialysis_type, self.dialysis_type)
+        self.assertEqual(created_ckddetail.dialysis_duration, self.dialysis_duration)
+        self.assertEqual(created_ckddetail.stage, self.stage)
+        self.assertEqual(created_ckddetail.medhistory, self.ckd)
+
+    def test_create_ckddetail_already_exists(self):
+        """Test creation when CkdDetail instance already exists."""
+        self.create_editor.ckddetail = self.ckddetail
+        with self.assertRaises(ValueError) as context:
+            self.create_editor.create()
+        self.assertEqual(str(context.exception), f"CkdDetail instance already exists for {self.ckd}.")
+
+    def test_create_no_ckd_instance(self):
+        """Test creation when no Ckd instance is provided."""
+        self.create_editor.ckddetail = None
+        self.create_editor.ckd = None
+        with self.assertRaises(ValueError) as context:
+            self.create_editor.create()
+        self.assertEqual(str(context.exception), "Ckd instance required for CkdDetail creation.")
+
+    def test_create_with_dialysis_but_no_type(self):
+        """Test that there is a validation error due to dialysis being True but there being no dialysis_type."""
+        self.create_editor.ckddetail = None
+        self.create_editor.dialysis_type = None  # This will cause an error
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.create_editor.create()
+        self.assertIn("Args for creating CkdDetail contain errors", str(context.exception))
+        self.assertTrue(self.create_editor.errors)
+        self.assertIn("dialysis_type", [tup[0] for tup in self.create_editor.errors])
+
+    def test_create_with_dialysis_but_no_duration(self):
+        """Test that there is a validation error due to dialysis being True but there being no dialysis_duration."""
+        self.create_editor.ckddetail = None
+        self.create_editor.dialysis_duration = None  # This will cause an error
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.create_editor.create()
+        self.assertIn("Args for creating CkdDetail contain errors", str(context.exception))
+        self.assertTrue(self.create_editor.errors)
+        self.assertIn("dialysis_duration", [tup[0] for tup in self.create_editor.errors])
+
+    def test_create_without_stage_but_can_calculate_stage(self):
+        """Test that the stage is updated by _update_attrs during creation and set on the created object."""
+        self.create_editor.ckddetail = None
+        self.create_editor.dialysis = None
+        self.create_editor.stage = None
+        self.create_editor.baselinecreatinine = Decimal("1.5")
+        self.create_editor.age = 50
+        self.create_editor.gender = Genders.MALE
+        created_ckddetail = self.create_editor.create()
+        self.assertEqual(
+            created_ckddetail.stage,
+            labs_stage_calculator(
+                labs_eGFR_calculator(
+                    age=50,
+                    creatinine=Decimal("1.5"),
+                    gender=Genders.MALE,
+                )
+            ),
+        )
+
+    def test_create_with_dialysis_can_calculcate_stage_but_wont(self):
+        """Test that _update_attrs is called during creation."""
+        self.create_editor.ckddetail = None
+        self.create_editor.dialysis = True
+        self.create_editor.stage = None
+        self.create_editor.baselinecreatinine = Decimal("1.5")
+        self.create_editor.age = 50
+        self.create_editor.gender = Genders.MALE
+        created_ckddetail = self.create_editor.create()
+        self.assertEqual(
+            created_ckddetail.stage,
+            Stages.FIVE,
+        )
+
+
+class TestCkdDetailUpdater(TestCase):
+    def setUp(self):
+        self.ckddetail = create_ckddetail(dialysis=False, medhistory=CkdFactory())
+        self.dialysis = True
+        self.dialysis_type = DialysisChoices.HEMODIALYSIS
+        self.dialysis_duration = DialysisDurations.LESSTHANSIX
+        self.stage = Stages.FIVE
+        self.age = 45
+        self.baselinecreatinine = Decimal("1.2")
+        self.gender = Genders.MALE
+        self.initial = {
+            "dialysis": self.ckddetail.dialysis,
+            "dialysis_type": self.ckddetail.dialysis_type,
+            "dialysis_duration": self.ckddetail.dialysis_duration,
+            "stage": self.ckddetail.stage,
+        }
+        self.update_editor = CkdDetailUpdater(
+            ckddetail=self.ckddetail,
+            dialysis=self.dialysis,
+            dialysis_type=self.dialysis_type,
+            dialysis_duration=self.dialysis_duration,
+            stage=self.stage,
+            age=self.age,
+            baselinecreatinine=None,
+            gender=self.gender,
             initial=self.initial,
         )
 
     def test__init_with_all_parameters(self):
-        editor = CkdDetailEditor(
+        editor = CkdDetailUpdater(
             ckddetail=self.ckddetail,
-            ckd=self.ckd,
             dialysis=self.dialysis,
             dialysis_type=self.dialysis_type,
             dialysis_duration=self.dialysis_duration,
@@ -1493,7 +1644,7 @@ class TestCkdDetailEditor(TestCase):
             initial=self.initial,
         )
         self.assertEqual(editor.ckddetail, self.ckddetail)
-        self.assertEqual(editor.ckd, self.ckd)
+        self.assertEqual(editor.ckd, self.ckddetail.medhistory)
         self.assertEqual(editor.dialysis, self.dialysis)
         self.assertEqual(editor.dialysis_type, self.dialysis_type)
         self.assertEqual(editor.dialysis_duration, self.dialysis_duration)
@@ -1505,9 +1656,8 @@ class TestCkdDetailEditor(TestCase):
         self.assertEqual(editor.errors, [])
 
     def test__init_with_none_parameters(self):
-        editor = CkdDetailEditor(
-            ckddetail=None,
-            ckd=None,
+        editor = CkdDetailUpdater(
+            ckddetail=self.ckddetail,
             dialysis=None,
             dialysis_type=None,
             dialysis_duration=None,
@@ -1517,8 +1667,6 @@ class TestCkdDetailEditor(TestCase):
             gender=None,
             initial=None,
         )
-        self.assertIsNone(editor.ckddetail)
-        self.assertIsNone(editor.ckd)
         self.assertIsNone(editor.dialysis)
         self.assertIsNone(editor.dialysis_type)
         self.assertIsNone(editor.dialysis_duration)
@@ -1529,133 +1677,80 @@ class TestCkdDetailEditor(TestCase):
         self.assertIsNone(editor.initial)
         self.assertEqual(editor.errors, [])
 
-    def test_ckddetail_initial_conflict_no_conflict(self):
-        """Test when there is no conflict between ckddetail and initial values."""
-        self.assertFalse(self.editor.ckddetail_initial_conflict)
-
-    def test_ckddetail_initial_conflict_with_conflict(self):
-        """Test when there is a conflict between ckddetail and initial values."""
-        self.editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
-        self.assertTrue(self.editor.ckddetail_initial_conflict)
-
-    def test_ckddetail_initial_conflict_no_ckddetail(self):
-        """Test when ckddetail is None."""
-        self.editor.ckddetail = None
-        self.assertFalse(self.editor.ckddetail_initial_conflict)
-
-    def test_ckddetail_initial_conflict_no_initial(self):
-        """Test when initial is None."""
-        self.editor.initial = None
-        self.assertFalse(self.editor.ckddetail_initial_conflict)
-
-    def test_no_ckddetail_and_no_ckd_false(self):
-        """Test when both ckddetail and ckd are provided."""
-        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
-
-    def test_no_ckddetail_and_no_ckd_true_no_ckddetail(self):
-        """Test when ckddetail is None and ckd is not provided."""
-        self.editor.ckddetail = None
-        self.editor.ckd = None
-        self.assertTrue(self.editor.no_ckddetail_and_no_ckd)
-
-    def test_no_ckddetail_and_no_ckd_true_no_ckd(self):
-        """Test when ckd is None and ckddetail is not provided."""
-        self.editor.ckddetail = None
-        self.editor.ckd = None
-        self.assertTrue(self.editor.no_ckddetail_and_no_ckd)
-
-    def test_no_ckddetail_and_no_ckd_false_ckddetail_provided(self):
-        """Test when ckddetail is provided and ckd is None."""
-        self.editor.ckddetail = self.ckddetail
-        self.editor.ckd = None
-        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
-
-    def test_no_ckddetail_and_no_ckd_false_ckd_provided(self):
-        """Test when ckd is provided and ckddetail is None."""
-        self.editor.ckddetail = None
-        self.editor.ckd = self.ckd
-        self.assertFalse(self.editor.no_ckddetail_and_no_ckd)
-
     def test_check_ckddetail_initial_error_no_conflict(self):
         """Test when there is no conflict between ckddetail and initial values."""
         try:
-            self.editor.check_ckddetail_initial_error()
+            self.update_editor.check_ckddetail_initial_error()
         except ValueError:
             self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
 
     def test_check_ckddetail_initial_error_with_conflict(self):
         """Test when there is a conflict between ckddetail and initial values."""
-        self.editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
+        self.update_editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
         with self.assertRaises(ValueError) as context:
-            self.editor.check_ckddetail_initial_error()
+            self.update_editor.check_ckddetail_initial_error()
         self.assertEqual(str(context.exception), "Initial values do not match CkdDetail instance values.")
 
     def test_check_ckddetail_initial_error_no_ckddetail(self):
         """Test when ckddetail is None."""
-        self.editor.ckddetail = None
+        self.update_editor.ckddetail = None
         try:
-            self.editor.check_ckddetail_initial_error()
+            self.update_editor.check_ckddetail_initial_error()
         except ValueError:
             self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
 
     def test_check_ckddetail_initial_error_no_initial(self):
         """Test when initial is None."""
-        self.editor.initial = None
+        self.update_editor.initial = None
         try:
-            self.editor.check_ckddetail_initial_error()
+            self.update_editor.check_ckddetail_initial_error()
         except ValueError:
             self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
 
-    def test_create_success(self):
-        """Test successful creation of CkdDetail."""
-        self.editor.ckddetail = None
-        created_ckddetail = self.editor.create()
-        self.assertIsInstance(created_ckddetail, CkdDetail)
-        self.assertEqual(created_ckddetail.dialysis, self.dialysis)
-        self.assertEqual(created_ckddetail.dialysis_type, self.dialysis_type)
-        self.assertEqual(created_ckddetail.dialysis_duration, self.dialysis_duration)
-        self.assertEqual(created_ckddetail.stage, self.stage)
-        self.assertEqual(created_ckddetail.medhistory, self.ckd)
+    def test_ckddetail_initial_conflict_no_conflict(self):
+        """Test when there is no conflict between ckddetail and initial values."""
+        self.assertFalse(self.update_editor.ckddetail_initial_conflict)
 
-    def test_create_ckddetail_already_exists(self):
-        """Test creation when CkdDetail instance already exists."""
-        self.editor.ckddetail = self.ckddetail
-        with self.assertRaises(ValueError) as context:
-            self.editor.create()
-        self.assertEqual(str(context.exception), f"CkdDetail instance already exists for {self.ckd}.")
+    def test_ckddetail_initial_conflict_with_conflict(self):
+        """Test when there is a conflict between ckddetail and initial values."""
+        self.update_editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
+        self.assertTrue(self.update_editor.ckddetail_initial_conflict)
 
-    def test_create_no_ckd_instance(self):
-        """Test creation when no Ckd instance is provided."""
-        self.editor.ckddetail = None
-        self.editor.ckd = None
-        with self.assertRaises(ValueError) as context:
-            self.editor.create()
-        self.assertEqual(str(context.exception), "Ckd instance required for CkdDetail creation.")
+    def test_ckddetail_initial_conflict_no_initial(self):
+        """Test when initial is None."""
+        self.update_editor.initial = None
+        self.assertFalse(self.update_editor.ckddetail_initial_conflict)
 
-    def test_create_with_errors(self):
-        """Test creation when there are validation errors."""
-        self.editor.ckddetail = None
-        self.editor.dialysis = None  # This will cause an error
-        with self.assertRaises(GoutHelperValidationError) as context:
-            self.editor.create()
-        self.assertIn("Args for creating CkdDetail contain errors.", str(context.exception))
-        self.assertTrue(self.editor.errors)
+    def test__get_ckddetail_changed_fields(self):
+        changed_fields = self.update_editor.get_ckddetail_changed_fields()
+        self.assertTrue(isinstance(changed_fields, list))
+        self.assertIn(("dialysis", self.dialysis), changed_fields)
 
-    def test_create_update_attrs(self):
-        """Test that _update_attrs is called during creation."""
-        self.editor.ckddetail = None
-        self.editor.stage = None
-        self.editor.baselinecreatinine = Decimal("1.5")
-        self.editor.age = 50
-        self.editor.gender = Genders.MALE
-        created_ckddetail = self.editor.create()
-        self.assertEqual(
-            created_ckddetail.stage,
-            labs_stage_calculator(
-                labs_eGFR_calculator(
-                    age=50,
-                    creatinine=Decimal("1.5"),
-                    gender=Genders.MALE,
-                )
-            ),
-        )
+    def test__ckddetail_has_changed(self):
+        self.assertTrue(self.update_editor.ckddetail_has_changed)
+
+    def test__ckdetail_has_not_changed(self):
+        self.update_editor.dialysis = self.ckddetail.dialysis
+        self.update_editor.dialysis_duration = self.ckddetail.dialysis_duration
+        self.update_editor.dialysis_type = self.ckddetail.dialysis_type
+        self.update_editor.stage = self.ckddetail.stage
+        self.assertFalse(self.update_editor.ckddetail_has_changed)
+
+    def test__update(self):
+        """Test successful update of CkdDetail."""
+        updated_ckddetail = self.update_editor.update()
+        self.assertIsInstance(updated_ckddetail, CkdDetail)
+        self.assertEqual(updated_ckddetail.dialysis, self.dialysis)
+        self.assertEqual(updated_ckddetail.dialysis_type, self.dialysis_type)
+        self.assertEqual(updated_ckddetail.dialysis_duration, self.dialysis_duration)
+        self.assertEqual(updated_ckddetail.stage, self.stage)
+        self.assertEqual(updated_ckddetail.medhistory, self.ckddetail.medhistory)
+
+    def test__update_does_not_save_when_ckddetail_unchanged(self):
+        self.update_editor.dialysis = self.ckddetail.dialysis
+        self.update_editor.dialysis_duration = self.ckddetail.dialysis_duration
+        self.update_editor.dialysis_type = self.ckddetail.dialysis_type
+        self.update_editor.stage = self.ckddetail.stage
+        with CaptureQueriesContext(connection=connection) as queries:
+            self.update_editor.update()
+        self.assertEqual(len(queries), 0)

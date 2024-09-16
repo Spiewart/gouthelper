@@ -2,7 +2,6 @@ import pytest  # type: ignore
 from django.db.models import QuerySet  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...medhistorydetails.selectors import ckddetail_relations
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import ChfFactory, GastricbypassFactory, HeartattackFactory
 from ...treatments.choices import TrtTypes
@@ -87,24 +86,3 @@ class TestDefaultsFlareAidSettings(TestCase):
         qs = defaults_flareaidsettings(user=None)
         self.assertTrue(isinstance(qs, FlareAidSettings))
         self.assertIsNone(qs.user)
-        from django.db.models import QuerySet  # type: ignore
-        from django.test import TestCase  # type: ignore
-
-        from ...medhistorydetails.models import CKDDetail  # Assuming CKDDetail is the model related to the queryset
-        from ...medhistorydetails.tests.factories import CKDDetailFactory  # Assuming a factory exists for CKDDetail
-
-        class TestCKDDetailRelations(TestCase):
-            def setUp(self):
-                self.ckddetails = CKDDetailFactory.create_batch(3)
-
-            def test_ckddetail_relations(self):
-                qs = CKDDetail.objects.all()
-                related_qs = ckddetail_relations(qs)
-                self.assertTrue(isinstance(related_qs, QuerySet))
-                self.assertEqual(related_qs.count(), 3)
-                for detail in related_qs:
-                    self.assertTrue(hasattr(detail, "medhistory"))
-                    self.assertTrue(hasattr(detail.medhistory, "user"))
-                    self.assertTrue(hasattr(detail.medhistory.user, "baselinecreatinine"))
-                    self.assertTrue(hasattr(detail.medhistory.user, "pseudopatientprofile"))
-                    self.assertTrue(hasattr(detail.medhistory.user.pseudopatientprofile, "provider"))
