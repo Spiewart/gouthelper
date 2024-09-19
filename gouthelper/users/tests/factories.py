@@ -366,7 +366,7 @@ def create_psp(
                 # Create a random MedHistoryType, popping the value from the list
                 medhistory = medhistorytypes.pop(random.randint(0, len(medhistorytypes) - 1))
                 new_mh = get_or_create_medhistory_atomic(medhistory, psp)
-                setattr(psp, medhistory, new_mh)
+                setattr(psp, medhistory.lower(), new_mh)
                 if medhistory == MedHistoryTypes.CKD and (
                     (mh_dets and mh_dets.get(MedHistoryTypes.CKD, None)) or fake.boolean()
                 ):

@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-class TestFlareAidFactory(TestCase):
+class TestCustomFlareAidFactory(TestCase):
     def test__flareaid_created(self):
         factory = CustomFlareAidFactory()
         flareaid = factory.create_object()
