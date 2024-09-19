@@ -19,14 +19,21 @@ from ...utils.services import aids_dict_to_json, aids_process_medhistorys
 from ..models import UltAid
 from ..selectors import ultaid_user_qs
 from ..services import UltAidDecisionAid
-from .factories import create_ultaid
+from .factories import CustomUltAidFactory, create_ultaid
 
 pytestmark = pytest.mark.django_db
 
 
 class TestUltAidDecisionAid(TestCase):
     def setUp(self):
-        self.ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.THREE})
+        self.ultaid = CustomUltAidFactory(
+            allopurinol_allergy=None,
+            febuxostat_allergy=None,
+            probenecid_allergy=None,
+            stage=Stages.THREE,
+            uratestones=False,
+            xoiinteraction=False,
+        ).create_object()
         for _ in range(4):
             create_ultaid()
         self.empty_ultaid = create_ultaid(mas=None, mhs=None, kwargs={"hlab5801": False})
@@ -306,17 +313,37 @@ class TestUltAidDecisionAid(TestCase):
         self.assertTrue(trt_dict[Treatments.FEBUXOSTAT]["contra"])
 
     def test__process_probenecid_with_ckd_2(self):
-        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.TWO})
+        ultaid = CustomUltAidFactory(
+            allopurinol_allergy=None,
+            febuxostat_allergy=None,
+            probenecid_allergy=None,
+            stage=Stages.TWO,
+            uratestones=False,
+        ).create_object()
         ultaid.update_aid()
         self.assertFalse(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__process_probenecid_with_ckd_3(self):
-        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.THREE})
+        ultaid = CustomUltAidFactory(
+            allopurinol_allergy=None,
+            febuxostat_allergy=None,
+            probenecid_allergy=None,
+            ckd=True,
+            stage=Stages.THREE,
+            uratestones=False,
+        ).create_object()
         ultaid.update_aid()
         self.assertTrue(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
 
     def test__process_probenecid_with_ckd_no_stage(self):
-        ultaid = create_ultaid(mas=[], mhs=[MedHistoryTypes.CKD], mh_dets={"ckddetail": None})
+        ultaid = CustomUltAidFactory(
+            allopurinol_allergy=None,
+            febuxostat_allergy=None,
+            probenecid_allergy=None,
+            ckd=True,
+            ckddetail=False,
+            uratestones=False,
+        ).create_object()
         ultaid.update_aid()
         self.assertTrue(ultaid.aid_dict[Treatments.PROBENECID]["contra"])
 

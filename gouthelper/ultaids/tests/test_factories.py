@@ -13,10 +13,10 @@ from ...labs.models import Hlab5801
 from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
-from ...treatments.choices import UltChoices
+from ...treatments.choices import Treatments, UltChoices
 from ...users.tests.factories import create_psp
 from ..models import UltAid
-from .factories import create_ultaid, ultaid_data_factory
+from .factories import CustomUltAidFactory, create_ultaid, ultaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -289,12 +289,12 @@ class TestUltAidDataFactory(TestCase):
             self.assertEqual(data["gender-value"], Genders.FEMALE)
 
 
-class TestUltAid(TestCase):
-    """Tests for the create_ultaid function."""
+class TestCustomUltAidFactory(TestCase):
+    """Tests for the CustomUltAidFactory class method."""
 
     def test__without_user(self):
         for _ in range(10):
-            ultaid = create_ultaid()
+            ultaid = CustomUltAidFactory().create_object()
             self.assertIsInstance(ultaid, UltAid)
             self.assertIsNone(ultaid.user)
             self.assertTrue(hasattr(ultaid, "medallergys_qs"))
@@ -314,7 +314,9 @@ class TestUltAid(TestCase):
     def test__without_user_with_otos(self):
         for _ in range(10):
             dob = timezone.now() - timedelta(days=365 * 50)
-            ultaid = create_ultaid(ethnicity=Ethnicitys.HANCHINESE, dateofbirth=dob, gender=Genders.FEMALE)
+            ultaid = CustomUltAidFactory(
+                ethnicity=Ethnicitys.HANCHINESE, dateofbirth=dob, gender=Genders.FEMALE
+            ).create_object()
             self.assertIsInstance(ultaid, UltAid)
             self.assertIsNone(ultaid.user)
             self.assertTrue(hasattr(ultaid, "medallergys_qs"))
@@ -330,7 +332,7 @@ class TestUltAid(TestCase):
                 self.assertTrue(isinstance(ultaid.hlab5801, Hlab5801))
 
     def test__without_user_with_hlab5801(self):
-        ultaid_none = create_ultaid(hlab5801=None)
+        ultaid_none = CustomUltAidFactory(hlab5801=None).create_object()
         self.assertIsNone(ultaid_none.hlab5801)
         ultaid_false = create_ultaid(hlab5801=False)
         self.assertTrue(ultaid_false.hlab5801)
@@ -340,12 +342,12 @@ class TestUltAid(TestCase):
         self.assertTrue(ultaid_true.hlab5801.value)
 
     def test__without_user_ckd_no_ckddetail(self):
-        ultaid = create_ultaid(mhs=[MedHistoryTypes.CKD], ckddetail=None)
+        ultaid = CustomUltAidFactory(ckd=True, ckddetail=None).create_object()
         self.assertTrue(ultaid.ckd)
         self.assertFalse(ultaid.ckddetail)
 
     def test__without_user_ckd_and_ckddetail(self):
-        ultaid = create_ultaid(mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.THREE})
+        ultaid = CustomUltAidFactory(ckd=True, stage=Stages.THREE).create_object()
         self.assertTrue(ultaid.ckd)
         self.assertTrue(ultaid.ckddetail)
         self.assertEqual(ultaid.ckddetail.stage, Stages.THREE)
@@ -353,19 +355,46 @@ class TestUltAid(TestCase):
     def test__with_user(self):
         for _ in range(5):
             user = create_psp(plus=True)
-            ultaid = create_ultaid(user=user)
+            ultaid = CustomUltAidFactory(user=user).create_object()
             self.assertIsInstance(ultaid, UltAid)
             self.assertEqual(ultaid.user, user)
-            self.assertTrue(hasattr(ultaid, "medallergys_qs"))
+            self.assertTrue(hasattr(ultaid.user, "medallergys_qs"))
             for ma in user.medallergy_set.all():
                 if ma.treatment in UltChoices.values:
-                    self.assertIn(ma, ultaid.medallergys_qs)
+                    self.assertIn(ma, ultaid.user.medallergys_qs)
             for mh in user.medhistory_set.all():
                 if mh.medhistorytype in ULTAID_MEDHISTORYS:
-                    self.assertIn(mh, ultaid.medhistorys_qs)
-            self.assertTrue(hasattr(ultaid, "medhistorys_qs"))
+                    self.assertIn(mh, ultaid.user.medhistorys_qs)
+            self.assertTrue(hasattr(ultaid.user, "medhistorys_qs"))
             self.assertFalse(getattr(ultaid, "dateofbirth", False))
             self.assertFalse(getattr(ultaid, "gender", False))
             self.assertTrue(hasattr(ultaid, "hlab5801"))
             if getattr(ultaid, "hlab5801", None):
                 self.assertTrue(isinstance(ultaid.hlab5801, Hlab5801))
+
+    def test__with_user_with_ckddetail_to_delete_ckd(self):
+        # This is an imperfect test at present because create_psp does not allow for the creation of a user with a
+        # CKD detail but no CKD. This test will need to be updated when create_psp is revised.
+        user = create_psp(medhistorys=[MedHistoryTypes.CKD])
+        self.assertTrue(user.ckd)
+        # self.assertFalse(user.ckddetail)
+        ultaid = CustomUltAidFactory(
+            user=user,
+            ckd=False,
+        ).create_object()
+        self.assertFalse(ultaid.ckd)
+        self.assertFalse(ultaid.ckddetail)
+        self.assertFalse(user.ckd)
+        self.assertFalse(user.ckddetail)
+
+    def test__with_user_with_allergy_to_delete_allergy(self):
+        user = create_psp(medallergys=[Treatments.ALLOPURINOL])
+        self.assertTrue(user.allopurinol_allergy)
+        self.assertTrue(user.medallergy_set.filter(treatment=UltChoices.ALLOPURINOL).exists())
+        ultaid = CustomUltAidFactory(
+            user=user,
+            allopurinol_allergy=False,
+        ).create_object()
+        self.assertFalse(ultaid.allopurinol_allergy)
+        self.assertFalse(user.allopurinol_allergy)
+        self.assertFalse(user.medallergy_set.filter(treatment=UltChoices.ALLOPURINOL).exists())

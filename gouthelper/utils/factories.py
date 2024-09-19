@@ -9,7 +9,7 @@ from django.db.utils import IntegrityError  # pylint: disable=e0401 # type: igno
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 from django.utils.functional import cached_property
 from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: ignore
-from factory.faker import faker  # pylint: disable=e0401 # type: ignore
+from factory.faker import faker
 
 from ..akis.choices import Statuses
 from ..akis.models import Aki
@@ -1270,10 +1270,13 @@ def form_data_nsaid_contra(data: dict) -> Contraindications | None:
 
 class CustomFactoryBaseMixin:
     related_object: Any | None
+    related_object_attr: str | None
 
     def update_related_object_attr(self, related_object: Any | None = None):
         if not self.related_object or self.related_object is not related_object:
             self.related_object = related_object
+        if not self.related_object_attr or self.related_object_attr is not related_object.__class__.__name__.lower():
+            self.related_object_attr = related_object.__class__.__name__.lower()
 
     def update_related_objects_related_objects(self) -> None:
         if self.related_object:
@@ -1374,6 +1377,48 @@ class CustomFactoryDateOfBirthMixin:
 
     def get_dateofbirth_value_from_attr(self) -> date | None:
         return self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
+
+
+def related_object_has_ethnicity(related_object: Any, ethnicity: Ethnicity | Ethnicitys | None):
+    return hasattr(related_object, "ethnicity") and related_object.ethnicity and related_object.ethnicity != ethnicity
+
+
+def create_ethnicity(
+    ethnicity: Ethnicity | Ethnicitys | None,
+    build: bool = False,
+) -> Ethnicity:
+    kwargs = {}
+    if ethnicity:
+        if isinstance(ethnicity, Ethnicity):
+            return ethnicity
+        else:
+            kwargs["value"] = ethnicity
+    if build:
+        return EthnicityFactory.build(**kwargs)
+    else:
+        return EthnicityFactory(**kwargs)
+
+
+class CustomFactoryEthnicityMixin:
+    ethnicity: Ethnicity | Ethnicitys | None | Auto
+    related_object: Any | None
+    user: Union["User", bool, None]
+
+    def get_or_create_ethnicity(self) -> Ethnicity | Ethnicitys | None:
+        if self.ethnicity is Auto:
+            if self.user:
+                return None
+            elif related_object_has_ethnicity(self.related_object, self.ethnicity):
+                return self.related_object.ethnicity
+            else:
+                return create_ethnicity(ethnicity=self.ethnicity)
+        else:
+            if self.user:
+                return None
+            elif related_object_has_ethnicity(self.related_object, self.ethnicity):
+                raise ValueError("Cannot create a Ethnicity for a related object that already has one!")
+            else:
+                return create_ethnicity(ethnicity=self.ethnicity)
 
 
 def related_object_has_gender(related_object: Any, gender: Union[Gender, "Genders", None]):
@@ -1486,7 +1531,8 @@ class CustomFactoryCkdMixin:
     def needs_ckd(self) -> bool:
         return (
             True
-            if (self.ckd is Auto or self.ckd) and (self.stage or self.baselinecreatinine or self.dialysis)
+            if (self.ckd is Auto or self.ckd)
+            and (self.stage or self.baselinecreatinine or self.dialysis or self.needs_optional_ckddetail)
             else False
         )
 
@@ -1496,10 +1542,25 @@ class CustomFactoryCkdMixin:
             True
             if (
                 self.needs_ckd
-                and (self.stage or self.baselinecreatinine or self.dialysis or (self.ckd and fake.boolean()))
+                and (
+                    self.stage
+                    or self.baselinecreatinine
+                    or self.dialysis
+                    or self.needs_optional_ckddetail
+                    or (self.ckd and fake.boolean() and not self.no_optional_ckddetail)
+                )
             )
             else False
         )
+
+    @property
+    def needs_optional_ckddetail(self) -> bool:
+        return hasattr(self, "ckddetail") and self.ckddetail
+
+    @property
+    def no_optional_ckddetail(self) -> bool:
+        has_ckddetail_attr = hasattr(self, "ckddetail")
+        return not has_ckddetail_attr or (has_ckddetail_attr and not self.ckddetail)
 
     def get_or_create_dialysis(self) -> bool:
         if self.dialysis is Auto:
@@ -1679,6 +1740,10 @@ class CustomFactoryMedHistoryMixin:
                 return mh
             else:
                 return True
+        elif self.user:
+            user_mh = getattr(self.user, mh_attr, None)
+            if user_mh:
+                self.delete_mh_to_delete(user_mh, mh_attr)
         return None
 
     def set_medhistory_attr(self, medhistorytype: MedHistoryTypes, value) -> None:
@@ -1726,23 +1791,32 @@ class CustomFactoryMedHistoryMixin:
         else:
             return None
 
-    def delete_related_object_ckddetail_properties(self) -> None:
-        if hasattr(self.related_object, "ckddetail") and self.related_object.ckddetail:
-            delattr(self.related_object, "ckddetail")
-        if hasattr(self.related_object, "baselinecreatinine") and self.related_object.baselinecreatinine:
-            delattr(self.related_object, "baselinecreatinine")
-
     def delete_mh_to_delete(self, mh_to_delete: MedHistory, mh_attr: str) -> None:
         mh_to_delete.delete()
         delattr(self.user, mh_attr) if self.user else delattr(  # pylint: disable=W0106
             self.related_object, mh_attr
         ) if self.related_object else None
-        if self.user and mh_to_delete in self.user.medhistorys_qs:
-            self.user.medhistorys_qs.remove(mh_to_delete)
-        elif mh_to_delete in self.related_object.medhistorys_qs:
-            self.related_object.medhistorys_qs.remove(mh_to_delete)
-        if mh_to_delete.medhistorytype == MedHistoryTypes.CKD and self.related_object:
-            self.delete_related_object_ckddetail_properties()
+        if self.user:
+            if self.obj_has_medhistorys_qs_and_mh_in_qs(self.user, mh_to_delete):
+                self.user.medhistorys_qs.remove(mh_to_delete)
+            if mh_to_delete.medhistorytype == MedHistoryTypes.CKD:
+                self.delete_obj_ckddetail_properties(self.user)
+        elif self.related_object:
+            if self.obj_has_medhistorys_qs_and_mh_in_qs(self.related_object, mh_to_delete):
+                self.related_object.medhistorys_qs.remove(mh_to_delete)
+            if mh_to_delete.medhistorytype == MedHistoryTypes.CKD:
+                self.delete_obj_ckddetail_properties(self.related_object)
+
+    @staticmethod
+    def delete_obj_ckddetail_properties(obj: Any) -> None:
+        if hasattr(obj, "ckddetail") and obj.ckddetail:
+            delattr(obj, "ckddetail")
+        if hasattr(obj, "baselinecreatinine") and obj.baselinecreatinine:
+            delattr(obj, "baselinecreatinine")
+
+    @staticmethod
+    def obj_has_medhistorys_qs_and_mh_in_qs(obj: Any, mh: MedHistory) -> bool:
+        return hasattr(obj, "medhistorys_qs") and mh in obj.medhistorys_qs
 
     def update_medhistorys(self) -> None:
         if self.user:
@@ -1909,23 +1983,24 @@ class CustomFactoryMedAllergyMixin:
 
     def delete_ma_to_delete(self, ma_to_delete: MedAllergy, ma_attr: str) -> None:
         ma_to_delete.delete()
-        (
+        if self.user:
             delattr(self.user, ma_attr)
-            if self.user
-            else delattr(self.related_object, ma_attr)
-            if self.related_object
-            else None
-        )
-        if self.user and ma_to_delete in self.user.medallergys_qs:
+        elif self.related_object:
+            delattr(self.related_object, ma_attr)
+        if self.obj_has_medallergys_qs_and_ma_in_qs(self.user, ma_to_delete):
             self.user.medallergys_qs.remove(ma_to_delete)
-        elif ma_to_delete in self.related_object.medallergys_qs:
+        elif self.obj_has_medallergys_qs_and_ma_in_qs(self.related_object, ma_to_delete):
             self.related_object.medallergys_qs.remove(ma_to_delete)
+
+    @staticmethod
+    def obj_has_medallergys_qs_and_ma_in_qs(obj: Any, ma: MedAllergy) -> bool:
+        return hasattr(obj, "medallergys_qs") and ma in obj.medallergys_qs
 
     def update_medallergys(self) -> None:
         if self.user:
             get_or_create_qs_attr(self.user, "medallergys")
         else:
-            get_or_create_qs_attr(self.flareaid, "medallergys")
+            get_or_create_qs_attr(self.related_object, "medallergys")
         for treatment in self.treatments:
             ma_attr = f"{treatment.lower()}_allergy"
             ma_val_or_object = getattr(self, ma_attr)
