@@ -1,14 +1,14 @@
 from datetime import date
 from typing import TYPE_CHECKING, Union
 
-from ..dateofbirths.models import DateOfBirth
-from ..users.services import PseudopatientBaseAPIMixin
-from ..utils.services import APIMixin
+from ...users.services import PseudopatientBaseAPIMixin
+from ...utils.services import APIMixin
+from ..models import DateOfBirth
 
 if TYPE_CHECKING:
     from uuid import UUID
 
-    from ..users.models import Pseudopatient
+    from ...users.models import Pseudopatient
 
 
 class DateOfBirthAPIMixin(PseudopatientBaseAPIMixin, APIMixin):
@@ -71,36 +71,39 @@ class DateOfBirthAPIMixin(PseudopatientBaseAPIMixin, APIMixin):
             )
 
     def update_dateofbirth(self) -> DateOfBirth:
-        if not self.dateofbirth:
-            self.raise_gouthelper_validation_error(
-                message=f"DateOfBirth is required to update {self.dateofbirth} (instance).",
-                api_args=["dateofbirth"],
-            )
-        if not self.dateofbirth__value:
-            self.raise_gouthelper_validation_error(
-                message=f"Date is required to update {self.dateofbirth} (instance).",
-                api_args=["dateofbirth__value"],
-            )
-        if self.dateofbirth_has_user_who_is_not_patient:
-            self.raise_gouthelper_validation_error(
-                message=f"{self.dateofbirth} has a user ({self.dateofbirth.user}) who is not the {self.patient}.",
-                api_args=["dateofbirth", "patient"],
-            )
+        self.check_for_dateofbirth_update_errors()
+        self.check_for_and_raise_errors()
         if self.is_uuid(self.dateofbirth):
             self.dateofbirth = self.get_queryset().get()
-        if self.dateofbirth_needs_save():
+        if self.dateofbirth_needs_save:
             self.update_dateofbirth_instance(self.dateofbirth)
         return self.dateofbirth
+
+    def check_for_dateofbirth_update_errors(self):
+        if not self.dateofbirth:
+            self.add_errors(
+                api_args=[("dateofbirth", "DateOfBirth is required to update a DateOfBirth instance.")],
+            )
+
+        if not self.dateofbirth__value:
+            self.add_errors(
+                api_args=[("dateofbirth__value", "Date is required to update a DateOfBirth instance.")],
+            )
+
+        if self.dateofbirth and self.dateofbirth_has_user_who_is_not_patient:
+            self.add_errors(
+                api_args=[("dateofbirth", f"{self.dateofbirth} has a user who is not the {self.patient}.")],
+            )
 
     @property
     def dateofbirth_has_user_who_is_not_patient(self) -> bool:
         return self.dateofbirth.user and self.dateofbirth.user != self.patient
 
+    @property
     def dateofbirth_needs_save(self) -> bool:
         if not self.dateofbirth:
-            self.raise_gouthelper_validation_error(
-                message="DateOfBirth is required to check if it needs save.",
-                api_args=["dateofbirth"],
+            self.add_errors(
+                api_args=[("dateofbirth", "DateOfBirth is required to update a DateOfBirth instance.")],
             )
         return self.dateofbirth.value != self.dateofbirth__value or self.dateofbirth.user != self.patient
 
