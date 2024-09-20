@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
+from ...dateofbirths.api.services import DateOfBirthAPIMixin
 from ...dateofbirths.helpers import age_calc
-from ...dateofbirths.services import DateOfBirthAPIMixin
 from ...ethnicitys.models import Ethnicity
 from ...genders.models import Gender
 from ...medhistorydetails.models import GoutDetail
