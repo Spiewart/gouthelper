@@ -1,23 +1,17 @@
 from typing import TYPE_CHECKING, Union
 
 from django.contrib.auth.base_user import BaseUserManager
+from django.db.models import QuerySet
 
-from ..dateofbirths.helpers import age_calc
-from ..dateofbirths.models import DateOfBirth
-from ..ethnicitys.models import Ethnicity
 from ..flareaids.selectors import flareaid_user_relations
 from ..flares.selectors import flare_user_relations
-from ..genders.models import Gender
 from ..goalurates.selectors import goalurate_user_relations
 from ..labs.selectors import dated_urates_relation
-from ..medhistorydetails.models import GoutDetail
-from ..medhistorys.models import Gout
 from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
-from ..profiles.helpers import get_provider_alias
-from ..profiles.models import PseudopatientProfile
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
+from .api.services import PseudopatientAPIMixin
 from .choices import Roles
 from .selectors import pseudopatient_base_relations, pseudopatient_related_aids, pseudopatient_relations
 
@@ -26,7 +20,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from django.contrib.auth import get_user_model
-    from django.db.models import QuerySet  # type: ignore
 
     from ..ethnicitys.choices import Ethnicitys
     from ..genders.choices import Genders
@@ -146,37 +139,24 @@ class PseudopatientProfileManager(BaseUserManager):
         on_ppx: bool,
         on_ult: bool,
         starting_ult: bool,
-        **kwargs,
     ) -> "User":
-        kwargs.update({"role": Roles.PSEUDOPATIENT})
-        pseudopatient = self.create(**kwargs)
-        DateOfBirth.objects.create(user=pseudopatient, value=dateofbirth)
-        Gender.objects.create(user=pseudopatient, value=gender)
-        Ethnicity.objects.create(user=pseudopatient, value=ethnicity)
-        PseudopatientProfile.objects.create(
-            user=pseudopatient,
+        return PseudopatientAPIMixin(
+            patient=None,
+            dateofbirth__value=dateofbirth,
+            ethnicity__value=ethnicity,
+            gender__value=gender,
             provider=provider,
-            provider_alias=get_provider_alias(
-                provider,
-                age_calc(dateofbirth),
-                gender,
-            )
-            if provider
-            else None,
-        )
-        GoutDetail.objects.create(
-            medhistory=Gout.objects.create(user=pseudopatient),
-            at_goal=at_goal,
-            at_goal_long_term=at_goal_long_term,
-            flaring=flaring,
-            on_ppx=on_ppx,
-            on_ult=on_ult,
-            starting_ult=starting_ult,
-        )
-        return pseudopatient
+            goutdetail__at_goal=at_goal,
+            goutdetail__at_goal_long_term=at_goal_long_term,
+            goutdetail__flaring=flaring,
+            goutdetail__on_ppx=on_ppx,
+            goutdetail__on_ult=on_ult,
+            goutdetail__starting_ult=starting_ult,
+        ).create_pseudopatient_and_profile()
 
     def api_update(
         self,
+        patient: "UUID",
         dateofbirth: "date",
         ethnicity: "Ethnicitys",
         gender: "Genders",
@@ -186,30 +166,19 @@ class PseudopatientProfileManager(BaseUserManager):
         on_ppx: bool,
         on_ult: bool,
         starting_ult: bool,
-        **kwargs,
     ) -> "User":
-        pseudopatient = self.get(**kwargs)
-        if pseudopatient.dateofbirth.value_needs_update(dateofbirth):
-            pseudopatient.dateofbirth.update_value(dateofbirth)
-        if pseudopatient.ethnicity.value_needs_update(ethnicity):
-            pseudopatient.ethnicity.update_value(ethnicity)
-        if pseudopatient.gender.value_needs_update(gender):
-            pseudopatient.gender.update_value(gender)
-        if pseudopatient.goutdetail.editable_fields_need_update(
-            at_goal=at_goal,
-            at_goal_long_term=at_goal_long_term,
-            flaring=flaring,
-            on_ppx=on_ppx,
-            on_ult=on_ult,
-            starting_ult=starting_ult,
-        ):
-            pseudopatient.goutdetail.update_editable_fields(
-                at_goal=at_goal,
-                at_goal_long_term=at_goal_long_term,
-                flaring=flaring,
-                on_ppx=on_ppx,
-                on_ult=on_ult,
-                starting_ult=starting_ult,
-                commit=True,
-            )
-        return pseudopatient
+        patient = self.get_queryset().get(pk=patient)
+
+        return PseudopatientAPIMixin(
+            patient=patient,
+            dateofbirth__value=dateofbirth,
+            ethnicity__value=ethnicity,
+            gender__value=gender,
+            provider=patient.provider,
+            goutdetail__at_goal=at_goal,
+            goutdetail__at_goal_long_term=at_goal_long_term,
+            goutdetail__flaring=flaring,
+            goutdetail__on_ppx=on_ppx,
+            goutdetail__on_ult=on_ult,
+            goutdetail__starting_ult=starting_ult,
+        ).update_pseudopatient_and_profile()

@@ -17,7 +17,7 @@ from ...utils.exceptions import GoutHelperValidationError
 from ..api.serializers import CkdDetailSerializer
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
-from ..services import CkdDetailFieldRelationsMixin
+from ..services import CkdDetailAPIMixin
 
 pytestmark = pytest.mark.django_db
 
@@ -151,7 +151,7 @@ def create_ckddetail(
     return ckddetail
 
 
-class CkdDetailDataFactory(CkdDetailFieldRelationsMixin):
+class CkdDetailDataFactory(CkdDetailAPIMixin):
     def __init__(
         self,
         ckddetail: Union["CkdDetail", None] = None,

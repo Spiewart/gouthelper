@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
-class AkiFieldRelationsMixin:
+class AkiAPIMixin:
     """Mixin class that checks for conflicts in Aki attributes and relatated objects."""
 
     def __init__(
@@ -33,7 +33,7 @@ class AkiFieldRelationsMixin:
         self.stage = stage
 
 
-class AkiCreator(AkiFieldRelationsMixin):
+class AkiCreator(AkiAPIMixin):
     def __init__(
         self,
         status: Statuses,

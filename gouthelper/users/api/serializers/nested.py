@@ -50,7 +50,7 @@ class PseudopatientSerializer(serializers.ModelSerializer[Pseudopatient]):
 
     def update(self, instance, validated_data) -> Pseudopatient:
         return Pseudopatient.profile_objects.api_update(
-            pk=instance.pk,
+            patient=instance.pk,
             dateofbirth=validated_data["dateofbirth"]["value"],
             ethnicity=validated_data["ethnicity"]["value"],
             gender=validated_data["gender"]["value"],
