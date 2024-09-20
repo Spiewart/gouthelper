@@ -11,34 +11,36 @@ from ..dateofbirths.models import DateOfBirth
 from ..genders.forms import GenderForm
 from ..genders.models import Gender
 from ..labs.helpers import labs_eGFR_calculator, labs_stage_calculator
+from ..labs.models import BaselineCreatinine
 from ..utils.exceptions import GoutHelperValidationError
 from .choices import Stages
 from .models import CkdDetail
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from ..genders.choices import Genders
     from ..labs.forms import BaselineCreatinineForm
-    from ..labs.models import BaselineCreatinine
     from ..medhistorydetails.forms import CkdDetailForm
     from ..medhistorys.models import Ckd
     from ..utils.types import CkdDetailFieldOptions
     from .choices import DialysisChoices, DialysisDurations
 
 
-class CkdDetailFieldRelationsMixin:
+class CkdDetailAPIMixin:
     """Mixin class that checks a child class for conflicts in CkdDetail attributes."""
 
     def __init__(
         self,
-        ckddetail: Union["CkdDetail", None],
-        ckd: Union["Ckd", None],
+        ckddetail: Union["CkdDetail", "UUID", None],
+        ckd: Union["Ckd", "UUID", None],
         dialysis: bool | None,
         dialysis_type: Union["DialysisChoices", None],
         dialysis_duration: Union["DialysisDurations", None],
         stage: Stages | None,
-        age: int | None,
-        baselinecreatinine: Union["Decimal", None],
-        gender: Union["Genders", None],
+        dateofbirth: Union[DateOfBirth, "UUID", "date", None],
+        baselinecreatinine: Union[BaselineCreatinine, "UUID", "Decimal", None],
+        gender: Union[Gender, "UUID", "Genders", None],
     ):
         self.ckddetail = ckddetail
         self.ckd = ckd
@@ -46,10 +48,18 @@ class CkdDetailFieldRelationsMixin:
         self.dialysis_type = dialysis_type
         self.dialysis_duration = dialysis_duration
         self.stage = stage
-        self.age = age
+        self.dateofbirth = dateofbirth
+        self.age = self.calculate_age() if dateofbirth else None
         self.baselinecreatinine = baselinecreatinine
         self.gender = gender
         self.errors: list[tuple[str, str]] = []
+
+    def calculate_age(self) -> int:
+        return (
+            age_calc(self.dateofbirth.value)
+            if isinstance(self.dateofbirth, DateOfBirth)
+            else age_calc(self.dateofbirth)
+        )
 
     def update_errors(self) -> None:
         if self.stage_calculated_stage_conflict:
@@ -164,7 +174,7 @@ class CkdDetailFieldRelationsMixin:
         self.dialysis_duration = None
 
 
-class CkdDetailCreator(CkdDetailFieldRelationsMixin):
+class CkdDetailCreator(CkdDetailAPIMixin):
     def __init__(
         self,
         ckd: Union["Ckd", None],
@@ -215,7 +225,7 @@ class CkdDetailCreator(CkdDetailFieldRelationsMixin):
         self.ckd = ckd
 
 
-class CkdDetailUpdater(CkdDetailFieldRelationsMixin):
+class CkdDetailUpdater(CkdDetailAPIMixin):
     def __init__(
         self,
         ckddetail: Union["CkdDetail", None],

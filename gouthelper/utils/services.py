@@ -1,10 +1,11 @@
 import json
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
+from uuid import UUID
 
 from django.apps import apps  # pylint: disable=E0401  # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
 from django.core.serializers.json import DjangoJSONEncoder  # pylint: disable=E0401  # type: ignore
-from django.db.models import OneToOneField, QuerySet  # pylint: disable=E0401  # type: ignore
+from django.db.models import Model, OneToOneField, QuerySet  # pylint: disable=E0401  # type: ignore
 from django.utils.functional import cached_property  # type: ignore  # pylint: disable=E0401
 
 from ..dateofbirths.helpers import age_calc
@@ -30,6 +31,7 @@ from ..treatments.choices import (
     Treatments,
     TrtTypes,
 )
+from ..utils.exceptions import GoutHelperValidationError
 from .helpers import duration_decimal_parser
 
 if TYPE_CHECKING:
@@ -927,3 +929,43 @@ class TreatmentAidService(AidService):
 
     def aid_needs_2_be_saved(self) -> bool:
         return self.decisionaid_has_changed()
+
+
+class APIMixin:
+    def __init__(
+        self,
+    ):
+        self.errors: list[tuple[str, str]] = []
+
+    def add_errors(self, api_args: list[str]) -> None:
+        self.add_gouthelper_validation_error(errors=self.errors, api_args=api_args)
+
+    @staticmethod
+    def is_model_instance(obj: Any) -> bool:
+        return isinstance(obj, Model)
+
+    @staticmethod
+    def is_uuid(obj: Any) -> bool:
+        return isinstance(obj, UUID)
+
+    @classmethod
+    def is_not_model_instance_or_uuid(cls, obj: Any) -> bool:
+        return not cls.is_model_instance(obj) and not cls.is_uuid(obj)
+
+    @staticmethod
+    def add_gouthelper_validation_error(
+        errors: list[GoutHelperValidationError], api_args: list[tuple[str, str]]
+    ) -> None:
+        for api_arg in api_args:
+            errors.append((api_arg[0], api_arg[1]))
+
+    @staticmethod
+    def raise_gouthelper_validation_error(
+        message: str,
+        errors: list[tuple[str, str]],
+    ) -> None:
+        raise GoutHelperValidationError(message, errors)
+
+    @property
+    def has_errors(self) -> bool:
+        return False

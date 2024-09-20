@@ -17,7 +17,61 @@ from .helpers import (
 User = get_user_model()
 
 if TYPE_CHECKING:
-    from ..flares.models import Flare
+    from datetime import date
+    from decimal import Decimal
+    from uuid import UUID
+
+    from django.contrib.auth import get_user_model  # pylint:disable=E0401  # type: ignore
+
+    from ..akis.choices import Statuses
+    from ..akis.models import Aki
+    from ..flareaids.models import FlareAid
+    from ..genders.choices import Genders
+    from ..labs.models import BaselineCreatinine, Creatinine
+    from ..medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+    from ..medhistorydetails.models import CkdDetail
+    from ..medhistorys.models import MedHistory
+    from .choices import DiagnosedChoices, LimitedJointChoices
+    from .models import Flare
+
+    User = get_user_model()
+
+
+class FlareAPIMixin:
+    def __init__(
+        self,
+        aki: Union["Aki", "UUID", bool, None],
+        aki__status: Union["Statuses", None],
+        aki__creatinines: list["Creatinine", "UUID"] | None,
+        angina: Union["MedHistory", "UUID", bool],
+        cad: Union["MedHistory", "UUID", bool],
+        chf: Union["MedHistory", "UUID", bool],
+        ckd: Union["MedHistory", "UUID", bool],
+        baselinecreatinine: Union["BaselineCreatinine", "UUID", "Decimal", None],
+        ckddetail: Union["CkdDetail", "UUID", None],
+        ckddetail__dialysis: bool,
+        ckddetail__dialysis_type: Union["DialysisChoices", None],
+        ckddetail__dialysis_duration: Union["DialysisDurations", None],
+        ckddetail__stage: Union["Stages", None],
+        crystal_analysis: bool | None,
+        dateofbirth: Union["date", None],
+        date_ended: Union["date", None],
+        date_started: "date",
+        diagnosed: Union["DiagnosedChoices", None],
+        flareaid: Union["FlareAid", None],
+        gender: Union["Genders", None],
+        gout: Union["MedHistory", "UUID", bool],
+        joints: list["LimitedJointChoices"],
+        heartattack: Union["MedHistory", "UUID", bool],
+        hypertension: Union["MedHistory", "UUID", bool],
+        menopause: Union["MedHistory", "UUID", bool],
+        onset: bool,
+        pvd: Union["MedHistory", "UUID", bool],
+        redness: bool,
+        stroke: Union["MedHistory", "UUID", bool],
+        urate: Union["Decimal", None],
+    ):
+        pass
 
 
 class FlareDecisionAid(AidService):

@@ -24,7 +24,7 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...utils.exceptions import GoutHelperValidationError
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
-from ..services import CkdDetailCreator, CkdDetailFieldRelationsMixin, CkdDetailFormProcessor, CkdDetailUpdater
+from ..services import CkdDetailAPIMixin, CkdDetailCreator, CkdDetailFormProcessor, CkdDetailUpdater
 from .factories import CkdDetailDataFactory, CkdDetailFactory, create_ckddetail
 
 if TYPE_CHECKING:
@@ -1037,14 +1037,14 @@ class TestCkdProcessorCheckForErrors(TestCase):
         )
 
 
-class TestCkdDetailFieldRelationsMixin(TestCase):
+class TestCkdDetailAPIMixin(TestCase):
     """Test suite for the CkdDetailCreator class."""
 
     def setUp(self):
         self.data = CkdDetailDataFactory().create_api_data()
 
     def test__init(self):
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertEqual(editor.ckddetail, self.data["ckddetail"])
         self.assertEqual(editor.ckd, self.data["ckd"])
         self.assertEqual(editor.dialysis, self.data["dialysis"])
@@ -1058,7 +1058,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
 
     def test__no_ckddetail(self):
         self.data["ckddetail"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.no_ckddetail)
 
     def test__ckd_ckddetai_conflict(self):
@@ -1070,26 +1070,26 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "ckddetail": ckddetail,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.ckd_ckddetail_conflict)
 
     def test__incomplete_information(self):
         self.data["dialysis"] = None
         self.data["stage"] = None
         self.data["age"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.incomplete_info)
 
     def test__can_calculate_stage(self):
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.can_calculate_stage)
         self.data.update({"age": 50, "gender": Genders.FEMALE, "baselinecreatinine": Decimal("1.5")})
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.can_calculate_stage)
 
     def test__calculate_stage(self):
         self.data.update({"age": 50, "gender": Genders.MALE, "baselinecreatinine": Decimal("1.5")})
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertEqual(
             editor.calculated_stage,
             labs_stage_calculator(
@@ -1104,13 +1104,13 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
     def test__stage_calculated_stage_conflict_no_stage(self):
         """Test when stage is None."""
         self.data["stage"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.stage_calculated_stage_conflict)
 
     def test__stage_calculated_stage_conflict_cannot_calculate_stage(self):
         """Test when can_calculate_stage is False."""
         self.data["age"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.stage_calculated_stage_conflict)
 
     def test__stage_calculated_stage_conflict_stage_matches(self):
@@ -1129,7 +1129,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 ),
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.stage_calculated_stage_conflict)
 
     def test__stage_calculated_stage_conflict_stage_does_not_match(self):
@@ -1143,13 +1143,13 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.ONE,  # Intentionally setting a different stage
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.stage_calculated_stage_conflict)
 
     def test__dialysis_stage_conflict_no_dialysis(self):
         """Test when dialysis is False."""
         self.data["dialysis"] = False
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_stage_conflict)
 
     def test__dialysis_stage_conflict_stage_not_five(self):
@@ -1160,7 +1160,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.FOUR,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.dialysis_stage_conflict)
 
     def test__dialysis_stage_conflict_stage_five(self):
@@ -1171,7 +1171,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.FIVE,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_stage_conflict)
 
     def test__dialysis_stage_conflict_calculated_stage_not_five(self):
@@ -1185,7 +1185,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.FOUR,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.dialysis_stage_conflict)
 
     def test__dialysis_stage_conflict_calculated_stage_five(self):
@@ -1199,55 +1199,55 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.FIVE,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_stage_conflict)
 
     def test__dialysis_type_conflict_no_dialysis(self):
         """Test when dialysis is False."""
         self.data["dialysis"] = False
         self.data["dialysis_type"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_type_conflict)
 
     def test__dialysis_type_conflict_dialysis_no_type(self):
         """Test when dialysis is True and dialysis_type is None."""
         self.data["dialysis"] = True
         self.data["dialysis_type"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.dialysis_type_conflict)
 
     def test__dialysis_type_conflict_dialysis_with_type(self):
         """Test when dialysis is True and dialysis_type is provided."""
         self.data["dialysis"] = True
         self.data["dialysis_type"] = DialysisChoices.PERITONEAL
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_type_conflict)
 
     def test__dialysis_duration_conflict_no_dialysis(self):
         """Test when dialysis is False."""
         self.data["dialysis"] = False
         self.data["dialysis_duration"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_duration_conflict)
 
     def test__dialysis_duration_conflict_dialysis_no_duration(self):
         """Test when dialysis is True and dialysis_duration is None."""
         self.data["dialysis"] = True
         self.data["dialysis_duration"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.dialysis_duration_conflict)
 
     def test__dialysis_duration_conflict_dialysis_with_duration(self):
         """Test when dialysis is True and dialysis_duration is provided."""
         self.data["dialysis"] = True
         self.data["dialysis_duration"] = DialysisDurations.LESSTHANSIX
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.dialysis_duration_conflict)
 
     def test__baselinecreatinine_age_gender_conflict_no_baselinecreatinine(self):
         """Test when baselinecreatinine is None."""
         self.data["baselinecreatinine"] = None
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.baselinecreatinine_age_gender_conflict)
 
     def test__baselinecreatinine_age_gender_conflict_can_calculate_stage(self):
@@ -1259,7 +1259,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "gender": Genders.MALE,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.baselinecreatinine_age_gender_conflict)
 
     def test__baselinecreatinine_age_gender_conflict_cannot_calculate_stage(self):
@@ -1271,7 +1271,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "gender": Genders.MALE,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.baselinecreatinine_age_gender_conflict)
 
     def test_conflicts_no_conflicts(self):
@@ -1293,7 +1293,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_duration": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.conflicts)
 
     def test_conflicts_stage_calculated_stage_conflict(self):
@@ -1306,7 +1306,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.ONE,  # Intentionally setting a different stage
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_conflicts_dialysis_stage_conflict(self):
@@ -1320,7 +1320,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "baselinecreatinine": Decimal("1.5"),
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_conflicts_dialysis_type_conflict(self):
@@ -1331,7 +1331,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_type": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_conflicts_dialysis_duration_conflict(self):
@@ -1342,7 +1342,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_duration": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_conflicts_baselinecreatinine_age_gender_conflict(self):
@@ -1354,7 +1354,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "gender": Genders.MALE,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_conflicts_multiple_conflicts(self):
@@ -1370,7 +1370,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_duration": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.conflicts)
 
     def test_has_errors_no_conflicts(self):
@@ -1392,7 +1392,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_duration": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertFalse(editor.has_errors)
 
     def test_has_errors_with_conflicts(self):
@@ -1405,7 +1405,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "stage": Stages.ONE,  # Intentionally setting a different stage
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.has_errors)
 
     def test_has_errors_with_incomplete_information(self):
@@ -1417,7 +1417,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "age": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.has_errors)
 
     def test_has_errors_with_ckd_ckddetail_conflict(self):
@@ -1430,7 +1430,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "ckddetail": ckddetail,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.has_errors)
 
     def test_has_errors_with_multiple_issues(self):
@@ -1446,7 +1446,7 @@ class TestCkdDetailFieldRelationsMixin(TestCase):
                 "dialysis_duration": None,
             }
         )
-        editor = CkdDetailFieldRelationsMixin(**self.data)
+        editor = CkdDetailAPIMixin(**self.data)
         self.assertTrue(editor.has_errors)
 
 

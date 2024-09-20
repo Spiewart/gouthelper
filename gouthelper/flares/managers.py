@@ -47,7 +47,7 @@ class FlareManager(Manager):
         ckd: bool,
         baselinecreatinine: Union["Decimal", None],
         ckddetail__dialysis: bool,
-        ckddetail__dialysis_type: Union["DialysisChoices", None],
+        ckddetail__dialysis_type: DialysisChoices | None,
         ckddetail__dialysis_duration: Union["DialysisDurations", None],
         ckddetail__stage: Union["Stages", None],
         crystal_analysis: bool | None,
