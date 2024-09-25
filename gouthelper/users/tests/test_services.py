@@ -5,18 +5,18 @@ from ...users.choices import Roles
 from ...users.models import Pseudopatient
 from ...users.tests.factories import create_psp
 from ...utils.exceptions import GoutHelperValidationError
-from ..api.services import PseudopatientAPIMixin
-from ..services import PseudopatientBaseAPIMixin
+from ..api.services import PseudopatientAPI
+from ..services import PseudopatientBaseAPI
 from .factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestPseudopatientBaseAPIMixin(TestCase):
+class TestPseudopatientBaseAPI(TestCase):
     def setUp(self):
         self.patient = create_psp()
-        self.mixin = PseudopatientBaseAPIMixin(patient=self.patient)
-        self.empty_mixin = PseudopatientBaseAPIMixin(patient=None)
+        self.mixin = PseudopatientBaseAPI(patient=self.patient)
+        self.empty_mixin = PseudopatientBaseAPI(patient=None)
 
     def test__create_pseudopatient(self):
         new_patient = self.empty_mixin.create_pseudopatient()
@@ -34,9 +34,16 @@ class TestPseudopatientBaseAPIMixin(TestCase):
             [("patient", f"{self.patient} already exists.")],
         )
 
-    def test__get_patient(self):
-        patient = self.empty_mixin.get_patient(patient=self.patient.pk)
+    def test__get_queryset(self):
+        self.mixin.patient = self.patient.pk
+        patient = self.mixin.get_queryset()
         self.assertEqual(patient.first(), self.patient)
+
+    def test__get_queryset_raises_error(self):
+        with self.assertRaises(TypeError) as context:
+            self.mixin.patient = self.patient
+            self.mixin.get_queryset()
+        self.assertEqual(context.exception.args, ("patient arg must be a UUID to call get_queryset().",))
 
     def test__add_errors(self):
         self.empty_mixin.add_errors(api_args=[("patient", "error")])
@@ -59,10 +66,10 @@ class TestPseudopatientBaseAPIMixin(TestCase):
         )
 
 
-class TestPseudopatientAPIMixin(TestCase):
+class TestPseudopatientAPI(TestCase):
     def setUp(self):
         self.patient = create_psp(provider=UserFactory())
-        self.mixin = PseudopatientAPIMixin(
+        self.mixin = PseudopatientAPI(
             patient=self.patient,
             dateofbirth__value=self.patient.dateofbirth.value,
             ethnicity__value=self.patient.ethnicity.value,
@@ -75,7 +82,7 @@ class TestPseudopatientAPIMixin(TestCase):
             goutdetail__on_ult=True,
             goutdetail__starting_ult=True,
         )
-        self.empty_mixin = PseudopatientAPIMixin(
+        self.empty_mixin = PseudopatientAPI(
             patient=None,
             dateofbirth__value=self.patient.dateofbirth.value,
             ethnicity__value=self.patient.ethnicity.value,

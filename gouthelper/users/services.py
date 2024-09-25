@@ -11,16 +11,9 @@ if TYPE_CHECKING:
     from .models import Pseudopatient
 
 
-class PseudopatientBaseAPIMixin(APIMixin):
-    def __init__(self, patient: Union["Pseudopatient", "UUID", None]):
-        self.patient = (
-            patient
-            if self.is_model_instance(patient)
-            else self.get_patient(patient)
-            if self.is_uuid(patient)
-            else None
-        )
-        self.errors: list[tuple[str, str]] = []
+class PseudopatientAPI(APIMixin):
+    patient: Union["Pseudopatient", "UUID", None]
+    errors: list[tuple[str, str]]
 
     def create_pseudopatient(self) -> "Pseudopatient":
         self.check_for_pseudopatient_create_errors()
@@ -30,8 +23,13 @@ class PseudopatientBaseAPIMixin(APIMixin):
         )
         return self.patient
 
-    def get_patient(self, patient: "UUID") -> "Pseudopatient":
-        return apps.get_model("users.Pseudopatient").profile_objects.filter(pk=patient)
+    def get_queryset(self) -> "Pseudopatient":
+        if not self.is_uuid(self.patient):
+            raise TypeError("patient arg must be a UUID to call get_queryset().")
+        return apps.get_model("users.Pseudopatient").profile_objects.filter(pk=self.patient)
+
+    def set_attrs_from_qs(self) -> None:
+        self.patient = self.get_queryset().get()
 
     def check_for_pseudopatient_create_errors(self):
         if self.patient:
@@ -51,3 +49,9 @@ class PseudopatientBaseAPIMixin(APIMixin):
                 message="Errors in creating Pseudopatient.",
                 errors=self.errors,
             )
+
+
+class PseudopatientBaseAPI(PseudopatientAPI):
+    def __init__(self, patient: Union["Pseudopatient", "UUID", None]):
+        super().__init__()
+        self.patient = patient
