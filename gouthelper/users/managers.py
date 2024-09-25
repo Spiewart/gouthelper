@@ -11,7 +11,7 @@ from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
-from .api.services import PseudopatientAPIMixin
+from .api.services import PseudopatientAPI
 from .choices import Roles
 from .selectors import pseudopatient_base_relations, pseudopatient_related_aids, pseudopatient_relations
 
@@ -140,7 +140,7 @@ class PseudopatientProfileManager(BaseUserManager):
         on_ult: bool,
         starting_ult: bool,
     ) -> "User":
-        return PseudopatientAPIMixin(
+        return PseudopatientAPI(
             patient=None,
             dateofbirth__value=dateofbirth,
             ethnicity__value=ethnicity,
@@ -169,7 +169,7 @@ class PseudopatientProfileManager(BaseUserManager):
     ) -> "User":
         patient = self.get_queryset().get(pk=patient)
 
-        return PseudopatientAPIMixin(
+        return PseudopatientAPI(
             patient=patient,
             dateofbirth__value=dateofbirth,
             ethnicity__value=ethnicity,

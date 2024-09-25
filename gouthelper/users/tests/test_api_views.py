@@ -93,11 +93,13 @@ class TestPseudopatientViewSet(APITestCase):
         self.data["provider_username"] = self.provider.username
         response = self.client.post(self.provider_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(
-            Pseudopatient.objects.select_related("pseudopatientprofile__provider")
-            .filter(pseudopatientprofile__provider=self.provider)
-            .exists()
+        test_qs = Pseudopatient.objects.select_related("pseudopatientprofile__provider").filter(
+            pseudopatientprofile__provider=self.provider
         )
+        self.assertTrue(test_qs.exists())
+        new_pseudopatient = test_qs.first()
+        self.assertEqual(new_pseudopatient.provider, self.provider)
+        self.assertTrue(new_pseudopatient.pseudopatientprofile.provider_alias)
 
     def test__provider_create_without_provider_username_raises_400(self):
         # Only accepts POST requests
@@ -359,7 +361,7 @@ class TestPseudopatientViewSetRules(APITestCase):
         response = self.client.post("/api/pseudopatients/", data=self.data, format="json")
         self.assertEqual(response.status_code, 201)
 
-    def test__provider_create_with_different_provider_raises_400(self):
+    def test__provider_create_with_different_provider_raises_403(self):
         self.client.force_authenticate(user=self.nefarious_provider)
         self.data["provider_username"] = self.provider.username
         response = self.client.post(self.provider_url, data=self.data, format="json")

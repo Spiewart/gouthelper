@@ -5,17 +5,17 @@ from django.test import TestCase  # type: ignore
 
 from ...users.tests.factories import create_psp
 from ...utils.exceptions import GoutHelperValidationError
-from ..api.services import DateOfBirthAPIMixin
+from ..api.services import DateOfBirthAPI
 from .factories import DateOfBirthFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestDateOfBirthAPIMixin(TestCase):
+class TestDateOfBirthAPI(TestCase):
     def setUp(self):
         self.dateofbirth = DateOfBirthFactory()
         self.patient = create_psp()
-        self.mixin = DateOfBirthAPIMixin(
+        self.mixin = DateOfBirthAPI(
             dateofbirth=self.dateofbirth,
             dateofbirth__value=self.dateofbirth.value,
             patient=self.patient,
@@ -24,11 +24,6 @@ class TestDateOfBirthAPIMixin(TestCase):
     def test__init__(self):
         self.assertEqual(self.mixin.dateofbirth, self.dateofbirth)
         self.assertEqual(self.mixin.patient, self.patient)
-
-    def test__get_queryset_returns_error_with_dateofbirth_instance(self):
-        self.assertFalse(self.mixin.errors)
-        self.mixin.get_queryset()
-        self.assertTrue(self.mixin.errors)
 
     def test__get_queryset_returns_dateofbirth_instance(self):
         self.mixin.dateofbirth = self.dateofbirth.pk
@@ -125,6 +120,15 @@ class TestDateOfBirthAPIMixin(TestCase):
         self.assertEqual(self.mixin.dateofbirth, self.patient.dateofbirth)
         self.assertEqual(self.mixin.dateofbirth.value, self.mixin.dateofbirth__value)
 
+    def test__update_with_uuid(self):
+        self.mixin.dateofbirth = self.dateofbirth.pk
+        new_patient = create_psp()
+        new_patient.dateofbirth.delete()
+        self.mixin.patient = new_patient
+        self.mixin.update_dateofbirth()
+        self.assertEqual(self.mixin.dateofbirth, self.dateofbirth)
+        self.assertEqual(self.mixin.dateofbirth.value, self.mixin.dateofbirth__value)
+
     def test__check_for_dateofbirth_update_errors_without_dateofbirth(self):
         self.mixin.dateofbirth = None
         self.mixin.check_for_dateofbirth_update_errors()
@@ -165,6 +169,6 @@ class TestDateOfBirthAPIMixin(TestCase):
     def test__update_dateofbirth_instance(self):
         self.mixin.patient.dateofbirth.delete()
         self.mixin.dateofbirth__value = "2001-01-01"
-        self.mixin.update_dateofbirth_instance(self.dateofbirth)
+        self.mixin.update_dateofbirth_instance()
         self.assertEqual(self.dateofbirth.value, date(2001, 1, 1))
         self.assertEqual(self.dateofbirth.user, self.mixin.patient)

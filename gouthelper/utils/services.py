@@ -936,7 +936,7 @@ class TreatmentAidService(AidService):
         return self.decisionaid_has_changed()
 
 
-class APIMixin:
+class ErrorsMixin:
     def __init__(
         self,
     ):
@@ -944,18 +944,6 @@ class APIMixin:
 
     def add_errors(self, api_args: list[str]) -> None:
         self.add_gouthelper_validation_error(errors=self.errors, api_args=api_args)
-
-    @staticmethod
-    def is_model_instance(obj: Any) -> bool:
-        return isinstance(obj, Model)
-
-    @staticmethod
-    def is_uuid(obj: Any) -> bool:
-        return isinstance(obj, UUID)
-
-    @classmethod
-    def is_not_model_instance_or_uuid(cls, obj: Any) -> bool:
-        return not cls.is_model_instance(obj) and not cls.is_uuid(obj)
 
     @staticmethod
     def add_gouthelper_validation_error(
@@ -974,3 +962,21 @@ class APIMixin:
     @property
     def has_errors(self) -> bool:
         return False
+
+
+class APIMixin(ErrorsMixin):
+    @staticmethod
+    def is_model_instance(obj: Any) -> bool:
+        return isinstance(obj, Model)
+
+    @staticmethod
+    def is_uuid(obj: Any) -> bool:
+        return isinstance(obj, UUID)
+
+    @classmethod
+    def is_not_model_instance_or_uuid(cls, obj: Any) -> bool:
+        return not cls.is_model_instance(obj) and not cls.is_uuid(obj)
+
+    @property
+    def has_errors(self) -> bool:
+        return super().has_errors or bool(self.errors)
