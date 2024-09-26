@@ -14,7 +14,6 @@ class DateOfBirthAPIMixin(APIMixin):
     dateofbirth: Union[DateOfBirth, "UUID", None]
     dateofbirth__value: date | None
     patient: Union["Pseudopatient", None]
-    errors: list[tuple[str, str]]
 
     def get_queryset(self) -> DateOfBirth:
         if not self.is_uuid(self.dateofbirth):
