@@ -2,7 +2,8 @@ from datetime import timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db import connection  # type: ignore
+from django.db import connection
+from django.db.models import QuerySet  # type: ignore
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -19,13 +20,17 @@ from ...labs.forms import BaselineCreatinineForm
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
-from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
-from ...medhistorys.tests.factories import CkdFactory
+from ...medhistorydetails.models import GoutDetail
+from ...medhistorys.tests.factories import CkdFactory, GoutFactory
+from ...users.choices import Roles
+from ...users.tests.factories import UserFactory, create_psp
 from ...utils.exceptions import GoutHelperValidationError
+from ..api.services import GoutDetailAPI
+from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
 from ..services import CkdDetailAPIMixin, CkdDetailCreator, CkdDetailFormProcessor, CkdDetailUpdater
-from .factories import CkdDetailDataFactory, CkdDetailFactory, create_ckddetail
+from .factories import CkdDetailDataFactory, CkdDetailFactory, GoutDetailFactory, create_ckddetail
 
 if TYPE_CHECKING:
     from ...medhistorys.models import Ckd
@@ -1754,3 +1759,294 @@ class TestCkdDetailUpdater(TestCase):
         with CaptureQueriesContext(connection=connection) as queries:
             self.update_editor.update()
         self.assertEqual(len(queries), 0)
+
+
+class TestGoutDetailAPI(TestCase):
+    def setUp(self):
+        self.goutdetail = GoutDetailFactory()
+        self.patient = create_psp()
+        self.goutdetail_data = {
+            "goutdetail__at_goal": False,
+            "goutdetail__at_goal_long_term": False,
+            "goutdetail__flaring": True,
+            "goutdetail__on_ppx": False,
+            "goutdetail__on_ult": False,
+            "goutdetail__starting_ult": False,
+        }
+        self.empty_patient = UserFactory(role=Roles.PSEUDOPATIENT)
+        self.empty_patient_gout = GoutFactory(user=self.empty_patient)
+        self.create_mixin = GoutDetailAPI(
+            gout=self.empty_patient_gout,
+            patient=self.empty_patient,
+            goutdetail=None,
+            **self.goutdetail_data,
+        )
+        self.update_mixin = GoutDetailAPI(
+            goutdetail=self.goutdetail,
+            gout=None,
+            patient=None,
+            **self.goutdetail_data,
+        )
+
+    def test__init__(self):
+        self.assertEqual(self.create_mixin.gout, self.empty_patient_gout)
+        self.assertEqual(self.create_mixin.patient, self.create_mixin.patient)
+        self.assertIsNone(self.create_mixin.goutdetail)
+        self.assertEqual(self.create_mixin.goutdetail__at_goal, self.goutdetail_data["goutdetail__at_goal"])
+        self.assertEqual(
+            self.create_mixin.goutdetail__at_goal_long_term, self.goutdetail_data["goutdetail__at_goal_long_term"]
+        )
+        self.assertEqual(self.create_mixin.goutdetail__flaring, self.goutdetail_data["goutdetail__flaring"])
+        self.assertEqual(self.create_mixin.goutdetail__on_ppx, self.goutdetail_data["goutdetail__on_ppx"])
+        self.assertEqual(self.create_mixin.goutdetail__on_ult, self.goutdetail_data["goutdetail__on_ult"])
+        self.assertEqual(self.create_mixin.goutdetail__starting_ult, self.goutdetail_data["goutdetail__starting_ult"])
+        self.assertEqual(self.create_mixin.errors, [])
+
+    def test__get_queryset(self):
+        self.update_mixin.goutdetail = self.goutdetail.pk
+        queryset = self.update_mixin.get_queryset()
+        self.assertIsInstance(queryset, QuerySet)
+        self.assertEqual(queryset.get(), self.goutdetail)
+
+    def test__get_queryset_raises_error(self):
+        with self.assertRaises(TypeError) as context:
+            self.update_mixin.get_queryset()
+        self.assertEqual(context.exception.args[0], "goutdetail arg must be a UUID to call get_queryset()")
+
+    def test__set_attrs_from_qs(self):
+        self.update_mixin.goutdetail = self.goutdetail.pk
+        self.update_mixin.set_attrs_from_qs()
+        self.assertEqual(self.update_mixin.gout, self.goutdetail.medhistory)
+        self.assertEqual(self.update_mixin.patient, self.goutdetail.medhistory.user)
+        self.assertEqual(self.update_mixin.goutdetail, self.goutdetail)
+
+    def test__set_attrs_from_qs_raises_error(self):
+        with self.assertRaises(TypeError) as context:
+            self.update_mixin.set_attrs_from_qs()
+        self.assertEqual(context.exception.args[0], "goutdetail arg must be a UUID to call get_queryset()")
+
+    def test__create_goutdetail(self):
+        new_goutdetail = self.create_mixin.create_goutdetail()
+        self.assertIsInstance(new_goutdetail, GoutDetail)
+        self.assertEqual(new_goutdetail.medhistory, self.empty_patient_gout)
+
+    def test__create_goutdetail_raises_error(self):
+        self.create_mixin.gout = None
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.create_mixin.create_goutdetail()
+        error_keys = [error[0] for error in context.exception.errors]
+        self.assertIn("gout", error_keys)
+
+    def test__check_for_goutdetail_create_errors_no_gout(self):
+        self.create_mixin.gout = None
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(("gout", "Gout is required to create a GoutDetail."), self.create_mixin.errors)
+
+    def test__check_for_goutdetail_create_errors_no_goutdetail(self):
+        erroneous_goutdetail = GoutDetailFactory()
+        self.create_mixin.goutdetail = erroneous_goutdetail
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        print(self.create_mixin.errors)
+        self.assertIn(("goutdetail", f"{erroneous_goutdetail} already exists."), self.create_mixin.errors)
+
+    def test__check_for_goutdetail_create_errors_at_goal_long_term_is_None(self):
+        self.create_mixin.goutdetail__at_goal_long_term = None
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("goutdetail__at_goal_long_term", "at_goal_long_term is required to create a GoutDetail instance."),
+            self.create_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_create_errors_at_goal_long_term_but_not_at_goal(self):
+        self.create_mixin.goutdetail__at_goal = False
+        self.create_mixin.goutdetail__at_goal_long_term = True
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("goutdetail__at_goal_long_term", "at_goal_long_term cannot be True if at_goal is False."),
+            self.create_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_create_errors_on_ppx_is_None(self):
+        self.create_mixin.goutdetail__on_ppx = None
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("goutdetail__on_ppx", "on_ppx is required to create a GoutDetail instance."),
+            self.create_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_create_errors_on_ult_is_None(self):
+        self.create_mixin.goutdetail__on_ult = None
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("goutdetail__on_ult", "on_ult is required to create a GoutDetail instance."),
+            self.create_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_create_errors_starting_ult_is_None(self):
+        self.create_mixin.goutdetail__starting_ult = None
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("goutdetail__starting_ult", "starting_ult is required to create a GoutDetail instance."),
+            self.create_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_create_errors_gout_with_patient_without_patient_arg(self):
+        gout = GoutFactory(user=UserFactory(role=Roles.PSEUDOPATIENT))
+        self.create_mixin.patient = None
+        self.create_mixin.gout = gout
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(("patient", f"{gout} has a user but no patient arg."), self.create_mixin.errors)
+
+    def test__check_for_goutdetail_create_errors_patient_has_goutdetail(self):
+        self.create_mixin.gout = self.patient.gout
+        self.create_mixin.patient = self.patient
+        self.create_mixin.check_for_goutdetail_create_errors()
+        self.assertTrue(self.create_mixin.errors)
+        self.assertIn(
+            ("patient", f"{self.patient} already has a GoutDetail ({self.patient.goutdetail})."),
+            self.create_mixin.errors,
+        )
+
+    def test__at_goal_long_term_but_not_at_goal(self):
+        self.create_mixin.goutdetail__at_goal = False
+        self.create_mixin.goutdetail__at_goal_long_term = True
+        self.assertTrue(self.create_mixin.at_goal_long_term_but_not_at_goal)
+
+    def test__patient_has_goutdetail(self):
+        self.create_mixin.gout = self.patient.gout
+        self.create_mixin.patient = self.patient
+        self.assertTrue(self.create_mixin.patient_has_goutdetail)
+
+    def test__check_for_and_raise_errors(self):
+        self.create_mixin.errors = [("field1", "Error 1"), ("field2", "Error 2")]
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.create_mixin.check_for_and_raise_errors()
+        self.assertEqual(context.exception.errors, self.create_mixin.errors)
+
+    def test__update_goutdetail(self):
+        updated_goutdetail = self.update_mixin.update_goutdetail()
+        self.assertIsInstance(updated_goutdetail, GoutDetail)
+        self.assertEqual(updated_goutdetail.medhistory, self.goutdetail.medhistory)
+        for field, value in self.goutdetail_data.items():
+            trunc_field = field.replace("goutdetail__", "")
+            self.assertEqual(getattr(updated_goutdetail, trunc_field), value)
+
+    def test__update_goutdetail_sets_attrs_from_qs(self):
+        self.update_mixin.goutdetail = self.goutdetail.pk
+        self.update_mixin.update_goutdetail()
+        self.assertEqual(self.update_mixin.gout, self.goutdetail.medhistory)
+        self.assertEqual(self.update_mixin.patient, self.goutdetail.medhistory.user)
+        self.assertEqual(self.update_mixin.goutdetail, self.goutdetail)
+
+    def test__update_goutdetail_raises_error(self):
+        self.update_mixin.goutdetail = None
+        with self.assertRaises(GoutHelperValidationError) as context:
+            self.update_mixin.update_goutdetail()
+        error_keys = [error[0] for error in context.exception.errors]
+        self.assertIn("goutdetail", error_keys)
+
+    def test__check_for_goutdetail_update_errors_no_goutdetail(self):
+        self.update_mixin.goutdetail = None
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail", "GoutDetail is required to update a GoutDetail instance."), self.update_mixin.errors
+        )
+
+    def test__check_for_goutdetail_update_errors_goutdetail_has_medhistory_that_is_not_gout(self):
+        self.update_mixin.gout = CkdFactory()
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail", f"{self.update_mixin.goutdetail} has a medhistory that is not a {self.update_mixin.gout}."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_at_goal_long_term_is_None(self):
+        self.update_mixin.goutdetail__at_goal_long_term = None
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail__at_goal_long_term", "at_goal_long_term is required to update a GoutDetail instance."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_at_goal_long_term_but_not_at_goal(self):
+        self.update_mixin.goutdetail__at_goal = False
+        self.update_mixin.goutdetail__at_goal_long_term = True
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail__at_goal_long_term", "at_goal_long_term cannot be True if at_goal is False."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_on_ppx_is_None(self):
+        self.update_mixin.goutdetail__on_ppx = None
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail__on_ppx", "on_ppx is required to update a GoutDetail instance."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_on_ult_is_None(self):
+        self.update_mixin.goutdetail__on_ult = None
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail__on_ult", "on_ult is required to update a GoutDetail instance."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_starting_ult_is_None(self):
+        self.update_mixin.goutdetail__starting_ult = None
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail__starting_ult", "starting_ult is required to update a GoutDetail instance."),
+            self.update_mixin.errors,
+        )
+
+    def test__check_for_goutdetail_update_errors_goutdetail_has_user_who_is_not_patient(self):
+        new_gout = GoutFactory(user=UserFactory(role=Roles.PSEUDOPATIENT))
+        self.update_mixin.gout = new_gout
+        self.update_mixin.goutdetail.medhistory = new_gout
+        new_pseudopatient = create_psp()
+        self.update_mixin.patient = new_pseudopatient
+        self.update_mixin.check_for_goutdetail_update_errors()
+        self.assertTrue(self.update_mixin.errors)
+        self.assertIn(
+            ("goutdetail", f"{self.update_mixin.goutdetail} has a user who is not {new_pseudopatient}."),
+            self.update_mixin.errors,
+        )
+
+    def test__goutdetail_has_medhistory_that_is_not_gout(self):
+        self.update_mixin.gout = CkdFactory()
+        self.assertTrue(self.update_mixin.goutdetail_has_medhistory_that_is_not_gout)
+
+    def test__goutdetail_has_user_who_is_not_patient(self):
+        new_gout = GoutFactory(user=UserFactory(role=Roles.PSEUDOPATIENT))
+        self.update_mixin.gout = new_gout
+        self.update_mixin.goutdetail.medhistory = new_gout
+        new_pseudopatient = create_psp()
+        self.update_mixin.patient = new_pseudopatient
+        self.assertTrue(self.update_mixin.goutdetail_has_user_who_is_not_patient)
+
+    def test__goutdetail_needs_save(self):
+        self.update_mixin.goutdetail__at_goal = not self.goutdetail.at_goal
+        self.assertTrue(self.update_mixin.goutdetail_needs_save)
+
+    def test__update_goutdetail_instance(self):
+        self.update_mixin.update_goutdetail_instance()
+        for field, value in self.goutdetail_data.items():
+            trunc_field = field.replace("goutdetail__", "")
+            self.assertEqual(getattr(self.update_mixin.goutdetail, trunc_field), value)

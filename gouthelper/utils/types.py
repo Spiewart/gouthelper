@@ -8,6 +8,33 @@ if TYPE_CHECKING:
     from ..flares.models import Flare
     from ..goalurates.models import GoalUrate
     from ..medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+    from ..medhistorys.models import (
+        Angina,
+        Anticoagulation,
+        Bleed,
+        Cad,
+        Chf,
+        Ckd,
+        Colchicineinteraction,
+        Diabetes,
+        Erosions,
+        Gastricbypass,
+        Gout,
+        Heartattack,
+        Hepatitis,
+        Hypertension,
+        Hyperuricemia,
+        Ibd,
+        Menopause,
+        Organtransplant,
+        Osteoporosis,
+        Pud,
+        Pvd,
+        Stroke,
+        Tophi,
+        Uratestones,
+        Xoiinteraction,
+    )
     from ..ppxaids.models import PpxAid
     from ..ppxs.models import Ppx
     from ..ultaids.models import UltAid
@@ -57,3 +84,32 @@ class CkdDetailFieldOptions(TypedDict):
     dialysis_type: Union["DialysisChoices", None]
     dialysis_duration: Union["DialysisDurations", None]
     stage: Union["Stages", None]
+
+
+MedHistorys = Union[
+    "Angina",
+    "Anticoagulation",
+    "Bleed",
+    "Cad",
+    "Chf",
+    "Ckd",
+    "Colchicineinteraction",
+    "Diabetes",
+    "Erosions",
+    "Gastricbypass",
+    "Gout",
+    "Heartattack",
+    "Hepatitis",
+    "Hypertension",
+    "Hyperuricemia",
+    "Ibd",
+    "Menopause",
+    "Organtransplant",
+    "Osteoporosis",
+    "Pud",
+    "Pvd",
+    "Stroke",
+    "Tophi",
+    "Uratestones",
+    "Xoiinteraction",
+]

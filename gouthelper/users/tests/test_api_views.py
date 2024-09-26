@@ -156,6 +156,8 @@ class TestPseudopatientViewSet(APITestCase):
         initial_at_goal_long_term = self.pseudopatient.goutdetail.at_goal_long_term
         self.client.force_authenticate(user=self.provider)
         self.data["goutdetail"]["at_goal_long_term"] = not initial_at_goal_long_term
+        if initial_at_goal_long_term is False:
+            self.data["goutdetail"]["at_goal"] = True
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_at_goal_long_term = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.at_goal_long_term

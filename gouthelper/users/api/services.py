@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, Union
 from ...dateofbirths.api.services import DateOfBirthAPIMixin
 from ...ethnicitys.api.services import EthnicityAPIMixin
 from ...genders.api.services import GenderAPIMixin
-from ...medhistorydetails.models import GoutDetail
-from ...medhistorys.models import Gout
+from ...medhistorydetails.api.mixins import GoutDetailAPIMixin
+from ...medhistorys.api.mixins import GoutAPIMixin
 from ...profiles.api.mixins import PseudopatientProfileAPIMixin
 from ..services import PseudopatientBaseAPI
 
@@ -23,6 +23,8 @@ class PseudopatientAPI(
     DateOfBirthAPIMixin,
     EthnicityAPIMixin,
     GenderAPIMixin,
+    GoutAPIMixin,
+    GoutDetailAPIMixin,
     PseudopatientProfileAPIMixin,
 ):
     def __init__(
@@ -40,7 +42,7 @@ class PseudopatientAPI(
         goutdetail__starting_ult: bool,
     ):
         super().__init__(patient=patient)
-        self.pseudopatientprofile: Union["PseudopatientProfile", "UUID", None] = (
+        self.pseudopatientprofile: Union["PseudopatientProfile", None] = (
             self.patient.pseudopatientprofile if patient else None
         )
         self.dateofbirth = patient.dateofbirth if patient else None
@@ -50,6 +52,8 @@ class PseudopatientAPI(
         self.gender = patient.gender if patient else None
         self.gender__value = gender__value
         self.provider = provider
+        self.gout = patient.gout if patient else None
+        self.gout__value = True
         self.goutdetail = patient.goutdetail if patient else None
         self.goutdetail__at_goal = goutdetail__at_goal
         self.goutdetail__at_goal_long_term = goutdetail__at_goal_long_term
@@ -66,20 +70,9 @@ class PseudopatientAPI(
         self.create_ethnicity()
         self.create_gender()
         self.create_pseudopatientprofile()
-        GoutDetail.objects.create(
-            medhistory=Gout.objects.create(user=self.patient),
-            at_goal=self.goutdetail__at_goal,
-            at_goal_long_term=self.goutdetail__at_goal_long_term,
-            flaring=self.goutdetail__flaring,
-            on_ppx=self.goutdetail__on_ppx,
-            on_ult=self.goutdetail__on_ult,
-            starting_ult=self.goutdetail__starting_ult,
-        )
+        self.process_gout()
+        self.create_goutdetail()
         return self.patient
-
-    @property
-    def has_errors(self) -> bool:
-        return super().has_errors or self.errors
 
     def check_for_and_raise_errors(self) -> None:
         if self.errors:
@@ -94,21 +87,6 @@ class PseudopatientAPI(
         self.update_dateofbirth()
         self.update_ethnicity()
         self.update_gender()
-        if self.patient.goutdetail.editable_fields_need_update(
-            at_goal=self.goutdetail__at_goal,
-            at_goal_long_term=self.goutdetail__at_goal_long_term,
-            flaring=self.goutdetail__flaring,
-            on_ppx=self.goutdetail__on_ppx,
-            on_ult=self.goutdetail__on_ult,
-            starting_ult=self.goutdetail__starting_ult,
-        ):
-            self.patient.goutdetail.update_editable_fields(
-                at_goal=self.goutdetail__at_goal,
-                at_goal_long_term=self.goutdetail__at_goal_long_term,
-                flaring=self.goutdetail__flaring,
-                on_ppx=self.goutdetail__on_ppx,
-                on_ult=self.goutdetail__on_ult,
-                starting_ult=self.goutdetail__starting_ult,
-                commit=True,
-            )
+        self.process_gout()
+        self.update_goutdetail()
         return self.patient
