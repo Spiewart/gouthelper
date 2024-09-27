@@ -149,7 +149,7 @@ class TestPseudopatientAPI(TestCase):
         self.empty_mixin.dateofbirth__value = None
         with self.assertRaises(GoutHelperValidationError) as context:
             self.empty_mixin.create_pseudopatient_and_profile()
-            self.empty_mixin.check_for_and_raise_errors()
+            self.empty_mixin.check_for_and_raise_errors(model_name="Pseudopatient")
         self.assertEqual(
             context.exception.errors,
             [("dateofbirth__value", "Date is required to create a DateOfBirth instance.")],

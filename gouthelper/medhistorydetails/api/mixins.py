@@ -33,7 +33,7 @@ class GoutDetailAPIMixin(APIMixin):
 
     def create_goutdetail(self) -> "GoutDetail":
         self.check_for_goutdetail_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="GoutDetail")
         self.goutdetail = GoutDetail.objects.create(
             medhistory=self.gout,
             at_goal=self.goutdetail__at_goal,
@@ -103,18 +103,11 @@ class GoutDetailAPIMixin(APIMixin):
     def gout_with_patient_without_patient_arg(self) -> bool:
         return self.gout and self.gout.user and not self.patient
 
-    def check_for_and_raise_errors(self) -> None:
-        if self.has_errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in GoutDetail API args: {list([error[0] for error in self.errors])}.",
-                errors=self.errors,
-            )
-
     def update_goutdetail(self) -> GoutDetail:
         if self.is_uuid(self.goutdetail):
             self.set_attrs_from_qs()
         self.check_for_goutdetail_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="GoutDetail")
         if self.goutdetail_needs_save:
             self.update_goutdetail_instance()
         return self.goutdetail

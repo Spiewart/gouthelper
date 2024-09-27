@@ -26,7 +26,7 @@ class DateOfBirthAPIMixin(APIMixin):
 
     def create_dateofbirth(self) -> DateOfBirth:
         self.check_for_dateofbirth_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="DateOfBirth")
         self.dateofbirth = DateOfBirth.objects.create(value=self.dateofbirth__value, user=self.patient)
         return self.dateofbirth
 
@@ -50,18 +50,11 @@ class DateOfBirthAPIMixin(APIMixin):
     def patient_has_dateofbirth(self) -> bool:
         return hasattr(self.patient, "dateofbirth")
 
-    def check_for_and_raise_errors(self) -> None:
-        if self.has_errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in DateOfBirth API args: {list([error[0] for error in self.errors])}.",
-                errors=self.errors,
-            )
-
     def update_dateofbirth(self) -> DateOfBirth:
         if self.is_uuid(self.dateofbirth):
             self.set_attrs_from_qs()
         self.check_for_dateofbirth_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="DateOfBirth")
         if self.dateofbirth_needs_save:
             self.update_dateofbirth_instance()
         return self.dateofbirth

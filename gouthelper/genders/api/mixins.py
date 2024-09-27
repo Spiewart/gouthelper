@@ -27,7 +27,7 @@ class GenderAPIMixin(APIMixin):
 
     def create_gender(self) -> Gender:
         self.check_for_gender_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Gender")
         self.gender = Gender.objects.create(value=self.gender__value, user=self.patient)
         return self.gender
 
@@ -51,18 +51,11 @@ class GenderAPIMixin(APIMixin):
     def patient_has_gender(self) -> bool:
         return hasattr(self.patient, "gender")
 
-    def check_for_and_raise_errors(self) -> None:
-        if self.has_errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in Gender API args: {list([error[0] for error in self.errors])}.",
-                errors=self.errors,
-            )
-
     def update_gender(self) -> Gender:
         if self.is_uuid(self.gender):
             self.set_attrs_from_qs()
         self.check_for_gender_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Gender")
         if self.gender_needs_save:
             self.update_gender_instance()
         return self.gender

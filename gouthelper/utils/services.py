@@ -952,6 +952,13 @@ class ErrorsMixin:
         for api_arg in api_args:
             errors.append((api_arg[0], api_arg[1]))
 
+    def check_for_and_raise_errors(self, model_name: str) -> None:
+        if self.has_errors:
+            self.raise_gouthelper_validation_error(
+                message=f"Errors in {model_name} API args: {self.errors}.",
+                errors=self.errors,
+            )
+
     @staticmethod
     def raise_gouthelper_validation_error(
         message: str,

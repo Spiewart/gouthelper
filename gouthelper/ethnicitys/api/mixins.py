@@ -27,7 +27,7 @@ class EthnicityAPIMixin(APIMixin):
 
     def create_ethnicity(self) -> Ethnicity:
         self.check_for_ethnicity_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Ethnicity")
         self.ethnicity = Ethnicity.objects.create(value=self.ethnicity__value, user=self.patient)
         return self.ethnicity
 
@@ -51,18 +51,11 @@ class EthnicityAPIMixin(APIMixin):
     def patient_has_ethnicity(self) -> bool:
         return hasattr(self.patient, "ethnicity")
 
-    def check_for_and_raise_errors(self) -> None:
-        if self.has_errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in Ethnicity API args: {list([error[0] for error in self.errors])}.",
-                errors=self.errors,
-            )
-
     def update_ethnicity(self) -> Ethnicity:
         if self.is_uuid(self.ethnicity):
             self.set_attrs_from_qs()
         self.check_for_ethnicity_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Ethnicity")
         if self.ethnicity_needs_save:
             self.update_ethnicity_instance()
         return self.ethnicity
