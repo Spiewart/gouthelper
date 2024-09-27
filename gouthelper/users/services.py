@@ -17,7 +17,7 @@ class PseudopatientAPI(APIMixin):
 
     def create_pseudopatient(self) -> "Pseudopatient":
         self.check_for_pseudopatient_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Pseudopatient")
         self.patient = apps.get_model("users.Pseudopatient").objects.create(
             role=Roles.PSEUDOPATIENT,
         )
@@ -41,13 +41,6 @@ class PseudopatientAPI(APIMixin):
         if not self.patient:
             self.add_errors(
                 api_args=[("patient", "No Pseudopatient to update.")],
-            )
-
-    def check_for_and_raise_errors(self):
-        if self.errors:
-            self.raise_gouthelper_validation_error(
-                message="Errors in creating Pseudopatient.",
-                errors=self.errors,
             )
 
 

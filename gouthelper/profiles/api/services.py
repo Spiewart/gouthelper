@@ -58,18 +58,11 @@ class PseudopatientProfileAPIMixin(APIMixin):
                 api_args=[("patient", f"{self.patient} already has a pseudopatient profile.")],
             )
 
-    def check_for_and_raise_errors(self):
-        if self.has_errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in PseudopatientProfile API args: {list([error[0] for error in self.errors])}.",
-                errors=self.errors,
-            )
-
     def update_pseudopatientprofile(self) -> PseudopatientProfile:
         if self.is_uuid(self.pseudopatientprofile):
             self.set_attrs_from_qs()
         self.check_for_pseudopatientprofile_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="PseudopatientProfile")
         if self.pseudopatientprofile_needs_save:
             self.update_pseudopatientprofile_instance()
         return self.pseudopatientprofile

@@ -14,7 +14,7 @@ class GoutAPI(GoutAPIMixin, PseudopatientBaseAPI):
     def __init__(
         self,
         gout: Union["Gout", "MedHistory", "UUID", None],
-        gout__value: bool,
+        gout__value: bool | None,
         patient: Union["Pseudopatient", "UUID", None],
     ):
         super().__init__(patient=patient)

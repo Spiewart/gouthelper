@@ -64,7 +64,7 @@ class PseudopatientAPI(
 
     def create_pseudopatient_and_profile(self) -> "Pseudopatient":
         self.check_for_pseudopatient_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Pseudopatient")
         self.create_pseudopatient()
         self.create_dateofbirth()
         self.create_ethnicity()
@@ -74,16 +74,9 @@ class PseudopatientAPI(
         self.create_goutdetail()
         return self.patient
 
-    def check_for_and_raise_errors(self) -> None:
-        if self.errors:
-            self.raise_gouthelper_validation_error(
-                message=f"Errors in Pseudopatient API args: {list([error[0] for error in self.errors])}..",
-                errors=self.errors,
-            )
-
     def update_pseudopatient_and_profile(self) -> "Pseudopatient":
         self.check_for_pseudopatient_update_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="Pseudopatient")
         self.update_dateofbirth()
         self.update_ethnicity()
         self.update_gender()
