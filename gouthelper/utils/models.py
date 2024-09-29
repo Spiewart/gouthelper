@@ -1923,7 +1923,7 @@ class TreatmentAidMixin:
 
     @cached_property
     def options(self) -> dict:
-        """Returns {dict} of FlareAids's Flare Treatment options {treatment: dosing}."""
+        """Returns {dict} of TreatmentAid options {treatment: dosing}."""
         return aids_options(trt_dict=self.aid_dict)
 
     @property
