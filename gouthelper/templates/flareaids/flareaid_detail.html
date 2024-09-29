@@ -76,7 +76,7 @@
           </div>
         </div>
       </div>
-      {% if object.recommendation %}
+      {% if object.options %}
         {% include "treatments/partials/options.html" with options=object.options_without_rec trttype=object.trttype %}
       {% endif %}
       {% if object.not_options %}

@@ -265,7 +265,7 @@ class CustomFlareAidFactory(
 
         if self.flare and self.user:
             raise ValueError("Cannot create a FlareAid with a Flare and a User.")
-        return self.flare or create_flare() if self.flare is Auto else None
+        return create_flare() if self.flare is True else self.flare
 
     def create_object(self):
         flareaid_kwargs = {
@@ -293,4 +293,10 @@ class CustomFlareAidFactory(
         self.update_medhistorys()
         self.update_ckddetail()
         self.update_medallergys()
+        self.update_related_flare()
         return self.flareaid
+
+    def update_related_flare(self):
+        if self.flare:
+            self.flare.flareaid = self.flareaid
+            self.flare.save()

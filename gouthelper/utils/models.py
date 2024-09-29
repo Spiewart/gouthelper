@@ -35,6 +35,7 @@ from .services import (
     aids_hlab5801_contra,
     aids_not_options,
     aids_options,
+    aids_options_without_recommendation,
     aids_probenecid_ckd_contra,
     aids_xois_ckd_contra,
 )
@@ -1928,8 +1929,8 @@ class TreatmentAidMixin:
     @property
     def options_without_rec(self) -> dict:
         """Method that returns the options dictionary without the recommendation key."""
-        return aids_options(
-            trt_dict=self.aid_dict, recommendation=self.recommendation[0] if self.recommendation else None
+        return aids_options_without_recommendation(
+            trt_dict=self.options, recommendation=self.recommendation[0] if self.recommendation else None
         )
 
     @property

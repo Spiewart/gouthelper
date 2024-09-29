@@ -340,10 +340,9 @@ def aids_not_options(
         return {trt: sub_dict for trt, sub_dict in trt_dict.items() if sub_dict["contra"] is True}
 
 
-def aids_options(trt_dict: dict, recommendation: Treatments = None) -> dict:
-    """Method that parses trt_dict (dictionary of potential Aid Treatments)
-    and returns a dict of all possible Aid Treatment options by removing
-    those which are contraindicated.
+def aids_options(trt_dict: dict) -> dict:
+    """Parses trt_dict (dictionary of potential Aid Treatments) and returns a dict of all
+    possible Treatment options by removing those which are contraindicated.
 
     args:
         trt_dict (dict): {TrtTypes: {TrtInfo}}
@@ -356,7 +355,13 @@ def aids_options(trt_dict: dict, recommendation: Treatments = None) -> dict:
     for trt, sub_dict in trt_dict.items():
         if sub_dict["contra"] is True:
             options_dict.pop(trt)
-        elif recommendation and trt == recommendation:
+    return options_dict
+
+
+def aids_options_without_recommendation(trt_dict: dict, recommendation: Treatments) -> dict:
+    options_dict = trt_dict.copy()
+    for trt in trt_dict.keys():
+        if trt == recommendation:
             options_dict.pop(trt)
     return options_dict
 

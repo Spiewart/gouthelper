@@ -317,7 +317,7 @@ treatment is typically very short and the risk of bleeding is low."
                 continue
         return None
 
-    @cached_property
+    @property
     def related_flare(self) -> Union["Flare", None]:
         if self.user:
             flare_qs = getattr(self.user, "flare_qs", None)

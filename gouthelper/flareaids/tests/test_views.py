@@ -13,9 +13,10 @@ from django.test import RequestFactory, TestCase  # pylint: disable=e0401 # type
 from django.urls import reverse  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
 
+from ...akis.choices import Statuses
 from ...contents.models import Content, Tags
 from ...dateofbirths.helpers import age_calc
-from ...flares.tests.factories import create_flare
+from ...flares.tests.factories import CustomFlareFactory, create_flare
 from ...genders.choices import Genders
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
@@ -50,7 +51,7 @@ from ..views import (
     FlareAidPseudopatientUpdate,
     FlareAidUpdate,
 )
-from .factories import create_flareaid, flareaid_data_factory
+from .factories import CustomFlareAidFactory, create_flareaid, flareaid_data_factory
 
 pytestmark = pytest.mark.django_db
 
@@ -1591,6 +1592,45 @@ class TestFlareAidDetail(TestCase):
         self.view.as_view()(request, pk=self.flareaid.pk)
         # This needs to be manually refetched from the db
         self.assertTrue(FlareAid.objects.get().recommendation[0] == Treatments.NAPROXEN)
+
+    def test__get(self):
+        request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": self.flareaid.pk}))
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=self.flareaid.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(hasattr(response, "context_data"))
+
+    def test__get_flareaid_with_flare(self):
+        flare = CustomFlareFactory().create_object()
+        flareaid = CustomFlareAidFactory(flare=flare).create_object()
+        request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": flareaid.pk}))
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=flareaid.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(hasattr(response, "context_data"))
+
+    def test__get_flareaid_with_flare_with_colchicine_contraindication(self):
+        flare = CustomFlareFactory(ckd=False, aki=Statuses.ONGOING, creatinines=[Decimal("2.2")]).create_object()
+        flareaid = CustomFlareAidFactory(
+            ckd=False, colchicineinteraction=False, colchicine_allergy=False
+        ).create_object()
+        self.assertIn(Treatments.COLCHICINE, flareaid.options)
+        flare.flareaid = flareaid
+        flare.save()
+        self.assertTrue(flare.flareaid)
+        flareaid.refresh_from_db()
+        delattr(flareaid, "options")
+        self.assertTrue(flareaid.related_flare)
+        self.assertEqual(flareaid.related_flare, flare)
+        self.assertTrue(flare.aki)
+        self.assertFalse(flare.ckd)
+        self.assertFalse(flareaid.ckd)
+        self.assertNotIn(Treatments.COLCHICINE, flareaid.options)
+        request = self.factory.get(reverse("flareaids:detail", kwargs={"pk": flareaid.pk}))
+        request.user = AnonymousUser()
+        response = self.view.as_view()(request, pk=flareaid.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(hasattr(response, "context_data"))
 
 
 class TestFlareAidUpdate(TestCase):
