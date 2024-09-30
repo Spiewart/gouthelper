@@ -6,9 +6,12 @@ from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...akis.choices import Statuses
+from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...defaults.models import FlareAidSettings
 from ...flares.selectors import flares_user_qs
 from ...flares.tests.factories import CustomFlareFactory, create_flare
+from ...genders.choices import Genders
+from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import CreatinineFactory
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...medhistorys.tests.factories import ColchicineinteractionFactory, HeartattackFactory
@@ -26,6 +29,20 @@ class TestFlareAid(TestCase):
         self.user_flareaid = create_flareaid(user=True)
         self.empty_flareaid = create_flareaid(mhs=[], mas=[])
         self.empty_flareaid_mh_kwargs = {mhtype.lower(): None for mhtype in FLAREAID_MEDHISTORYS}
+
+        self.dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 40))
+        self.gender = GenderFactory(value=Genders.MALE)
+        self.flare = CustomFlareFactory(
+            dateofbirth=self.dateofbirth,
+            gender=self.gender,
+            ckd=True,
+            baselinecreatinine=Decimal("1.5"),
+            aki=Statuses.IMPROVING,
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="2.1", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+        ).create_object()
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: {self.flareaid.created.date()}")
@@ -181,3 +198,162 @@ class TestFlareAid(TestCase):
         self.assertEqual(colchicine_dosing_dict["dose"], ColchicineDoses.POINTTHREE)
         self.assertEqual(colchicine_dosing_dict["dose2"], ColchicineDoses.POINTSIX)
         self.assertEqual(colchicine_dosing_dict["dose3"], ColchicineDoses.POINTTHREE)
+
+    def test__aki(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flare.aki)
+        self.assertEqual(flareaid.aki, flare.aki)
+
+    def test__aki_in_colchicine_contra_dict(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flare.aki)
+        self.assertIn("AKI", flareaid.colchicine_contra_dict())
+
+    def test__aki_interp(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flare.aki)
+        self.assertEqual(flareaid.aki_interp(), flare.aki_interp())
+
+    def test__colchicine_contraindicated_due_to_aki_ongoing(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flareaid.colchicine_contraindicated_due_to_aki)
+
+    def test__colchicine_contraindicated_due_to_aki_improving_eGFR_too_high(self):
+        flare_date = (timezone.now() - timedelta(days=1)).date()
+        flare = CustomFlareFactory(
+            date_started=flare_date,
+            ckd=False,
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value=Decimal("2.5"), date_drawn=flare_date)],
+        ).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flareaid.colchicine_contraindicated_due_to_aki)
+
+    def test__colchicine_contraindicated_due_to_aki_improving_eGFR_acceptable(self):
+        flare_date = (timezone.now() - timedelta(days=1)).date()
+        flare = CustomFlareFactory(
+            date_started=flare_date,
+            ckd=False,
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value=Decimal("1.4"), date_drawn=flare_date)],
+        ).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertFalse(flareaid.colchicine_contraindicated_due_to_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_no_aki_raises_ValueError(self):
+        flareaid = create_flareaid()
+        with self.assertRaises(ValueError):
+            flareaid.colchicine_should_be_dose_adjusted_for_aki
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_ongoing(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertFalse(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_too_high(self):
+        flare_date = (timezone.now() - timedelta(days=1)).date()
+        flare = CustomFlareFactory(
+            date_started=flare_date,
+            ckd=False,
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value=Decimal("2.5"), date_drawn=flare_date)],
+        ).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertFalse(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_acceptable(self):
+        flare_date = (timezone.now() - timedelta(days=1)).date()
+        flare = CustomFlareFactory(
+            date_started=flare_date,
+            ckd=False,
+            aki=Statuses.IMPROVING,
+            creatinines=[CreatinineFactory(value=Decimal("1.4"), date_drawn=flare_date)],
+        ).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_resolved(self):
+        flare = CustomFlareFactory(aki=Statuses.RESOLVED).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertFalse(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_acceptable_with_baselinecreatinine(self):
+        flareaid = CustomFlareAidFactory(
+            flare=self.flare,
+            ckd=self.flare.ckd,
+        ).create_object()
+
+        self.assertTrue(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_too_high_with_baselinecreatinine(self):
+        flare = CustomFlareFactory(
+            aki=Statuses.IMPROVING,
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="2.7", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+        ).create_object()
+
+        flareaid = CustomFlareAidFactory(
+            flare=flare,
+            dateofbirth=timezone.now() - timedelta(days=365 * 40),
+            baselinecreatinine=Decimal("1.7"),
+            gender=Genders.MALE,
+        ).create_object()
+
+        self.assertFalse(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_acceptable_with_stage(self):
+        self.flare.ckd.baselinecreatinine.delete()
+        self.flare.ckd.baselinecreatinine = None
+        self.flare.ckd.save()
+
+        flareaid = CustomFlareAidFactory(
+            flare=self.flare,
+            ckd=self.flare.ckd,
+        ).create_object()
+
+        self.assertTrue(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__colchicine_should_be_dose_adjusted_for_aki_improving_eGFR_too_high_with_stage(self):
+        flare = CustomFlareFactory(
+            ckd=True,
+            baselinecreatinine=False,
+            aki=Statuses.IMPROVING,
+            creatinines=[
+                CreatinineFactory(value="3.0", date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value="2.7", date_drawn=timezone.now() - timedelta(days=1)),
+            ],
+        ).create_object()
+
+        self.assertFalse(hasattr(flare.ckd, "baselinecreatinine"))
+
+        flareaid = CustomFlareAidFactory(
+            flare=flare,
+            ckd=flare.ckd,
+        ).create_object()
+
+        self.assertFalse(flareaid.colchicine_should_be_dose_adjusted_for_aki)
+
+    def test__nsaids_contraindicated_due_to_aki(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertTrue(flareaid.nsaids_contraindicated_due_to_aki)
+        flare.aki.delete()
+        flare.aki = None
+        del flareaid.aki
+        self.assertFalse(flareaid.nsaids_contraindicated_due_to_aki)
+
+    def test__nsaids_in_not_options_with_aki(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertIn("NSAIDs", flareaid.not_options)
+
+    def test__colchicine_in_not_options_with_aki(self):
+        flare = CustomFlareFactory(aki=Statuses.ONGOING).create_object()
+        flareaid = create_flareaid(flare=flare)
+        self.assertIn(Treatments.COLCHICINE, flareaid.not_options)

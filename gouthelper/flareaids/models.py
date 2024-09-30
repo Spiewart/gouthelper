@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
-from django.utils.text import format_lazy  # type: ignore
+from django.utils.text import format_lazy
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
@@ -105,6 +105,22 @@ class FlareAid(
             return f"FlareAid: {self.created.date()}"
 
     @cached_property
+    def aki(self) -> Union["Aki", None]:
+        if self.related_flare:
+            return self.related_flare.aki
+        return None
+
+    def aki_interp(self, samepage_links: bool = True) -> str:
+        if self.related_flare:
+            return self.related_flare.aki_interp(samepage_links=samepage_links)
+        else:
+            return mark_safe(
+                f"{self.get_str_attrs('Subject_the')} {self.get_str_attrs('pos_neg_past')} an acute kidney "
+                f"injury (AKI) associated with {self}. GoutHelper inquires about AKI with flares because it "
+                "can influences the choice of treatment"
+            )
+
+    @cached_property
     def aid_dict(self) -> dict:
         """cached_property that converts decisionaid field to a python dict for processing."""
         if not self.decisionaid:
@@ -167,14 +183,27 @@ treatment is typically very short and the risk of bleeding is low."
             )
         return info_dict
 
+    def colchicine_contra_dict(self, samepage_links: bool = True) -> str:
+        contra_dict = super().colchicine_contra_dict(samepage_links=samepage_links)
+        if self.colchicine_contraindicated_due_to_aki:
+            contra_dict["AKI"] = (
+                "aki",
+                "Ongoing acute kidney injury with impaired kidney function is a contraindication to colchicine.",
+            )
+        return contra_dict
+
     @property
     def colchicine_dose_adjusted_for_aki(self) -> bool:
-        return (
-            self.related_flare
-            and self.related_flare.aki
-            and self.related_flare.aki.status == Statuses.IMPROVING
-            and self.colchicine_should_be_dose_adjusted_for_aki(options=self.options, aki=self.related_flare.aki)
-        )
+        return self.aki and self.aki.status == Statuses.IMPROVING and self.colchicine_should_be_dose_adjusted_for_aki
+
+    def nsaids_contra_dict(self, samepage_links: bool = True) -> dict[str, str, Any | list[Any] | None]:
+        contra_dict = super().nsaids_contra_dict(samepage_links=samepage_links)
+        if self.nsaids_contraindicated_due_to_aki:
+            contra_dict["AKI"] = (
+                "aki",
+                "Unresolved acute kidney injury is a contraindication to NSAIDs.",
+            )
+        return contra_dict
 
     @classmethod
     def defaultsettings(cls) -> type[FlareAidSettings]:
@@ -195,6 +224,7 @@ treatment is typically very short and the risk of bleeding is low."
         """Method that returns a dictionary of tuples explanations for the FlareAid to use in templates."""
         return [
             ("age", "Age", True if self.age >= 65 else False, self.age_interp()),
+            ("aki", "AKI", True if self.aki else False, self.aki_interp()),
             ("anticoagulation", "Anticoagulation", self.anticoagulation, self.anticoagulation_interp()),
             ("bleed", "Bleed", self.bleed, self.bleed_interp()),
             ("ckd", "Chronic Kidney Disease", self.ckd, self.ckd_interp()),
@@ -260,7 +290,7 @@ treatment is typically very short and the risk of bleeding is low."
                 remove_colchicine()
             elif flare.aki.status == Statuses.IMPROVING:
                 remove_nsaids()
-                if self.colchicine_should_be_dose_adjusted_for_aki(options=options, aki=flare.aki):
+                if Treatments.COLCHICINE in options and self.colchicine_should_be_dose_adjusted_for_aki:
                     aids_dose_adjust_colchicine(
                         trt_dict=options, aid_type=TrtTypes.FLARE, defaulttrtsettings=self.defaulttrtsettings
                     )
@@ -278,30 +308,66 @@ treatment is typically very short and the risk of bleeding is low."
             )
         )
 
-    def colchicine_should_be_dose_adjusted_for_aki(self, options: dict, aki: "Aki") -> bool:
-        if Treatments.COLCHICINE in options:
-            if aki.baselinecreatinine:
-                return aki.improving_with_creatinines_but_not_at_baselinecreatinine and (
-                    aids_get_colchicine_contraindication_for_stage(
-                        aki.most_recent_creatinine.current_stage,
-                        defaulttrtsettings=self.defaulttrtsettings,
-                    )
-                    == Contraindications.DOSEADJ
+    @property
+    def colchicine_contraindicated_due_to_aki(self) -> bool:
+        return self.aki and (
+            self.aki.status == Statuses.ONGOING
+            or (self.aki.status == Statuses.IMPROVING and not self.colchicine_should_be_dose_adjusted_for_aki)
+        )
+
+    @property
+    def nsaids_contraindicated_due_to_aki(self) -> bool:
+        return self.aki and (self.aki.status == Statuses.ONGOING or self.aki.status == Statuses.IMPROVING)
+
+    @cached_property
+    def not_options(self) -> dict[str, dict]:
+        not_options_dict = super().not_options
+
+        if Treatments.COLCHICINE not in not_options_dict and self.colchicine_contraindicated_due_to_aki:
+            not_colchicine_dict = self.aid_dict[Treatments.COLCHICINE]
+            not_colchicine_dict.update(
+                {
+                    "contra": True,
+                }
+            )
+            not_options_dict[Treatments.COLCHICINE] = not_colchicine_dict
+
+        if "NSAIDs" not in not_options_dict and self.nsaids_contraindicated_due_to_aki:
+            not_nsaids_dict = self.aid_dict[Treatments.IBUPROFEN]
+            not_nsaids_dict.update(
+                {
+                    "contra": True,
+                }
+            )
+            not_options_dict["NSAIDs"] = not_nsaids_dict
+
+        return not_options_dict
+
+    @property
+    def colchicine_should_be_dose_adjusted_for_aki(self) -> bool:
+        if not self.aki:
+            raise ValueError("FlareAid does not have an associated AKI.")
+        if self.aki.baselinecreatinine:
+            return self.aki.improving_with_creatinines_but_not_at_baselinecreatinine and (
+                aids_get_colchicine_contraindication_for_stage(
+                    self.aki.most_recent_creatinine.current_stage,
+                    defaulttrtsettings=self.defaulttrtsettings,
                 )
-            elif aki.stage:
-                return (
-                    aki.improving_with_creatinines_stage_age_gender_no_baselinecreatinine
-                    and not aki.most_recent_creatinine.is_within_range_for_stage
+                == Contraindications.DOSEADJ
+            )
+        elif self.aki.stage:
+            return (
+                self.aki.improving_with_creatinines_stage_age_gender_no_baselinecreatinine
+                and not self.aki.most_recent_creatinine.is_within_range_for_stage
+            )
+        else:
+            return self.aki.improving_with_creatinines_age_gender_no_stage_or_baselinecreatinine and (
+                aids_get_colchicine_contraindication_for_stage(
+                    stage=self.aki.most_recent_creatinine.current_stage,
+                    defaulttrtsettings=self.defaulttrtsettings,
                 )
-            else:
-                return aki.improving_with_creatinines_age_gender_no_stage_or_baselinecreatinine and (
-                    aids_get_colchicine_contraindication_for_stage(
-                        stage=aki.most_recent_creatinine.current_stage,
-                        defaulttrtsettings=self.defaulttrtsettings,
-                    )
-                    == Contraindications.DOSEADJ
-                )
-        return False
+                == Contraindications.DOSEADJ
+            )
 
     @cached_property
     def recommendation(self, flare_settings: FlareAidSettings | None = None) -> tuple[Treatments, dict] | None:
