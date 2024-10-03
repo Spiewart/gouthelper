@@ -873,9 +873,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
                 (
                     "Age is required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
-                )(
-                    "Age is required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
                 )
             ],
         )
@@ -883,9 +880,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
             self.baselinecreatinine_form.errors["value"],
             [
                 (
-                    "Age is required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
-                )(
                     "Age is required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
                 )
@@ -930,9 +924,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
                 (
                     "Gender is required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
-                )(
-                    "Gender is required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
                 )
             ],
         )
@@ -940,9 +931,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
             self.baselinecreatinine_form.errors["value"],
             [
                 (
-                    "Gender is required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
-                )(
                     "Gender is required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
                 )
@@ -991,9 +979,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
                 (
                     "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
-                )(
-                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
                 )
             ],
         )
@@ -1003,9 +988,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
                 (
                     "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
-                )(
-                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
                 )
             ],
         )
@@ -1013,9 +995,6 @@ class TestCkdProcessorCheckForErrors(TestCase):
             self.baselinecreatinine_form.errors["value"],
             [
                 (
-                    "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
-                    "Please double check and try again."
-                )(
                     "Age and gender are required to interpret a baseline creatinine (calculate a stage). "
                     "Please double check and try again."
                 )
