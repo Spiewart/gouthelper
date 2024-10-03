@@ -92,7 +92,7 @@ class TestPseudopatientProfileAPI(TestCase):
         self.create_mixin.patient = self.update_mixin.pseudopatientprofile.user
         with self.assertRaises(GoutHelperValidationError) as context:
             self.create_mixin.create_pseudopatientprofile()
-            self.create_mixin.check_for_and_raise_errors()
+            self.create_mixin.check_for_and_raise_errors(model_name="PseudopatientProfile")
         self.assertIn(
             ("patient", f"{self.create_mixin.patient} already has a pseudopatient profile."),
             context.exception.errors,

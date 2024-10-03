@@ -59,7 +59,7 @@ class TestPseudopatientBaseAPI(TestCase):
     def test__check_for_and_raise_errors(self):
         with self.assertRaises(GoutHelperValidationError) as context:
             self.mixin.create_pseudopatient()
-            self.mixin.check_for_and_raise_errors()
+            self.mixin.check_for_and_raise_errors(model_name="Pseudopatient")
         self.assertEqual(
             context.exception.errors,
             [("patient", f"{self.mixin.patient} already exists.")],
@@ -108,6 +108,8 @@ class TestPseudopatientAPI(TestCase):
         self.assertTrue(new_patient.gender)
         self.assertEqual(new_patient.gender.value, self.patient.gender.value)
         self.assertFalse(new_patient.provider)
+        del new_patient.gout
+        del new_patient.goutdetail
         self.assertTrue(new_patient.goutdetail)
         self.assertTrue(new_patient.goutdetail.at_goal)
         self.assertTrue(new_patient.goutdetail.at_goal_long_term)

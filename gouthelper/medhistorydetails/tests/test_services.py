@@ -1928,7 +1928,7 @@ class TestGoutDetailAPI(TestCase):
     def test__check_for_and_raise_errors(self):
         self.create_mixin.errors = [("field1", "Error 1"), ("field2", "Error 2")]
         with self.assertRaises(GoutHelperValidationError) as context:
-            self.create_mixin.check_for_and_raise_errors()
+            self.create_mixin.check_for_and_raise_errors(model_name="GoutDetail")
         self.assertEqual(context.exception.errors, self.create_mixin.errors)
 
     def test__update_goutdetail(self):

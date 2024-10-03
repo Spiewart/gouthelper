@@ -28,7 +28,7 @@ class PseudopatientProfileAPIMixin(APIMixin):
 
     def create_pseudopatientprofile(self) -> PseudopatientProfile:
         self.check_for_pseudopatientprofile_create_errors()
-        self.check_for_and_raise_errors()
+        self.check_for_and_raise_errors(model_name="PseudopatientProfile")
         self.pseudopatientprofile = PseudopatientProfile.objects.create(
             user=self.patient,
             provider=self.provider,

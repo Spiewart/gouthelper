@@ -107,7 +107,7 @@ class TestEthnicityAPI(TestCase):
     def test__check_for_and_raise_errors(self):
         self.mixin.errors.append(("test", "error"))
         with self.assertRaises(GoutHelperValidationError) as context:
-            self.mixin.check_for_and_raise_errors()
+            self.mixin.check_for_and_raise_errors(model_name="Ethnicity")
         self.assertEqual(
             context.exception.errors,
             self.mixin.errors,
