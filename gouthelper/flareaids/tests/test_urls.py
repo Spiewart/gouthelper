@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.urls import resolve, reverse
 
+from ...flares.tests.factories import CustomFlareFactory
 from .factories import create_flareaid
 
 
@@ -41,6 +42,22 @@ class TestFlareAidUrls(TestCase):
         assert (
             resolve(f"/flareaids/goutpatient-detail/{self.user_flareaid.user.pk}/").view_name
             == "flareaids:pseudopatient-detail"
+        )
+
+    def test__pseudopatient_flare_detail(self):
+        """Test that the pseudopatient flare detail url is correct."""
+        flare = CustomFlareFactory().create_object()
+        flareaid = create_flareaid(user=True, flare=flare)
+        self.assertEqual(
+            reverse(
+                "flareaids:pseudopatient-flare-detail",
+                kwargs={"pseudopatient": flareaid.user.pk, "flare": flare.pk},
+            ),
+            f"/flareaids/goutpatient-detail/{flareaid.user.pk}/{flare.pk}/",
+        )
+        assert (
+            resolve(f"/flareaids/goutpatient-detail/{flareaid.user.pk}/{flare.pk}/").view_name
+            == "flareaids:pseudopatient-flare-detail"
         )
 
     def test_pseudopatient_update(self):

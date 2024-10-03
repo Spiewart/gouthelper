@@ -452,6 +452,18 @@ class TestFlareAidPseudopatientCreate(TestCase):
         self.assertTrue(hasattr(qs, "dateofbirth"))
         self.assertTrue(hasattr(qs, "gender"))
 
+    def test__get_user_queryset_with_flare(self):
+        flare = CustomFlareFactory(user=self.user).create_object()
+        request = self.factory.get("/fake-url/")
+        kwargs = {"pseudopatient": self.user.pk, "flare": flare.pk}
+        view = self.view()
+        # https://stackoverflow.com/questions/33645780/how-to-unit-test-methods-inside-djangos-class-based-views
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertIn(MedHistoryTypes.GOUT, [mh.medhistorytype for mh in qs.medhistorys_qs])
+
     def test__get_context_data_onetoones(self):
         """Test that the context data includes the user's
         related models."""
@@ -895,6 +907,95 @@ class TestFlareAidPseudopatientCreate(TestCase):
         )
         assert response.status_code == 200
 
+    def test__get_context_data_with_flare(self):
+        """Test that the view's context data includes the Flare's related models."""
+        flare = CustomFlareFactory(user=True).create_object()
+        view = self.view()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        view.setup(request, pseudopatient=flare.user.pk, flare=flare.pk)
+        view.set_forms()
+        view.object = view.get_object()
+        context = view.get_context_data()
+        self.assertEqual(context["flare"], flare)
+
+    def test__get_with_flare(self):
+        """Test that the view's get() method sets the object attribute."""
+        flare = CustomFlareFactory(user=True).create_object()
+        request = self.factory.post("/fake-url/")
+        request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
+        kwargs = {"pseudopatient": self.user.pk, "flare": flare.pk}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+
+    def test__post_with_flare(self):
+        flare = CustomFlareFactory(user=True).create_object()
+        data = flareaid_data_factory(flare.user)
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-create", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+
+    def test__post_with_flare_redirects_to_pseudopatient_flare_detail(self):
+        flare = CustomFlareFactory(user=True).create_object()
+        data = flareaid_data_factory(flare.user)
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-create", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        url_kwargs = {"pseudopatient": flare.user.pk, "flare": flare.pk}
+        self.assertEqual(
+            response.url, f"{reverse('flareaids:pseudopatient-flare-detail', kwargs=url_kwargs)}?updated=True"
+        )
+
+    def test__post_with_flare_updates_flare(self):
+        flare = CustomFlareFactory(
+            user=True,
+            angina=False,
+            cad=False,
+            chf=False,
+            stroke=False,
+            pvd=False,
+        ).create_object()
+        prevalence_points = flare.prevalence_points
+        self.assertFalse(flare.angina)
+        self.assertFalse(flare.cad)
+        self.assertFalse(flare.chf)
+        self.assertFalse(flare.stroke)
+        self.assertFalse(flare.pvd)
+        self.assertFalse(flare.prevalence)
+        self.assertFalse(flare.likelihood)
+        data = flareaid_data_factory(flare.user)
+        data.update(
+            {
+                f"{MedHistoryTypes.ANGINA}-value": True,
+                f"{MedHistoryTypes.CAD}-value": True,
+            }
+        )
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-create", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        flare = Pseudopatient.objects.flares_qs(flare_pk=flare.pk).filter(pk=flare.user.pk).get().flare_qs[0]
+        self.assertTrue(flare.angina)
+        self.assertTrue(flare.cad)
+        self.assertEqual(flare.prevalence_points, prevalence_points + 1.5)
+        self.assertTrue(flare.prevalence)
+        self.assertTrue(flare.likelihood)
+
 
 class TestFlareAidPseudopatientDetail(TestCase):
     def setUp(self):
@@ -1058,6 +1159,45 @@ class TestFlareAidPseudopatientDetail(TestCase):
         # This needs to be manually refetched from the db
         self.assertIn(Treatments.COLCHICINE, FlareAid.objects.get(user=psp).options)
 
+    def test__get_with_flare_adds_flare_qs_to_view_object(self):
+        flare = CustomFlareFactory(user=True).create_object()
+        create_flareaid(user=flare.user)
+        view = self.view()
+
+        # Add the kwargs, including flare, to the view
+        view.setup(self.factory.get("/fake-url/"), pseudopatient=flare.user.pk, flare=flare.pk)
+
+        # get_object sets the view's object as well as it's user attribute
+        view.get_object()
+
+        # Check that the view's user attribuet has a flare_qs when the view is called with a flare
+        self.assertTrue(hasattr(view.user, "flare_qs"))
+
+    def test__flareaid_options_modified_by_user_flare(self):
+        # Create a Flare with an AKI
+        flare = CustomFlareFactory(user=True, aki=Statuses.ONGOING).create_object()
+
+        # Create a FlareAid for the Flare's user w/o any contraindications to colchicine
+        CustomFlareAidFactory(
+            user=flare.user, ckd=False, colchicine_allergy=False, colchicineinteraction=False
+        ).create_object()
+
+        view = self.view()
+        view.setup(self.factory.get("/fake-url/"), pseudopatient=flare.user.pk, flare=flare.pk)
+        view_object = view.get_object()
+
+        # Assert that the view's object (FlareAid) does not have colchicine or NSAIDs in the options
+        self.assertNotIn(Treatments.COLCHICINE, view_object.options)
+        self.assertNotIn(Treatments.IBUPROFEN, view_object.options)
+
+        # Assert that the view's object has colchicine or NSAIDs in not_options
+        self.assertIn(Treatments.COLCHICINE, view_object.not_options)
+        self.assertIn("NSAIDs", view_object.not_options)
+
+        # Assert that "AKI" in the view's object's colchicine_contra_dict and nsaid_contra_dict
+        self.assertIn("AKI", view_object.colchicine_contra_dict())
+        self.assertIn("AKI", view_object.nsaids_contra_dict())
+
 
 class TestFlareAidPseudopatientUpdate(TestCase):
     def setUp(self):
@@ -1172,6 +1312,19 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         self.assertTrue(hasattr(qs, "dateofbirth"))
         if hasattr(qs, "gender"):
             self.assertIn(qs.gender.value, Genders.values)
+
+    def test__get_user_queryset_with_flare(self):
+        """Test that the Flare and its MedHistory objects are included in the User queryset."""
+        flare = CustomFlareFactory(user=self.psp).create_object()
+        request = self.factory.get("/fake-url/")
+        kwargs = {"pseudopatient": self.user.pk, "flare": flare.pk}
+        view = self.view()
+        view.setup(request, **kwargs)
+        qs = view.get_user_queryset(view.kwargs["pseudopatient"])
+        self.assertTrue(isinstance(qs, QuerySet))
+        qs = qs.get()
+        self.assertTrue(hasattr(qs, "medhistorys_qs"))
+        self.assertIn(MedHistoryTypes.GOUT, [mh.medhistorytype for mh in qs.medhistorys_qs])
 
     def test__get_context_data_onetoones(self):
         """Test that the context data includes the user's
@@ -1541,6 +1694,100 @@ class TestFlareAidPseudopatientUpdate(TestCase):
         # Test that the logged in Admin can see an anonymous Pseudopatient
         response = self.client.get(anon_psp_url)
         assert response.status_code == 200
+
+    def test__get_context_data_with_flare(self):
+        """Test that the view's context data includes the Flare's related models."""
+        flare = CustomFlareFactory(user=True).create_object()
+        create_flareaid(user=flare.user)
+        view = self.view()
+        request = self.factory.get("/fake-url/")
+        request.user = AnonymousUser()
+        view.setup(request, pseudopatient=flare.user.pk, flare=flare.pk)
+        view.set_forms()
+        view.object = view.get_object()
+        context = view.get_context_data()
+        self.assertEqual(context["flare"], flare)
+
+    def test__get_with_flare(self):
+        """Test that the view's get() method sets the object attribute."""
+        flare = CustomFlareFactory(user=True).create_object()
+        create_flareaid(user=flare.user)
+        request = self.factory.post("/fake-url/")
+        request.user = AnonymousUser()
+        SessionMiddleware(dummy_get_response).process_request(request)
+        kwargs = {"pseudopatient": self.user.pk, "flare": flare.pk}
+        response = self.view.as_view()(request, **kwargs)
+        assert response.status_code == 200
+
+    def test__post_with_flare(self):
+        flare = CustomFlareFactory(user=True).create_object()
+        create_flareaid(user=flare.user)
+        data = flareaid_data_factory(flare.user)
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-update", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+
+    def test__post_with_flare_redirects_to_pseudopatient_flare_detail(self):
+        flare = CustomFlareFactory(user=True).create_object()
+        create_flareaid(user=flare.user)
+        data = flareaid_data_factory(flare.user)
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-update", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        url_kwargs = {"pseudopatient": flare.user.pk, "flare": flare.pk}
+        self.assertEqual(
+            response.url, f"{reverse('flareaids:pseudopatient-flare-detail', kwargs=url_kwargs)}?updated=True"
+        )
+
+    def test__post_with_flare_updates_flare(self):
+        flare = CustomFlareFactory(
+            user=True,
+            angina=False,
+            cad=False,
+            chf=False,
+            stroke=False,
+            pvd=False,
+        ).create_object()
+        prevalence_points = flare.prevalence_points
+        CustomFlareAidFactory(user=flare.user).create_object()
+        self.assertFalse(flare.angina)
+        self.assertFalse(flare.cad)
+        self.assertFalse(flare.chf)
+        self.assertFalse(flare.stroke)
+        self.assertFalse(flare.pvd)
+        self.assertFalse(flare.prevalence)
+        self.assertFalse(flare.likelihood)
+        data = flareaid_data_factory(flare.user)
+        data.update(
+            {
+                f"{MedHistoryTypes.ANGINA}-value": True,
+                f"{MedHistoryTypes.CAD}-value": True,
+            }
+        )
+        response = self.client.post(
+            reverse(
+                "flareaids:pseudopatient-flare-update", kwargs={"pseudopatient": flare.user.pk, "flare": flare.pk}
+            ),
+            data=data,
+        )
+        forms_print_response_errors(response)
+        assert response.status_code == 302
+        flare = Pseudopatient.objects.flares_qs(flare_pk=flare.pk).filter(pk=flare.user.pk).get().flare_qs[0]
+        self.assertTrue(flare.angina)
+        self.assertTrue(flare.cad)
+        self.assertEqual(flare.prevalence_points, prevalence_points + 1.5)
+        self.assertTrue(flare.prevalence)
+        self.assertTrue(flare.likelihood)
 
 
 class TestFlareAidDetail(TestCase):

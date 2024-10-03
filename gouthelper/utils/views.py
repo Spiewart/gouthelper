@@ -189,14 +189,16 @@ class GoutHelperPseudopatientDetailMixin(GoutHelperDetailMixinBase):
             raise User.DoesNotExist("GoutPatient does not exist.") from exc
         try:
             model_name = self.model._meta.model_name
-            flare: "Aids" = getattr(self.user, model_name.lower())
+            object: "Aids" = getattr(self.user, model_name.lower())
         except self.model.DoesNotExist as exc:
             raise self.model.DoesNotExist(f"{model_name} for {self.user} does not exist.") from exc
-        return flare
+        return object
 
     def get_queryset(self, **kwargs) -> "QuerySet[Any]":
-        return getattr(Pseudopatient.objects, self.model._meta.model_name.lower() + "_qs")(**kwargs).filter(
-            pk=self.kwargs["pseudopatient"]
+        return (
+            getattr(Pseudopatient.objects, self.model._meta.model_name.lower() + "_qs")(**kwargs)
+            .filter(pk=self.kwargs["pseudopatient"])
+            .select_related("pseudopatientprofile__provider")
         )
 
     @property
@@ -255,7 +257,8 @@ class GoutHelperEditMixin:
         """Method to be called if all forms are valid."""
         self.form_valid_init()
         self.form_valid_update_fks_and_related_object()
-        return self.form_valid_end(**kwargs)
+        self.form_valid_end(**kwargs)
+        return self.form_valid_return(**kwargs)
 
     def form_valid_init(self) -> None:
         if self.form_valid_form_should_save():
@@ -295,6 +298,8 @@ class GoutHelperEditMixin:
         else:
             self.object.update_aid(qs=self.object)
         self.object.update_related_objects(qs=self.user if self.user else self.object)
+
+    def form_valid_return(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         messages.success(self.request, self.get_success_message(self.form.cleaned_data))
         if self.request.htmx:
             return kwargs.get("htmx")

@@ -115,8 +115,8 @@ def flare_userless_relations(qs: "QuerySet") -> "QuerySet":
         .select_related(
             "aki",
             "flareaid",
-            "user",
             "urate",
+            "user",
         )
         .prefetch_related(
             creatinines_prefetch(),

@@ -71,15 +71,17 @@ class FlareDecisionAid(AidService):
             return model_obj
 
     def update_prevalence(self) -> None:
-        self.model_attr.prevalence = flares_calculate_prevalence(
-            prevalence_points=flares_calculate_prevalence_points(
-                gender=self.gender,
-                onset=self.model_attr.onset,
-                redness=self.model_attr.redness,
-                joints=self.model_attr.joints,
-                medhistorys=self.medhistorys,
-                urate=self.urate,
-            )
+        self.model_attr.prevalence = flares_calculate_prevalence(prevalence_points=self.prevalence_points)
+
+    @property
+    def prevalence_points(self) -> float:
+        return flares_calculate_prevalence_points(
+            gender=self.gender,
+            onset=self.model_attr.onset,
+            redness=self.model_attr.redness,
+            joints=self.model_attr.joints,
+            medhistorys=self.medhistorys,
+            urate=self.urate,
         )
 
     def update_likelihood(self) -> None:

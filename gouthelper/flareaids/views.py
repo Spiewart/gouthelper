@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Any
 from django.apps import apps  # pylint: disable=E0401  # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=E0401  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # pylint: disable=E0401  # type: ignore
-from django.utils.functional import cached_property  # type: ignore
+from django.urls import reverse  # pylint: disable=E0401  # type: ignore
+from django.utils.functional import cached_property  # pylint: disable=E0401  # type: ignore
 from django.views.generic import (  # pylint: disable=E0401  # type: ignore
     CreateView,
     DetailView,
@@ -35,6 +36,7 @@ from .dicts import (
 )
 from .forms import FlareAidForm
 from .models import FlareAid
+from .selectors import flareaid_user_relations
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -132,16 +134,44 @@ class FlareAidDetail(GoutHelperDetailMixin):
 
 
 class FlareAidPatientEditBase(FlareAidEditBase):
+    flare: Flare | None
+    kwargs: dict[str, Any]
+
     class Meta:
         abstract = True
 
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
+    def form_valid_end(self, **kwargs) -> None:
+        if self.flare:
+            setattr(self.user, "flare", self.flare)
+        super().form_valid_end(**kwargs)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update({"flare": self.flare})
+        return context
+
+    def get_success_url(self):
+        if self.flare and not self.request.POST.get("next", None):
+            return (
+                reverse(
+                    "flareaids:pseudopatient-flare-detail",
+                    kwargs={
+                        "pseudopatient": self.user.id,
+                        "flare": self.flare.id,
+                    },
+                )
+                + "?updated=True"
+            )
+        else:
+            return super().get_success_url()
+
     def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flareaid_qs().filter(pk=pseudopatient)
+        return Pseudopatient.objects.flareaid_qs(self.kwargs.get("flare", None)).filter(pk=pseudopatient)
 
 
 class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -149,6 +179,10 @@ class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMix
 
     permission_required = "flareaids.can_add_flareaid"
     success_message = "%(user)s's FlareAid successfully created."
+
+    @cached_property
+    def flare(self) -> Flare | None:
+        return self.user.flare_qs[0] if hasattr(self.user, "flare_qs") and self.user.flare_qs else None
 
     def get_permission_object(self):
         return self.user
@@ -168,11 +202,20 @@ class FlareAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
     model = FlareAid
     object: FlareAid
 
+    def get_queryset(self, **kwargs) -> "QuerySet[Any]":
+        return flareaid_user_relations(
+            qs=Pseudopatient.objects.filter(pk=self.kwargs["pseudopatient"]), flare_id=self.kwargs.get("flare", None)
+        )
+
 
 class FlareAidPseudopatientUpdate(
     FlareAidPatientEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
 ):
     success_message = "%(user)s's FlareAid successfully updated."
+
+    @cached_property
+    def flare(self) -> Flare | None:
+        return self.object.related_flare
 
     def get_permission_object(self):
         return self.object

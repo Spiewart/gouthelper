@@ -22,11 +22,26 @@ urlpatterns = [
         "goutpatient-create/<uuid:pseudopatient>/", FlareAidPseudopatientCreate.as_view(), name="pseudopatient-create"
     ),
     path(
+        "goutpatient-create/<uuid:pseudopatient>/<uuid:flare>/",
+        FlareAidPseudopatientCreate.as_view(),
+        name="pseudopatient-flare-create",
+    ),
+    path(
         "goutpatient-detail/<uuid:pseudopatient>/",
         view=FlareAidPseudopatientDetail.as_view(),
         name="pseudopatient-detail",
     ),
     path(
+        "goutpatient-detail/<uuid:pseudopatient>/<uuid:flare>/",
+        view=FlareAidPseudopatientDetail.as_view(),
+        name="pseudopatient-flare-detail",
+    ),
+    path(
         "goutpatient-update/<uuid:pseudopatient>/", FlareAidPseudopatientUpdate.as_view(), name="pseudopatient-update"
+    ),
+    path(
+        "goutpatient-update/<uuid:pseudopatient>/<uuid:flare>/",
+        view=FlareAidPseudopatientUpdate.as_view(),
+        name="pseudopatient-flare-update",
     ),
 ]

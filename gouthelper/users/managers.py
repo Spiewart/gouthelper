@@ -75,8 +75,8 @@ class PseudopatientManager(BaseUserManager):
     def all_related_objects(self):
         return pseudopatient_relations(self.get_queryset())
 
-    def flareaid_qs(self):
-        return flareaid_user_relations(self.get_queryset())
+    def flareaid_qs(self, flare_id: Union["UUID", None] = None):
+        return flareaid_user_relations(self.get_queryset(), flare_id=flare_id)
 
     def flares_qs(self, flare_pk: Union["UUID", None] = None):
         return flare_user_relations(self.get_queryset(), **{"flare_pk": flare_pk} if flare_pk else {})

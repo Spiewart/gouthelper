@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from django.apps import apps  # type: ignore
 from django.db.models import Prefetch, Q  # type: ignore
 
 from ..flares.selectors import flares_prefetch
 from ..flares.selectors import medhistorys_qs as flares_medhistorys_qs
-from ..medhistorys.lists import FLAREAID_MEDHISTORYS
+from ..medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ..treatments.choices import FlarePpxChoices
 
 if TYPE_CHECKING:
@@ -26,28 +26,31 @@ def medallergys_prefetch() -> Prefetch:
     )
 
 
-def medhistorys_qs() -> "QuerySet":
+def medhistorys_qs(flare: bool = False) -> "QuerySet":
+    Qterm = Q(medhistorytype__in=FLAREAID_MEDHISTORYS)
+    if flare:
+        Qterm |= Q(medhistorytype__in=FLARE_MEDHISTORYS)
     return (
         apps.get_model("medhistorys.MedHistory")
-        .objects.filter(Q(medhistorytype__in=FLAREAID_MEDHISTORYS))
+        .objects.filter(Qterm)
         .select_related("ckddetail", "baselinecreatinine")
     ).all()
 
 
-def medhistorys_prefetch() -> Prefetch:
+def medhistorys_prefetch(flare: bool = False) -> Prefetch:
     return Prefetch(
         "medhistory_set",
-        queryset=medhistorys_qs(),
+        queryset=medhistorys_qs(flare=flare),
         to_attr="medhistorys_qs",
     )
 
 
-def flareaid_relations(qs: "QuerySet") -> "QuerySet":
+def flareaid_relations(qs: "QuerySet", flare: bool = False) -> "QuerySet":
     return qs.select_related(
         "dateofbirth",
         "gender",
     ).prefetch_related(
-        medhistorys_prefetch(),
+        medhistorys_prefetch(flare=flare),
         medallergys_prefetch(),
     )
 
@@ -64,9 +67,9 @@ def flareaid_userless_relations(qs: "QuerySet") -> "QuerySet":
     return flareaid_relations(qs).select_related("flare", "user").prefetch_related(flare_medhistorys_prefetch())
 
 
-def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":
+def flareaid_user_relations(qs: "QuerySet", flare_id: Union["UUID", None] = None) -> "QuerySet":
     return (
-        flareaid_relations(qs)
+        flareaid_relations(qs, flare=True if flare_id else False)
         .select_related(
             "flareaid",
             "flareaidsettings",
@@ -78,7 +81,7 @@ def flareaid_user_relations(qs: "QuerySet") -> "QuerySet":
             "ult",
         )
         .prefetch_related(
-            flares_prefetch(),
+            flares_prefetch(pk=flare_id),
         )
     )
 

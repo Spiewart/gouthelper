@@ -39,14 +39,25 @@
   <main class="container">
     {% if form.instance.created %}
       {% if view.kwargs.pseudopatient %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'flareaids:pseudopatient-update' object.user.pk %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_next_inputs.html' %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:pseudopatient-flare-update' object.user.pk flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:pseudopatient-update' object.user.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% else %}
         <form class="form-horizontal"
               method="post"
@@ -59,14 +70,25 @@
       {% endif %}
     {% else %}
       {% if view.kwargs.pseudopatient %}
-        <form class="form-horizontal"
-              method="post"
-              action="{% url 'flareaids:pseudopatient-create' view.kwargs.pseudopatient %}">
-          {% csrf_token %}
-          {% crispy form %}
-          {% include '_next_inputs.html' %}
-          {% include '_submit_button.html' %}
-        </form>
+        {% if flare %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:pseudopatient-flare-create' view.kwargs.pseudopatient flare.pk %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% else %}
+          <form class="form-horizontal"
+                method="post"
+                action="{% url 'flareaids:pseudopatient-create' view.kwargs.pseudopatient %}">
+            {% csrf_token %}
+            {% crispy form %}
+            {% include '_next_inputs.html' %}
+            {% include '_submit_button.html' %}
+          </form>
+        {% endif %}
       {% else %}
         {% if view.related_object %}
           <form class="form-horizontal"

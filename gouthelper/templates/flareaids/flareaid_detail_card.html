@@ -7,7 +7,11 @@
         <div class="col">
           <h4 class="card-title">
             {% if flareaid.user %}
-              <!-- djlint:off --><a href="{% url 'flareaids:pseudopatient-detail' flareaid.user.pk %}"><!-- djlint:on -->
+              {% if flare %}
+                <!-- djlint:off --><a href="{% url 'flareaids:pseudopatient-flare-detail' flareaid.user.pk flare.pk %}"><!-- djlint:on -->
+              {% else %}
+                <!-- djlint:off --><a href="{% url 'flareaids:pseudopatient-detail' flareaid.user.pk %}"><!-- djlint:on -->
+              {% endif %}
             {% else %}
               <a href="{% url 'flareaids:detail' flareaid.pk %}">
               {% endif %}
@@ -57,8 +61,13 @@
         </div>
       </div>
       {% if flareaid.user %}
-        <a href="{% url 'flareaids:pseudopatient-update' flareaid.user.pk %}?next={{ request.path }}"
-           class="btn btn-primary">Update</a>
+        {% if flare %}
+          <a href="{% url 'flareaids:pseudopatient-flare-update' flareaid.user.pk flare.pk %}?next={{ request.path }}"
+             class="btn btn-primary">Update</a>
+        {% else %}
+          <a href="{% url 'flareaids:pseudopatient-update' flareaid.user.pk %}?next={{ request.path }}"
+             class="btn btn-primary">Update</a>
+        {% endif %}
       {% else %}
         <a href="{% url 'flareaids:update' flareaid.pk %}?next={{ request.path }}"
            class="btn btn-primary">Update</a>
@@ -93,10 +102,17 @@
              href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.pk %}?next={{ request.path }}"
              role="button">Create</a>
         {% elif object.user %}
-          <a type="button"
-             class="btn btn-primary"
-             href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
-             role="button">Create</a>
+          {% if flare %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:pseudopatient-flare-create' pseudopatient=object.user.pk flare=flare.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% else %}
+            <a type="button"
+               class="btn btn-primary"
+               href="{% url 'flareaids:pseudopatient-create' pseudopatient=object.user.pk %}?next={{ request.path }}"
+               role="button">Create</a>
+          {% endif %}
         {% elif flare %}
           <a type="button"
              class="btn btn-primary"
