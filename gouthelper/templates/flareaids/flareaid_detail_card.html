@@ -45,7 +45,7 @@
       <div class="row">
         <div class="col">
           {% if flareaid.recommendation %}
-            {% call_method flareaid 'treatment_dosing_dict' flareaid.recommendation.0 as dosing_dict %}
+            {% call_method flareaid 'treatment_dosing_dict' flareaid.recommendation.0 False as dosing_dict %}
             <ul>
               {% for key, val in dosing_dict.items %}
                 <li>

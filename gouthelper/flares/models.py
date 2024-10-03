@@ -290,7 +290,7 @@ kidney injury. <br> <br>""",
             aki_str += format_lazy(
                 """<strong>{} had an acute kidney injury ({}) during the flare</strong>, which means any \
 {} will automatically exclude NSAIDs from the treatment plan, and will either dose-adjust \
-colchicine if the AKI improving or exclude it if the AKI isn't getting better.""",
+colchicine if the AKI is improving or exclude it if the AKI isn't getting better.""",
                 Subject_the,
                 self.aki.get_status_display().lower(),
                 "<a href=#flareaid>FlareAid</a>" if samepage_links else "FlareAid",

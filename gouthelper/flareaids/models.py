@@ -172,7 +172,7 @@ treatment is typically very short and the risk of bleeding is low."
 
     def colchicine_info_dict(self, samepage_links: bool = True) -> str:
         info_dict = super().colchicine_info_dict(samepage_links=samepage_links)
-        if self.colchicine_dose_adjusted_for_aki:
+        if self.colchicine_dose_adjusted_for_aki and not self.colchicine_dose_adjusted_due_to_ckd:
             info_dict["Dosing-AKI"] = mark_safe(
                 format_lazy(
                     """Dose adjusted for {}.""",
