@@ -17,7 +17,11 @@ class GenderAPI(GenderAPIMixin, PseudopatientBaseAPI):
         gender: Union["Gender", "UUID", None],
         gender__value: Union["Genders", None],
         patient: Union["Pseudopatient", "UUID", None],
+        gender_optional: bool = False,
+        gender_patient_edit: bool = True,
     ):
         super().__init__(patient=patient)
         self.gender = gender
         self.gender__value = gender__value
+        self.gender_optional = gender_optional
+        self.gender_patient_edit = gender_patient_edit

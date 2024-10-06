@@ -17,7 +17,11 @@ class DateOfBirthAPI(DateOfBirthAPIMixin, PseudopatientBaseAPI):
         dateofbirth: Union["DateOfBirth", "UUID", None],
         dateofbirth__value: Union["date", None],
         patient: Union["Pseudopatient", "UUID", None],
+        dateofbirth_optional: bool = False,
+        dateofbirth_patient_edit: bool = True,
     ):
         super().__init__(patient=patient)
         self.dateofbirth = dateofbirth
         self.dateofbirth__value = dateofbirth__value
+        self.dateofbirth_optional = dateofbirth_optional
+        self.dateofbirth_patient_edit = dateofbirth_patient_edit

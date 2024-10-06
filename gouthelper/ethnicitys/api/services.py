@@ -17,7 +17,11 @@ class EthnicityAPI(EthnicityAPIMixin, PseudopatientBaseAPI):
         ethnicity: Union["Ethnicity", "UUID", None],
         ethnicity__value: Union["Ethnicitys", None],
         patient: Union["Pseudopatient", "UUID", None],
+        ethnicity_optional: bool = False,
+        ethnicity_patient_edit: bool = True,
     ):
         super().__init__(patient=patient)
         self.ethnicity = ethnicity
         self.ethnicity__value = ethnicity__value
+        self.ethnicity_optional = ethnicity_optional
+        self.ethnicity_patient_edit = ethnicity_patient_edit

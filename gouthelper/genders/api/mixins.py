@@ -14,6 +14,8 @@ class GenderAPIMixin(APIMixin):
     gender: Union[Gender, "UUID", None]
     gender__value: Genders | None
     patient: Union["Pseudopatient", None]
+    gender_optional: bool
+    gender_patient_edit: bool
     errors: list[tuple[str, str]]
 
     def get_queryset(self) -> Gender:
@@ -92,3 +94,39 @@ class GenderAPIMixin(APIMixin):
             self.gender.user = self.patient
         self.gender.full_clean()
         self.gender.save()
+
+    def process_gender(self) -> None:
+        self.check_for_gender_process_errors()
+        self.check_for_and_raise_errors(model_name="Gender")
+        if not self.gender and self.gender__value is not None:
+            self.create_gender()
+        elif self.gender and self.gender__value is not None and self.gender_needs_save:
+            self.update_gender()
+
+    def check_for_gender_process_errors(self) -> None:
+        if self.patient and not self.gender_patient_edit and self.gender__value is not None:
+            self.add_errors(
+                api_args=[
+                    (
+                        "gender__value",
+                        f"Can't edit Gender value for {self.patient} in {self.__class__.__name__}.",
+                    )
+                ],
+            )
+        if not self.gender_optional and self.missing_gender__value_or_patient_gender:
+            if self.missing_patient_gender:
+                self.add_errors(
+                    api_args=[("gender", f"Gender required for {self.patient}.")],
+                )
+            elif self.gender__value is None:
+                self.add_errors(
+                    api_args=[("gender__value", "Gender value is required.")],
+                )
+
+    @property
+    def missing_gender__value_or_patient_gender(self) -> bool:
+        return self.gender__value is None or self.missing_patient_gender
+
+    @property
+    def missing_patient_gender(self) -> bool:
+        return self.patient and not self.gender and not self.gender_patient_edit

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
-from django.contrib.auth import get_user_model
-
+from ...dateofbirths.api.mixins import DateOfBirthAPIMixin
+from ...genders.api.mixins import GenderAPIMixin
 from ...medhistorys.api.mixins import (
     AnginaAPIMixin,
     CadAPIMixin,
@@ -14,15 +14,12 @@ from ...medhistorys.api.mixins import (
     PvdAPIMixin,
     StrokeAPIMixin,
 )
-
-User = get_user_model()
+from ..models import Flare
 
 if TYPE_CHECKING:
     from datetime import date
     from decimal import Decimal
     from uuid import UUID
-
-    from django.contrib.auth import get_user_model  # pylint:disable=E0401  # type: ignore
 
     from ...akis.choices import Statuses
     from ...akis.models import Aki
@@ -47,12 +44,11 @@ if TYPE_CHECKING:
     )
     from ...users.models import Pseudopatient
     from ..choices import DiagnosedChoices, LimitedJointChoices
-    from ..models import Flare
-
-    User = get_user_model()
 
 
 class FlareAPIMixin(
+    DateOfBirthAPIMixin,
+    GenderAPIMixin,
     AnginaAPIMixin,
     CadAPIMixin,
     ChfAPIMixin,
@@ -87,12 +83,14 @@ class FlareAPIMixin(
     crystal_analysis: bool
     dateofbirth: Union["DateOfBirth", "UUID", None]
     dateofbirth__value: Union["date", None]
+    dateofbirth_optional: bool = True
     date_ended: Union["date", None]
     date_started: "date"
     diagnosed: Union["DiagnosedChoices", None]
     flareaid: Union["FlareAid", "UUID", None]
     gender: Union["Gender", None]
     gender__value: Union["Genders", None]
+    gender_optional: bool = True
     gout: Union["Gout", "MedHistory", "UUID", None]
     gout__value: bool | None
     joints: list["LimitedJointChoices"]
@@ -110,3 +108,46 @@ class FlareAPIMixin(
     stroke__value: bool | None
     urate: Union["Urate", "UUID", None]
     urate__value: Union["Decimal", None]
+
+    def create_flare(self) -> Flare:
+        self.set_attrs()
+        self.check_for_flare_create_errors()
+        self.check_for_and_raise_errors(model_name="Flare")
+        self.process_dateofbirth()
+        self.process_gender()
+        self.process_aki()
+        self.process_urate()
+        self.flare = Flare.objects.create(
+            patient=self.patient,
+            date_started=self.date_started,
+            date_ended=self.date_ended,
+            onset=self.onset,
+            redness=self.redness,
+            crystal_analysis=self.crystal_analysis,
+            diagnosed=self.diagnosed,
+            flareaid=self.flareaid,
+            joints=self.joints,
+        )
+        self.process_angina()
+        self.process_cad()
+        self.process_chf()
+        self.process_ckd()
+        self.process_gout()
+        self.process_heartattack()
+        self.process_hypertension()
+        self.process_menopause()
+        self.process_pvd()
+        self.process_stroke()
+        return self.flare
+
+    def set_attrs(self) -> None:
+        """Updates the instance attributes for correct processing between related models."""
+        if self.baselinecreatinine__value:
+            self.dateofbirth_optional = False
+            self.gender_optional = False
+
+    def check_for_flare_create_errors(self):
+        if self.flare:
+            self.add_errors(
+                api_args=[("flare", f"{self.flare} already exists.")],
+            )

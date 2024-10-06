@@ -14,6 +14,8 @@ class DateOfBirthAPIMixin(APIMixin):
     dateofbirth: Union[DateOfBirth, "UUID", None]
     dateofbirth__value: date | None
     patient: Union["Pseudopatient", None]
+    dateofbirth_optional: bool
+    dateofbirth_patient_edit: bool
 
     def get_queryset(self) -> DateOfBirth:
         if not self.is_uuid(self.dateofbirth):
@@ -91,3 +93,39 @@ class DateOfBirthAPIMixin(APIMixin):
             self.dateofbirth.user = self.patient
         self.dateofbirth.full_clean()
         self.dateofbirth.save()
+
+    def process_dateofbirth(self) -> None:
+        self.check_for_dateofbirth_process_errors()
+        self.check_for_and_raise_errors(model_name="DateOfBirth")
+        if not self.dateofbirth and self.dateofbirth__value:
+            self.create_dateofbirth()
+        elif self.dateofbirth and self.dateofbirth__value and self.dateofbirth_needs_save:
+            self.update_dateofbirth()
+
+    def check_for_dateofbirth_process_errors(self) -> None:
+        if self.patient and not self.dateofbirth_patient_edit and self.dateofbirth__value:
+            self.add_errors(
+                api_args=[
+                    (
+                        "dateofbirth__value",
+                        f"Can't edit DateOfBirth value for {self.patient} in {self.__class__.__name__}.",
+                    )
+                ],
+            )
+        if not self.dateofbirth_optional and self.missing_dateofbirth__value_or_patient_dateofbirth:
+            if self.missing_patient_dateofbirth:
+                self.add_errors(
+                    api_args=[("dateofbirth", f"DateOfBirth required for {self.patient}.")],
+                )
+            elif not self.dateofbirth__value:
+                self.add_errors(
+                    api_args=[("dateofbirth__value", "DateOfBirth value is required.")],
+                )
+
+    @property
+    def missing_dateofbirth__value_or_patient_dateofbirth(self) -> bool:
+        return not self.dateofbirth__value or self.missing_patient_dateofbirth
+
+    @property
+    def missing_patient_dateofbirth(self) -> bool:
+        return self.patient and not self.dateofbirth and not self.dateofbirth_patient_edit

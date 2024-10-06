@@ -171,3 +171,74 @@ class TestEthnicityAPI(TestCase):
         self.mixin.update_ethnicity_instance()
         self.assertEqual(self.ethnicity.value, Ethnicitys.PACIFICISLANDER)
         self.assertEqual(self.ethnicity.user, self.mixin.patient)
+
+    def test__process_ethnicity_create(self):
+        self.mixin.ethnicity = None
+        self.mixin.patient = None
+        self.mixin.process_ethnicity()
+        self.assertIsNotNone(self.mixin.ethnicity)
+        self.assertEqual(self.mixin.ethnicity.value, self.ethnicity.value)
+
+    def test__process_ethnicity_update(self):
+        self.mixin.patient = None
+        new_ethnicity__value = Ethnicitys.PACIFICISLANDER
+        self.mixin.ethnicity__value = new_ethnicity__value
+        self.mixin.process_ethnicity()
+        self.assertEqual(self.mixin.ethnicity.value, new_ethnicity__value)
+
+    def test__check_for_ethnicity_process_errors_not_optional_with_patient(self):
+        self.mixin.ethnicity__value = None
+        self.mixin.ethnicity = None
+        self.mixin.ethnicity_patient_edit = False
+        self.mixin.check_for_ethnicity_process_errors()
+        self.assertIn(("ethnicity", f"Ethnicity required for {self.patient}."), self.mixin.errors)
+
+    def test__check_for_ethnicity_process_errors_not_optional_without_patient(self):
+        self.mixin.ethnicity__value = None
+        self.mixin.ethnicity = None
+        self.mixin.patient = None
+        self.mixin.check_for_ethnicity_process_errors()
+        self.assertIn(("ethnicity__value", "Ethnicity value is required."), self.mixin.errors)
+
+    def test__check_for_ethnicity_process_errors_patient_edit_false(self):
+        self.mixin.ethnicity_patient_edit = False
+        self.mixin.check_for_ethnicity_process_errors()
+        self.assertIn(
+            ("ethnicity__value", f"Can't edit Ethnicity value for {self.patient} in {EthnicityAPI.__name__}."),
+            self.mixin.errors,
+        )
+
+    def test__check_for_ethnicity_process_errors_optional(self):
+        self.mixin.ethnicity__value = None
+        self.mixin.ethnicity = None
+        self.mixin.patient = None
+        self.mixin.ethnicity_optional = True
+        self.mixin.check_for_ethnicity_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__check_for_ethnicity_process_errors_patient_edit(self):
+        self.mixin.ethnicity_patient_edit = True
+        self.mixin.check_for_ethnicity_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__missing_ethnicity__value_or_patient_ethnicity(self):
+        self.mixin.ethnicity__value = None
+        self.assertTrue(self.mixin.missing_ethnicity__value_or_patient_ethnicity)
+        self.mixin.ethnicity__value = self.mixin.ethnicity.value
+        self.mixin.ethnicity = None
+        self.mixin.ethnicity_patient_edit = False
+        self.assertTrue(self.mixin.missing_ethnicity__value_or_patient_ethnicity)
+        self.mixin.ethnicity = self.ethnicity
+        self.assertFalse(self.mixin.missing_ethnicity__value_or_patient_ethnicity)
+        self.mixin.ethnicity = None
+        self.assertTrue(self.mixin.missing_ethnicity__value_or_patient_ethnicity)
+        self.mixin.ethnicity_patient_edit = True
+        self.assertFalse(self.mixin.missing_ethnicity__value_or_patient_ethnicity)
+
+    def test__missing_patient_ethnicity(self):
+        self.assertFalse(self.mixin.missing_patient_ethnicity)
+        self.mixin.ethnicity = None
+        self.mixin.ethnicity_patient_edit = False
+        self.assertTrue(self.mixin.missing_patient_ethnicity)
+        self.mixin.ethnicity_patient_edit = True
+        self.assertFalse(self.mixin.missing_patient_ethnicity)

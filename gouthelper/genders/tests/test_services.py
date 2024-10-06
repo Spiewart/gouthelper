@@ -174,3 +174,75 @@ class TestGenderAPI(TestCase):
         self.mixin.update_gender_instance()
         self.assertEqual(self.gender.value, Genders.FEMALE)
         self.assertEqual(self.gender.user, self.mixin.patient)
+
+    def test__process_gender_create(self):
+        self.mixin.gender = None
+        self.mixin.patient = None
+        self.mixin.process_gender()
+        self.assertIsNotNone(self.mixin.gender)
+        self.assertEqual(self.mixin.gender.value, self.gender.value)
+
+    def test__process_gender_update(self):
+        self.mixin.patient = None
+        new_gender__value = Genders.MALE
+        self.mixin.gender__value = new_gender__value
+        self.mixin.process_gender()
+        self.assertEqual(self.mixin.gender.value, Genders.MALE)
+
+    def test__check_for_gender_process_errors_not_optional_with_patient(self):
+        self.mixin.gender__value = None
+        self.mixin.gender = None
+        self.mixin.gender_patient_edit = False
+        self.mixin.check_for_gender_process_errors()
+        self.assertIn(("gender", f"Gender required for {self.patient}."), self.mixin.errors)
+
+    def test__check_for_gender_process_errors_not_optional_without_patient(self):
+        self.mixin.gender__value = None
+        self.mixin.gender = None
+        self.mixin.patient = None
+        self.mixin.gender_patient_edit = False
+        self.mixin.check_for_gender_process_errors()
+        self.assertIn(("gender__value", "Gender value is required."), self.mixin.errors)
+
+    def test__check_for_gender_process_errors_patient_edit_false(self):
+        self.mixin.gender_patient_edit = False
+        self.mixin.check_for_gender_process_errors()
+        self.assertIn(
+            ("gender__value", f"Can't edit Gender value for {self.patient} in {GenderAPI.__name__}."),
+            self.mixin.errors,
+        )
+
+    def test__check_for_gender_process_errors_optional(self):
+        self.mixin.gender__value = None
+        self.mixin.gender = None
+        self.mixin.patient = None
+        self.mixin.gender_optional = True
+        self.mixin.check_for_gender_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__check_for_gender_process_errors_patient_edit(self):
+        self.mixin.gender_patient_edit = True
+        self.mixin.check_for_gender_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__missing_gender__value_or_patient_gender(self):
+        self.mixin.gender__value = None
+        self.assertTrue(self.mixin.missing_gender__value_or_patient_gender)
+        self.mixin.gender__value = self.mixin.gender.value
+        self.mixin.gender = None
+        self.assertFalse(self.mixin.missing_gender__value_or_patient_gender)
+        self.mixin.gender_patient_edit = False
+        self.assertTrue(self.mixin.missing_gender__value_or_patient_gender)
+        self.mixin.gender = self.gender
+        self.assertFalse(self.mixin.missing_gender__value_or_patient_gender)
+        self.mixin.gender = None
+        self.assertTrue(self.mixin.missing_gender__value_or_patient_gender)
+        self.mixin.gender_patient_edit = True
+        self.assertFalse(self.mixin.missing_gender__value_or_patient_gender)
+
+    def test__missing_patient_gender(self):
+        self.assertFalse(self.mixin.missing_patient_gender)
+        self.mixin.gender = None
+        self.assertFalse(self.mixin.missing_patient_gender)
+        self.mixin.gender_patient_edit = False
+        self.assertTrue(self.mixin.missing_patient_gender)

@@ -172,3 +172,75 @@ class TestDateOfBirthAPI(TestCase):
         self.mixin.update_dateofbirth_instance()
         self.assertEqual(self.dateofbirth.value, date(2001, 1, 1))
         self.assertEqual(self.dateofbirth.user, self.mixin.patient)
+
+    def test__process_dateofbirth_create(self):
+        self.mixin.dateofbirth = None
+        self.mixin.patient = None
+        self.mixin.process_dateofbirth()
+        self.assertIsNotNone(self.mixin.dateofbirth)
+        self.assertEqual(self.mixin.dateofbirth.value, self.dateofbirth.value)
+
+    def test__process_dateofbirth_update(self):
+        self.mixin.patient = None
+        new_dateofbirth__value = "2002-03-03"
+        self.mixin.dateofbirth__value = new_dateofbirth__value
+        self.mixin.process_dateofbirth()
+        self.assertEqual(self.mixin.dateofbirth.value, date(2002, 3, 3))
+
+    def test__check_for_dateofbirth_process_errors_not_optional_with_patient(self):
+        self.mixin.dateofbirth__value = None
+        self.mixin.dateofbirth = None
+        self.mixin.dateofbirth_patient_edit = False
+        self.mixin.check_for_dateofbirth_process_errors()
+        self.assertIn(("dateofbirth", f"DateOfBirth required for {self.patient}."), self.mixin.errors)
+
+    def test__check_for_dateofbirth_process_errors_not_optional_without_patient(self):
+        self.mixin.dateofbirth__value = None
+        self.mixin.dateofbirth = None
+        self.mixin.patient = None
+        self.mixin.dateofbirth_patient_edit = False
+        self.mixin.check_for_dateofbirth_process_errors()
+        self.assertIn(("dateofbirth__value", "DateOfBirth value is required."), self.mixin.errors)
+
+    def test__check_for_dateofbirth_process_errors_patient_edit_false(self):
+        self.mixin.dateofbirth_patient_edit = False
+        self.mixin.check_for_dateofbirth_process_errors()
+        self.assertIn(
+            ("dateofbirth__value", f"Can't edit DateOfBirth value for {self.patient} in {DateOfBirthAPI.__name__}."),
+            self.mixin.errors,
+        )
+
+    def test__check_for_dateofbirth_process_errors_optional(self):
+        self.mixin.dateofbirth__value = None
+        self.mixin.dateofbirth = None
+        self.mixin.patient = None
+        self.mixin.dateofbirth_optional = True
+        self.mixin.check_for_dateofbirth_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__check_for_dateofbirth_process_errors_patient_edit(self):
+        self.mixin.dateofbirth_patient_edit = True
+        self.mixin.check_for_dateofbirth_process_errors()
+        self.assertFalse(self.mixin.errors)
+
+    def test__missing_dateofbirth__value_or_patient_dateofbirth(self):
+        self.mixin.dateofbirth__value = None
+        self.assertTrue(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+        self.mixin.dateofbirth__value = self.mixin.dateofbirth.value
+        self.mixin.dateofbirth = None
+        self.assertFalse(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+        self.mixin.dateofbirth_patient_edit = False
+        self.assertTrue(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+        self.mixin.dateofbirth = self.dateofbirth
+        self.assertFalse(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+        self.mixin.dateofbirth = None
+        self.assertTrue(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+        self.mixin.dateofbirth_patient_edit = True
+        self.assertFalse(self.mixin.missing_dateofbirth__value_or_patient_dateofbirth)
+
+    def test__missing_patient_dateofbirth(self):
+        self.assertFalse(self.mixin.missing_patient_dateofbirth)
+        self.mixin.dateofbirth = None
+        self.assertFalse(self.mixin.missing_patient_dateofbirth)
+        self.mixin.dateofbirth_patient_edit = False
+        self.assertTrue(self.mixin.missing_patient_dateofbirth)
