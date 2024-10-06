@@ -4,7 +4,7 @@ from ...labs.api.serializers import CreatinineSerializer
 from ..models import Aki
 
 
-class AkiSerializer(serializers.ModelSerializer):
+class AkiSerializer(serializers.ModelSerializer[Aki]):
     creatinines_qs = CreatinineSerializer(many=True, read_only=True)
 
     class Meta:

@@ -1,6 +1,10 @@
 from typing import TYPE_CHECKING, Literal, TypedDict, Union
 
 if TYPE_CHECKING:
+    from datetime import date
+    from decimal import Decimal
+    from uuid import UUID
+
     from django.db.models import Model  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
@@ -141,3 +145,15 @@ MedHistoryNames = Union[
     Literal["uratestones"],
     Literal["xoiinteraction"],
 ]
+
+
+CreatinineData = TypedDict(
+    "CreatinineDataFormat",
+    {
+        "id": "UUID",
+        "value": "Decimal",
+        "date_drawn": "date",
+        "user": Union["UUID", None],
+        "aki": Union["UUID", None],
+    },
+)
