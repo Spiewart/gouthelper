@@ -23,4 +23,10 @@ Suite of tools and informational pages to help clinicians manage and patients un
 
 - Content: Most of the content for the site is written in Markdown. Anyone with a knowledge of gout or rheumatology who would like to contribute, please get in touch.
   The guide for writing Markdown for GoutHelper is in EDITORS.md.
-- Continuous Integration and Deployment: To update the site, I currently have to manually log in to the server, Git pull the latest changes, and restart the Docker containers. I would like to automate this process using GitHub Actions but I cannot make the script work properly. If you have experience with GitHub Actions and Docker and want to contribute, please get in touch.
+- Continuous Integration and Deployment: After much novice trial-and-error, CI/CD is working via GitHub actions, making life slightly easier. An outstanding issue is that templates are cached and do not update when I update a Markdown file. I have to update the file, log in to the admin, and open the model instance referencing the .md file and save it in order for the template to refresh. Anyone who has advice on how to refresh the cache or specific model instances programmatically during CI/CD please reach out.
+
+# To Do / Timeline
+
+- Gout is complicated enough that a fair amount of user input is required in order to get quality recommendations (i.e. lots of form fields). The "rest" branch is my initial attempts to **build out the API** using Django REST framework such that I will be able to take data in non-form formats that could be more easily consolidated from other sources.
+- Once the API is functional, my goal is to attempt using AI tools to translate medical records into discrete Python datatypes or a data format compatible with the API (i.e. JSON with correct key-value pairing). This could make getting recommendations from GoutHelper a lot easier.
+- I also want to build out GoutHelper's tools to manage gout longitudinally, i.e. monitor labs and in the context of flares, potential side effects, and changes in medical status.
