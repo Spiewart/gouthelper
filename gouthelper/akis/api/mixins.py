@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from ...labs.helpers import labs_sort_list_of_generics_by_date_drawn_desc
 from ...utils.services import APIMixin
 from ..choices import Statuses
 from ..models import Aki
@@ -40,9 +41,14 @@ class AkiAPIMixin(APIMixin):
         self.patient = self.aki.user if not self.patient else self.patient
 
     def create_aki(self) -> Aki:
+        self.order_aki__creatinines_by_date_drawn_desc()
         self.check_for_aki_create_errors()
         self.check_for_and_raise_errors(model_name="Aki")
         pass
+
+    def order_aki__creatinines_by_date_drawn_desc(self):
+        if self.aki__creatinines:
+            labs_sort_list_of_generics_by_date_drawn_desc(self.aki__creatinines)
 
     def check_for_aki_create_errors(self):
         if self.aki:

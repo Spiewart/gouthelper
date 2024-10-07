@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from django.db.models import Model  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
+    from ..akis.models import Aki
     from ..flareaids.models import FlareAid
     from ..flares.models import Flare
     from ..goalurates.models import GoalUrate
@@ -147,13 +148,18 @@ MedHistoryNames = Union[
 ]
 
 
+class LabData(TypedDict):
+    id: "UUID"
+    value: "Decimal"
+    date_drawn: "date"
+    user: Union["UUID", None]
+
+
 CreatinineData = TypedDict(
-    "CreatinineDataFormat",
-    {
-        "id": "UUID",
-        "value": "Decimal",
-        "date_drawn": "date",
-        "user": Union["UUID", None],
-        "aki": Union["UUID", None],
-    },
+    "CreatinineData",
+    LabData.update(
+        {
+            "aki": Union["Aki", "UUID", None],
+        }
+    ),
 )

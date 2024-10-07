@@ -4,7 +4,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.core.exceptions import ValidationError  # type: ignore
-from django.forms.models import BaseModelFormSet  # type: ignore
+from django.db.models import Model  # type: ignore
+from django.forms import BaseModelFormSet  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 
@@ -13,9 +14,12 @@ from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
+    from uuid import UUID
+
     from django.db.models.query import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
+    from ..utils.types import LabData
     from .forms import PpxUrateFormSet, UrateForm
     from .models import BaselineCreatinine, Creatinine, Lab, Urate
 
@@ -182,6 +186,15 @@ def labs_sort_list_by_date_drawn(
 ) -> None:
     """Method that orders a list or QuerySet of labs by date_drawn."""
     labs.sort(key=lambda x: x.date_drawn, reverse=True)
+
+
+def labs_sort_list_of_generics_by_date_drawn_desc(labs: list["Lab", "UUID", "LabData"]) -> None:
+    labs.sort(
+        key=lambda x: (
+            x.date_drawn if isinstance(x, Model) else x["date_drawn"] if isinstance(x, dict) else x[0].date_drawn,
+        ),
+        reverse=True,
+    )
 
 
 def labs_round_decimal(value: Decimal, places: int) -> Decimal:
