@@ -1326,7 +1326,7 @@ these medications."
     def nsaid_info(cls):
         return {
             "Availability": "Prescription only",
-            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding \
+            "Side Effects": "Stomach upset, heartburn, increased risk of bleeding, \
 rash, fluid retention, and decreased kidney function",
         }
 
