@@ -24,8 +24,9 @@ from ..helpers import (
     labs_eGFR_range_for_stage,
     labs_formset_get_most_recent_form,
     labs_formset_order_by_date_drawn_remove_deleted_and_blank_forms,
+    labs_get_value_from_model_instance_or_json,
     labs_round_decimal,
-    labs_sort_list_of_generics_by_date_drawn_desc,
+    labs_sort_list_by_date_drawn,
     labs_stage_calculator,
     labs_urate_form_at_goal_within_last_month,
     labs_urate_formset_at_goal_for_six_months,
@@ -72,17 +73,17 @@ class TestLabsCreatinineWithinRangeForStage(TestCase):
 class TestLabsCreatininesAreImproving(TestCase):
     def test__returns_True(self):
         creatinines = [
-            CreatinineFactory(value=Decimal("1.0")),
-            CreatinineFactory(value=Decimal("2.0")),
-            CreatinineFactory(value=Decimal("3.0")),
+            CreatinineFactory(value=Decimal("1.0"), date_drawn=timezone.now() - timedelta(days=1)),
+            CreatinineFactory(value=Decimal("2.0"), date_drawn=timezone.now() - timedelta(days=5)),
+            CreatinineFactory(value=Decimal("3.0"), date_drawn=timezone.now() - timedelta(days=10)),
         ]
         self.assertTrue(labs_creatinines_are_improving(creatinines))
 
     def test__returns_False(self):
         creatinines = [
-            CreatinineFactory(value=Decimal("3.0")),
-            CreatinineFactory(value=Decimal("2.0")),
-            CreatinineFactory(value=Decimal("1.0")),
+            CreatinineFactory(value=Decimal("3.0"), date_drawn=timezone.now() - timedelta(days=1)),
+            CreatinineFactory(value=Decimal("2.0"), date_drawn=timezone.now() - timedelta(days=5)),
+            CreatinineFactory(value=Decimal("1.0"), date_drawn=timezone.now() - timedelta(days=10)),
         ]
         self.assertFalse(labs_creatinines_are_improving(creatinines))
 
@@ -262,21 +263,16 @@ class TestLabsSortListOfGenericsByDateDrawnDesc(TestCase):
 
     def test__sorts_with_all_model_instances(self):
         unordered_list = [self.creatinine2, self.creatinine3, self.creatinine1]
-        labs_sort_list_of_generics_by_date_drawn_desc(unordered_list)
+        labs_sort_list_by_date_drawn(unordered_list)
         self.assertEqual(unordered_list, [self.creatinine3, self.creatinine2, self.creatinine1])
 
-    def test__sorts_with_all_uuids(self):
-        unordered_list = [self.creatinine2.pk, self.creatinine3.pk, self.creatinine1.pk]
-        labs_sort_list_of_generics_by_date_drawn_desc(unordered_list)
-        self.assertEqual(unordered_list, [self.creatinine3.pk, self.creatinine2.pk, self.creatinine1.pk])
-
-    def test__sorts_with_all_dicts(self):
+    def test__sorts_with_JSON(self):
         unordered_list = [
             {"date_drawn": self.creatinine2.date_drawn, "pk": self.creatinine2.pk},
             {"date_drawn": self.creatinine3.date_drawn, "pk": self.creatinine3.pk},
             {"date_drawn": self.creatinine1.date_drawn, "pk": self.creatinine1.pk},
         ]
-        labs_sort_list_of_generics_by_date_drawn_desc(unordered_list)
+        labs_sort_list_by_date_drawn(unordered_list)
         self.assertEqual(
             unordered_list,
             [
@@ -285,6 +281,32 @@ class TestLabsSortListOfGenericsByDateDrawnDesc(TestCase):
                 {"date_drawn": self.creatinine1.date_drawn, "pk": self.creatinine1.pk},
             ],
         )
+
+    def labs_sort_list_by_date_drawn_model_instances_and_JSON(self):
+        unordered_list = [
+            self.creatinine2,
+            {"date_drawn": self.creatinine3.date_drawn, "pk": self.creatinine3.pk},
+            self.creatinine1,
+        ]
+        labs_sort_list_by_date_drawn(unordered_list)
+        self.assertEqual(
+            unordered_list,
+            [
+                {"date_drawn": self.creatinine3.date_drawn, "pk": self.creatinine3.pk},
+                self.creatinine2,
+                self.creatinine1,
+            ],
+        )
+
+
+class TestLabsGetValueFromModelInstanceOrJSON(TestCase):
+    def setUp(self):
+        self.creatinine = CreatinineFactory(value=Decimal("1.0"))
+        self.creatinine_json = {"value": Decimal("2.0")}
+
+    def test__returns_correct_value(self):
+        self.assertEqual(labs_get_value_from_model_instance_or_json(self.creatinine), Decimal("1.0"))
+        self.assertEqual(labs_get_value_from_model_instance_or_json(self.creatinine_json), Decimal("2.0"))
 
 
 class TestLabsUratesChronologicalDates(TestCase):

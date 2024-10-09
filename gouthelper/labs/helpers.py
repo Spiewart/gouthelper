@@ -14,8 +14,6 @@ from ..goalurates.choices import GoalUrates
 from ..medhistorydetails.choices import Stages
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from django.db.models.query import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
@@ -59,13 +57,14 @@ def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
 
 
 def labs_creatinine_is_at_baseline_creatinine(
-    creatinine: "Creatinine",
+    creatinine: Union["Creatinine", "LabData"],
     baseline_creatinine: Decimal,
 ) -> bool:
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=).-,Table%202.,-AKI%20definition%20and
+    creatinine_value = labs_get_value_from_model_instance_or_json(creatinine)
     return not (
-        creatinine.value >= baseline_creatinine + Decimal(0.3)
-        or creatinine.value >= baseline_creatinine * Decimal(1.5)
+        creatinine_value >= baseline_creatinine + Decimal(0.3)
+        or creatinine_value >= baseline_creatinine * Decimal(1.5)
     )
 
 
@@ -125,23 +124,58 @@ def labs_creatinines_add_stage_to_new_objects(
             creatinine.stage = stage
 
 
-def labs_creatinines_improved(
-    current_creatinine: "Creatinine",
-    prior_creatinine: "Creatinine",
+def labs_get_value_from_model_instance_or_json(
+    lab: Union["Lab", "LabData"],
+) -> Decimal:
+    return lab["value"] if isinstance(lab, dict) else lab.value
+
+
+def labs_get_date_drawn_from_model_instance_or_json(
+    lab: Union["Lab", "LabData"],
+) -> datetime.date:
+    return lab["date_drawn"] if isinstance(lab, dict) else lab.date_drawn
+
+
+def labs_newer_creatinine_improved_from_older(
+    newer_creatinine: Union["Creatinine", "LabData"],
+    older_creatinine: Union["Creatinine", "LabData"],
+    definition_of_improvement: Decimal = Decimal(0.3),
 ) -> bool:
     """Method that checks if a list or QuerySet of creatinines are improving."""
-    return current_creatinine.value - prior_creatinine.value >= Decimal(0.3)
+    if not newer_creatinine_is_newer_than_older(
+        newer_creatinine=newer_creatinine,
+        older_creatinine=older_creatinine,
+    ):
+        raise ValueError(f"{newer_creatinine} is older than {older_creatinine}.")
+    return (labs_get_value_from_model_instance_or_json(older_creatinine)) - (
+        labs_get_value_from_model_instance_or_json(newer_creatinine)
+    ) >= definition_of_improvement
+
+
+def newer_creatinine_is_newer_than_older(
+    newer_creatinine: Union["Creatinine", "LabData"],
+    older_creatinine: Union["Creatinine", "LabData"],
+) -> bool:
+    newer_date_drawn = labs_get_date_drawn_from_model_instance_or_json(newer_creatinine)
+    older_date_drawn = labs_get_date_drawn_from_model_instance_or_json(older_creatinine)
+    return newer_date_drawn > older_date_drawn
 
 
 def labs_creatinines_are_improving(
-    creatinines: Union["QuerySet[Creatinine]", list["Creatinine"]],
+    creatinines: Union["QuerySet[Creatinine]", list["Creatinine", "LabData"]],
 ) -> bool:
     """Method that checks if a list or QuerySet of creatinines are improving."""
     for creatinine_i, creatinine in enumerate(creatinines):
         if (
             creatinine_i > 0
-            and labs_creatinines_improved(creatinine, creatinines[creatinine_i - 1])
-            and creatinines[0].value <= creatinine.value
+            and labs_newer_creatinine_improved_from_older(
+                newer_creatinine=creatinines[creatinine_i - 1],
+                older_creatinine=creatinine,
+            )
+            and (
+                labs_get_value_from_model_instance_or_json(creatinines[0])
+                <= labs_get_value_from_model_instance_or_json(creatinines[creatinine_i - 1])
+            )
         ):
             return True
     return False
@@ -182,17 +216,11 @@ This would typically mean the patient is on dialysis."
 
 
 def labs_sort_list_by_date_drawn(
-    labs: list["Lab"],
+    labs: list["Lab", "LabData"],
 ) -> None:
-    """Method that orders a list or QuerySet of labs by date_drawn."""
-    labs.sort(key=lambda x: x.date_drawn, reverse=True)
-
-
-def labs_sort_list_of_generics_by_date_drawn_desc(labs: list["Lab", "UUID", "LabData"]) -> None:
+    """Sorts a list of labs or JSON data by date_drawn field."""
     labs.sort(
-        key=lambda x: (
-            x.date_drawn if isinstance(x, Model) else x["date_drawn"] if isinstance(x, dict) else x[0].date_drawn,
-        ),
+        key=lambda x: (x.date_drawn if isinstance(x, Model) else x["date_drawn"],),
         reverse=True,
     )
 

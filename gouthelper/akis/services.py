@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
-class AkiAPIMixin:
+class AkiAPI:
     """Mixin class that checks for conflicts in Aki attributes and relatated objects."""
 
     def __init__(
@@ -33,7 +33,7 @@ class AkiAPIMixin:
         self.stage = stage
 
 
-class AkiCreator(AkiAPIMixin):
+class AkiCreator(AkiAPI):
     def __init__(
         self,
         status: Statuses,
@@ -93,7 +93,7 @@ class AkiProcessor:
                     self.add_errors_for_aki_and_creatinines(message)
             else:
                 if self.aki_is_resolved_via_creatinines:
-                    message = "The AKI is marked as not resolved, but the creatinines suggest it is."
+                    message = "The AKI is marked as ongoing, but the creatinines suggest it is."
                     self.add_errors_for_aki_and_creatinines(message)
                 elif self.aki_is_improving_via_creatinines:
                     message = "The AKI is marked as ongoing, but the creatinines suggest it is improving."
