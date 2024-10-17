@@ -175,6 +175,8 @@ class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
     creatinines: list["Creatinine", "UUID", None]
 
     def get_queryset(self) -> Aki:
+        # TODO: write tests for this method
+
         if self.patient and self.is_uuid(self.patient) and self.aki and self.is_uuid(self.aki):
             return Aki.related_user_objects.filter(user=self.patient, id=self.aki)
         elif self.aki and self.is_uuid(self.aki):
@@ -183,6 +185,8 @@ class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
             raise TypeError("aki or patient arg must be a UUID to call get_queryset().")
 
     def set_attrs_from_qs(self) -> None:
+        # TODO: write tests for this method
+
         self.aki = self.get_queryset().get()
         self.creatinines = self.aki.creatinines.all()
         self.patient = self.aki.user if not self.patient else self.patient
@@ -210,6 +214,6 @@ class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
 
     def check_for_aki_update_errors(self):
         if not self.aki:
-            self.add_errors(api_args=[("aki", "Aki not found for update.")])
+            self.add_errors(api_args=[("aki", "Aki instance is required.")])
         self.order_creatinines_data_by_date_drawn_desc()
         self.check_for_creatinine_aki_status_errors()
