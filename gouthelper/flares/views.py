@@ -127,6 +127,8 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
                     baselinecreatinine=(baselinecreatinine if baselinecreatinine else None),
                     stage=stage,
                 )
+                print(status)
+                print(ordered_list_of_creatinines)
                 if status is not None and status != "":
                     aki_creatinine_errors = processor.get_errors()
                     if aki_creatinine_errors:

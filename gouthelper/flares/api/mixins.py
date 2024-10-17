@@ -60,11 +60,10 @@ class FlareAPIMixin(
     PvdAPIMixin,
     StrokeAPIMixin,
 ):
-    flare: Union["Flare", "UUID", None]
     patient: Union["Pseudopatient", None]
     aki: Union["Aki", "UUID", bool, None]
     aki__status: Union["Statuses", None]
-    aki__creatinines: list["Creatinine", "UUID"] | None
+    creatinines_data: list["Creatinine", "UUID"] | None
     angina: Union["MedHistory", "UUID", None]
     angina__value: bool | None
     cad: Union["Cad", "MedHistory", "UUID", None]
@@ -109,6 +108,14 @@ class FlareAPIMixin(
     urate: Union["Urate", "UUID", None]
     urate__value: Union["Decimal", None]
 
+    def set_attrs(self) -> None:
+        """Updates the instance attributes for correct processing between related models."""
+        if self.baselinecreatinine__value:
+            self.dateofbirth_optional = False
+            self.gender_optional = False
+
+
+class FlareAPICreateMixin(FlareAPIMixin):
     def create_flare(self) -> Flare:
         self.set_attrs()
         self.check_for_flare_create_errors()
@@ -140,14 +147,12 @@ class FlareAPIMixin(
         self.process_stroke()
         return self.flare
 
-    def set_attrs(self) -> None:
-        """Updates the instance attributes for correct processing between related models."""
-        if self.baselinecreatinine__value:
-            self.dateofbirth_optional = False
-            self.gender_optional = False
-
     def check_for_flare_create_errors(self):
         if self.flare:
             self.add_errors(
                 api_args=[("flare", f"{self.flare} already exists.")],
             )
+
+
+class FlareAPIUpdateMixin(FlareAPIMixin):
+    flare: Union["Flare", "UUID", None]

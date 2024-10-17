@@ -14,6 +14,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers import get_qs_or_set
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import Statuses
+from .managers import AkiManager, AkiUserManager
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -40,11 +41,6 @@ class Aki(
             "view": view_object,
         }
         constraints = [
-            # If there's a User, there can be no associated Ppx objects
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_user_ppx_exclusive",
-                check=(models.Q(user__isnull=False) | models.Q(user__isnull=True)),
-            ),
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_status_is_valid",
                 check=models.Q(status__in=Statuses.values),
@@ -65,6 +61,8 @@ class Aki(
     history = HistoricalRecords()
 
     objects = models.Manager()
+    related_objects = AkiManager()
+    related_user_objects = AkiUserManager()
 
     @cached_property
     def age(self) -> int | None:
@@ -125,3 +123,8 @@ class Aki(
 
     def __str__(self) -> str:
         return f"AKI, {self.get_status_display()}"
+
+    def update(self, status: Statuses) -> None:
+        if self.status != status:
+            self.status = status
+            self.save()

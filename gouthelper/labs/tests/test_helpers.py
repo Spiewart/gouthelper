@@ -19,7 +19,7 @@ from ..helpers import (
     labs_creatinine_calculate_min_max_creatinine_from_stage_age_gender,
     labs_creatinine_within_range_for_stage,
     labs_creatinines_are_drawn_more_than_1_day_apart,
-    labs_creatinines_are_improving,
+    labs_creatinines_improving,
     labs_eGFR_calculator,
     labs_eGFR_range_for_stage,
     labs_formset_get_most_recent_form,
@@ -77,7 +77,7 @@ class TestLabsCreatininesAreImproving(TestCase):
             CreatinineFactory(value=Decimal("2.0"), date_drawn=timezone.now() - timedelta(days=5)),
             CreatinineFactory(value=Decimal("3.0"), date_drawn=timezone.now() - timedelta(days=10)),
         ]
-        self.assertTrue(labs_creatinines_are_improving(creatinines))
+        self.assertTrue(labs_creatinines_improving(creatinines))
 
     def test__returns_False(self):
         creatinines = [
@@ -85,7 +85,7 @@ class TestLabsCreatininesAreImproving(TestCase):
             CreatinineFactory(value=Decimal("2.0"), date_drawn=timezone.now() - timedelta(days=5)),
             CreatinineFactory(value=Decimal("1.0"), date_drawn=timezone.now() - timedelta(days=10)),
         ]
-        self.assertFalse(labs_creatinines_are_improving(creatinines))
+        self.assertFalse(labs_creatinines_improving(creatinines))
 
 
 class TestLabsCreatininesAreDrawnMoreThan24HoursApart(TestCase):

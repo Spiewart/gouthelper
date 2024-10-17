@@ -6,7 +6,7 @@ from django.utils.functional import cached_property
 from ..labs.helpers import (
     labs_check_chronological_order_by_date_drawn,
     labs_creatinines_add_stage_to_new_objects,
-    labs_creatinines_are_improving,
+    labs_creatinines_improving,
     labs_creatinines_update_baselinecreatinine,
 )
 from .choices import Statuses
@@ -15,38 +15,6 @@ from .helpers import akis_get_status_from_creatinines
 if TYPE_CHECKING:
     from ..labs.models import BaselineCreatinine, Creatinine
     from ..medhistorydetails.choices import Stages
-
-
-class AkiAPI:
-    """Mixin class that checks for conflicts in Aki attributes and relatated objects."""
-
-    def __init__(
-        self,
-        status: Statuses,
-        creatinines: list["Creatinine"],
-        baselinecreatinine: Union["BaselineCreatinine", None],
-        stage: Union["Stages", None] = None,
-    ):
-        self.status = status
-        self.creatinines = creatinines
-        self.baselinecreatinine = baselinecreatinine
-        self.stage = stage
-
-
-class AkiCreator(AkiAPI):
-    def __init__(
-        self,
-        status: Statuses,
-        creatinines: list["Creatinine"],
-        baselinecreatinine: Union["BaselineCreatinine", None],
-        stage: Union["Stages", None] = None,
-    ):
-        super().__init__(
-            status=status,
-            creatinines=creatinines,
-            baselinecreatinine=baselinecreatinine,
-            stage=stage,
-        )
 
 
 class AkiProcessor:
@@ -117,7 +85,7 @@ class AkiProcessor:
 
     @cached_property
     def aki_is_improving_via_creatinines(self) -> bool:
-        return labs_creatinines_are_improving(self.creatinines)
+        return labs_creatinines_improving(self.creatinines)
 
     def add_errors_for_aki_and_creatinines(self, message: str) -> None:
         self.check_for_and_add_aki_to_errors()

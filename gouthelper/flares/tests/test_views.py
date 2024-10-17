@@ -404,8 +404,8 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
             otos={"aki": True},
             mhs=None,
             creatinines=[
-                CreatinineFactory(value=Decimal("3.0")),
-                CreatinineFactory(value=Decimal("2.0")),
+                CreatinineFactory(value=Decimal("3.0"), date_drawn=timezone.now() - timedelta(days=4)),
+                CreatinineFactory(value=Decimal("1.9"), date_drawn=timezone.now() - timedelta(days=2)),
             ],
         )
         flare_data.update({"date_started": str((timezone.now() - timedelta(days=5)).date())})

@@ -42,7 +42,7 @@ class FlareAPIMixin:
         self,
         aki: Union["Aki", "UUID", bool, None],
         aki__status: Union["Statuses", None],
-        aki__creatinines: list["Creatinine", "UUID"] | None,
+        creatinines_data: list["Creatinine", "UUID"] | None,
         angina: Union["MedHistory", "UUID", bool],
         cad: Union["MedHistory", "UUID", bool],
         chf: Union["MedHistory", "UUID", bool],

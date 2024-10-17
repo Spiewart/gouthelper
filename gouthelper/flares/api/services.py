@@ -41,7 +41,7 @@ class FlareAPI(FlareAPIMixin, PseudopatientBaseAPI):
         patient: Union["Pseudopatient", "UUID", None],
         aki: Union["Aki", "UUID", bool, None],
         aki__status: Union["Statuses", None],
-        aki__creatinines: list["Creatinine", "UUID"] | None,
+        creatinines_data: list["Creatinine", "UUID"] | None,
         angina: Union["MedHistory", "UUID", None],
         angina__value: bool | None,
         cad: Union["Cad", "MedHistory", "UUID", None],
@@ -89,7 +89,7 @@ class FlareAPI(FlareAPIMixin, PseudopatientBaseAPI):
         self.patient = patient
         self.aki = aki
         self.aki__status = aki__status
-        self.aki__creatinines = aki__creatinines
+        self.creatinines_data = creatinines_data
         self.angina = angina
         self.angina__value = angina__value
         self.cad = cad

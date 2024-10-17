@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from ..labs.helpers import labs_creatinines_are_improving
+from ..labs.helpers import labs_creatinines_improving
 from .choices import Statuses
 
 if TYPE_CHECKING:
@@ -26,6 +26,6 @@ def akis_get_status_from_creatinines(
     if ordered_list_of_creatinines:
         if akis_aki_is_resolved_via_creatinines(ordered_list_of_creatinines[0]):
             return Statuses.RESOLVED
-        elif labs_creatinines_are_improving(ordered_list_of_creatinines):
+        elif labs_creatinines_improving(ordered_list_of_creatinines):
             return Statuses.IMPROVING
     return Statuses.ONGOING

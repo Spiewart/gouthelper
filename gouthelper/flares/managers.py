@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, Union
 from django.db import transaction
 from django.db.models import Manager, QuerySet
 
+from ..akis.api.services import AkiAPICreate
 from ..akis.choices import Statuses  # type: ignore
-from ..akis.services import AkiCreator
 from ..dateofbirths.helpers import age_calc
 from ..medhistorydetails.choices import DialysisChoices
 from ..medhistorydetails.services import CkdDetailCreator
@@ -40,7 +40,7 @@ class FlareManager(Manager):
         self,
         aki: bool | None,
         aki__status: Statuses | None,
-        aki__creatinines: list["Decimal"] | None,
+        creatinines_data: list["Decimal"] | None,
         angina: bool,
         cad: bool,
         chf: bool,
@@ -87,9 +87,9 @@ class FlareManager(Manager):
                     errors.append(ckddetail_service.errors)
             if aki:
                 try:
-                    aki_service = AkiCreator(
+                    aki_service = AkiAPICreate(
                         status=aki__status,
-                        creatinines=aki__creatinines,
+                        creatinines=creatinines_data,
                         baselinecreatinine=baselinecreatinine,
                         stage=ckddetail_service.stage if ckd else None,
                     )
@@ -105,7 +105,7 @@ class FlareManager(Manager):
 
                 # Create directly related objects
                 # if aki:
-                # aki = AkiEditor(status=aki__status, creatinines=aki__creatinines)
+                # aki = AkiEditor(status=aki__status, creatinines=creatinines_data)
                 # if urate:
                 # urate = UrateEditor.create()
                 # else:

@@ -7,7 +7,7 @@ from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...akis.tests.factories import AkiFactory
-from ...flares.tests.factories import create_flare
+from ...flares.tests.factories import CustomFlareFactory, create_flare
 from ...genders.choices import Genders
 from ...goalurates.choices import GoalUrates
 from ...medhistorydetails.choices import Stages
@@ -258,7 +258,7 @@ class TestCreatinine(TestCase):
         self.assertEqual(creatinine.baselinecreatinine, baselinecreatinine)
 
     def test__baselinecreatinine_with_aki_flare_without_baselinecreatinine(self):
-        flare = create_flare(mhs=None)
+        flare = CustomFlareFactory(ckd=False).create_object()
         aki = AkiFactory(flare=flare)
         creatinine = CreatinineFactory(aki=aki)
         self.assertIsNone(creatinine.baselinecreatinine)

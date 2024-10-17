@@ -24,11 +24,15 @@ from .helpers import (
 )
 
 if TYPE_CHECKING:
+    from datetime import date
+
+    from ..akis.models import Aki
     from ..dateofbirths.models import DateOfBirth
     from ..genders.models import Gender
     from ..medhistorydetails.choices import Stages
     from ..medhistorydetails.models import CkdDetail
     from ..medhistorys.models import Ckd
+    from ..users.models import Pseudopatient
 
 
 class CreatinineBase(models.Model):
@@ -82,6 +86,10 @@ class CreatinineBase(models.Model):
         """
         # self.eGFR returns a Decimal for labs_stage_calculator()
         return labs_stage_calculator(self.calculate_eGFR(age=age, gender=gender))
+
+    @classmethod
+    def default_upper_limit(cls) -> UpperLimits:
+        return UpperLimits.CREATININEMGDL
 
 
 class LabBase(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -304,6 +312,29 @@ class Creatinine(CreatinineBase, Lab):
             return self.ckddetail.stage
         else:
             return None
+
+    def update(
+        self,
+        value: Decimal,
+        date_drawn: Union["date", None],
+        aki: Union["Aki", None],
+        user: Union["Pseudopatient", None],
+    ) -> None:
+        needs_save = False
+        if self.value != value:
+            self.value = value
+            needs_save = True
+        if self.date_drawn != date_drawn:
+            self.date_drawn = date_drawn
+            needs_save = True
+        if self.aki != aki:
+            self.aki = aki
+            needs_save = True
+        if self.user != user:
+            self.user = user
+            needs_save = True
+        if needs_save:
+            self.save()
 
 
 class Urate(Lab, GoalUrateMixin):

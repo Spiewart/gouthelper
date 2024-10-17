@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
 from django.core.exceptions import ValidationError  # type: ignore
-from django.db.models import Model  # type: ignore
 from django.forms import BaseModelFormSet  # type: ignore
 from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
@@ -136,49 +135,62 @@ def labs_get_date_drawn_from_model_instance_or_json(
     return lab["date_drawn"] if isinstance(lab, dict) else lab.date_drawn
 
 
-def labs_newer_creatinine_improved_from_older(
+def labs_creatinines_improved(
     newer_creatinine: Union["Creatinine", "LabData"],
     older_creatinine: Union["Creatinine", "LabData"],
     definition_of_improvement: Decimal = Decimal(0.3),
 ) -> bool:
-    """Method that checks if a list or QuerySet of creatinines are improving."""
-    if not newer_creatinine_is_newer_than_older(
-        newer_creatinine=newer_creatinine,
-        older_creatinine=older_creatinine,
-    ):
-        raise ValueError(f"{newer_creatinine} is older than {older_creatinine}.")
+    labs_compare_two_lab_date_drawns(
+        newer_lab=newer_creatinine,
+        older_lab=older_creatinine,
+    )
     return (labs_get_value_from_model_instance_or_json(older_creatinine)) - (
         labs_get_value_from_model_instance_or_json(newer_creatinine)
     ) >= definition_of_improvement
 
 
-def newer_creatinine_is_newer_than_older(
+def labs_creatinines_equivalent(
     newer_creatinine: Union["Creatinine", "LabData"],
     older_creatinine: Union["Creatinine", "LabData"],
+    definition_of_equivalence: Decimal = Decimal(0.2),
 ) -> bool:
-    newer_date_drawn = labs_get_date_drawn_from_model_instance_or_json(newer_creatinine)
-    older_date_drawn = labs_get_date_drawn_from_model_instance_or_json(older_creatinine)
-    return newer_date_drawn > older_date_drawn
+    labs_compare_two_lab_date_drawns(
+        newer_lab=newer_creatinine,
+        older_lab=older_creatinine,
+    )
+    return (
+        abs(
+            labs_get_value_from_model_instance_or_json(newer_creatinine)
+            - labs_get_value_from_model_instance_or_json(older_creatinine)
+        )
+        <= definition_of_equivalence
+    )
 
 
-def labs_creatinines_are_improving(
+def labs_creatinines_improving(
     creatinines: Union["QuerySet[Creatinine]", list["Creatinine", "LabData"]],
+    r=0,
 ) -> bool:
-    """Method that checks if a list or QuerySet of creatinines are improving."""
-    for creatinine_i, creatinine in enumerate(creatinines):
+    if r >= len(creatinines) - 1:
+        return False
+    return (
+        True
         if (
-            creatinine_i > 0
-            and labs_newer_creatinine_improved_from_older(
-                newer_creatinine=creatinines[creatinine_i - 1],
-                older_creatinine=creatinine,
+            labs_creatinines_improved(
+                newer_creatinine=creatinines[r],
+                older_creatinine=creatinines[r + 1],
             )
             and (
-                labs_get_value_from_model_instance_or_json(creatinines[0])
-                <= labs_get_value_from_model_instance_or_json(creatinines[creatinine_i - 1])
+                labs_creatinines_equivalent(
+                    newer_creatinine=creatinines[0],
+                    older_creatinine=creatinines[r],
+                )
+                if r != 0
+                else True
             )
-        ):
-            return True
-    return False
+        )
+        else labs_creatinines_improving(creatinines, r + 1)
+    )
 
 
 def labs_creatinines_are_drawn_more_than_x_days_apart(
@@ -220,9 +232,16 @@ def labs_sort_list_by_date_drawn(
 ) -> None:
     """Sorts a list of labs or JSON data by date_drawn field."""
     labs.sort(
-        key=lambda x: (x.date_drawn if isinstance(x, Model) else x["date_drawn"],),
+        key=lambda x: x.date_drawn,
         reverse=True,
     )
+
+
+def labs_sort_list_of_data_by_date_drawn(
+    labs: list["LabData"],
+) -> None:
+    """Sorts a list of labs or JSON data by date_drawn field and returns the sorted list."""
+    labs.sort(key=lambda x: x["date_drawn"], reverse=True)
 
 
 def labs_round_decimal(value: Decimal, places: int) -> Decimal:
@@ -358,17 +377,20 @@ def labs_check_chronological_order_by_date_drawn(
 ) -> ValueError | None:
     for lab_i, lab in enumerate(labs):
         labs_compare_chronological_order_by_date_drawn(
-            current_lab=lab, previous_lab=labs[lab_i - 1] if lab_i > 0 else None, first_lab=labs[0]
+            newer_lab=lab, older_lab=labs[lab_i - 1] if lab_i > 0 else None, first_lab=labs[0]
         )
 
 
 def labs_compare_chronological_order_by_date_drawn(
-    current_lab: "Lab", previous_lab: Union["Lab", None], first_lab: "Lab"
+    newer_lab: "Lab", older_lab: Union["Lab", None], first_lab: "Lab"
 ) -> ValueError | None:
-    if (
-        current_lab.date_drawn > first_lab.date_drawn
-        or previous_lab
-        and current_lab.date_drawn > previous_lab.date_drawn
+    if newer_lab.date_drawn > first_lab.date_drawn or older_lab and newer_lab.date_drawn > older_lab.date_drawn:
+        raise ValueError("The Labs are not in chronological order. QuerySet must be ordered by date.")
+
+
+def labs_compare_two_lab_date_drawns(newer_lab: "Lab", older_lab: "Lab") -> ValueError | None:
+    if labs_get_date_drawn_from_model_instance_or_json(newer_lab) < labs_get_date_drawn_from_model_instance_or_json(
+        older_lab
     ):
         raise ValueError("The Labs are not in chronological order. QuerySet must be ordered by date.")
 
