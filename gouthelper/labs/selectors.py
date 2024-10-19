@@ -69,3 +69,8 @@ def hyperuricemia_urates_prefetch(dated: bool = True) -> Prefetch:
 def dated_urates_relation(qs: "QuerySet") -> "QuerySet":
     """Adds prefetch for dated urates."""
     return qs.prefetch_related(urates_prefetch(dated=True))
+
+
+def urates_related_objects_qs(qs: "QuerySet") -> "QuerySet":
+    """QuerySet for Urate related objects."""
+    return qs.select_related("user__pseudopatientprofile__provider", "flare", "ppx").all()

@@ -6,8 +6,10 @@ from django.test import TestCase  # type: ignore
 from django.utils import timezone  # type: ignore
 
 from ...flares.tests.factories import create_flare
+from ...ppxs.tests.factories import create_ppx
+from ...users.tests.factories import create_psp
 from ..models import Urate
-from ..selectors import dated_urates, urates_dated_qs
+from ..selectors import dated_urates, urates_dated_qs, urates_related_objects_qs
 from .factories import UrateFactory
 
 pytestmark = pytest.mark.django_db
@@ -109,3 +111,29 @@ class TestDatedUrates(TestCase):
         qs = dated_urates(qs)
         self.assertEqual(qs.count(), 3)
         self.assertNotIn(old_urate, qs)
+
+
+# write tests for urates_related_objects_qs
+class TestUratesRelatedObjectsQS(TestCase):
+    def setUp(self):
+        self.urate = UrateFactory()
+        self.urate_with_flare = UrateFactory()
+        create_flare(date_started=timezone.now() - timedelta(days=150), urate=self.urate_with_flare)
+        self.urate_with_ppx = UrateFactory()
+        create_ppx(labs=[self.urate_with_ppx])
+        self.patient = create_psp()
+
+    def test__urates_related_objects_qs(self):
+        with self.assertNumQueries(1):
+            accurate_qs = urates_related_objects_qs(Urate.objects.filter(id=self.urate.id)).get()
+            self.assertEqual(accurate_qs, self.urate)
+
+        with self.assertNumQueries(1):
+            accurate_qs = urates_related_objects_qs(Urate.objects.filter(id=self.urate_with_flare.id)).get()
+            self.assertEqual(accurate_qs, self.urate_with_flare)
+            self.assertEqual(accurate_qs.flare, self.urate_with_flare.flare)
+
+        with self.assertNumQueries(1):
+            accurate_qs = urates_related_objects_qs(Urate.objects.filter(id=self.urate_with_ppx.id)).get()
+            self.assertEqual(accurate_qs, self.urate_with_ppx)
+            self.assertEqual(accurate_qs.ppx, self.urate_with_ppx.ppx)

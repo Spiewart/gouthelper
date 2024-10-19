@@ -14,7 +14,7 @@ from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers import get_qs_or_set
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import Statuses
-from .managers import AkiManager, AkiUserManager
+from .managers import AkiManager
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -62,7 +62,6 @@ class Aki(
 
     objects = models.Manager()
     related_objects = AkiManager()
-    related_user_objects = AkiUserManager()
 
     @cached_property
     def age(self) -> int | None:

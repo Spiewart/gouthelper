@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from ...akis.api.mixins import AkiAPICreateMixin
 from ...dateofbirths.api.mixins import DateOfBirthAPIMixin
 from ...genders.api.mixins import GenderAPIMixin
 from ...medhistorys.api.mixins import (
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
 
 
 class FlareAPIMixin(
+    AkiAPICreateMixin,
     DateOfBirthAPIMixin,
     GenderAPIMixin,
     AnginaAPIMixin,
@@ -122,7 +124,8 @@ class FlareAPICreateMixin(FlareAPIMixin):
         self.check_for_and_raise_errors(model_name="Flare")
         self.process_dateofbirth()
         self.process_gender()
-        self.process_aki()
+        if self.aki_should_be_created:
+            self.create_aki()
         self.process_urate()
         self.flare = Flare.objects.create(
             patient=self.patient,

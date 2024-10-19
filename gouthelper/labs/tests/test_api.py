@@ -7,7 +7,7 @@ from ...akis.tests.factories import AkiFactory
 from ...labs.models import Creatinine
 from ...users.tests.factories import create_psp
 from ...utils.test_helpers import date_days_ago
-from ..api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin
+from ..api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin, UrateAPICreateMixin
 from .factories import CreatinineFactory
 
 pytestmark = pytest.mark.django_db
@@ -77,3 +77,46 @@ class TestCreatininesAPIUpdateMixin(TestCase):
         self.api.update_creatinines()
         self.assertEqual(Creatinine.objects.count(), 3)
         self.assertEqual(Creatinine.history.count(), 9)
+
+
+class TestUrateAPICreateMixin(TestCase):
+    def setUp(self):
+        self.api = UrateAPICreateMixin()
+        self.urate__date_drawn = date_days_ago(1)
+        self.urate__value = Decimal("1.0")
+        self.patient = create_psp()
+
+    def test__create_urate(self):
+        self.api.urate__date_drawn = self.urate__date_drawn
+        self.api.urate__value = self.urate__value
+        self.api.patient = self.patient
+        urate = self.api.create_urate()
+        self.assertEqual(urate.value, Decimal("1.0"))
+        self.assertEqual(urate.user, self.patient)
+
+    def test__urate_should_be_created(self):
+        self.api.urate__date_drawn = self.urate__date_drawn
+        self.api.urate__value = self.urate__value
+        self.api.patient = self.patient
+        self.assertTrue(self.api.urate_should_be_created)
+
+    def test__check_for_urate_create_errors(self):
+        self.api.urate__value = None
+        self.api.urate__date_drawn = None
+        self.api.errors = []
+        self.api.check_for_urate_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            (
+                "urate__value",
+                "urate__value is required.",
+            ),
+            self.api.errors,
+        )
+        self.assertIn(
+            (
+                "urate__date_drawn",
+                "urate__date_drawn is required.",
+            ),
+            self.api.errors,
+        )

@@ -22,6 +22,7 @@ from .helpers import (
     labs_eGFR_calculator,
     labs_stage_calculator,
 )
+from .managers import UrateManager
 
 if TYPE_CHECKING:
     from datetime import date
@@ -377,6 +378,8 @@ class Urate(Lab, GoalUrateMixin):
         decimal_places=1,
     )
 
+    related_objects = UrateManager()
+
     def __str__(self):
         if self.value:
             return f"Urate: {self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
@@ -407,6 +410,25 @@ class Urate(Lab, GoalUrateMixin):
     @cached_property
     def value_str(self):
         return f"{self.value.quantize(Decimal('1.0'))} {self.get_units_display()}"
+
+    def update(
+        self,
+        value: Decimal,
+        date_drawn: Union["date", None],
+        user: Union["Pseudopatient", None],
+    ) -> None:
+        needs_save = False
+        if self.value != value:
+            self.value = value
+            needs_save = True
+        if self.date_drawn != date_drawn:
+            self.date_drawn = date_drawn
+            needs_save = True
+        if self.user != user:
+            self.user = user
+            needs_save = True
+        if needs_save:
+            self.save()
 
 
 class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):

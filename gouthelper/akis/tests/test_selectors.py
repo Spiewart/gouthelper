@@ -19,16 +19,29 @@ class TestAkiRelatedObjectsQS(TestCase):
             gender=Genders.MALE,
         ).create_object()
         self.aki = self.flare.aki
+        self.patient = create_psp()
+        self.patient_flare = CustomFlareFactory(aki=Statuses.ONGOING, user=self.patient).create_object()
+        self.patient_aki = self.patient_flare.aki
 
     def test__queryset(self):
         qs = akis_related_objects_qs(self.aki.__class__.objects.all())
-        self.assertEqual(qs.count(), 1)
+        self.assertEqual(qs.count(), 2)
         with self.assertNumQueries(3):
-            self.assertEqual(qs.first(), self.aki)
+            self.assertEqual(qs.filter(id=self.aki.pk).get(), self.aki)
             self.assertTrue(hasattr(self.aki.flare, "medhistorys_qs"))
             self.assertTrue(self.aki.flare.dateofbirth)
             self.assertTrue(self.aki.flare.gender)
             self.assertEqual(self.aki.flare.gender.value, Genders.MALE)
+
+    def test__queryset_with_user(self):
+        qs = akis_related_objects_qs(self.patient_aki.__class__.objects.all())
+        self.assertEqual(qs.count(), 2)
+        with self.assertNumQueries(4):
+            self.assertEqual(qs.filter(id=self.patient_aki.pk).get(), self.patient_aki)
+            self.assertFalse(hasattr(self.patient_aki.flare, "medhistorys_qs"))
+            self.assertTrue(hasattr(self.patient_aki.user, "medhistorys_qs"))
+            self.assertTrue(self.patient_aki.user.dateofbirth)
+            self.assertTrue(self.patient_aki.user.gender)
 
 
 class TestAkiRelatedObjectsUserQS(TestCase):

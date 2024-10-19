@@ -72,9 +72,12 @@ def akis_related_objects_qs(qs: "QuerySet") -> "QuerySet":
         .select_related(
             "flare__dateofbirth",
             "flare__gender",
+            "user__dateofbirth",
+            "user__gender",
         )
         .prefetch_related(
             flare_medhistorys_prefetch(),
+            user_medhistorys_prefetch(),
         )
     )
 

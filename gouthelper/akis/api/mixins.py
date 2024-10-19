@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Union
 
 from django.utils.functional import cached_property
 
+from ...dateofbirths.helpers import age_calc
 from ...labs.api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin
 from ...labs.helpers import (
     labs_creatinine_is_at_baseline_creatinine,
@@ -169,34 +170,45 @@ class AkiAPICreateMixin(AkiAPIMixin, CreatininesAPICreateMixin):
         self.order_creatinines_data_by_date_drawn_desc()
         self.check_for_creatinine_aki_status_errors()
 
+    @property
+    def aki_should_be_created(self) -> bool:
+        return self.aki__status or self.creatinines_data
+
 
 class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
     aki: Union["Aki", "UUID"]
     creatinines: list["Creatinine", "UUID", None]
 
     def get_queryset(self) -> Aki:
-        # TODO: write tests for this method
+        def aki_patient_not_related(aki: "Aki") -> bool:
+            if self.is_uuid(self.patient):
+                return aki.user.pk != self.patient
+            else:
+                return aki.user != self.patient
 
-        if self.patient and self.is_uuid(self.patient) and self.aki and self.is_uuid(self.aki):
-            return Aki.related_user_objects.filter(user=self.patient, id=self.aki)
-        elif self.aki and self.is_uuid(self.aki):
-            return Aki.related_objects.filter(id=self.aki)
+        if self.aki and self.is_uuid(self.aki):
+            aki = Aki.related_objects.filter(id=self.aki).get()
+            if aki.user and self.patient:
+                if aki_patient_not_related(aki):
+                    raise ValueError("aki and patient args must be related.")
+            return aki
         else:
             raise TypeError("aki or patient arg must be a UUID to call get_queryset().")
 
     def set_attrs_from_qs(self) -> None:
-        # TODO: write tests for this method
-
-        self.aki = self.get_queryset().get()
-        self.creatinines = self.aki.creatinines.all()
-        self.patient = self.aki.user if not self.patient else self.patient
+        self.aki = self.get_queryset()
+        self.creatinines = self.aki.creatinines_qs
+        if self.is_uuid(self.patient):
+            self.patient = self.aki.user
         if self.patient:
-            self.age = self.patient.age
+            self.age = age_calc(self.patient.dateofbirth.value)
             self.gender = self.patient.gender.value
 
     def update_aki(self) -> Aki | None:
         """Updates the Aki and related Creatinines. If no aki__status, it will result in the
         Aki being deleted."""
+        if self.is_uuid(self.aki):
+            self.set_attrs_from_qs()
         self.check_for_aki_update_errors()
         self.check_for_and_raise_errors(model_name="Aki")
         if self.aki__status or self.creatinines_data:

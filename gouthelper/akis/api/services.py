@@ -58,7 +58,3 @@ class AkiAPIUpdate(AkiAPIUpdateMixin, PseudopatientBaseAPI):
         self.ckddetail__stage = ckddetail__stage
         self.age = age
         self.gender = gender
-
-
-class AkiAPI(AkiAPICreate):
-    """Mixin class that checks for conflicts in Aki attributes and relatated objects."""

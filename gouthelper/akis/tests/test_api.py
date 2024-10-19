@@ -300,3 +300,41 @@ class TestAkiAPIUpdate(TestCase):
             ("creatinines_data", "AKI marked as resolved, but the creatinines suggest it is not."),
             self.api.errors,
         )
+
+    def test__get_queryset(self):
+        self.api.aki = self.aki.id
+        self.assertEqual(self.api.get_queryset(), self.aki)
+
+    def test__get_queryset_with_patient(self):
+        patient_aki = AkiFactory(user=self.patient)
+        self.api.aki = patient_aki.id
+        self.api.patient = self.patient.id
+        self.assertEqual(self.api.get_queryset(), patient_aki)
+
+    def test__set_attrs_from_qs(self):
+        CreatinineFactory(aki=self.aki, value=Decimal("3.0"), date_drawn=datetime_days_ago(10))
+        CreatinineFactory(aki=self.aki, value=Decimal("2.0"), date_drawn=datetime_days_ago(5))
+        CreatinineFactory(aki=self.aki, value=Decimal("1.9"), date_drawn=datetime_days_ago(1))
+        self.api.aki = self.aki.id
+        self.api.set_attrs_from_qs()
+        self.assertEqual(self.api.aki, self.aki)
+        self.assertTrue(self.api.creatinines)
+        for creatinine in self.aki.creatinine_set.all():
+            self.assertIn(creatinine, self.api.creatinines)
+        self.assertEqual(self.api.patient, self.aki.user)
+
+    def test__set_attrs_from_qs_with_patient(self):
+        patient_aki = AkiFactory(user=self.patient)
+        CreatinineFactory(aki=patient_aki, value=Decimal("3.0"), date_drawn=datetime_days_ago(10))
+        CreatinineFactory(aki=patient_aki, value=Decimal("2.0"), date_drawn=datetime_days_ago(5))
+        CreatinineFactory(aki=patient_aki, value=Decimal("1.9"), date_drawn=datetime_days_ago(1))
+        self.api.aki = patient_aki.id
+        self.api.patient = self.patient.id
+        self.api.set_attrs_from_qs()
+        self.assertEqual(self.api.aki, patient_aki)
+        self.assertTrue(self.api.creatinines)
+        for creatinine in patient_aki.creatinine_set.all():
+            self.assertIn(creatinine, self.api.creatinines)
+        self.assertEqual(self.api.patient, self.patient)
+        self.assertEqual(self.api.age, self.patient.age)
+        self.assertEqual(self.api.gender, self.patient.gender.value)

@@ -1,8 +1,12 @@
 from django.test import TestCase
 
+from ...flares.tests.factories import create_flare
 from ...medhistorys.tests.factories import CkdFactory
+from ...ppxs.tests.factories import create_ppx
+from ...users.tests.factories import create_psp
 from ..choices import LowerLimits, Units, UpperLimits
 from ..models import BaselineCreatinine, Urate
+from .factories import UrateFactory
 
 
 class CreatinineManagerTestCase(TestCase):
@@ -65,3 +69,25 @@ class UrateManagerTestCase(TestCase):
         self.assertEqual(urate.lower_limit, LowerLimits.URATEMGDL)
         self.assertEqual(urate.units, Units.MGDL)
         self.assertEqual(urate.upper_limit, UpperLimits.URATEMGDL)
+
+    def test__related_objects(self):
+        urate = UrateFactory(user=create_psp())
+        urate_with_flare = UrateFactory()
+        create_flare(urate=urate_with_flare)
+        urate_with_ppx = UrateFactory()
+        create_ppx(labs=[urate_with_ppx])
+
+        with self.assertNumQueries(1):
+            accurate_qs = Urate.related_objects.filter(id=urate.id).get()
+            self.assertEqual(accurate_qs, urate)
+            self.assertEqual(accurate_qs.user, urate.user)
+
+        with self.assertNumQueries(1):
+            accurate_qs = Urate.related_objects.filter(id=urate_with_flare.id).get()
+            self.assertEqual(accurate_qs, urate_with_flare)
+            self.assertEqual(accurate_qs.flare, urate_with_flare.flare)
+
+        with self.assertNumQueries(1):
+            accurate_qs = Urate.related_objects.filter(id=urate_with_ppx.id).get()
+            self.assertEqual(accurate_qs, urate_with_ppx)
+            self.assertEqual(accurate_qs.ppx, urate_with_ppx.ppx)

@@ -59,6 +59,7 @@ class User(RulesModelMixin, GoutHelperModel, TimeStampedModel, AbstractUser, met
     last_name = None  # type: ignore
     role = CharField(_("Role"), max_length=50, choices=Roles.choices, default=Roles.PROVIDER)
     objects = GoutHelperUserManager()
+
     history = HistoricalRecords(
         get_user=get_user_change,
     )
