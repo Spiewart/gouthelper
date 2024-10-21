@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest  # type: ignore
@@ -7,8 +8,9 @@ from ...akis.tests.factories import AkiFactory
 from ...labs.models import Creatinine
 from ...users.tests.factories import create_psp
 from ...utils.test_helpers import date_days_ago
-from ..api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin, UrateAPICreateMixin
-from .factories import CreatinineFactory
+from ..api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin, UrateAPICreateMixin, UrateAPIUpdateMixin
+from ..schema import UrateSchema
+from .factories import CreatinineFactory, UrateFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -120,3 +122,76 @@ class TestUrateAPICreateMixin(TestCase):
             ),
             self.api.errors,
         )
+
+
+class TestUrateAPIUpdateMixin(TestCase):
+    def setUp(self):
+        self.urate = UrateFactory()
+        self.api = UrateAPIUpdateMixin()
+        self.urate__date_drawn = date_days_ago(1)
+        self.urate__value = Decimal("7.0")
+        self.patient = create_psp()
+        self.urate_data = {"value": "8.0", "date_drawn": "2021-01-01"}
+
+    def test__update_with_data(self):
+        self.urate_data.update({"id": self.urate.id, "user": self.patient.id, "ppx": None})
+        serializer = UrateSchema.drf_serializer(data=self.urate_data)
+        serializer.is_valid(raise_exception=True)
+        self.api.urate = self.urate
+        self.api.urate__value = serializer.validated_data["value"]
+        self.api.urate__date_drawn = serializer.validated_data["date_drawn"]
+        self.api.patient = serializer.validated_data["user"]
+        self.api.update_urate()
+        self.assertEqual(self.api.urate.value, Decimal("8.0"))
+        self.assertEqual(self.api.urate.date_drawn.date(), date(2021, 1, 1))
+        self.assertEqual(self.api.urate.user, self.patient)
+
+    def test__check_for_update_errors(self):
+        self.api.urate = None
+        self.api.check_for_urate_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            (
+                "urate",
+                "Urate instance is required.",
+            ),
+            self.api.errors,
+        )
+
+    def test__urate_should_be_deleted(self):
+        self.api.urate = self.urate
+        self.api.urate__value = None
+        self.assertTrue(self.api.urate_should_be_deleted)
+
+    def test__urate_user_is_patient(self):
+        new_patient = create_psp()
+        new_patient_urate = UrateFactory(user=new_patient)
+        self.assertTrue(self.api.urate_user_is_patient(new_patient_urate, new_patient))
+        self.assertTrue(self.api.urate_user_is_patient(new_patient_urate, new_patient.id))
+        self.assertFalse(self.api.urate_user_is_patient(new_patient_urate, self.patient))
+        self.assertFalse(self.api.urate_user_is_patient(new_patient_urate, self.patient.id))
+
+    def test__get_queryset(self):
+        self.api.urate = self.urate.id
+        qs = self.api.get_queryset()
+        self.assertEqual(qs, self.urate)
+
+    def test__get_queryset_raises_error_urate_not_uuid(self):
+        self.api.urate = self.urate
+        with self.assertRaises(TypeError):
+            self.api.get_queryset()
+
+    def test__get_queryset_raises_error_user_not_patient(self):
+        self.api.patient = self.patient
+        self.urate.user = create_psp()
+        self.urate.save()
+        self.api.urate = self.urate.id
+        with self.assertRaises(ValueError):
+            self.api.get_queryset()
+
+    def test__set_attrs_from_qs(self):
+        self.api.patient = None
+        self.api.urate = self.urate.id
+        self.api.set_attrs_from_qs()
+        self.assertEqual(self.api.urate, self.urate)
+        self.assertEqual(self.api.patient, self.urate.user)

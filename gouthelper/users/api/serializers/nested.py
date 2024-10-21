@@ -5,8 +5,9 @@ from rest_framework import serializers
 from ....dateofbirths.api.serializers import DateOfBirthSerializer
 from ....ethnicitys.api.serializers import EthnicitySerializer
 from ....genders.api.serializers import GenderSerializer
-from ....medhistorydetails.api.serializers import GoutDetailSerializer
+from ....medhistorydetails.schema import GoutDetailSchema
 from ...models import Pseudopatient
+from ...schema import PseudopatientEditSchema
 from .base import UserSerializer
 
 if TYPE_CHECKING:
@@ -27,14 +28,14 @@ class PseudopatientSerializer(serializers.ModelSerializer[Pseudopatient]):
     dateofbirth = DateOfBirthSerializer()
     ethnicity = EthnicitySerializer()
     gender = GenderSerializer()
-    goutdetail = GoutDetailSerializer()
+    goutdetail = GoutDetailSchema.drf_serializer()
     provider = UserSerializer(required=False, read_only=True)
 
     class Meta:
         model = Pseudopatient
         fields = ["dateofbirth", "ethnicity", "gender", "goutdetail", "provider", "id"]
 
-    def create(self, validated_data) -> Pseudopatient:
+    def create(self, validated_data: PseudopatientEditSchema) -> Pseudopatient:
         return Pseudopatient.profile_objects.api_create(
             dateofbirth=validated_data["dateofbirth"]["value"],
             ethnicity=validated_data["ethnicity"]["value"],
@@ -48,7 +49,7 @@ class PseudopatientSerializer(serializers.ModelSerializer[Pseudopatient]):
             starting_ult=validated_data["goutdetail"]["starting_ult"],
         )
 
-    def update(self, instance, validated_data) -> Pseudopatient:
+    def update(self, instance, validated_data: PseudopatientEditSchema) -> Pseudopatient:
         return Pseudopatient.profile_objects.api_update(
             patient=instance.pk,
             dateofbirth=validated_data["dateofbirth"]["value"],

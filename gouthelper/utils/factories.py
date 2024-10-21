@@ -1431,7 +1431,7 @@ def create_gender(
     build: bool = False,
 ) -> DateOfBirth:
     kwargs = {}
-    if gender is not None:
+    if gender is not None and gender is not Auto:
         if isinstance(gender, Gender):
             return gender
         else:

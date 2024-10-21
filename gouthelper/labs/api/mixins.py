@@ -104,11 +104,12 @@ class UrateAPICreateMixin(UrateAPIMixin):
     def create_urate(self) -> Urate:
         self.check_for_urate_create_errors()
         self.check_for_and_raise_errors(model_name="Urate")
-        return Urate.objects.create(
+        self.urate = Urate.objects.create(
             user=self.patient,
             value=self.urate__value,
             date_drawn=self.urate__date_drawn,
         )
+        return self.urate
 
     def check_for_urate_create_errors(self):
         if not self.urate__value or not self.urate__date_drawn:
@@ -143,19 +144,24 @@ class UrateAPIUpdateMixin(UrateAPIMixin):
     urate: Union["Urate", "UUID"]
 
     def get_queryset(self) -> Urate:
-        def urate_patient_not_related():
-            if self.is_uuid(self.patient):
-                return self.urate.user.id != self.patient
-            else:
-                return self.urate.user != self.patient
-
         if self.urate and self.is_uuid(self.urate):
-            if self.urate.user and self.patient:
-                if urate_patient_not_related():
+            urate = Urate.related_objects.filter(id=self.urate).get()
+            if urate.user and self.patient:
+                if not self.urate_user_is_patient(urate=urate, patient=self.patient):
                     raise ValueError("Urate's user ({self.urate.user}) is not the patient {self.patient}.")
-            return Urate.related_objects.filter(id=self.urate).get()
+            return urate
         else:
             raise TypeError("urate arg must be a UUID to call get_queryset().")
+
+    def urate_user_is_patient(
+        self,
+        urate: Urate,
+        patient: Union["Pseudopatient", "UUID"],
+    ):
+        if self.is_uuid(patient):
+            return urate.user.id == patient
+        else:
+            return urate.user is patient
 
     def set_attrs_from_qs(self) -> None:
         self.urate = self.get_queryset()
@@ -171,10 +177,19 @@ class UrateAPIUpdateMixin(UrateAPIMixin):
             self.urate = None
             return None
         else:
+            kwargs = {
+                "value": self.urate__value,
+                "date_drawn": self.urate__date_drawn,
+            }
+            if self.patient:
+                if self.is_uuid(self.patient):
+                    kwargs.update({"user__id": self.patient})
+                else:
+                    kwargs.update({"user": self.patient})
+            else:
+                kwargs.update({"user": None})
             self.urate.update(
-                value=self.urate__value,
-                date_drawn=self.urate__date_drawn,
-                user=self.patient,
+                **kwargs,
             )
             return self.urate
 

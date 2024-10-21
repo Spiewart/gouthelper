@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Union
 from ...akis.api.mixins import AkiAPICreateMixin
 from ...dateofbirths.api.mixins import DateOfBirthAPIMixin
 from ...genders.api.mixins import GenderAPIMixin
+from ...labs.api.mixins import UrateAPICreateMixin, UrateAPIUpdateMixin
 from ...medhistorys.api.mixins import (
     AnginaAPIMixin,
     CadAPIMixin,
@@ -61,6 +62,7 @@ class FlareAPIMixin(
     MenopauseAPIMixin,
     PvdAPIMixin,
     StrokeAPIMixin,
+    UrateAPICreateMixin,
 ):
     patient: Union["Pseudopatient", None]
     aki: Union["Aki", "UUID", bool, None]
@@ -126,9 +128,12 @@ class FlareAPICreateMixin(FlareAPIMixin):
         self.process_gender()
         if self.aki_should_be_created:
             self.create_aki()
-        self.process_urate()
+        if self.urate_should_be_created:
+            self.create_urate()
         self.flare = Flare.objects.create(
             patient=self.patient,
+            dateofbirth=self.dateofbirth if not self.patient else None,
+            gender=self.gender if not self.patient else None,
             date_started=self.date_started,
             date_ended=self.date_ended,
             onset=self.onset,
@@ -137,6 +142,8 @@ class FlareAPICreateMixin(FlareAPIMixin):
             diagnosed=self.diagnosed,
             flareaid=self.flareaid,
             joints=self.joints,
+            aki=self.aki,
+            urate=self.urate,
         )
         self.process_angina()
         self.process_cad()
@@ -157,5 +164,5 @@ class FlareAPICreateMixin(FlareAPIMixin):
             )
 
 
-class FlareAPIUpdateMixin(FlareAPIMixin):
+class FlareAPIUpdateMixin(FlareAPIMixin, UrateAPIUpdateMixin):
     flare: Union["Flare", "UUID", None]
