@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.apps import apps  # type: ignore
@@ -2057,6 +2058,7 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
     class Meta:
         abstract = True
 
+    aid_medhistorys: Callable[[], list[MedHistoryTypes]]
     decision_aid_service: Union[
         "FlareAidDecisionAid",
         "FlareDecisionAid",
@@ -2067,6 +2069,10 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
     ]
     related_models: "AidNames"
     related_objects: "Manager"
+
+    @cached_property
+    def poss_medhistorys(self) -> list[MedHistoryTypes]:
+        return self.aid_medhistorys()
 
     def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":
         model_name = self._meta.model_name

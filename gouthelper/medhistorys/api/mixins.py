@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
+from django.apps import apps
+
 from ...utils.services import APIMixin
 from ..choices import MedHistoryTypes
 from ..models import (
@@ -35,7 +37,7 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from ...users.models import Pseudopatient
-    from ...utils.types import MedHistoryNames, MedHistorys
+    from ...utils.types import AidTypes, MedHistorys
 
 
 class MedHistoryAPIMixin(APIMixin):
@@ -43,93 +45,140 @@ class MedHistoryAPIMixin(APIMixin):
         abstract = True
 
     patient: Union["Pseudopatient", None]
+    mh_relations: Union[
+        "AidTypes",
+        list["AidTypes"],
+        None,
+    ]
 
     MedHistoryTypes = MedHistoryTypes
+
+    def create_medhistory(
+        self,
+        medhistory: Union["MedHistory", "UUID", None],
+        medhistorytype: "MedHistoryTypes",
+    ) -> "MedHistory":
+        self.check_for_medhistory_create_errors(
+            medhistory=medhistory,
+            medhistorytype=medhistorytype,
+        )
+        self.check_for_and_raise_errors(model_name=medhistorytype.value.lower())
+        related_aids: list["AidTypes"] = (
+            [relation for relation in self.mh_relations if medhistorytype in relation.poss_medhistorytypes]
+            if (self.mh_relations and isinstance(self.mh_relations, list))
+            else [self.mh_relations]
+            if self.mh_relations
+            else []
+        )
+
+        new_mh = self.get_medhistory_model_from_medhistorytype(medhistorytype=medhistorytype).objects.create(
+            user=self.patient,
+            *[(related_aid.__class__.__name__.lower(), related_aid) for related_aid in related_aids],
+        )
+        setattr(
+            self,
+            medhistorytype.value.lower(),
+            new_mh,
+        )
+        return new_mh
+
+    def add_mh_relation(self, relation: "AidTypes") -> None:
+        self.mh_relations.append(relation)
+
+    def check_for_medhistory_create_errors(
+        self,
+        medhistory: Union[MedHistory, "UUID", None],
+        medhistorytype: "MedHistoryTypes",
+    ):
+        if medhistory is not None:
+            self.add_errors(
+                api_args=[(f"{medhistorytype.value.lower()}", f"{medhistory} already exists.")],
+            )
+
+        if self.patient_has_medhistory(medhistorytype):
+            self.add_errors(
+                api_args=[
+                    (
+                        f"{medhistorytype.value.lower()}",
+                        f"{self.patient} already has a {getattr(self.patient, medhistorytype.value.lower())}.",
+                    )
+                ],
+            )
+
+    def patient_has_medhistory(self, medhistorytype: "MedHistoryTypes") -> bool:
+        return self.patient and bool(getattr(self.patient, medhistorytype.value.lower()))
+
+    def get_queryset(self) -> "MedHistory":
+        raise NotImplementedError("get_queryset() must be implemented in a subclass")
 
     def set_attrs_from_qs(self) -> None:
         obj = self.get_queryset().get()
         setattr(self, obj.__class__.__name__.lower(), obj)
         self.patient = obj.user if not self.patient else self.patient
 
-    def create_medhistory(
-        self, mh_arg: Union["MedHistoryTypes", "UUID", None], mh_name: "MedHistoryNames", mh_model: "MedHistoryTypes"
-    ) -> "MedHistory":
-        self.check_for_medhistory_create_errors(
-            mh_arg=mh_arg,
-            mh_name=mh_name,
-        )
-        self.check_for_and_raise_errors(model_name=mh_name)
-        new_mh = mh_model.objects.create(
-            user=self.patient,
-        )
-        setattr(
-            self,
-            mh_name,
-            new_mh,
-        )
-        return new_mh
-
-    def check_for_medhistory_create_errors(
-        self,
-        mh_arg: Union["MedHistorys", "UUID", None],
-        mh_name: "MedHistoryNames",
-    ):
-        if mh_arg is not None:
-            self.add_errors(
-                api_args=[(f"{mh_name}", f"{mh_arg} already exists.")],
-            )
-
-        if self.patient_has_medhistory(mh_name=mh_name):
-            self.add_errors(
-                api_args=[(f"{mh_name}", f"{self.patient} already has a {getattr(self.patient, mh_name)}.")],
-            )
-
-    def patient_has_medhistory(self, mh_name: "MedHistoryNames") -> bool:
-        return bool(getattr(self.patient, mh_name))
-
-    def mh_arg_is_medhistory(self, mh_arg: Union["MedHistorys", "UUID", None]) -> bool:
-        return isinstance(mh_arg, MedHistory)
-
-    def delete_medhistory(self, mh_arg: Union["MedHistoryTypes", "UUID", None]) -> None:
-        if self.is_uuid(mh_arg):
+    def delete_medhistory(self, medhistory: Union["MedHistoryTypes", "UUID", None]) -> None:
+        if self.is_uuid(medhistory):
             self.set_attrs_from_qs()
-        mh_name = mh_arg.__class__.__name__.lower()
         self.check_for_medhistory_delete_errors(
-            mh_arg=mh_arg,
-            mh_name=mh_name,
+            medhistory=medhistory,
         )
-        self.check_for_and_raise_errors(model_name=mh_name)
-        mh_arg.delete()
+        self.check_for_and_raise_errors(model_name=medhistory.medhistorytype.value.lower())
+        medhistory.delete()
 
-    def check_for_medhistory_delete_errors(
-        self, mh_arg: Union["MedHistoryTypes", "UUID", None], mh_name: "MedHistoryNames"
-    ):
-        if not mh_arg:
-            self.add_errors(
-                api_args=[(f"{mh_name}", f"{mh_name} does not exist.")],
-            )
-
-        if getattr(self, f"{mh_name}__value"):
+    def check_for_medhistory_delete_errors(self, medhistory: Union["MedHistory", None]):
+        if not medhistory:
             self.add_errors(
                 api_args=[
-                    (
-                        f"{mh_name}__value",
-                        f"{mh_name}__value must be False to delete {mh_arg}.",
-                    )
+                    (f"{self.medhistorytype.value.lower()}", f"{self.medhistorytype.value.lower()} does not exist.")
                 ],
             )
+        else:
+            mhtype_attr = medhistory.medhistorytype.value.lower()
+            if getattr(self, f"{mhtype_attr}__value"):
+                self.add_errors(
+                    api_args=[
+                        (
+                            f"{mhtype_attr}__value",
+                            f"{mhtype_attr}__value must be False to delete {medhistory}.",
+                        )
+                    ],
+                )
 
     def process_medhistory(
         self,
         mh_val: bool | None,
-        mh_arg: Union["MedHistoryTypes", "UUID", None],
-        mh_name: "MedHistoryNames",
-        mh_model: "MedHistoryTypes",
+        medhistory: Union[MedHistory, "UUID", None],
+        medhistorytype: "MedHistoryTypes",
     ) -> None:
-        if mh_val and not self.mh_arg_is_medhistory(mh_arg):
-            self.create_medhistory(mh_arg=mh_arg, mh_name=mh_name, mh_model=mh_model)
-        elif not mh_val and self.patient_has_medhistory(mh_name=mh_name):
-            self.delete_medhistory(mh_arg=mh_arg)
+        if mh_val and not medhistory:
+            self.create_medhistory(medhistory=medhistory, medhistorytype=medhistorytype)
+        elif not mh_val and self.patient_has_medhistory(medhistorytype=medhistorytype):
+            self.delete_medhistory(medhistory=medhistory)
+        else:
+            pass
+
+    def medhistory_needs_update(
+        self,
+        medhistory: MedHistory,
+    ) -> bool:
+        return medhistory.user != self.patient or (
+            self.mh_relations
+            and any(
+                getattr(
+                    medhistory,
+                    relation.__class__.__name__.lower(),
+                )
+                != relation
+                for relation in self.mh_relations
+            )
+        )
+
+    @classmethod
+    def get_medhistory_model_from_medhistorytype(
+        cls,
+        medhistorytype: "MedHistoryTypes",
+    ) -> "MedHistorys":
+        return apps.get_model(app_label="medhistorys", model_name=medhistorytype.value.lower())
 
 
 class AnginaAPIMixin(MedHistoryAPIMixin):
@@ -144,9 +193,8 @@ class AnginaAPIMixin(MedHistoryAPIMixin):
     def process_angina(self) -> None:
         self.process_medhistory(
             mh_val=self.angina__value,
-            mh_arg=self.angina,
-            mh_name=MedHistoryTypes.ANGINA.lower(),
-            mh_model=Angina,
+            medhistory=self.angina,
+            medhistorytype=Angina,
         )
 
 
@@ -162,9 +210,8 @@ class AnticoagulationAPIMixin(MedHistoryAPIMixin):
     def process_anticoagulation(self) -> None:
         self.process_medhistory(
             mh_val=self.anticoagulation__value,
-            mh_arg=self.anticoagulation,
-            mh_name=MedHistoryTypes.ANTICOAGULATION.lower(),
-            mh_model=Anticoagulation,
+            medhistory=self.anticoagulation,
+            medhistorytype=Anticoagulation,
         )
 
 
@@ -180,9 +227,8 @@ class BleedAPIMixin(MedHistoryAPIMixin):
     def process_bleed(self) -> None:
         self.process_medhistory(
             mh_val=self.bleed__value,
-            mh_arg=self.bleed,
-            mh_name=MedHistoryTypes.BLEED.lower(),
-            mh_model=Bleed,
+            medhistory=self.bleed,
+            medhistorytype=Bleed,
         )
 
 
@@ -198,9 +244,8 @@ class CadAPIMixin(MedHistoryAPIMixin):
     def process_cad(self) -> None:
         self.process_medhistory(
             mh_val=self.cad__value,
-            mh_arg=self.cad,
-            mh_name=MedHistoryTypes.CAD.lower(),
-            mh_model=Cad,
+            medhistory=self.cad,
+            medhistorytype=Cad,
         )
 
 
@@ -216,9 +261,8 @@ class ChfAPIMixin(MedHistoryAPIMixin):
     def process_chf(self) -> None:
         self.process_medhistory(
             mh_val=self.chf__value,
-            mh_arg=self.chf,
-            mh_name=MedHistoryTypes.CHF.lower(),
-            mh_model=Chf,
+            medhistory=self.chf,
+            medhistorytype=Chf,
         )
 
 
@@ -234,9 +278,8 @@ class CkdAPIMixin(MedHistoryAPIMixin):
     def process_ckd(self) -> None:
         self.process_medhistory(
             mh_val=self.ckd__value,
-            mh_arg=self.ckd,
-            mh_name=MedHistoryTypes.CKD.lower(),
-            mh_model=Ckd,
+            medhistory=self.ckd,
+            medhistorytype=Ckd,
         )
 
 
@@ -252,9 +295,8 @@ class ColchicineinteractionAPIMixin(MedHistoryAPIMixin):
     def process_colchicineinteraction(self) -> None:
         self.process_medhistory(
             mh_val=self.colchicineinteraction__value,
-            mh_arg=self.colchicineinteraction,
-            mh_name=MedHistoryTypes.COLCHICINEINTERACTION.lower(),
-            mh_model=Colchicineinteraction,
+            medhistory=self.colchicineinteraction,
+            medhistorytype=Colchicineinteraction,
         )
 
 
@@ -270,9 +312,8 @@ class DiabetesAPIMixin(MedHistoryAPIMixin):
     def process_diabetes(self) -> None:
         self.process_medhistory(
             mh_val=self.diabetes__value,
-            mh_arg=self.diabetes,
-            mh_name=MedHistoryTypes.DIABETES.lower(),
-            mh_model=Diabetes,
+            medhistory=self.diabetes,
+            medhistorytype=Diabetes,
         )
 
 
@@ -288,9 +329,8 @@ class ErosionsAPIMixin(MedHistoryAPIMixin):
     def process_erosions(self) -> None:
         self.process_medhistory(
             mh_val=self.erosions__value,
-            mh_arg=self.erosions,
-            mh_name=MedHistoryTypes.EROSIONS.lower(),
-            mh_model=Erosions,
+            medhistory=self.erosions,
+            medhistorytype=Erosions,
         )
 
 
@@ -306,9 +346,8 @@ class GastricbypassAPIMixin(MedHistoryAPIMixin):
     def process_gastricbypass(self) -> None:
         self.process_medhistory(
             mh_val=self.gastricbypass__value,
-            mh_arg=self.gastricbypass,
-            mh_name=MedHistoryTypes.GASTRICBYPASS.lower(),
-            mh_model=Gastricbypass,
+            medhistory=self.gastricbypass,
+            medhistorytype=Gastricbypass,
         )
 
 
@@ -324,9 +363,8 @@ class GoutAPIMixin(MedHistoryAPIMixin):
     def process_gout(self) -> None:
         self.process_medhistory(
             mh_val=self.gout__value,
-            mh_arg=self.gout,
-            mh_name=MedHistoryTypes.GOUT.lower(),
-            mh_model=Gout,
+            medhistory=self.gout,
+            medhistorytype=Gout,
         )
 
 
@@ -342,9 +380,8 @@ class HeartattackAPIMixin(MedHistoryAPIMixin):
     def process_heartattack(self) -> None:
         self.process_medhistory(
             mh_val=self.heartattack__value,
-            mh_arg=self.heartattack,
-            mh_name=MedHistoryTypes.HEARTATTACK.lower(),
-            mh_model=Heartattack,
+            medhistory=self.heartattack,
+            medhistorytype=Heartattack,
         )
 
 
@@ -360,9 +397,8 @@ class HepatitisAPIMixin(MedHistoryAPIMixin):
     def process_hepatitis(self) -> None:
         self.process_medhistory(
             mh_val=self.hepatitis__value,
-            mh_arg=self.hepatitis,
-            mh_name=MedHistoryTypes.HEPATITIS.lower(),
-            mh_model=Hepatitis,
+            medhistory=self.hepatitis,
+            medhistorytype=Hepatitis,
         )
 
 
@@ -378,9 +414,8 @@ class HypertensionAPIMixin(MedHistoryAPIMixin):
     def process_hypertension(self) -> None:
         self.process_medhistory(
             mh_val=self.hypertension__value,
-            mh_arg=self.hypertension,
-            mh_name=MedHistoryTypes.HYPERTENSION.lower(),
-            mh_model=Hypertension,
+            medhistory=self.hypertension,
+            medhistorytype=Hypertension,
         )
 
 
@@ -396,9 +431,8 @@ class HyperuricemiaAPIMixin(MedHistoryAPIMixin):
     def process_hyperuricemia(self) -> None:
         self.process_medhistory(
             mh_val=self.hyperuricemia__value,
-            mh_arg=self.hyperuricemia,
-            mh_name=MedHistoryTypes.HYPERURICEMIA.lower(),
-            mh_model=Hyperuricemia,
+            medhistory=self.hyperuricemia,
+            medhistorytype=Hyperuricemia,
         )
 
 
@@ -414,9 +448,8 @@ class IbdAPIMixin(MedHistoryAPIMixin):
     def process_ibd(self) -> None:
         self.process_medhistory(
             mh_val=self.ibd__value,
-            mh_arg=self.ibd,
-            mh_name=MedHistoryTypes.IBD.lower(),
-            mh_model=Ibd,
+            medhistory=self.ibd,
+            medhistorytype=Ibd,
         )
 
 
@@ -432,9 +465,8 @@ class MenopauseAPIMixin(MedHistoryAPIMixin):
     def process_menopause(self) -> None:
         self.process_medhistory(
             mh_val=self.menopause__value,
-            mh_arg=self.menopause,
-            mh_name=MedHistoryTypes.MENOPAUSE.lower(),
-            mh_model=Menopause,
+            medhistory=self.menopause,
+            medhistorytype=Menopause,
         )
 
 
@@ -450,9 +482,8 @@ class OrgantransplantAPIMixin(MedHistoryAPIMixin):
     def process_organtransplant(self) -> None:
         self.process_medhistory(
             mh_val=self.organtransplant__value,
-            mh_arg=self.organtransplant,
-            mh_name=MedHistoryTypes.ORGANTRANSPLANT.lower(),
-            mh_model=Organtransplant,
+            medhistory=self.organtransplant,
+            medhistorytype=Organtransplant,
         )
 
 
@@ -468,9 +499,8 @@ class OsteoporosisAPIMixin(MedHistoryAPIMixin):
     def process_osteoporosis(self) -> None:
         self.process_medhistory(
             mh_val=self.osteoporosis__value,
-            mh_arg=self.osteoporosis,
-            mh_name=MedHistoryTypes.OSTEOPOROSIS.lower(),
-            mh_model=Osteoporosis,
+            medhistory=self.osteoporosis,
+            medhistorytype=Osteoporosis,
         )
 
 
@@ -486,9 +516,8 @@ class PudAPIMixin(MedHistoryAPIMixin):
     def process_pud(self) -> None:
         self.process_medhistory(
             mh_val=self.pud__value,
-            mh_arg=self.pud,
-            mh_name=MedHistoryTypes.PUD.lower(),
-            mh_model=Pud,
+            medhistory=self.pud,
+            medhistorytype=Pud,
         )
 
 
@@ -504,9 +533,8 @@ class PvdAPIMixin(MedHistoryAPIMixin):
     def process_pvd(self) -> None:
         self.process_medhistory(
             mh_val=self.pvd__value,
-            mh_arg=self.pvd,
-            mh_name=MedHistoryTypes.PVD.lower(),
-            mh_model=Pvd,
+            medhistory=self.pvd,
+            medhistorytype=Pvd,
         )
 
 
@@ -522,9 +550,8 @@ class StrokeAPIMixin(MedHistoryAPIMixin):
     def process_stroke(self) -> None:
         self.process_medhistory(
             mh_val=self.stroke__value,
-            mh_arg=self.stroke,
-            mh_name=MedHistoryTypes.STROKE.lower(),
-            mh_model=Stroke,
+            medhistory=self.stroke,
+            medhistorytype=Stroke,
         )
 
 
@@ -540,9 +567,8 @@ class TophiAPIMixin(MedHistoryAPIMixin):
     def process_tophi(self) -> None:
         self.process_medhistory(
             mh_val=self.tophi__value,
-            mh_arg=self.tophi,
-            mh_name=MedHistoryTypes.TOPHI.lower(),
-            mh_model=Tophi,
+            medhistory=self.tophi,
+            medhistorytype=Tophi,
         )
 
 
@@ -558,9 +584,8 @@ class UratestonesAPIMixin(MedHistoryAPIMixin):
     def process_uratestones(self) -> None:
         self.process_medhistory(
             mh_val=self.uratestones__value,
-            mh_arg=self.uratestones,
-            mh_name=MedHistoryTypes.URATESTONES.lower(),
-            mh_model=Uratestones,
+            medhistory=self.uratestones,
+            medhistorytype=Uratestones,
         )
 
 
@@ -576,7 +601,6 @@ class XoiinteractionAPIMixin(MedHistoryAPIMixin):
     def process_xoiinteraction(self) -> None:
         self.process_medhistory(
             mh_val=self.xoiinteraction__value,
-            mh_arg=self.xoiinteraction,
-            mh_name=MedHistoryTypes.XOIINTERACTION.lower(),
-            mh_model=Xoiinteraction,
+            medhistory=self.xoiinteraction,
+            medhistorytype=Xoiinteraction,
         )

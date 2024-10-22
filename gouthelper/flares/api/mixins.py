@@ -145,6 +145,7 @@ class FlareAPICreateMixin(FlareAPIMixin):
             aki=self.aki,
             urate=self.urate,
         )
+        self.add_mh_relation(self.flare)
         self.process_angina()
         self.process_cad()
         self.process_chf()
