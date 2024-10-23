@@ -1,5 +1,7 @@
+from typing import TYPE_CHECKING
+
 from django.apps import apps  # type: ignore
-from django.conf import settings
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.db.models.functions import Now  # type: ignore
 from django.utils import timezone  # type: ignore
@@ -49,6 +51,16 @@ from .managers import (
     UratestonesManager,
     XoiinteractionManager,
 )
+
+if TYPE_CHECKING:
+    from ..flareaids.models import FlareAid
+    from ..flares.models import Flare
+    from ..goalurates.models import GoalUrate
+    from ..ppxaids.models import PpxAid
+    from ..ppxs.models import Ppx
+    from ..ultaids.models import UltAid
+    from ..ults.models import Ult
+    from ..users.models import Pseudopatient
 
 
 class MedHistory(
@@ -289,6 +301,45 @@ class MedHistory(
         self.__class__ = MedHistory
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
+
+    def update(
+        self,
+        user: "Pseudopatient" = None,
+        flareaid: "FlareAid" = None,
+        flare: "Flare" = None,
+        goalurate: "GoalUrate" = None,
+        ppxaid: "PpxAid" = None,
+        ppx: "Ppx" = None,
+        ultaid: "UltAid" = None,
+        ult: "Ult" = None,
+    ) -> None:
+        needs_save = False
+        if user and self.user != user:
+            self.user = user
+            needs_save = True
+        if self.flareaid != flareaid:
+            self.flareaid = flareaid
+            needs_save = True
+        if self.flare != flare:
+            self.flare = flare
+            needs_save = True
+        if self.goalurate != goalurate:
+            self.goalurate = goalurate
+            needs_save = True
+        if self.ppxaid != ppxaid:
+            self.ppxaid = ppxaid
+            needs_save = True
+        if self.ppx != ppx:
+            self.ppx = ppx
+            needs_save = True
+        if self.ultaid != ultaid:
+            self.ultaid = ultaid
+            needs_save = True
+        if self.ult != ult:
+            self.ult = ult
+            needs_save = True
+        if needs_save:
+            self.update_set_date_and_save()
 
     def update_set_date_and_save(self, commit: bool = True) -> None:
         """Update the set_date field to the current date and time."""

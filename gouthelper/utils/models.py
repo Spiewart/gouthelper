@@ -2071,7 +2071,7 @@ class GoutHelperAidModel(GoutHelperBaseModel, models.Model):
     related_objects: "Manager"
 
     @cached_property
-    def poss_medhistorys(self) -> list[MedHistoryTypes]:
+    def poss_medhistorytypes(self) -> list[MedHistoryTypes]:
         return self.aid_medhistorys()
 
     def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":

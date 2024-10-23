@@ -63,13 +63,7 @@ class MedHistoryAPIMixin(APIMixin):
             medhistorytype=medhistorytype,
         )
         self.check_for_and_raise_errors(model_name=medhistorytype.value.lower())
-        related_aids: list["AidTypes"] = (
-            [relation for relation in self.mh_relations if medhistorytype in relation.poss_medhistorytypes]
-            if (self.mh_relations and isinstance(self.mh_relations, list))
-            else [self.mh_relations]
-            if self.mh_relations
-            else []
-        )
+        related_aids: list["AidTypes"] = self.get_related_aids_for_medhistorytype(medhistorytype)
 
         new_mh = self.get_medhistory_model_from_medhistorytype(medhistorytype=medhistorytype).objects.create(
             user=self.patient,
@@ -81,6 +75,15 @@ class MedHistoryAPIMixin(APIMixin):
             new_mh,
         )
         return new_mh
+
+    def get_related_aids_for_medhistorytype(self, medhistorytype: "MedHistoryTypes") -> list["AidTypes"]:
+        return (
+            [relation for relation in self.mh_relations if medhistorytype in relation.poss_medhistorytypes]
+            if (self.mh_relations and isinstance(self.mh_relations, list))
+            else [self.mh_relations]
+            if self.mh_relations
+            else []
+        )
 
     def add_mh_relation(self, relation: "AidTypes") -> None:
         self.mh_relations.append(relation)
@@ -108,41 +111,44 @@ class MedHistoryAPIMixin(APIMixin):
     def patient_has_medhistory(self, medhistorytype: "MedHistoryTypes") -> bool:
         return self.patient and bool(getattr(self.patient, medhistorytype.value.lower()))
 
-    def get_queryset(self) -> "MedHistory":
-        raise NotImplementedError("get_queryset() must be implemented in a subclass")
+    def get_queryset(self, medhistory: "UUID", medhistorytype: Union["MedHistoryTypes"]) -> "MedHistory":
+        return (
+            self.get_medhistory_model_from_medhistorytype(medhistorytype=medhistorytype)
+            .objects.filter(pk=medhistory)
+            .select_related("user__pseudopatientprofile__provider")
+        )
 
-    def set_attrs_from_qs(self) -> None:
-        obj = self.get_queryset().get()
-        setattr(self, obj.__class__.__name__.lower(), obj)
+    def set_attrs_from_qs(self, medhistory: "UUID", medhistorytype: Union["MedHistoryTypes"]) -> None:
+        obj = self.get_queryset(medhistory=medhistory, medhistorytype=medhistorytype).get()
+        setattr(self, medhistorytype.lower(), obj)
         self.patient = obj.user if not self.patient else self.patient
 
-    def delete_medhistory(self, medhistory: Union["MedHistoryTypes", "UUID", None]) -> None:
+    def delete_medhistory(
+        self, medhistory: Union["MedHistoryTypes", "UUID", None], medhistorytype: Union["MedHistoryTypes"]
+    ) -> None:
         if self.is_uuid(medhistory):
-            self.set_attrs_from_qs()
+            self.set_attrs_from_qs(medhistory=medhistory, medhistorytype=medhistorytype)
         self.check_for_medhistory_delete_errors(
             medhistory=medhistory,
+            medhistorytype=medhistorytype,
         )
-        self.check_for_and_raise_errors(model_name=medhistory.medhistorytype.value.lower())
+        self.check_for_and_raise_errors(model_name=medhistorytype.value.lower())
         medhistory.delete()
+        setattr(self, medhistorytype.value.lower(), None)
 
-    def check_for_medhistory_delete_errors(self, medhistory: Union["MedHistory", None]):
-        if not medhistory:
+    def check_for_medhistory_delete_errors(
+        self, medhistory: Union["MedHistory", None], medhistorytype: Union["MedHistoryTypes"]
+    ):
+        mhtype_attr = medhistorytype.value.lower()
+        if getattr(self, f"{mhtype_attr}__value"):
             self.add_errors(
                 api_args=[
-                    (f"{self.medhistorytype.value.lower()}", f"{self.medhistorytype.value.lower()} does not exist.")
+                    (
+                        f"{mhtype_attr}__value",
+                        f"{mhtype_attr}__value must be False to delete {medhistory}.",
+                    )
                 ],
             )
-        else:
-            mhtype_attr = medhistory.medhistorytype.value.lower()
-            if getattr(self, f"{mhtype_attr}__value"):
-                self.add_errors(
-                    api_args=[
-                        (
-                            f"{mhtype_attr}__value",
-                            f"{mhtype_attr}__value must be False to delete {medhistory}.",
-                        )
-                    ],
-                )
 
     def process_medhistory(
         self,
@@ -152,10 +158,11 @@ class MedHistoryAPIMixin(APIMixin):
     ) -> None:
         if mh_val and not medhistory:
             self.create_medhistory(medhistory=medhistory, medhistorytype=medhistorytype)
-        elif not mh_val and self.patient_has_medhistory(medhistorytype=medhistorytype):
-            self.delete_medhistory(medhistory=medhistory)
+        elif not mh_val and medhistory:
+            self.delete_medhistory(medhistory=medhistory, medhistorytype=medhistorytype)
         else:
-            pass
+            if self.medhistory_needs_update(medhistory=medhistory):
+                self.update_medhistory(medhistory=medhistory, medhistorytype=medhistorytype)
 
     def medhistory_needs_update(
         self,
@@ -173,6 +180,19 @@ class MedHistoryAPIMixin(APIMixin):
             )
         )
 
+    def update_medhistory(self, medhistory: MedHistory, medhistorytype: Union["MedHistoryTypes"]) -> None:
+        if self.is_uuid(medhistory):
+            self.set_attrs_from_qs(medhistory=medhistory, medhistorytype=medhistorytype)
+        kwargs = {"user": self.patient}
+        if self.mh_relations:
+            if self.patient:
+                for relation in self.mh_relations:
+                    kwargs.update({relation.__class__.__name__.lower(): None})
+            else:
+                related_aids: list["AidTypes"] = self.get_related_aids_for_medhistorytype(medhistorytype)
+                kwargs.update({relation.__class__.__name__.lower(): relation for relation in related_aids})
+        medhistory.update(**kwargs)
+
     @classmethod
     def get_medhistory_model_from_medhistorytype(
         cls,
@@ -184,11 +204,6 @@ class MedHistoryAPIMixin(APIMixin):
 class AnginaAPIMixin(MedHistoryAPIMixin):
     angina: Union[Angina, "UUID", None]
     angina__value: bool | None
-
-    def get_queryset(self) -> Angina:
-        if not self.is_uuid(self.angina):
-            raise TypeError("angina arg must be a UUID to call get_queryset()")
-        return Angina.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_angina(self) -> None:
         self.process_medhistory(
@@ -202,11 +217,6 @@ class AnticoagulationAPIMixin(MedHistoryAPIMixin):
     anticoagulation: Union[Anticoagulation, "UUID", None]
     anticoagulation__value: bool | None
 
-    def get_queryset(self) -> Anticoagulation:
-        if not self.is_uuid(self.anticoagulation):
-            raise TypeError("anticoagulation arg must be a UUID to call get_queryset()")
-        return Anticoagulation.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_anticoagulation(self) -> None:
         self.process_medhistory(
             mh_val=self.anticoagulation__value,
@@ -218,11 +228,6 @@ class AnticoagulationAPIMixin(MedHistoryAPIMixin):
 class BleedAPIMixin(MedHistoryAPIMixin):
     bleed: Union[Bleed, "UUID", None]
     bleed__value: bool | None
-
-    def get_queryset(self) -> Bleed:
-        if not self.is_uuid(self.bleed):
-            raise TypeError("bleed arg must be a UUID to call get_queryset()")
-        return Bleed.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_bleed(self) -> None:
         self.process_medhistory(
@@ -236,11 +241,6 @@ class CadAPIMixin(MedHistoryAPIMixin):
     cad: Union[Cad, "UUID", None]
     cad__value: bool | None
 
-    def get_queryset(self) -> Cad:
-        if not self.is_uuid(self.cad):
-            raise TypeError("cad arg must be a UUID to call get_queryset()")
-        return Cad.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_cad(self) -> None:
         self.process_medhistory(
             mh_val=self.cad__value,
@@ -252,11 +252,6 @@ class CadAPIMixin(MedHistoryAPIMixin):
 class ChfAPIMixin(MedHistoryAPIMixin):
     chf: Union[Chf, "UUID", None]
     chf__value: bool | None
-
-    def get_queryset(self) -> Chf:
-        if not self.is_uuid(self.chf):
-            raise TypeError("chf arg must be a UUID to call get_queryset()")
-        return Chf.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_chf(self) -> None:
         self.process_medhistory(
@@ -270,11 +265,6 @@ class CkdAPIMixin(MedHistoryAPIMixin):
     ckd: Union[Ckd, "UUID", None]
     ckd__value: bool | None
 
-    def get_queryset(self) -> Ckd:
-        if not self.is_uuid(self.ckd):
-            raise TypeError("ckd arg must be a UUID to call get_queryset()")
-        return Ckd.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_ckd(self) -> None:
         self.process_medhistory(
             mh_val=self.ckd__value,
@@ -286,11 +276,6 @@ class CkdAPIMixin(MedHistoryAPIMixin):
 class ColchicineinteractionAPIMixin(MedHistoryAPIMixin):
     colchicineinteraction: Union[Colchicineinteraction, "UUID", None]
     colchicineinteraction__value: bool | None
-
-    def get_queryset(self) -> Colchicineinteraction:
-        if not self.is_uuid(self.colchicineinteraction):
-            raise TypeError("colchicineinteraction arg must be a UUID to call get_queryset()")
-        return Colchicineinteraction.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_colchicineinteraction(self) -> None:
         self.process_medhistory(
@@ -304,11 +289,6 @@ class DiabetesAPIMixin(MedHistoryAPIMixin):
     diabetes: Union[Diabetes, "UUID", None]
     diabetes__value: bool | None
 
-    def get_queryset(self) -> Diabetes:
-        if not self.is_uuid(self.diabetes):
-            raise TypeError("diabetes arg must be a UUID to call get_queryset()")
-        return Diabetes.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_diabetes(self) -> None:
         self.process_medhistory(
             mh_val=self.diabetes__value,
@@ -320,11 +300,6 @@ class DiabetesAPIMixin(MedHistoryAPIMixin):
 class ErosionsAPIMixin(MedHistoryAPIMixin):
     erosions: Union[Erosions, "UUID", None]
     erosions__value: bool | None
-
-    def get_queryset(self) -> Erosions:
-        if not self.is_uuid(self.erosions):
-            raise TypeError("erosions arg must be a UUID to call get_queryset()")
-        return Erosions.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_erosions(self) -> None:
         self.process_medhistory(
@@ -338,11 +313,6 @@ class GastricbypassAPIMixin(MedHistoryAPIMixin):
     gastricbypass: Union[Gastricbypass, "UUID", None]
     gastricbypass__value: bool | None
 
-    def get_queryset(self) -> Gastricbypass:
-        if not self.is_uuid(self.gastricbypass):
-            raise TypeError("gastricbypass arg must be a UUID to call get_queryset()")
-        return Gastricbypass.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_gastricbypass(self) -> None:
         self.process_medhistory(
             mh_val=self.gastricbypass__value,
@@ -354,11 +324,6 @@ class GastricbypassAPIMixin(MedHistoryAPIMixin):
 class GoutAPIMixin(MedHistoryAPIMixin):
     gout: Union[Gout, "UUID", None]
     gout__value: bool | None
-
-    def get_queryset(self) -> Gout:
-        if not self.is_uuid(self.gout):
-            raise TypeError("gout arg must be a UUID to call get_queryset()")
-        return Gout.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_gout(self) -> None:
         self.process_medhistory(
@@ -372,11 +337,6 @@ class HeartattackAPIMixin(MedHistoryAPIMixin):
     heartattack: Union[Heartattack, "UUID", None]
     heartattack__value: bool | None
 
-    def get_queryset(self) -> Heartattack:
-        if not self.is_uuid(self.heartattack):
-            raise TypeError("heartattack arg must be a UUID to call get_queryset()")
-        return Heartattack.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_heartattack(self) -> None:
         self.process_medhistory(
             mh_val=self.heartattack__value,
@@ -388,11 +348,6 @@ class HeartattackAPIMixin(MedHistoryAPIMixin):
 class HepatitisAPIMixin(MedHistoryAPIMixin):
     hepatitis: Union[Hepatitis, "UUID", None]
     hepatitis__value: bool | None
-
-    def get_queryset(self) -> Hepatitis:
-        if not self.is_uuid(self.hepatitis):
-            raise TypeError("hepatitis arg must be a UUID to call get_queryset()")
-        return Hepatitis.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_hepatitis(self) -> None:
         self.process_medhistory(
@@ -406,11 +361,6 @@ class HypertensionAPIMixin(MedHistoryAPIMixin):
     hypertension: Union[Hypertension, "UUID", None]
     hypertension__value: bool | None
 
-    def get_queryset(self) -> Hypertension:
-        if not self.is_uuid(self.hypertension):
-            raise TypeError("hypertension arg must be a UUID to call get_queryset()")
-        return Hypertension.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_hypertension(self) -> None:
         self.process_medhistory(
             mh_val=self.hypertension__value,
@@ -422,11 +372,6 @@ class HypertensionAPIMixin(MedHistoryAPIMixin):
 class HyperuricemiaAPIMixin(MedHistoryAPIMixin):
     hyperuricemia: Union[Hyperuricemia, "UUID", None]
     hyperuricemia__value: bool | None
-
-    def get_queryset(self) -> Hyperuricemia:
-        if not self.is_uuid(self.hyperuricemia):
-            raise TypeError("hyperuricemia arg must be a UUID to call get_queryset()")
-        return Hyperuricemia.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_hyperuricemia(self) -> None:
         self.process_medhistory(
@@ -440,11 +385,6 @@ class IbdAPIMixin(MedHistoryAPIMixin):
     ibd: Union[Ibd, "UUID", None]
     ibd__value: bool | None
 
-    def get_queryset(self) -> Ibd:
-        if not self.is_uuid(self.ibd):
-            raise TypeError("ibd arg must be a UUID to call get_queryset()")
-        return Ibd.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_ibd(self) -> None:
         self.process_medhistory(
             mh_val=self.ibd__value,
@@ -456,11 +396,6 @@ class IbdAPIMixin(MedHistoryAPIMixin):
 class MenopauseAPIMixin(MedHistoryAPIMixin):
     menopause: Union[Menopause, "UUID", None]
     menopause__value: bool | None
-
-    def get_queryset(self) -> Menopause:
-        if not self.is_uuid(self.menopause):
-            raise TypeError("menopause arg must be a UUID to call get_queryset()")
-        return Menopause.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_menopause(self) -> None:
         self.process_medhistory(
@@ -474,11 +409,6 @@ class OrgantransplantAPIMixin(MedHistoryAPIMixin):
     organtransplant: Union[Organtransplant, "UUID", None]
     organtransplant__value: bool | None
 
-    def get_queryset(self) -> Organtransplant:
-        if not self.is_uuid(self.organtransplant):
-            raise TypeError("organtransplant arg must be a UUID to call get_queryset()")
-        return Organtransplant.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_organtransplant(self) -> None:
         self.process_medhistory(
             mh_val=self.organtransplant__value,
@@ -490,11 +420,6 @@ class OrgantransplantAPIMixin(MedHistoryAPIMixin):
 class OsteoporosisAPIMixin(MedHistoryAPIMixin):
     osteoporosis: Union[Osteoporosis, "UUID", None]
     osteoporosis__value: bool | None
-
-    def get_queryset(self) -> Osteoporosis:
-        if not self.is_uuid(self.osteoporosis):
-            raise TypeError("osteoporosis arg must be a UUID to call get_queryset()")
-        return Osteoporosis.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_osteoporosis(self) -> None:
         self.process_medhistory(
@@ -508,11 +433,6 @@ class PudAPIMixin(MedHistoryAPIMixin):
     pud: Union[Pud, "UUID", None]
     pud__value: bool | None
 
-    def get_queryset(self) -> Pud:
-        if not self.is_uuid(self.pud):
-            raise TypeError("pud arg must be a UUID to call get_queryset()")
-        return Pud.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_pud(self) -> None:
         self.process_medhistory(
             mh_val=self.pud__value,
@@ -524,11 +444,6 @@ class PudAPIMixin(MedHistoryAPIMixin):
 class PvdAPIMixin(MedHistoryAPIMixin):
     pvd: Union[Pvd, "UUID", None]
     pvd__value: bool | None
-
-    def get_queryset(self) -> Pvd:
-        if not self.is_uuid(self.pvd):
-            raise TypeError("pvd arg must be a UUID to call get_queryset()")
-        return Pvd.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_pvd(self) -> None:
         self.process_medhistory(
@@ -542,11 +457,6 @@ class StrokeAPIMixin(MedHistoryAPIMixin):
     stroke: Union[Stroke, "UUID", None]
     stroke__value: bool | None
 
-    def get_queryset(self) -> Stroke:
-        if not self.is_uuid(self.stroke):
-            raise TypeError("stroke arg must be a UUID to call get_queryset()")
-        return Stroke.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_stroke(self) -> None:
         self.process_medhistory(
             mh_val=self.stroke__value,
@@ -558,11 +468,6 @@ class StrokeAPIMixin(MedHistoryAPIMixin):
 class TophiAPIMixin(MedHistoryAPIMixin):
     tophi: Union[Tophi, "UUID", None]
     tophi__value: bool | None
-
-    def get_queryset(self) -> Tophi:
-        if not self.is_uuid(self.tophi):
-            raise TypeError("tophi arg must be a UUID to call get_queryset()")
-        return Tophi.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_tophi(self) -> None:
         self.process_medhistory(
@@ -576,11 +481,6 @@ class UratestonesAPIMixin(MedHistoryAPIMixin):
     uratestones: Union[Uratestones, "UUID", None]
     uratestones__value: bool | None
 
-    def get_queryset(self) -> Uratestones:
-        if not self.is_uuid(self.uratestones):
-            raise TypeError("uratestones arg must be a UUID to call get_queryset()")
-        return Uratestones.objects.filter(pk=self.model_attr).select_related("user")
-
     def process_uratestones(self) -> None:
         self.process_medhistory(
             mh_val=self.uratestones__value,
@@ -592,11 +492,6 @@ class UratestonesAPIMixin(MedHistoryAPIMixin):
 class XoiinteractionAPIMixin(MedHistoryAPIMixin):
     xoiinteraction: Union[Xoiinteraction, "UUID", None]
     xoiinteraction__value: bool | None
-
-    def get_queryset(self) -> Xoiinteraction:
-        if not self.is_uuid(self.xoiinteraction):
-            raise TypeError("xoiinteraction arg must be a UUID to call get_queryset()")
-        return Xoiinteraction.objects.filter(pk=self.model_attr).select_related("user")
 
     def process_xoiinteraction(self) -> None:
         self.process_medhistory(
