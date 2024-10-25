@@ -15,9 +15,9 @@ from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
 from ...utils.exceptions import GoutHelperValidationError
 from ..api.serializers import CkdDetailSerializer
+from ..api.services import CkdDetailAPIMixin
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
-from ..services import CkdDetailAPIMixin
 
 pytestmark = pytest.mark.django_db
 

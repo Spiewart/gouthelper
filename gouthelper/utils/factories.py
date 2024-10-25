@@ -1400,7 +1400,7 @@ def create_ethnicity(
 
 
 class CustomFactoryEthnicityMixin:
-    ethnicity: Ethnicity | Ethnicitys | None | Auto  # fmt: skip
+    ethnicity: Union[Ethnicity, Ethnicitys, None, Auto]  # fmt: skip # pylint # noqa
     related_object: Any | None
     user: Union["User", bool, None]
 

@@ -34,7 +34,13 @@ repos:
     rev: v3.15.0
     hooks:
       - id: pyupgrade
+        name: pyupgrade-default
         args: [--py311-plus]
+        exclude: 'gouthelper/utils/factories.py'
+
+      - id: pyupgrade
+        name: pyupgrade-keep-runtime-typing
+        files: 'gouthelper/utils/factories.py'
 
   - repo: https://github.com/psf/black
     rev: 23.10.1
