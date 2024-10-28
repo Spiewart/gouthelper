@@ -33,6 +33,7 @@ class CkdDetailAPIMixin(APIMixin):
     dateofbirth: Union[DateOfBirth, "UUID", "date", None]
     baselinecreatinine: Union[BaselineCreatinine, "UUID", "Decimal", None]
     gender: Union[Gender, "UUID", "Genders", None]
+    ckddetail_optional: bool = False
 
     def create_ckddetail(self) -> CkdDetail:
         self.check_for_ckddetail_create_errors()
@@ -45,6 +46,7 @@ class CkdDetailAPIMixin(APIMixin):
             stage=self.ckddetail__stage,
             medhistory=self.ckddetail__medhistory,
         )
+        return self.ckddetail
 
     def check_for_ckddetail_create_errors(self) -> None:
         if self.ckddetail:
@@ -70,7 +72,7 @@ class CkdDetailAPIMixin(APIMixin):
                 )
             )
 
-        elif self.incomplete_info:
+        elif self.incomplete_info and not self.ckddetail_optional:
             message = "There isn't enough information in this request to create or update a CkdDetail."
             self.errors.append(("dialysis", message))
             self.errors.append(("stage", message))
@@ -117,16 +119,7 @@ class CkdDetailAPIMixin(APIMixin):
 
     @property
     def incomplete_info(self) -> bool:
-        return (
-            self.no_ckddetail
-            and self.ckddetail__dialysis is None
-            and self.ckddetail__stage is None
-            and not self.can_calculate_stage
-        )
-
-    @property
-    def no_ckddetail(self) -> bool:
-        return self.ckddetail is None and not hasattr(self.ckddetail__medhistory, "ckddetail")
+        return self.ckddetail__dialysis is None and self.ckddetail__stage is None and not self.can_calculate_stage
 
     def update_ckddetail_field_attrs(self) -> None:
         if not self.ckddetail__stage and self.should_calculate_stage:
@@ -200,6 +193,34 @@ class CkdDetailAPIMixin(APIMixin):
             if editor_attr != val:
                 changed_fields.append((key, editor_attr))
         return changed_fields
+
+    def delete_ckddetail(self) -> None:
+        self.check_for_ckddetail_delete_errors()
+        self.check_for_and_raise_errors(model_name="CkdDetail")
+        self.ckddetail.delete()
+
+    def check_for_ckddetail_delete_errors(self) -> None:
+        if not self.ckddetail:
+            self.errors.append(("ckddetail", "CkdDetail instance required to delete a CkdDetail."))
+        elif not self.ckddetail_optional:
+            self.errors.append(("ckddetail", "CkdDetail instance cannot be deleted."))
+
+    def process_ckddetail(self) -> None:
+        if not self.ckddetail and self.ckddetail_should_be_created:
+            self.create_ckddetail()
+        elif self.ckddetail:
+            if self.ckddetail_should_be_deleted:
+                self.delete_ckddetail()
+            else:
+                self.update_ckddetail()
+
+    @property
+    def ckddetail_should_be_created(self) -> bool:
+        return not self.ckddetail and (not self.ckddetail_optional or not self.incomplete_info)
+
+    @property
+    def ckddetail_should_be_deleted(self) -> bool:
+        return self.ckddetail and self.ckddetail_optional and self.incomplete_info
 
 
 class GoutDetailAPIMixin(APIMixin):

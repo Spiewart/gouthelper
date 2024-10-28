@@ -15,7 +15,7 @@ from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
 from ...utils.exceptions import GoutHelperValidationError
 from ..api.serializers import CkdDetailSerializer
-from ..api.services import CkdDetailAPIMixin
+from ..api.services import CkdDetailAPI
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
 
@@ -29,9 +29,11 @@ fake = faker.Faker()
 if TYPE_CHECKING:
     from datetime import date
 
+    from ...dateofbirths.models import DateOfBirth
     from ...genders.choices import Genders
     from ...labs.models import BaselineCreatinine
     from ...medhistorys.models import Ckd
+    from ...users.models import Pseudopatient
 
 
 class CkdDetailFactory(DjangoModelFactory):
@@ -151,64 +153,66 @@ def create_ckddetail(
     return ckddetail
 
 
-class CkdDetailDataFactory(CkdDetailAPIMixin):
+class CkdDetailDataFactory(CkdDetailAPI):
     def __init__(
         self,
         ckddetail: Union["CkdDetail", None] = None,
-        ckd: Union["Ckd", None] = None,
-        dialysis: bool | None = None,
-        dialysis_type: Union["DialysisChoices", None] = None,
-        dialysis_duration: Union["DialysisDurations", None] = None,
-        stage: Stages | None = None,
-        age: int | None = None,
+        ckddetail__medhistory: Union["Ckd", None] = None,
+        ckddetail__dialysis: bool | None = None,
+        ckddetail__dialysis_type: Union["DialysisChoices", None] = None,
+        ckddetail__dialysis_duration: Union["DialysisDurations", None] = None,
+        ckddetail__stage: Stages | None = None,
+        dateofbirth: Union["DateOfBirth", None] = None,
         baselinecreatinine: Union["Decimal", None] = None,
         gender: Union["Genders", None] = None,
+        patient: Union["Pseudopatient", None] = None,
     ):
         super().__init__(
             ckddetail=ckddetail,
-            ckd=ckd,
-            dialysis=dialysis,
-            dialysis_type=dialysis_type,
-            dialysis_duration=dialysis_duration,
-            stage=stage,
-            age=age,
+            ckddetail__medhistory=ckddetail__medhistory,
+            ckddetail__dialysis=ckddetail__dialysis,
+            ckddetail__dialysis_type=ckddetail__dialysis_type,
+            ckddetail__dialysis_duration=ckddetail__dialysis_duration,
+            ckddetail__stage=ckddetail__stage,
+            dateofbirth=dateofbirth,
             baselinecreatinine=baselinecreatinine,
             gender=gender,
+            patient=patient,
         )
         self.update_attrs()
         if self.has_errors:
             self.update_errors()
 
     def update_attrs(self) -> None:
-        if self.dialysis is None:
-            if self.dialysis_duration or self.dialysis_type:
-                self.dialysis = True
+        if self.ckddetail__dialysis is None:
+            if self.ckddetail__dialysis_duration or self.ckddetail__dialysis_type:
+                self.ckddetail__dialysis = True
             elif self.ckddetail:
-                self.dialysis = self.ckddetail.dialysis
-            elif self.stage and self.stage != Stages.FIVE:
-                self.dialysis = False
+                self.ckddetail__dialysis = self.ckddetail.dialysis
+            elif self.ckddetail__stage and self.ckddetail__stage != Stages.FIVE:
+                self.ckddetail__dialysis = False
             elif fake.boolean():
-                self.dialysis = True
+                self.ckddetail__dialysis = True
                 self.set_dialysis_type_duration()
             else:
-                self.dialysis = False
-        elif self.dialysis:
+                self.ckddetail__dialysis = False
+        elif self.ckddetail__dialysis:
             self.set_dialysis_type_duration()
-        if self.stage is None:
+        if self.ckddetail__stage is None:
             if self.ckddetail:
-                self.stage = self.ckddetail.stage
+                self.ckddetail__stage = self.ckddetail.stage
             elif self.baselinecreatinine and self.age and self.gender:
-                self.stage = self.calculated_stage
-            elif not self.dialysis:
-                self.stage = random.choice(Stages.values)
+                self.ckddetail__stage = self.calculated_stage
+            elif not self.ckddetail__dialysis:
+                self.ckddetail__stage = random.choice(Stages.values)
             else:
-                self.stage = Stages.FIVE
+                self.ckddetail__stage = Stages.FIVE
 
     def set_dialysis_type_duration(self) -> None:
-        if self.dialysis_type is None:
-            self.dialysis_type = random.choice(DialysisChoices.values)
-        if self.dialysis_duration is None:
-            self.dialysis_duration = random.choice(DialysisDurations)
+        if self.ckddetail__dialysis_type is None:
+            self.ckddetail__dialysis_type = random.choice(DialysisChoices.values)
+        if self.ckddetail__dialysis_duration is None:
+            self.ckddetail__dialysis_duration = random.choice(DialysisDurations)
 
     def create_api_data(self) -> dict:
         if self.has_errors:
@@ -223,12 +227,12 @@ class CkdDetailDataFactory(CkdDetailAPIMixin):
         data.update(
             {
                 "ckddetail": self.ckddetail,
-                "ckd": self.ckd,
-                "stage": self.stage,
-                "dialysis": self.dialysis,
-                "dialysis_type": self.dialysis_type,
-                "dialysis_duration": self.dialysis_duration,
-                "age": self.age,
+                "ckddetail__medhistory": self.ckddetail__medhistory,
+                "ckddetail__stage": self.ckddetail__stage,
+                "ckddetail__dialysis": self.ckddetail__dialysis,
+                "ckddetail__dialysis_type": self.ckddetail__dialysis_type,
+                "ckddetail__dialysis_duration": self.ckddetail__dialysis_duration,
+                "dateofbirth": self.dateofbirth,
                 "baselinecreatinine": self.baselinecreatinine,
                 "gender": self.gender,
             }
