@@ -82,6 +82,178 @@ class TestCkdDetailAPIMixin(TestCase):
             "ckddetail__stage": self.ckddetail__stage,
         }
 
+    def test__check_for_ckddetail_create_errors(self):
+        """Test that check_for_ckddetail_create_errorrs() identifies the correct errors
+        for the API lacking a ckddetail, related Ckd instance, or any of the mix of required fields
+        for creating a CkdDetail and adds the errors to the API errors attr (list)."""
+
+        self.api.errors = []
+        self.api_attrs.update({"ckddetail": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__medhistory", f"{self.ckd} already has a CkdDetail."), self.api.errors)
+
+        # Test that the API errors when there is already a CkdDetail instance and when there isn't a Ckd instance
+        self.api_attrs.update(
+            {
+                "ckddetail": self.ckddetail,
+                "ckddetail__medhistory": None,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", f"{self.ckddetail} already exists."), self.api.errors)
+        self.assertIn(("ckddetail__medhistory", "Ckd instance required for CkdDetail creation."), self.api.errors)
+
+        self.api_attrs.update(
+            {
+                "ckddetail": None,
+                "ckddetail__medhistory": CkdFactory(),
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.errors = []
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage does not match calculated stage."), self.api.errors)
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": Stages.THREE,
+                "ckddetail__dialysis": True,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage must be 5 if dialysis is True."), self.api.errors)
+        self.assertIn(("ckddetail__dialysis_type", "Dialysis type is required if dialysis is True."), self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", "Dialysis duration is required if dialysis is True."), self.api.errors
+        )
+
+        self.api_attrs.update(
+            {
+                "dateofbirth": None,
+                "gender": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("dateofbirth", "Date of birth is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(("gender", "Gender is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(
+            (
+                "baselinecreatinine",
+                "Age and gender are required to interpret baseline creatinine (to calculate a stage).",
+            ),
+            self.api.errors,
+        )
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": None,
+                "ckddetail__dialysis": False,
+                "baselinecreatinine": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_create_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("ckddetail__stage", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("baselinecreatinine", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+
+    def test__check_for_ckddetail_field_errors(self):
+        self.api_attrs.update(
+            {
+                "ckddetail": None,
+                "ckddetail__medhistory": CkdFactory(),
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.errors = []
+        self.api.check_for_ckddetail_field_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage does not match calculated stage."), self.api.errors)
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": Stages.THREE,
+                "ckddetail__dialysis": True,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_field_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage must be 5 if dialysis is True."), self.api.errors)
+        self.assertIn(("ckddetail__dialysis_type", "Dialysis type is required if dialysis is True."), self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", "Dialysis duration is required if dialysis is True."), self.api.errors
+        )
+
+        self.api_attrs.update(
+            {
+                "dateofbirth": None,
+                "gender": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_field_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("dateofbirth", "Date of birth is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(("gender", "Gender is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(
+            (
+                "baselinecreatinine",
+                "Age and gender are required to interpret baseline creatinine (to calculate a stage).",
+            ),
+            self.api.errors,
+        )
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": None,
+                "ckddetail__dialysis": False,
+                "baselinecreatinine": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_field_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("ckddetail__stage", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("baselinecreatinine", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+
     def test__ckd_ckddetail_conflict(self):
         ckd = CkdDetailFactory(medhistory=CkdFactory()).medhistory
         self.api_attrs.update(
@@ -160,6 +332,26 @@ class TestCkdDetailAPIMixin(TestCase):
         )
         set_mixin_attr(self.api, **self.api_attrs)
         self.assertTrue(self.api.stage_calculated_stage_conflict)
+
+    def test__should_calculate_stage(self):
+        """Test that the should_calculate_stage property returns correctly when dialysis is False and
+        there is enough related information to calculate a stage."""
+
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.assertTrue(self.api.should_calculate_stage)
+
+        self.api_attrs.update({"ckddetail__dialysis": True})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.assertFalse(self.api.should_calculate_stage)
+
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis": False,
+                "baselinecreatinine": None,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.assertFalse(self.api.should_calculate_stage)
 
     def test__dialysis_stage_conflict_no_dialysis(self):
         """Test when dialysis is False."""
@@ -272,6 +464,47 @@ class TestCkdDetailAPIMixin(TestCase):
         set_mixin_attr(self.api, **self.api_attrs)
         self.assertTrue(self.api.baselinecreatinine_age_gender_conflict)
 
+    def test__update_ckddetail_field_attrs(self):
+        """Test that the update_ckddetail_field_attrs correctly updates the API attributes."""
+
+        self.api_attrs.update({"ckddetail__stage": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.update_ckddetail_field_attrs()
+        self.assertEqual(
+            self.api.ckddetail__stage,
+            self.ckddetail__stage,
+        )
+
+        self.api_attrs.update({"ckddetail__dialysis": True, "ckddetail__stage": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.update_ckddetail_field_attrs()
+        self.assertEqual(
+            self.api.ckddetail__stage,
+            Stages.FIVE,
+        )
+
+        self.api_attrs.update({"ckddetail__dialysis": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.update_ckddetail_field_attrs()
+        self.assertFalse(
+            self.api.ckddetail__dialysis,
+        )
+
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis_type": DialysisChoices.PERITONEAL,
+                "ckddetail__dialysis_duration": DialysisDurations.LESSTHANSIX,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.update_ckddetail_field_attrs()
+        self.assertIsNone(
+            self.api.ckddetail__dialysis_type,
+        )
+        self.assertIsNone(
+            self.api.ckddetail__dialysis_duration,
+        )
+
     def test__create_ckddetail(self):
         """Test successful creation of CkdDetail."""
 
@@ -348,7 +581,7 @@ class TestCkdDetailAPIMixin(TestCase):
             ),
         )
 
-    def test__create_with_dialysis_can_calculcate_stage_but_wont(self):
+    def test__create_with_dialysis_can_calculate_stage_but_wont(self):
         """Test that _update_attrs is called during creation."""
 
         prep_mixin_attrs_for_create(self.api_attrs)
@@ -395,7 +628,7 @@ class TestCkdDetailAPIMixin(TestCase):
         set_mixin_attr(self.api, **self.api_attrs)
         self.assertTrue(self.api.ckddetail_has_changed(initial=self.initial))
 
-    def test__update(self):
+    def test__update_ckddetail(self):
         """Test successful update of CkdDetail."""
 
         self.api_attrs.update(
@@ -421,6 +654,214 @@ class TestCkdDetailAPIMixin(TestCase):
         with CaptureQueriesContext(connection=connection) as queries:
             self.api.update_ckddetail()
         self.assertEqual(len(queries), 0)
+
+    def test__check_for_ckddetail_update_errors(self):
+        """Test that check_for_ckddetail_update_errors() identifies the correct errors."""
+
+        self.api_attrs.update({"ckddetail": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", "No CkdDetail to update."), self.api.errors)
+
+        self.api_attrs.update({"ckddetail": self.ckddetail, "ckddetail__medhistory": CkdFactory()})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", f"{self.ckddetail} is not related to {self.ckd}."), self.api.errors)
+        self.assertIn(
+            ("ckddetail__medhistory", f"{self.ckd} is not related to {self.ckddetail}."),
+            self.api.errors,
+        )
+
+        self.api_attrs.update(
+            {
+                "ckddetail": None,
+                "ckddetail__medhistory": CkdFactory(),
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.errors = []
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage does not match calculated stage."), self.api.errors)
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": Stages.THREE,
+                "ckddetail__dialysis": True,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__stage", "Stage must be 5 if dialysis is True."), self.api.errors)
+        self.assertIn(("ckddetail__dialysis_type", "Dialysis type is required if dialysis is True."), self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", "Dialysis duration is required if dialysis is True."), self.api.errors
+        )
+
+        self.api_attrs.update(
+            {
+                "dateofbirth": None,
+                "gender": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("dateofbirth", "Date of birth is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(("gender", "Gender is required to interpret baseline creatinine."), self.api.errors)
+        self.assertIn(
+            (
+                "baselinecreatinine",
+                "Age and gender are required to interpret baseline creatinine (to calculate a stage).",
+            ),
+            self.api.errors,
+        )
+
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": None,
+                "ckddetail__dialysis": False,
+                "baselinecreatinine": None,
+            }
+        )
+        self.api.errors = []
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("ckddetail__stage", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+        self.assertIn(
+            ("baselinecreatinine", "There isn't enough information in this request to create or update a CkdDetail."),
+            self.api.errors,
+        )
+
+    def test__get_initial(self):
+        """Test that the get_initial() method returns a dictionary with the API attributes as keys and the API's
+        ckddetail attributes as values."""
+
+        set_mixin_attr(self.api, **self.api_attrs)
+        initial = self.api.get_initial()
+        self.assertIsInstance(initial, dict)
+        self.assertEqual(initial.get("ckddetail__dialysis"), self.ckddetail.dialysis)
+        self.assertEqual(initial.get("ckddetail__dialysis_type"), self.ckddetail.dialysis_type)
+        self.assertEqual(initial.get("ckddetail__dialysis_duration"), self.ckddetail.dialysis_duration)
+        self.assertEqual(initial.get("ckddetail__stage"), self.ckddetail.stage)
+
+    def test__get_ckddetail_changed_Fields(self):
+        """Test that get_ckddetail_changed_fields returns a list of tuples with the changed fields
+        and their new values."""
+
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis": not self.ckddetail__dialysis,
+                "ckddetail__dialysis_type": DialysisChoices.PERITONEAL,
+                "ckddetail__dialysis_duration": DialysisDurations.LESSTHANSIX,
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        changed_fields = self.api.get_ckddetail_changed_fields(initial=self.initial)
+        self.assertTrue(isinstance(changed_fields, list))
+        self.assertIn(("ckddetail__dialysis", self.api_attrs.get("ckddetail__dialysis")), changed_fields)
+        self.assertIn(("ckddetail__dialysis_type", self.api_attrs.get("ckddetail__dialysis_type")), changed_fields)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", self.api_attrs.get("ckddetail__dialysis_duration")), changed_fields
+        )
+        self.assertIn(("ckddetail__stage", self.api_attrs.get("ckddetail__stage")), changed_fields)
+        changed_field_values = [field[1] for field in changed_fields]
+        self.assertIn(self.api_attrs.get("ckddetail__dialysis"), changed_field_values)
+        self.assertIn(self.api_attrs.get("ckddetail__dialysis_type"), changed_field_values)
+        self.assertIn(self.api_attrs.get("ckddetail__dialysis_duration"), changed_field_values)
+        self.assertIn(self.api_attrs.get("ckddetail__stage"), changed_field_values)
+
+    def test__delete_ckddetail(self):
+        """Test that the delete_ckddetail method deletes the CkdDetail instance and raises
+        the correct errors when indicated."""
+
+        set_mixin_attr(self.api, **self.api_attrs)
+
+        with self.assertRaises(GoutHelperValidationError):
+            self.api.delete_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", "CkdDetail instance cannot be deleted."), self.api.errors)
+
+        self.api.errors = []
+        self.api_attrs.update({"ckddetail": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        with self.assertRaises(GoutHelperValidationError):
+            self.api.delete_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", "No CkdDetail to delete."), self.api.errors)
+
+        self.api.errors = []
+        self.api_attrs.update({"ckddetail": self.ckddetail})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.ckddetail_optional = True
+        self.api.delete_ckddetail()
+        with self.assertRaises(CkdDetail.DoesNotExist):
+            self.ckddetail.refresh_from_db()
+
+    def test__check_for_ckddetail_delete_errors(self):
+        """Test that check_for_ckddetail_delete_errors() identifies the correct errors and
+        sets the on the API errors attribute."""
+        set_mixin_attr(self.api, **self.api_attrs)
+
+        self.api.check_for_ckddetail_delete_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", "CkdDetail instance cannot be deleted."), self.api.errors)
+
+        self.api.errors = []
+        self.api_attrs.update({"ckddetail": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.check_for_ckddetail_delete_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", "No CkdDetail to delete."), self.api.errors)
+
+    def test__process_ckddetail(self):
+        """Test that the process_ckddetail method correctly identifies and executes the correct CRUD
+        method based on the API attributes."""
+
+        # Test create
+        self.api_attrs.update({"ckddetail": None, "ckddetail__medhistory": CkdFactory()})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.process_ckddetail()
+        self.assertIsInstance(self.api.ckddetail, CkdDetail)
+
+        # Test update
+        self.api_attrs.update({"ckddetail": self.ckddetail, "ckddetail__medhistory": self.ckd})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.process_ckddetail()
+        self.assertEqual(self.api.ckddetail, self.ckddetail)
+
+        # Test delete
+        self.api_attrs.update(
+            {
+                "ckddetail__stage": None,
+                "ckddetail__dialysis": None,
+                "baselinecreatinine": None,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.api.process_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail", f"{self.ckddetail} cannot be deleted or updated."), self.api.errors)
+
+        self.api.errors = []
+        self.api.ckddetail_optional = True
+        self.api.process_ckddetail()
+        self.assertIsNone(self.api.ckddetail)
 
 
 class TestGoutDetailAPI(TestCase):
