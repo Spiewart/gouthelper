@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Union
 
 from django.apps import apps
 
+from ...medhistorydetails.api.mixins import CkdDetailAPIMixin
 from ...utils.services import APIMixin
 from ..choices import MedHistoryTypes
 from ..models import (
@@ -34,8 +35,16 @@ from ..models import (
 )
 
 if TYPE_CHECKING:
+    from datetime import date
+    from decimal import Decimal
     from uuid import UUID
 
+    from ...dateofbirths.models import DateOfBirth
+    from ...genders.choices import Genders
+    from ...genders.models import Gender
+    from ...labs.models import BaselineCreatinine
+    from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
+    from ...medhistorydetails.models import CkdDetail
     from ...users.models import Pseudopatient
     from ...utils.types import AidTypes, MedHistorys
 
@@ -261,9 +270,19 @@ class ChfAPIMixin(MedHistoryAPIMixin):
         )
 
 
-class CkdAPIMixin(MedHistoryAPIMixin):
+class CkdAPIMixin(MedHistoryAPIMixin, CkdDetailAPIMixin):
     ckd: Union[Ckd, "UUID", None]
     ckd__value: bool | None
+    ckddetail: Union["CkdDetail", "UUID", None]
+    ckddetail__medhistory: Union["Ckd", "UUID", None]
+    ckddetail__dialysis: bool | None
+    ckddetail__dialysis_type: Union["DialysisChoices", None]
+    ckddetail__dialysis_duration: Union["DialysisDurations", None]
+    ckddetail__stage: Union["Stages", None]
+    dateofbirth: Union["DateOfBirth", "UUID", "date", None]
+    baselinecreatinine: Union["BaselineCreatinine", "UUID", "Decimal", None]
+    gender: Union["Gender", "UUID", "Genders", None]
+    ckddetail_optional: bool = False
 
     def process_ckd(self) -> None:
         self.process_medhistory(
@@ -271,6 +290,7 @@ class CkdAPIMixin(MedHistoryAPIMixin):
             medhistory=self.ckd,
             medhistorytype=Ckd,
         )
+        self.process_ckddetail()
 
 
 class ColchicineinteractionAPIMixin(MedHistoryAPIMixin):

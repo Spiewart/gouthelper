@@ -79,10 +79,12 @@ class FlareAPIMixin(
     baselinecreatinine: Union["BaselineCreatinine", "UUID", None]
     baselinecreatinine__value: Union["Decimal", None]
     ckddetail: Union["CkdDetail", "UUID", None]
-    ckddetail__dialysis: bool
+    ckddetail__medhistory: Union["Ckd", "UUID", None]
+    ckddetail__dialysis: bool | None
     ckddetail__dialysis_type: Union["DialysisChoices", None]
     ckddetail__dialysis_duration: Union["DialysisDurations", None]
     ckddetail__stage: Union["Stages", None]
+    ckddetail_optional: bool = True
     crystal_analysis: bool
     dateofbirth: Union["DateOfBirth", "UUID", None]
     dateofbirth__value: Union["date", None]
@@ -126,6 +128,7 @@ class FlareAPICreateMixin(FlareAPIMixin):
         self.check_for_and_raise_errors(model_name="Flare")
         self.process_dateofbirth()
         self.process_gender()
+        self.process_baselinecreatinine()
         if self.aki_should_be_created:
             self.create_aki()
         if self.urate_should_be_created:

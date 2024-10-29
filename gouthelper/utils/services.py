@@ -968,7 +968,7 @@ class ErrorsMixin:
 
     @property
     def has_errors(self) -> bool:
-        return False
+        return bool(self.errors)
 
 
 class APIMixin(ErrorsMixin):

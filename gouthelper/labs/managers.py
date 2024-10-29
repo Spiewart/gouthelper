@@ -1,6 +1,11 @@
 from django.db.models import Manager
 
-from .selectors import urates_related_objects_qs
+from .selectors import baselinelab_relations, urates_related_objects_qs
+
+
+class BaselineCreatinineManager(Manager):
+    def get_queryset(self):
+        return baselinelab_relations(super().get_queryset())
 
 
 class UrateManager(Manager):

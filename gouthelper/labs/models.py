@@ -22,7 +22,7 @@ from .helpers import (
     labs_eGFR_calculator,
     labs_stage_calculator,
 )
-from .managers import UrateManager
+from .managers import BaselineCreatinineManager, UrateManager
 
 if TYPE_CHECKING:
     from datetime import date
@@ -193,6 +193,25 @@ class BaselineCreatinine(CreatinineBase, BaselineLab):
 
     def __str__(self):
         return f"Baseline {super().__str__()}"
+
+    objects = models.Manager()
+    related_objects = BaselineCreatinineManager()
+
+    def update(
+        self,
+        value: Decimal,
+        medhistory: "Ckd",
+    ) -> "BaselineCreatinine":
+        needs_save = False
+        if self.value != value:
+            self.value = value
+            needs_save = True
+        if self.medhistory != medhistory:
+            self.medhistory = medhistory
+            needs_save = True
+        if needs_save:
+            self.full_clean()
+            self.save()
 
 
 class Creatinine(CreatinineBase, Lab):

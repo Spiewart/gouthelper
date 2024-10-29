@@ -10,6 +10,12 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
+def baselinelab_relations(qs: "QuerySet") -> "QuerySet":
+    return qs.select_related(
+        "medhistory__user__pseudopatientprofile__provider",
+    )
+
+
 def dated_urates(queryset: "QuerySet") -> "QuerySet":
     """Method that annotates Urate.date_drawn with Flare.date_started
     if Urate.date_drawn is null. This is because Flare objects don't

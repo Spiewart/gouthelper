@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from ...labs.models import Creatinine, Urate
+from ...labs.models import BaselineCreatinine, Creatinine, Urate
 from ...utils.services import APIMixin
 from ..helpers import labs_sort_list_by_date_drawn
 
@@ -9,8 +9,145 @@ if TYPE_CHECKING:
     from decimal import Decimal
     from uuid import UUID
 
+    from django.db.models import QuerySet
+
+    from ...medhistorys.models import Ckd
     from ...users.models import Pseudopatient
     from ...utils.types import CreatinineData
+
+
+class BaselineCreatinineAPIMixin(APIMixin):
+    baselinecreatinine: Union["Creatinine", "UUID", None]
+    baselinecreatinine__value: Union["Decimal", None]
+    baselinecreatinine__medhistory: Union["Ckd", "UUID", None]
+
+    def process_baselinecreatinine(self) -> None:
+        if self.baselinecreatinine:
+            if self.is_uuid(self.baselinecreatinine):
+                self.baselinecreatinine = self.get_queryset().get()
+            if self.baselinecreatinine_should_be_deleted:
+                self.delete_baselinecreatinine()
+            elif self.baselinecreatinine_needs_update:
+                self.update_baselinecreatinine()
+        elif self.baselinecreatinine_should_be_created:
+            self.create_baselinecreatinine()
+
+    def get_queryset(self) -> "QuerySet":
+        if not self.is_uuid(self.baselinecreatinine):
+            raise TypeError("baselinecreatinine arg must be a UUID to call get_queryset().")
+        return BaselineCreatinine.related_objects.filter(id=self.baselinecreatinine)
+
+    @property
+    def baselinecreatinine_should_be_deleted(self) -> bool:
+        self.check_for_baselinecreatinine_delete_errors()
+        return not self.baselinecreatinine__value
+
+    def check_for_baselinecreatinine_delete_errors(self) -> None:
+        if not self.baselinecreatinine:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine",
+                        "BaselineCreatinine instance required for deletion.",
+                    )
+                ],
+            )
+
+    def delete_baselinecreatinine(self) -> None:
+        if not self.has_errors:
+            print(self.errors)
+            self.baselinecreatinine.delete()
+            self.baselinecreatinine = None
+
+    @property
+    def baselinecreatinine_needs_update(self) -> bool:
+        self.check_for_baselinecreatinine_update_errors()
+        return (
+            (
+                self.baselinecreatinine__value
+                and self.baselinecreatinine.value != self.baselinecreatinine__value
+                or self.baselinecreatinine__medhistory
+                and self.baselinecreatinine.medhistory != self.baselinecreatinine__medhistory
+            )
+            if self.baselinecreatinine
+            else False
+        )
+
+    def check_for_baselinecreatinine_update_errors(self) -> None:
+        if not self.baselinecreatinine:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine",
+                        "BaselineCreatinine required for update.",
+                    )
+                ],
+            )
+        if not self.baselinecreatinine__value:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine__value",
+                        "baselinecreatinine__value is required for update.",
+                    )
+                ],
+            )
+
+    def update_baselinecreatinine(self) -> BaselineCreatinine:
+        if not self.has_errors:
+            self.baselinecreatinine.update(
+                value=self.baselinecreatinine__value,
+                medhistory=self.baselinecreatinine__medhistory,
+            )
+            return self.baselinecreatinine
+
+    @property
+    def baselinecreatinine_should_be_created(self) -> bool:
+        self.check_for_baselinecreatinine_create_errors()
+        return self.baselinecreatinine__value and not self.baselinecreatinine
+
+    def check_for_baselinecreatinine_create_errors(self):
+        if self.baselinecreatinine:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine",
+                        "BaselineCreatinine instance already exists.",
+                    )
+                ],
+            )
+        if not self.baselinecreatinine__value:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine__value",
+                        "baselinecreatinine__value is required for creation.",
+                    )
+                ],
+            )
+        if not self.baselinecreatinine__medhistory:
+            self.add_gouthelper_validation_error(
+                self.errors,
+                [
+                    (
+                        "baselinecreatinine__medhistory",
+                        "baselinecreatinine__medhistory is required for creation.",
+                    )
+                ],
+            )
+
+    def create_baselinecreatinine(self) -> BaselineCreatinine:
+        if not self.has_errors:
+            self.baselinecreatinine = BaselineCreatinine.objects.create(
+                value=self.baselinecreatinine__value,
+                medhistory=self.baselinecreatinine__medhistory,
+            )
+            return self.baselinecreatinine
 
 
 class CreatininesAPIMixin(APIMixin):

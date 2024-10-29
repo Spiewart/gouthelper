@@ -8,11 +8,23 @@ from django.utils import timezone  # type: ignore
 from ...flares.tests.factories import create_flare
 from ...ppxs.tests.factories import create_ppx
 from ...users.tests.factories import create_psp
-from ..models import Urate
-from ..selectors import dated_urates, urates_dated_qs, urates_related_objects_qs
-from .factories import UrateFactory
+from ..models import BaselineCreatinine, Urate
+from ..selectors import baselinelab_relations, dated_urates, urates_dated_qs, urates_related_objects_qs
+from .factories import BaselineCreatinineFactory, UrateFactory
 
 pytestmark = pytest.mark.django_db
+
+
+class TestBaselineLabRelations(TestCase):
+    def setUp(self):
+        self.baselinecreatinine = BaselineCreatinineFactory()
+
+    def test__baselinecreatinine_related_objects_qs(self):
+        with self.assertNumQueries(1):
+            accurate_qs = baselinelab_relations(BaselineCreatinine.objects.filter(id=self.baselinecreatinine.id)).get()
+            self.assertEqual(accurate_qs, self.baselinecreatinine)
+            self.assertEqual(accurate_qs.medhistory, self.baselinecreatinine.medhistory)
+            self.assertEqual(accurate_qs.medhistory.user, self.baselinecreatinine.medhistory.user)
 
 
 class TestUrateUserlessQuerySet(TestCase):
@@ -113,7 +125,6 @@ class TestDatedUrates(TestCase):
         self.assertNotIn(old_urate, qs)
 
 
-# write tests for urates_related_objects_qs
 class TestUratesRelatedObjectsQS(TestCase):
     def setUp(self):
         self.urate = UrateFactory()

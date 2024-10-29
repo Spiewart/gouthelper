@@ -5,14 +5,177 @@ import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
 from ...akis.tests.factories import AkiFactory
-from ...labs.models import Creatinine
+from ...labs.models import BaselineCreatinine, Creatinine
+from ...medhistorys.tests.factories import CkdFactory
 from ...users.tests.factories import create_psp
 from ...utils.test_helpers import date_days_ago
-from ..api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin, UrateAPICreateMixin, UrateAPIUpdateMixin
+from ..api.mixins import (
+    BaselineCreatinineAPIMixin,
+    CreatininesAPICreateMixin,
+    CreatininesAPIUpdateMixin,
+    UrateAPICreateMixin,
+    UrateAPIUpdateMixin,
+)
 from ..schema import UrateSchema
-from .factories import CreatinineFactory, UrateFactory
+from .factories import BaselineCreatinineFactory, CreatinineFactory, UrateFactory
 
 pytestmark = pytest.mark.django_db
+
+
+class TestBaselineCreatinineAPIMixin(TestCase):
+    def setUp(self):
+        self.baselinecreatinine = BaselineCreatinineFactory()
+        self.api = BaselineCreatinineAPIMixin()
+        self.api_data = {
+            "baselinecreatinine": self.baselinecreatinine,
+            "baselinecreatinine__value": self.baselinecreatinine.value,
+            "baselinecreatinine__medhistory": self.baselinecreatinine.medhistory,
+        }
+
+    def set_api_attrs(self):
+        for attr, value in self.api_data.items():
+            setattr(self.api, attr, value)
+
+    def test__process_baselinecreatinine(self):
+        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+        self.api_data.update(
+            {
+                "baselinecreatinine": None,
+                "baselinecreatinine__medhistory": CkdFactory(),
+            }
+        )
+        self.set_api_attrs()
+        self.api.process_baselinecreatinine()
+        self.assertEqual(BaselineCreatinine.objects.count(), 2)
+
+        self.api_data.update(
+            {
+                "baselinecreatinine": self.api.baselinecreatinine,
+                "baselinecreatinine__value": Decimal("2.0"),
+                "baselinecreatinine__medhistory": self.api.baselinecreatinine.medhistory,
+            }
+        )
+        self.set_api_attrs()
+        self.api.process_baselinecreatinine()
+        self.assertEqual(self.api.baselinecreatinine.value, Decimal("2.0"))
+
+        self.api_data.update(
+            {
+                "baselinecreatinine__value": None,
+            }
+        )
+        self.set_api_attrs()
+        self.api.process_baselinecreatinine()
+        self.assertIsNone(self.api.baselinecreatinine)
+
+    def test__get_queryset(self):
+        self.set_api_attrs()
+        with self.assertRaises(TypeError):
+            self.api.get_queryset()
+        self.api.baselinecreatinine = self.baselinecreatinine.id
+        self.assertEqual(self.api.get_queryset().get(), self.baselinecreatinine)
+
+    def test__baselinecreatinine_should_be_deleted(self):
+        self.set_api_attrs()
+        self.api.baselinecreatinine = None
+        self.api.baselinecreatinine_should_be_deleted
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("baselinecreatinine", "BaselineCreatinine instance required for deletion."),
+            self.api.errors,
+        )
+
+        self.api.baselinecreatinine = self.baselinecreatinine
+        self.assertFalse(self.api.baselinecreatinine_should_be_deleted)
+
+        self.api.baselinecreatinine__value = None
+        self.assertTrue(self.api.baselinecreatinine_should_be_deleted)
+
+    def test__check_for_baselinecreatinine_delete_errors(self):
+        self.set_api_attrs()
+        self.api.check_for_baselinecreatinine_delete_errors()
+        self.assertFalse(self.api.errors)
+
+        self.api.baselinecreatinine = None
+        self.api.check_for_baselinecreatinine_delete_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("baselinecreatinine", "BaselineCreatinine instance required for deletion."),
+            self.api.errors,
+        )
+
+    def test__delete_baselinecreatinine(self):
+        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+
+        self.set_api_attrs()
+        self.api.errors = ["Error"]
+        self.api.delete_baselinecreatinine()
+        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+
+        self.api.errors = []
+        self.api.delete_baselinecreatinine()
+        self.assertEqual(BaselineCreatinine.objects.count(), 0)
+
+    def test__baselinecreatinine_needs_update(self):
+        self.set_api_attrs()
+        self.assertFalse(self.api.baselinecreatinine_needs_update)
+
+        self.api.baselinecreatinine__value = Decimal("2.0")
+        self.assertTrue(self.api.baselinecreatinine_needs_update)
+
+        self.api.baselinecreatinine__value = None
+        self.assertFalse(self.api.baselinecreatinine_needs_update)
+
+    def test__check_for_baselinecreatinine_update_errors(self):
+        self.set_api_attrs()
+        self.api.check_for_baselinecreatinine_update_errors()
+        self.assertFalse(self.api.errors)
+
+        self.api.baselinecreatinine = None
+        self.api.baselinecreatinine__value = None
+        self.api.check_for_baselinecreatinine_update_errors()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("baselinecreatinine__value", "baselinecreatinine__value is required for update."),
+            self.api.errors,
+        )
+        self.assertIn(("baselinecreatinine", "BaselineCreatinine required for update."), self.api.errors)
+
+    def test__update_baselinecreatinine(self):
+        self.set_api_attrs()
+        self.api.baselinecreatinine__value = Decimal("2.0")
+        self.api.update_baselinecreatinine()
+        self.assertEqual(self.api.baselinecreatinine.value, Decimal("2.0"))
+
+        self.api.errors = ["Error"]
+        self.api.baselinecreatinine__value = Decimal("3.0")
+        self.api.update_baselinecreatinine()
+        self.assertNotEqual(self.api.baselinecreatinine.value, Decimal("3.0"))
+
+    def test__baselinecreatinine_should_be_created(self):
+        self.set_api_attrs()
+        self.assertFalse(self.api.baselinecreatinine_should_be_created)
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("baselinecreatinine", "BaselineCreatinine instance already exists."),
+            self.api.errors,
+        )
+
+        self.api.baselinecreatinine = None
+        self.assertTrue(self.api.baselinecreatinine_should_be_created)
+
+    def test__create_baselinecreatinine(self):
+        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+        self.api.errors = ["Error"]
+        self.api.create_baselinecreatinine()
+        self.assertEqual(BaselineCreatinine.objects.count(), 1)
+
+        self.set_api_attrs()
+        self.api.errors = []
+        self.api.baselinecreatinine = None
+        self.api.baselinecreatinine__medhistory = CkdFactory()
+        self.api.create_baselinecreatinine()
+        self.assertEqual(BaselineCreatinine.objects.count(), 2)
 
 
 class TestCreatininesAPICreateMixin(TestCase):
