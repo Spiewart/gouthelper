@@ -48,11 +48,6 @@ class TestCkdDetailAPIMixin(TestCase):
         self.data = CkdDetailDataFactory().create_api_data()
         self.api = CkdDetailAPIMixin()
         self.ckd = CkdFactory()
-        self.ckddetail = create_ckddetail(medhistory=self.ckd, dialysis=False)
-        self.patient = create_psp()
-        self.ckddetail__dialysis = self.ckddetail.dialysis
-        self.ckddetail__dialysis_type = self.ckddetail.dialysis_type
-        self.ckddetail__dialysis_duration = self.ckddetail.dialysis_duration
         self.dateofbirth = DateOfBirthFactory(value=timezone.now() - timedelta(days=50 * 365))
         self.gender = GenderFactory(value=Genders.MALE)
         self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("1.5"))
@@ -63,6 +58,12 @@ class TestCkdDetailAPIMixin(TestCase):
                 creatinine=self.baselinecreatinine.value,
             )
         )
+        self.ckddetail = create_ckddetail(medhistory=self.ckd, dialysis=False, stage=self.ckddetail__stage)
+        self.patient = create_psp()
+        self.ckddetail__dialysis = self.ckddetail.dialysis
+        self.ckddetail__dialysis_type = self.ckddetail.dialysis_type
+        self.ckddetail__dialysis_duration = self.ckddetail.dialysis_duration
+
         self.api_attrs = {
             "ckddetail__medhistory": self.ckd,
             "ckddetail": self.ckddetail,
@@ -73,6 +74,12 @@ class TestCkdDetailAPIMixin(TestCase):
             "dateofbirth": self.dateofbirth,
             "gender": self.gender,
             "baselinecreatinine": self.baselinecreatinine,
+        }
+        self.initial = {
+            "ckddetail__dialysis": self.ckddetail__dialysis,
+            "ckddetail__dialysis_type": self.ckddetail__dialysis_type,
+            "ckddetail__dialysis_duration": self.ckddetail__dialysis_duration,
+            "ckddetail__stage": self.ckddetail__stage,
         }
 
     def test__ckd_ckddetail_conflict(self):
@@ -278,7 +285,7 @@ class TestCkdDetailAPIMixin(TestCase):
         self.assertEqual(ckddetail.stage, self.ckddetail__stage)
         self.assertTrue(isinstance(ckddetail.medhistory, Ckd))
 
-    def test_create_ckddetail_already_exists(self):
+    def test__create_ckddetail_already_exists(self):
         """Test creation when CkdDetail instance already exists."""
 
         set_mixin_attr(self.api, **self.api_attrs)
@@ -288,45 +295,50 @@ class TestCkdDetailAPIMixin(TestCase):
         self.assertTrue(self.api.errors)
         self.assertIn(("ckddetail", f"{self.ckddetail} already exists."), self.api.errors)
 
-    def test_create_no_ckd_instance(self):
+    def test__create_no_ckd_instance(self):
         """Test creation when no Ckd instance is provided."""
-        self.create_editor.ckddetail = None
-        self.create_editor.ckd = None
-        with self.assertRaises(ValueError) as context:
-            self.create_editor.create()
-        self.assertEqual(str(context.exception), "Ckd instance required for CkdDetail creation.")
 
-    def test_create_with_dialysis_but_no_type(self):
+        prep_mixin_attrs_for_create(self.api_attrs)
+        self.api_attrs.update({"ckddetail__medhistory": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        with self.assertRaises(GoutHelperValidationError):
+            self.api.create_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__medhistory", "Ckd instance required for CkdDetail creation."), self.api.errors)
+
+    def test__create_with_dialysis_but_no_type(self):
         """Test that there is a validation error due to dialysis being True but there being no dialysis_type."""
-        self.create_editor.ckddetail = None
-        self.create_editor.dialysis_type = None  # This will cause an error
-        with self.assertRaises(GoutHelperValidationError) as context:
-            self.create_editor.create()
-        self.assertIn("Args for creating CkdDetail contain errors", str(context.exception))
-        self.assertTrue(self.create_editor.errors)
-        self.assertIn("dialysis_type", [tup[0] for tup in self.create_editor.errors])
 
-    def test_create_with_dialysis_but_no_duration(self):
+        prep_mixin_attrs_for_create(self.api_attrs)
+        self.api_attrs.update({"ckddetail__dialysis": True, "ckddetail__dialysis_type": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        with self.assertRaises(GoutHelperValidationError):
+            self.api.create_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(("ckddetail__dialysis_type", "Dialysis type is required if dialysis is True."), self.api.errors)
+
+    def test__create_with_dialysis_but_no_duration(self):
         """Test that there is a validation error due to dialysis being True but there being no dialysis_duration."""
-        self.create_editor.ckddetail = None
-        self.create_editor.dialysis_duration = None  # This will cause an error
-        with self.assertRaises(GoutHelperValidationError) as context:
-            self.create_editor.create()
-        self.assertIn("Args for creating CkdDetail contain errors", str(context.exception))
-        self.assertTrue(self.create_editor.errors)
-        self.assertIn("dialysis_duration", [tup[0] for tup in self.create_editor.errors])
 
-    def test_create_without_stage_but_can_calculate_stage(self):
+        prep_mixin_attrs_for_create(self.api_attrs)
+        self.api_attrs.update({"ckddetail__dialysis": True, "ckddetail__dialysis_duration": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        with self.assertRaises(GoutHelperValidationError):
+            self.api.create_ckddetail()
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", "Dialysis duration is required if dialysis is True."), self.api.errors
+        )
+
+    def test__create_without_stage_but_can_calculate_stage(self):
         """Test that the stage is updated by _update_attrs during creation and set on the created object."""
-        self.create_editor.ckddetail = None
-        self.create_editor.dialysis = None
-        self.create_editor.stage = None
-        self.create_editor.baselinecreatinine = Decimal("1.5")
-        self.create_editor.age = 50
-        self.create_editor.gender = Genders.MALE
-        created_ckddetail = self.create_editor.create()
+
+        prep_mixin_attrs_for_create(self.api_attrs)
+        self.api_attrs.update({"ckddetail__stage": None})
+        set_mixin_attr(self.api, **self.api_attrs)
+        ckddetail = self.api.create_ckddetail()
         self.assertEqual(
-            created_ckddetail.stage,
+            ckddetail.stage,
             labs_stage_calculator(
                 labs_eGFR_calculator(
                     age=50,
@@ -336,114 +348,78 @@ class TestCkdDetailAPIMixin(TestCase):
             ),
         )
 
-    def test_create_with_dialysis_can_calculcate_stage_but_wont(self):
+    def test__create_with_dialysis_can_calculcate_stage_but_wont(self):
         """Test that _update_attrs is called during creation."""
-        self.create_editor.ckddetail = None
-        self.create_editor.dialysis = True
-        self.create_editor.stage = None
-        self.create_editor.baselinecreatinine = Decimal("1.5")
-        self.create_editor.age = 50
-        self.create_editor.gender = Genders.MALE
-        created_ckddetail = self.create_editor.create()
+
+        prep_mixin_attrs_for_create(self.api_attrs)
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis": True,
+                "ckddetail__dialysis_type": DialysisChoices.PERITONEAL,
+                "ckddetail__dialysis_duration": DialysisDurations.LESSTHANSIX,
+                "ckddetail__stage": None,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        ckddetail = self.api.create_ckddetail()
         self.assertEqual(
-            created_ckddetail.stage,
+            ckddetail.stage,
             Stages.FIVE,
         )
 
-
-class TestCkdDetailUpdater(TestCase):
-    def setUp(self):
-        self.ckddetail = create_ckddetail(dialysis=False, medhistory=CkdFactory())
-        self.ckddetail_dialysis = True
-        self.ckddetail__dialysis_type = DialysisChoices.HEMODIALYSIS
-        self.ckddetail__dialysis_duration = DialysisDurations.LESSTHANSIX
-        self.ckddetail__stage = Stages.FIVE
-        self.age = 45
-        self.baselinecreatinine = Decimal("1.2")
-        self.gender = Genders.MALE
-        self.initial = {
-            "dialysis": self.ckddetail.dialysis,
-            "dialysis_type": self.ckddetail.dialysis_type,
-            "dialysis_duration": self.ckddetail.dialysis_duration,
-            "stage": self.ckddetail.stage,
-        }
-
-    def test_check_ckddetail_initial_error_no_conflict(self):
-        """Test when there is no conflict between ckddetail and initial values."""
-        try:
-            self.update_editor.check_ckddetail_initial_error()
-        except ValueError:
-            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
-
-    def test_check_ckddetail_initial_error_with_conflict(self):
-        """Test when there is a conflict between ckddetail and initial values."""
-        self.update_editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
-        with self.assertRaises(ValueError) as context:
-            self.update_editor.check_ckddetail_initial_error()
-        self.assertEqual(str(context.exception), "Initial values do not match CkdDetail instance values.")
-
-    def test_check_ckddetail_initial_error_no_ckddetail(self):
-        """Test when ckddetail is None."""
-        self.update_editor.ckddetail = None
-        try:
-            self.update_editor.check_ckddetail_initial_error()
-        except ValueError:
-            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
-
-    def test_check_ckddetail_initial_error_no_initial(self):
-        """Test when initial is None."""
-        self.update_editor.initial = None
-        try:
-            self.update_editor.check_ckddetail_initial_error()
-        except ValueError:
-            self.fail("check_ckddetail_initial_error() raised ValueError unexpectedly!")
-
-    def test_ckddetail_initial_conflict_no_conflict(self):
-        """Test when there is no conflict between ckddetail and initial values."""
-        self.assertFalse(self.update_editor.ckddetail_initial_conflict)
-
-    def test_ckddetail_initial_conflict_with_conflict(self):
-        """Test when there is a conflict between ckddetail and initial values."""
-        self.update_editor.initial["dialysis"] = not self.ckddetail.dialysis  # Intentionally setting a different value
-        self.assertTrue(self.update_editor.ckddetail_initial_conflict)
-
-    def test_ckddetail_initial_conflict_no_initial(self):
-        """Test when initial is None."""
-        self.update_editor.initial = None
-        self.assertFalse(self.update_editor.ckddetail_initial_conflict)
-
     def test__get_ckddetail_changed_fields(self):
-        changed_fields = self.update_editor.get_ckddetail_changed_fields()
+        """Test that get_ckddetail_changed_fields returns a list of changed fields."""
+
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis": not self.ckddetail__dialysis,
+                "ckddetail__dialysis_type": DialysisChoices.PERITONEAL,
+                "ckddetail__dialysis_duration": DialysisDurations.LESSTHANSIX,
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        changed_fields = self.api.get_ckddetail_changed_fields(initial=self.initial)
         self.assertTrue(isinstance(changed_fields, list))
-        self.assertIn(("dialysis", self.ckddetail_dialysis), changed_fields)
+        self.assertIn(("ckddetail__dialysis", self.api_attrs.get("ckddetail__dialysis")), changed_fields)
+        self.assertIn(("ckddetail__dialysis_type", self.api_attrs.get("ckddetail__dialysis_type")), changed_fields)
+        self.assertIn(
+            ("ckddetail__dialysis_duration", self.api_attrs.get("ckddetail__dialysis_duration")), changed_fields
+        )
+        self.assertIn(("ckddetail__stage", self.api_attrs.get("ckddetail__stage")), changed_fields)
 
     def test__ckddetail_has_changed(self):
-        self.assertTrue(self.update_editor.ckddetail_has_changed)
-
-    def test__ckdetail_has_not_changed(self):
-        self.update_editor.dialysis = self.ckddetail.dialysis
-        self.update_editor.dialysis_duration = self.ckddetail.dialysis_duration
-        self.update_editor.dialysis_type = self.ckddetail.dialysis_type
-        self.update_editor.stage = self.ckddetail.stage
-        self.assertFalse(self.update_editor.ckddetail_has_changed)
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.assertFalse(self.api.ckddetail_has_changed(initial=self.initial))
+        self.api_attrs.update({"ckddetail__dialysis": not self.ckddetail__dialysis})
+        set_mixin_attr(self.api, **self.api_attrs)
+        self.assertTrue(self.api.ckddetail_has_changed(initial=self.initial))
 
     def test__update(self):
         """Test successful update of CkdDetail."""
-        updated_ckddetail = self.update_editor.update()
+
+        self.api_attrs.update(
+            {
+                "ckddetail__dialysis": not self.ckddetail__dialysis,
+                "ckddetail__dialysis_type": DialysisChoices.PERITONEAL,
+                "ckddetail__dialysis_duration": DialysisDurations.LESSTHANSIX,
+                "ckddetail__stage": Stages.FIVE,
+            }
+        )
+        set_mixin_attr(self.api, **self.api_attrs)
+        updated_ckddetail = self.api.update_ckddetail()
         self.assertIsInstance(updated_ckddetail, CkdDetail)
-        self.assertEqual(updated_ckddetail.dialysis, self.ckddetail_dialysis)
-        self.assertEqual(updated_ckddetail.dialysis_type, self.ckddetail__dialysis_type)
-        self.assertEqual(updated_ckddetail.dialysis_duration, self.ckddetail__dialysis_duration)
-        self.assertEqual(updated_ckddetail.stage, self.ckddetail__stage)
-        self.assertEqual(updated_ckddetail.medhistory, self.ckddetail.medhistory)
+        self.assertEqual(updated_ckddetail.dialysis, self.api_attrs.get("ckddetail__dialysis"))
+        self.assertEqual(updated_ckddetail.dialysis_type, self.api_attrs.get("ckddetail__dialysis_type"))
+        self.assertEqual(updated_ckddetail.dialysis_duration, self.api_attrs.get("ckddetail__dialysis_duration"))
+        self.assertEqual(updated_ckddetail.stage, self.api_attrs.get("ckddetail__stage"))
 
     def test__update_does_not_save_when_ckddetail_unchanged(self):
-        self.update_editor.dialysis = self.ckddetail.dialysis
-        self.update_editor.dialysis_duration = self.ckddetail.dialysis_duration
-        self.update_editor.dialysis_type = self.ckddetail.dialysis_type
-        self.update_editor.stage = self.ckddetail.stage
+        """Test that update does not save when no changes are made."""
+
+        set_mixin_attr(self.api, **self.api_attrs)
         with CaptureQueriesContext(connection=connection) as queries:
-            self.update_editor.update()
+            self.api.update_ckddetail()
         self.assertEqual(len(queries), 0)
 
 

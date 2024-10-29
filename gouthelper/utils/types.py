@@ -85,10 +85,10 @@ AidNames = Union[
 
 
 class CkdDetailFieldOptions(TypedDict):
-    dialysis: bool
-    dialysis_type: Union["DialysisChoices", None]
-    dialysis_duration: Union["DialysisDurations", None]
-    stage: Union["Stages", None]
+    ckddetail__dialysis: bool
+    ckddetail__dialysis_type: Union["DialysisChoices", None]
+    ckddetail__dialysis_duration: Union["DialysisDurations", None]
+    ckddetail__stage: Union["Stages", None]
 
 
 MedHistorys = Union[

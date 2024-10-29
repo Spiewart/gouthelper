@@ -77,8 +77,9 @@ def create_ckddetail(
         medhistory: "Ckd",
         dateofbirth: "date",
         gender: "Genders",
+        stage: Union["Stages", None] = None,
     ) -> None:
-        if dateofbirth and gender is not None and fake.boolean():
+        if dateofbirth and gender is not None:
             baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
             calc_stage = labs_stage_calculator(
                 labs_eGFR_calculator(
@@ -87,7 +88,13 @@ def create_ckddetail(
                     gender=gender,
                 )
             )
-            ckddetail.stage = calc_stage
+            if stage:
+                if stage != calc_stage:
+                    raise ValueError(f"Stage {stage} does not match calculated stage {calc_stage}.")
+            elif fake.boolean():
+                ckddetail.stage = calc_stage
+        elif stage:
+            ckddetail.stage = stage
         else:
             ckddetail.stage = random.choice([1, 2, 3, 4, 5])
 
@@ -132,7 +139,7 @@ def create_ckddetail(
         ):
             raise ValueError("Stage must be FIVE if dialysis is True.")
         if not dialysis and dialysis is not None:
-            set_non_dialysis_fields(ckddetail, medhistory, dateofbirth, gender)
+            set_non_dialysis_fields(ckddetail, medhistory, dateofbirth, gender, stage)
         elif dialysis is None or dialysis_duration is None or dialysis_type is None:
             if stage and stage != Stages.FIVE or ckddetail.stage and ckddetail.stage != Stages.FIVE:
                 ckddetail.dialysis = False

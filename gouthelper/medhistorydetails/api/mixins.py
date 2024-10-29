@@ -171,18 +171,20 @@ class CkdDetailAPIMixin(APIMixin):
 
     def get_initial(self) -> "CkdDetailFieldOptions":
         return {
-            "dialysis": self.ckddetail.dialysis,
-            "dialysis_type": self.ckddetail.dialysis_type,
-            "dialysis_duration": self.ckddetail.dialysis_duration,
-            "stage": self.ckddetail.stage,
+            "ckddetail__dialysis": self.ckddetail.dialysis,
+            "ckddetail__dialysis_type": self.ckddetail.dialysis_type,
+            "ckddetail__dialysis_duration": self.ckddetail.dialysis_duration,
+            "ckddetail__stage": self.ckddetail.stage,
         }
 
     def ckddetail_has_changed(self, initial: "CkdDetailFieldOptions") -> bool:
         return any([getattr(self, key) != val for key, val in initial.items()])
 
     def update_ckddetail_fields(self, initial: "CkdDetailFieldOptions") -> None:
-        for field_val in self.get_ckddetail_changed_fields(initial=initial):
-            setattr(self.ckddetail, field_val[0], field_val[1])
+        for field_and_val in self.get_ckddetail_changed_fields(initial=initial):
+            print(field_and_val)
+            print(getattr(self.ckddetail, field_and_val[0].split("__")[1]))
+            setattr(self.ckddetail, field_and_val[0].split("__")[1], field_and_val[1])
 
     def get_ckddetail_changed_fields(
         self, initial: "CkdDetailFieldOptions"
