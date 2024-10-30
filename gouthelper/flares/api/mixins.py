@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from ...akis.api.mixins import AkiAPICreateMixin
 from ...dateofbirths.api.mixins import DateOfBirthAPIMixin
 from ...genders.api.mixins import GenderAPIMixin
-from ...labs.api.mixins import UrateAPICreateMixin, UrateAPIUpdateMixin
+from ...labs.api.mixins import BaselineCreatinineAPIMixin, UrateAPICreateMixin
 from ...medhistorys.api.mixins import (
     AnginaAPIMixin,
     CadAPIMixin,
@@ -16,6 +16,7 @@ from ...medhistorys.api.mixins import (
     PvdAPIMixin,
     StrokeAPIMixin,
 )
+from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ..models import Flare
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
 
 class FlareAPIMixin(
     AkiAPICreateMixin,
+    BaselineCreatinineAPIMixin,
     DateOfBirthAPIMixin,
     GenderAPIMixin,
     AnginaAPIMixin,
@@ -64,6 +66,7 @@ class FlareAPIMixin(
     StrokeAPIMixin,
     UrateAPICreateMixin,
 ):
+    flare: Union["Flare", "UUID", None]
     patient: Union["Pseudopatient", None]
     aki: Union["Aki", "UUID", bool, None]
     aki__status: Union["Statuses", None]
@@ -78,6 +81,7 @@ class FlareAPIMixin(
     ckd__value: bool | None
     baselinecreatinine: Union["BaselineCreatinine", "UUID", None]
     baselinecreatinine__value: Union["Decimal", None]
+    baselinecreatinine__medhistory: Union["Ckd", "UUID", None]
     ckddetail: Union["CkdDetail", "UUID", None]
     ckddetail__medhistory: Union["Ckd", "UUID", None]
     ckddetail__dialysis: bool | None
@@ -114,18 +118,18 @@ class FlareAPIMixin(
     urate: Union["Urate", "UUID", None]
     urate__value: Union["Decimal", None]
 
+    medhistorytypes = FLARE_MEDHISTORYS
+
     def set_attrs(self) -> None:
         """Updates the instance attributes for correct processing between related models."""
         if self.baselinecreatinine__value:
             self.dateofbirth_optional = False
             self.gender_optional = False
 
-
-class FlareAPICreateMixin(FlareAPIMixin):
     def create_flare(self) -> Flare:
         self.set_attrs()
         self.check_for_flare_create_errors()
-        self.check_for_and_raise_errors(model_name="Flare")
+
         self.process_dateofbirth()
         self.process_gender()
         self.process_baselinecreatinine()
@@ -133,6 +137,9 @@ class FlareAPICreateMixin(FlareAPIMixin):
             self.create_aki()
         if self.urate_should_be_created:
             self.create_urate()
+        self.check_for_process_medhistory_errors()
+
+        self.check_for_and_raise_errors(model_name="Flare")
         self.flare = Flare.objects.create(
             patient=self.patient,
             dateofbirth=self.dateofbirth if not self.patient else None,
@@ -166,7 +173,3 @@ class FlareAPICreateMixin(FlareAPIMixin):
             self.add_errors(
                 api_args=[("flare", f"{self.flare} already exists.")],
             )
-
-
-class FlareAPIUpdateMixin(FlareAPIMixin, UrateAPIUpdateMixin):
-    flare: Union["Flare", "UUID", None]

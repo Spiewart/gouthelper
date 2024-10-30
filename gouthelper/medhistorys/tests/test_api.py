@@ -6,8 +6,7 @@ from django.test import TestCase  # type: ignore
 from ...flares.tests.factories import CustomFlareFactory
 from ...ults.tests.factories import create_ult
 from ...users.tests.factories import create_psp
-from ...utils.exceptions import GoutHelperValidationError
-from ..api.mixins import MedHistoryAPIMixin
+from ..api.mixins import AnginaAPIMixin, MedHistoryAPIMixin, PvdAPIMixin
 from ..choices import MedHistoryTypes
 from ..models import Heartattack, MedHistory
 from .factories import HeartattackFactory, PvdFactory
@@ -25,6 +24,7 @@ class TestMedHistoryAPIMixin(TestCase):
 
     def test__create_medhistory(self):
         mh = self.api.create_medhistory(
+            medhistory__value=True,
             medhistory=None,
             medhistorytype=MedHistoryTypes.HEARTATTACK,
         )
@@ -38,7 +38,7 @@ class TestMedHistoryAPIMixin(TestCase):
 
     def test__check_for_medhistory_create_errors_medhistory_exists(self):
         heartattack = HeartattackFactory()
-        self.api.check_for_medhistory_create_errors(heartattack, MedHistoryTypes.HEARTATTACK)
+        self.api.check_for_medhistory_create_errors(True, heartattack, MedHistoryTypes.HEARTATTACK)
         self.assertTrue(self.api.errors)
         self.assertIn(
             ("heartattack", f"{heartattack} already exists."),
@@ -49,7 +49,7 @@ class TestMedHistoryAPIMixin(TestCase):
         patient = create_psp()
         mh = HeartattackFactory(user=patient)
         self.api.patient = patient
-        self.api.check_for_medhistory_create_errors(mh, MedHistoryTypes.HEARTATTACK)
+        self.api.check_for_medhistory_create_errors(True, mh, MedHistoryTypes.HEARTATTACK)
         self.assertTrue(self.api.errors)
         self.assertIn(
             ("heartattack", f"{patient} already has a {patient.heartattack}."),
@@ -70,24 +70,23 @@ class TestMedHistoryAPIMixin(TestCase):
     def test__delete_medhistory(self):
         mh = HeartattackFactory()
         self.api.heartattack__value = None
-        self.api.delete_medhistory(mh, MedHistoryTypes.HEARTATTACK)
+        self.api.delete_medhistory(self.api.heartattack__value, mh, MedHistoryTypes.HEARTATTACK)
         self.assertFalse(MedHistory.objects.filter(id=mh.id).exists())
 
-    def test__delete_medhistory_raises_errors(self):
+    def test__delete_medhistory_adds_errors(self):
         mh = HeartattackFactory()
         self.api.heartattack__value = Decimal("1.0")
-        with self.assertRaises(GoutHelperValidationError):
-            self.api.delete_medhistory(mh, MedHistoryTypes.HEARTATTACK)
-            self.assertTrue(self.api.errors)
-            self.assertIn(
-                ("heartattack__value", f"heartattack__value must be False to delete {mh}."),
-                self.api.errors,
-            )
+        self.api.delete_medhistory(self.api.heartattack__value, mh, MedHistoryTypes.HEARTATTACK)
+        self.assertTrue(self.api.errors)
+        self.assertIn(
+            ("heartattack__value", f"heartattack__value must be False to delete {mh}."),
+            self.api.errors,
+        )
 
     def test__check_for_medhistory_delete_errors_medhistory__value_not_False(self):
         mh = HeartattackFactory()
         self.api.heartattack__value = Decimal("1.0")
-        self.api.check_for_medhistory_delete_errors(mh, MedHistoryTypes.HEARTATTACK)
+        self.api.check_for_medhistory_delete_errors(self.api.heartattack__value, mh, MedHistoryTypes.HEARTATTACK)
         self.assertTrue(self.api.errors)
         self.assertIn(
             ("heartattack__value", f"heartattack__value must be False to delete {mh}."),
@@ -118,7 +117,7 @@ class TestMedHistoryAPIMixin(TestCase):
     def test__process_medhistory_create(self):
         self.api.pvd__value = True
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=None,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -130,7 +129,7 @@ class TestMedHistoryAPIMixin(TestCase):
         mh = PvdFactory()
         self.api.pvd = mh
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=mh,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -143,7 +142,7 @@ class TestMedHistoryAPIMixin(TestCase):
         self.api.pvd = mh
         self.api.patient = create_psp()
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=mh,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -157,7 +156,7 @@ class TestMedHistoryAPIMixin(TestCase):
         self.api.pvd__value = True
         self.api.pvd = mh
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=mh,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -170,7 +169,7 @@ class TestMedHistoryAPIMixin(TestCase):
         self.api.pvd__value = True
         self.api.pvd = mh
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=mh,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -184,7 +183,7 @@ class TestMedHistoryAPIMixin(TestCase):
         self.api.pvd__value = True
         self.api.pvd = mh
         self.api.process_medhistory(
-            mh_val=self.api.pvd__value,
+            medhistory__value=self.api.pvd__value,
             medhistory=mh,
             medhistorytype=MedHistoryTypes.PVD,
         )
@@ -196,3 +195,99 @@ class TestMedHistoryAPIMixin(TestCase):
         self.assertEqual(
             self.api.get_queryset(self.api.heartattack, MedHistoryTypes.HEARTATTACK).get(), Heartattack.objects.last()
         )
+
+    def test__attempt_create(self):
+        self.assertTrue(
+            self.api.attempt_create(
+                medhistory__value=True,
+                medhistory=None,
+            )
+        )
+        self.assertFalse(
+            self.api.attempt_create(
+                medhistory__value=False,
+                medhistory=None,
+            )
+        )
+        self.assertFalse(
+            self.api.attempt_create(
+                medhistory__value=True,
+                medhistory=True,
+            )
+        )
+
+    def test__attempt_delete(self):
+        self.assertTrue(
+            self.api.attempt_delete(
+                medhistory__value=None,
+                medhistory=PvdFactory(),
+            )
+        )
+        self.assertFalse(
+            self.api.attempt_delete(
+                medhistory__value=True,
+                medhistory=PvdFactory(),
+            )
+        )
+        self.assertFalse(
+            self.api.attempt_delete(
+                medhistory__value=None,
+                medhistory=None,
+            )
+        )
+
+    def test__attempt_update(self):
+        medhistory = PvdFactory()
+
+        self.assertFalse(
+            self.api.attempt_update(
+                medhistory=medhistory,
+            )
+        )
+
+        self.api.patient = create_psp()
+        self.assertTrue(
+            self.api.attempt_update(
+                medhistory=medhistory,
+            )
+        )
+
+        self.api.patient = None
+        self.api.mh_relations = [CustomFlareFactory().create_object()]
+        self.assertTrue(
+            self.api.attempt_update(
+                medhistory=medhistory,
+            )
+        )
+
+    def test__check_for_process_medhistory_errors(self):
+        api = AnginaAPIMixin()
+        api.set_medhistorytypes()
+        api.patient = None
+
+        api.angina__value = True
+        api.angina = None
+        api.check_for_process_medhistory_errors()
+        self.assertFalse(self.api.errors)
+
+        class ComboMixin(AnginaAPIMixin, PvdAPIMixin):
+            pass
+
+        api = ComboMixin()
+        api.set_medhistorytypes()
+        api.patient = None
+        api.pvd__value = True
+        api.pvd = None
+        api.angina__value = True
+        api.angina = None
+        api.check_for_process_medhistory_errors()
+        self.assertFalse(self.api.errors)
+
+    def test__set_medhistorytypes(self):
+        class ComboMixin(AnginaAPIMixin, PvdAPIMixin):
+            pass
+
+        api = ComboMixin()
+        api.set_medhistorytypes()
+        self.assertIn(MedHistoryTypes.ANGINA, api.medhistorytypes)
+        self.assertIn(MedHistoryTypes.PVD, api.medhistorytypes)

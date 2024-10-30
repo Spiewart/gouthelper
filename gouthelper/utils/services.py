@@ -942,7 +942,9 @@ class ErrorsMixin:
     ):
         self.errors: list[tuple[str, str]] = []
 
-    def add_errors(self, api_args: list[str]) -> None:
+    def add_errors(self, api_args: list[tuple[str, str]]) -> None:
+        """Method that adds errors to the errors list."""
+
         self.add_gouthelper_validation_error(errors=self.errors, api_args=api_args)
 
     @staticmethod
