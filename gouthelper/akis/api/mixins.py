@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 from django.utils.functional import cached_property
 
 from ...dateofbirths.helpers import age_calc
-from ...labs.api.mixins import CreatininesAPICreateMixin, CreatininesAPIUpdateMixin
+from ...labs.api.mixins import CreatininesAPIMixin
 from ...labs.helpers import (
     labs_creatinine_is_at_baseline_creatinine,
     labs_creatinine_within_range_for_stage,
@@ -11,7 +11,6 @@ from ...labs.helpers import (
     labs_sort_list_of_data_by_date_drawn,
 )
 from ...labs.models import Creatinine
-from ...utils.services import APIMixin
 from ..choices import Statuses
 from ..models import Aki
 
@@ -25,9 +24,11 @@ if TYPE_CHECKING:
     from ...utils.types import CreatinineData
 
 
-class AkiAPIMixin(APIMixin):
+class AkiAPIMixin(CreatininesAPIMixin):
+    aki: Union["Aki", "UUID", None]
     aki__status: Union["Statuses", None]
-    creatinines_data: list["CreatinineData"]
+    creatinines: list["Creatinine", "UUID"] | None
+    creatinines_data: list["CreatinineData"] | None
     patient: Union["Pseudopatient", "UUID", None]
     baselinecreatinine__value: Union["Decimal", None]
     ckddetail__stage: Union["Stages", None]
@@ -151,20 +152,18 @@ class AkiAPIMixin(APIMixin):
         for creatinine_data in self.creatinines_data:
             creatinine_data.update({"aki": self.aki})
 
-
-class AkiAPICreateMixin(AkiAPIMixin, CreatininesAPICreateMixin):
     def create_aki(self) -> Aki:
         self.check_for_aki_create_errors()
-        self.check_for_and_raise_errors(model_name="Aki")
-        self.set_aki__status()
-        aki = Aki.objects.create(
-            user=self.patient,
-            status=self.aki__status,
-        )
-        self.aki = aki
-        self.update_creatinines_data_with_aki()
-        self.create_creatinines()
-        return self.aki
+        if not self.errors:
+            self.set_aki__status()
+            aki = Aki.objects.create(
+                user=self.patient,
+                status=self.aki__status,
+            )
+            self.aki = aki
+            self.update_creatinines_data_with_aki()
+            self.create_creatinines()
+            return self.aki
 
     def check_for_aki_create_errors(self):
         self.order_creatinines_data_by_date_drawn_desc()
@@ -172,12 +171,8 @@ class AkiAPICreateMixin(AkiAPIMixin, CreatininesAPICreateMixin):
 
     @property
     def aki_should_be_created(self) -> bool:
+        print(self.aki__status, self.creatinines_data)
         return self.aki__status or self.creatinines_data
-
-
-class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
-    aki: Union["Aki", "UUID"]
-    creatinines: list["Creatinine", "UUID", None]
 
     def get_queryset(self) -> Aki:
         def aki_patient_not_related(aki: "Aki") -> bool:
@@ -210,22 +205,52 @@ class AkiAPIUpdateMixin(AkiAPIMixin, CreatininesAPIUpdateMixin):
         if self.is_uuid(self.aki):
             self.set_attrs_from_qs()
         self.check_for_aki_update_errors()
-        self.check_for_and_raise_errors(model_name="Aki")
-        if self.aki__status or self.creatinines_data:
-            self.set_aki__status()
-            self.aki.update(
-                status=self.aki__status,
-            )
-            self.update_creatinines_data_with_aki()
-            self.update_creatinines()
-            return self.aki
-        else:
-            self.aki.delete()
-            self.aki = None
-            return self.aki
+        if not self.errors:
+            if self.aki__status or self.creatinines_data:
+                self.set_aki__status()
+                self.aki.update(
+                    status=self.aki__status,
+                    user=self.patient,
+                )
+                self.update_creatinines_data_with_aki()
+                self.update_creatinines()
+                return self.aki
+            else:
+                self.aki.delete()
+                self.aki = None
+                return self.aki
 
     def check_for_aki_update_errors(self):
         if not self.aki:
             self.add_errors(api_args=[("aki", "Aki instance is required.")])
         self.order_creatinines_data_by_date_drawn_desc()
         self.check_for_creatinine_aki_status_errors()
+
+    def process_aki(self) -> None:
+        if self.aki:
+            if self.is_uuid(self.aki):
+                self.set_attrs_from_qs()
+            if self.aki_should_be_deleted:
+                self.delete_aki()
+            else:
+                self.set_aki__status()
+                if self.aki_should_be_updated:
+                    self.update_aki()
+        else:
+            if self.aki_should_be_created:
+                self.aki = self.create_aki()
+
+    def delete_aki(self) -> None:
+        if self.is_uuid(self.aki):
+            self.set_attrs_from_qs()
+        if not self.errors:
+            self.aki.delete()
+            self.aki = None
+
+    @property
+    def aki_should_be_deleted(self) -> bool:
+        return not self.aki__status and not self.creatinines_data
+
+    @property
+    def aki_should_be_updated(self) -> bool:
+        return self.aki__status != self.aki.status or self.patient != self.aki.user

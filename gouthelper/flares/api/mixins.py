@@ -129,7 +129,6 @@ class FlareAPIMixin(
     def create_flare(self) -> Flare:
         self.set_attrs()
         self.check_for_flare_create_errors()
-
         self.process_dateofbirth()
         self.process_gender()
         self.process_baselinecreatinine()

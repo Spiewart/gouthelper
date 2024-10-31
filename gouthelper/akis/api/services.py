@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Union
 
 from ...users.api.services import PseudopatientBaseAPI
 from ..choices import Statuses
-from .mixins import AkiAPICreateMixin, AkiAPIUpdateMixin
+from .mixins import AkiAPIMixin
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -16,27 +16,7 @@ if TYPE_CHECKING:
     from ...utils.types import CreatinineData
 
 
-class AkiAPICreate(AkiAPICreateMixin, PseudopatientBaseAPI):
-    def __init__(
-        self,
-        aki__status: Union["Statuses", None],
-        creatinines_data: list["Creatinine", "CreatinineData", None],
-        patient: Union["Pseudopatient", "UUID", None],
-        baselinecreatinine__value: Union["Decimal", None],
-        ckddetail__stage: Union["Stages", None],
-        age: int | None,
-        gender: Union["Genders", None],
-    ):
-        super().__init__(patient=patient)
-        self.aki__status = aki__status
-        self.creatinines_data = creatinines_data
-        self.baselinecreatinine__value = baselinecreatinine__value
-        self.ckddetail__stage = ckddetail__stage
-        self.age = age
-        self.gender = gender
-
-
-class AkiAPIUpdate(AkiAPIUpdateMixin, PseudopatientBaseAPI):
+class AkiAPI(AkiAPIMixin, PseudopatientBaseAPI):
     def __init__(
         self,
         aki: Union["Aki", "UUID", None],

@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING, Union
 
 import pytest  # type: ignore
 from django.forms import model_to_dict
@@ -10,29 +11,89 @@ from ...genders.choices import Genders
 from ...labs.tests.factories import BaselineCreatinineFactory, CreatinineFactory
 from ...medhistorydetails.choices import Stages
 from ...users.tests.factories import create_psp
-from ...utils.exceptions import GoutHelperValidationError
+from ...utils.factories import Auto
 from ...utils.test_helpers import date_days_ago, datetime_days_ago, model_instance_to_dict
+from ...utils.types import CreatinineData
 from ..api.mixins import AkiAPIMixin
-from ..api.services import AkiAPICreate, AkiAPIUpdate
 from ..choices import Statuses
 from ..models import Aki
 from .factories import AkiFactory
 
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from ...labs.models import Creatinine
+    from ...users.models import Pseudopatient
+
+
 pytestmark = pytest.mark.django_db
 
 
-class TestAkiAPIMixin(TestCase):
+class TestAkiAPI(TestCase):
+    def set_api_attrs(
+        self,
+        aki: Union[Aki, "UUID", None] = Auto,
+        aki__status: Statuses | None = Auto,
+        creatinines: list["Creatinine"] | None = Auto,
+        creatinines_data: list[CreatinineData] = Auto,
+        baselinecreatinine__value: Decimal = Auto,
+        ckddetail__stage: Stages | None = Auto,
+        patient: Union["Pseudopatient", None] = Auto,
+        age: int | None = Auto,
+        gender: Genders | None = Auto,
+    ):
+        self.api.aki = aki if aki else None
+        self.api.aki__status = aki__status if aki__status else aki.status if aki and aki__status is Auto else None
+        self.api.creatinines = (
+            creatinines if creatinines else list(aki.creatinine_set.all()) if aki and creatinines is Auto else []
+        )
+        self.api.creatinines_data = (
+            creatinines_data
+            if creatinines_data
+            else (
+                [model_to_dict(creatinine, ["id", "value", "date_drawn", "user", "aki"]) for creatinine in creatinines]
+                if creatinines and creatinines_data is Auto
+                else []
+            )
+        )
+        self.api.baselinecreatinine__value = (
+            baselinecreatinine__value
+            if baselinecreatinine__value
+            else (
+                aki.baselinecreatinine.value
+                if aki and aki.baselinecreatinine and baselinecreatinine__value is Auto
+                else None
+            )
+        )
+        self.api.ckddetail__stage = (
+            ckddetail__stage
+            if ckddetail__stage is not None
+            else aki.ckddetail.stage
+            if aki and aki.ckddetail and ckddetail__stage is Auto
+            else None
+        )
+        self.api.patient = patient if patient else aki.user if aki and patient is Auto else None
+        self.api.age = age if age else self.api.patient.age if self.api.patient and age is Auto else None
+        self.api.gender = (
+            gender
+            if gender
+            else (
+                self.api.patient.gender.value
+                if self.api.patient and self.api.patient.gender and gender is Auto
+                else None
+            )
+        )
+
     def setUp(self):
         self.api = AkiAPIMixin()
-        self.api.aki__status = None
-        self.api.creatinines_data = None
-        self.api.baselinecreatinine__value = None
-        self.api.ckddetail__stage = None
+        self.set_api_attrs()
         self.creatinine1 = {"value": Decimal("1.0"), "date_drawn": timezone.now() - timedelta(days=1)}
         self.creatinine2 = {"value": Decimal("2.0"), "date_drawn": timezone.now() - timedelta(days=2)}
         self.creatinine3 = {"value": Decimal("3.0"), "date_drawn": timezone.now() - timedelta(days=3)}
         self.creatinines = [self.creatinine1, self.creatinine2, self.creatinine3]
         self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("1.5"))
+        self.patient = create_psp()
+        self.aki = AkiFactory(status=Statuses.ONGOING)
 
     def test__aki_is_resolved_via_creatinines_most_recent_creatinine_normal(self):
         self.api.creatinines_data = self.creatinines
@@ -107,13 +168,8 @@ class TestAkiAPIMixin(TestCase):
         self.api.set_aki__status()
         self.assertEqual(self.api.aki__status, Statuses.ONGOING)
 
-
-class TestAkiAPICreate(TestCase):
-    def setUp(self):
-        self.patient = create_psp()
-
     def test__create_aki(self):
-        aki = AkiAPICreate(
+        self.set_api_attrs(
             aki__status=Statuses.ONGOING,
             creatinines_data=[],
             baselinecreatinine__value=None,
@@ -121,11 +177,12 @@ class TestAkiAPICreate(TestCase):
             patient=self.patient,
             age=self.patient.age,
             gender=self.patient.gender.value,
-        ).create_aki()
+        )
+        aki = self.api.create_aki()
         self.assertTrue(aki)
         self.assertTrue(isinstance(aki, Aki))
 
-        userless_aki = AkiAPICreate(
+        self.set_api_attrs(
             aki__status=Statuses.ONGOING,
             creatinines_data=[],
             baselinecreatinine__value=None,
@@ -133,33 +190,32 @@ class TestAkiAPICreate(TestCase):
             patient=None,
             age=self.patient.age,
             gender=self.patient.gender.value,
-        ).create_aki()
+        )
+        userless_aki = self.api.create_aki()
         self.assertTrue(userless_aki)
         self.assertTrue(isinstance(userless_aki, Aki))
         self.assertIsNone(userless_aki.user)
 
     def test__create_aki_with_errors(self):
         abnormal_creatinine_data = {"value": Decimal("3.0"), "date_drawn": timezone.now() - timedelta(days=1)}
+        self.set_api_attrs(
+            aki__status=Statuses.RESOLVED,
+            creatinines_data=[abnormal_creatinine_data],
+            baselinecreatinine__value=None,
+            ckddetail__stage=None,
+            patient=self.patient,
+            age=None,
+            gender=None,
+        )
+        self.api.create_aki()
+        self.assertTrue(self.api.errors)
 
-        with self.assertRaises(GoutHelperValidationError) as exc:
-            AkiAPICreate(
-                aki__status=Statuses.RESOLVED,
-                creatinines_data=[abnormal_creatinine_data],
-                baselinecreatinine__value=None,
-                ckddetail__stage=None,
-                patient=self.patient,
-                age=None,
-                gender=None,
-            ).create_aki()
-
-        self.assertEqual(
-            exc.exception.errors,
-            [
-                (
-                    "creatinines_data",
-                    "AKI marked as resolved, but the creatinines suggest it is not.",
-                )
-            ],
+        self.assertIn(
+            (
+                "creatinines_data",
+                "AKI marked as resolved, but the creatinines suggest it is not.",
+            ),
+            self.api.errors,
         )
 
     def test__create_aki_with_creatinines_data(self):
@@ -168,7 +224,8 @@ class TestAkiAPICreate(TestCase):
             {"value": Decimal("2.0"), "date_drawn": timezone.now() - timedelta(days=2)},
             {"value": Decimal("3.0"), "date_drawn": timezone.now() - timedelta(days=3)},
         ]
-        aki = AkiAPICreate(
+
+        self.set_api_attrs(
             aki__status=Statuses.RESOLVED,
             creatinines_data=creatinines_data,
             baselinecreatinine__value=None,
@@ -176,30 +233,18 @@ class TestAkiAPICreate(TestCase):
             patient=self.patient,
             age=self.patient.age,
             gender=self.patient.gender,
-        ).create_aki()
+        )
+
+        aki = self.api.create_aki()
         self.assertTrue(aki)
         self.assertTrue(isinstance(aki, Aki))
         self.assertEqual(aki.creatinine_set.count(), 3)
 
-
-class TestAkiAPIUpdate(TestCase):
-    def setUp(self):
-        self.patient = create_psp()
-        self.aki = AkiFactory(status=Statuses.ONGOING)
-        self.api = AkiAPIUpdate(
-            aki=self.aki,
-            aki__status=None,
-            creatinines=[],
-            creatinines_data=[],
-            baselinecreatinine__value=None,
-            ckddetail__stage=None,
-            patient=None,
-            age=self.patient.age,
-            gender=self.patient.gender.value,
-        )
-
     def test__update_aki(self):
-        self.api.aki__status = Statuses.RESOLVED
+        self.set_api_attrs(
+            aki=self.aki,
+            aki__status=Statuses.RESOLVED,
+        )
         aki = self.api.update_aki()
 
         self.assertEqual(aki.status, Statuses.RESOLVED)
@@ -210,11 +255,13 @@ class TestAkiAPIUpdate(TestCase):
             {"value": Decimal("2.0"), "date_drawn": timezone.now() - timedelta(days=2)},
             {"value": Decimal("3.0"), "date_drawn": timezone.now() - timedelta(days=3)},
         ]
-        self.api.creatinines_data = creatinines_data
-        aki = self.api.update_aki()
 
-        self.assertEqual(aki.creatinine_set.count(), 3)
-        self.assertEqual(aki.status, Statuses.RESOLVED)
+        self.api.aki = self.aki
+        self.api.creatinines_data = creatinines_data
+        self.api.update_aki()
+
+        self.assertEqual(self.aki.creatinine_set.count(), 3)
+        self.assertEqual(self.aki.status, Statuses.RESOLVED)
 
     def test__creates_more_creatinines(self):
         creatinine_1 = CreatinineFactory(aki=self.aki, value=Decimal("3.0"), date_drawn=datetime_days_ago(10))
@@ -233,6 +280,7 @@ class TestAkiAPIUpdate(TestCase):
             *existing_creatinines_data,
         ]
 
+        self.api.aki = self.aki
         self.api.creatinines = creatinines
         self.api.creatinines_data = creatinines_data
         aki = self.api.update_aki()
@@ -255,6 +303,7 @@ class TestAkiAPIUpdate(TestCase):
         for creatinine_data in existing_creatinines_data:
             creatinine_data["date_drawn"] = creatinine_data["date_drawn"] + timedelta(days=1)
 
+        self.api.aki = self.aki
         self.api.creatinines = creatinines
         self.api.creatinines_data = existing_creatinines_data
         aki = self.api.update_aki()
@@ -275,6 +324,7 @@ class TestAkiAPIUpdate(TestCase):
 
         creatinines = [creatinine_1, creatinine_2, creatinine_3]
 
+        self.api.aki = self.aki
         self.api.creatinines = creatinines
         self.api.creatinines_data = []
         self.api.aki__status = Statuses.RESOLVED
@@ -285,17 +335,18 @@ class TestAkiAPIUpdate(TestCase):
 
     def test__raises_error_without_aki(self):
         self.api.aki = None
-        with self.assertRaises(GoutHelperValidationError):
-            self.api.update_aki()
+        self.api.update_aki()
+        self.assertTrue(self.api.errors)
         self.assertIn(("aki", "Aki instance is required."), self.api.errors)
 
     def test__raises_error_for_creatinines_aki_status_error(self):
+        self.api.aki = self.aki
         self.api.aki__status = Statuses.RESOLVED
         self.api.creatinines_data = [
             {"value": Decimal("3.0"), "date_drawn": timezone.now() - timedelta(days=1)},
         ]
-        with self.assertRaises(GoutHelperValidationError):
-            self.api.update_aki()
+        self.api.update_aki()
+        self.assertTrue(self.api.errors)
         self.assertIn(
             ("creatinines_data", "AKI marked as resolved, but the creatinines suggest it is not."),
             self.api.errors,
@@ -338,3 +389,24 @@ class TestAkiAPIUpdate(TestCase):
         self.assertEqual(self.api.patient, self.patient)
         self.assertEqual(self.api.age, self.patient.age)
         self.assertEqual(self.api.gender, self.patient.gender.value)
+
+    def test__process_aki(self):
+        # Test Create
+        self.set_api_attrs(
+            aki=None,
+            aki__status=Statuses.RESOLVED,
+        )
+        self.assertIsNone(self.api.aki)
+        self.api.process_aki()
+        self.assertTrue(self.api.aki)
+
+        # Test Update
+        self.api.aki__status = Statuses.ONGOING
+        self.api.process_aki()
+        self.assertTrue(self.api.aki)
+        self.assertEqual(self.api.aki.status, Statuses.ONGOING)
+
+        # Test Delete
+        self.api.aki__status = None
+        self.api.process_aki()
+        self.assertIsNone(self.api.aki)

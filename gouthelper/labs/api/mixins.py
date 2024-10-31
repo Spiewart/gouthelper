@@ -151,11 +151,10 @@ class BaselineCreatinineAPIMixin(APIMixin):
 
 
 class CreatininesAPIMixin(APIMixin):
+    creatinines: list["Creatinine", "UUID"] | None
     creatinines_data: list["CreatinineData", None]
     patient: Union["Pseudopatient", "UUID", None]
 
-
-class CreatininesAPICreateMixin(CreatininesAPIMixin):
     def create_creatinines(self) -> list[Creatinine]:
         creatinines = []
         for creatinine_data in self.creatinines_data:
@@ -169,12 +168,6 @@ class CreatininesAPICreateMixin(CreatininesAPIMixin):
             )
         labs_sort_list_by_date_drawn(creatinines)
         return creatinines
-
-
-class CreatininesAPIUpdateMixin(CreatininesAPIMixin):
-    """API for updating Creatinines. Creatinines without data are deleted."""
-
-    creatinines: list["Creatinine", "UUID", None]
 
     def update_creatinines(self) -> None:
         creatinines = []

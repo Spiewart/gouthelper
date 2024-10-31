@@ -11,6 +11,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..dateofbirths.helpers import age_calc
 from ..labs.helpers import labs_check_chronological_order_by_date_drawn
 from ..rules import add_object, change_object, delete_object, view_object
+from ..users.models import Pseudopatient
 from ..utils.helpers import get_qs_or_set
 from ..utils.models import GoutHelperAidModel, GoutHelperModel
 from .choices import Statuses
@@ -123,7 +124,14 @@ class Aki(
     def __str__(self) -> str:
         return f"AKI, {self.get_status_display()}"
 
-    def update(self, status: Statuses) -> None:
+    def update(self, status: Statuses, user: "Pseudopatient") -> None:
+        needs_save = False
         if self.status != status:
             self.status = status
+            needs_save = True
+        if self.user != user:
+            self.user = user
+            needs_save = True
+        if needs_save:
+            self.full_clean()
             self.save()
