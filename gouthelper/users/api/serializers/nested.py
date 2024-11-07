@@ -5,9 +5,10 @@ from rest_framework import serializers
 from ....dateofbirths.api.serializers import DateOfBirthSerializer
 from ....ethnicitys.api.serializers import EthnicitySerializer
 from ....genders.api.serializers import GenderSerializer
-from ....medhistorydetails.schema import GoutDetailSchema
+from ....medhistorys.api.serializers.with_relations import GoutSerializer
 from ...models import Pseudopatient
-from ...schema import PseudopatientEditSchema
+from ...schema.with_related_schema import PseudopatientEditSchema
+from ...tests.factories import get_pseudopatient_api_data
 from .base import UserSerializer
 
 if TYPE_CHECKING:
@@ -28,37 +29,27 @@ class PseudopatientSerializer(serializers.ModelSerializer[Pseudopatient]):
     dateofbirth = DateOfBirthSerializer()
     ethnicity = EthnicitySerializer()
     gender = GenderSerializer()
-    goutdetail = GoutDetailSchema.drf_serializer()
+    gout = GoutSerializer()
     provider = UserSerializer(required=False, read_only=True)
 
     class Meta:
         model = Pseudopatient
-        fields = ["dateofbirth", "ethnicity", "gender", "goutdetail", "provider", "id"]
+        fields = ["dateofbirth", "ethnicity", "gender", "gout", "provider", "id"]
 
     def create(self, validated_data: PseudopatientEditSchema) -> Pseudopatient:
         return Pseudopatient.profile_objects.api_create(
-            dateofbirth=validated_data["dateofbirth"]["value"],
-            ethnicity=validated_data["ethnicity"]["value"],
-            gender=validated_data["gender"]["value"],
-            provider=self.provider,
-            at_goal=validated_data["goutdetail"]["at_goal"],
-            at_goal_long_term=validated_data["goutdetail"]["at_goal_long_term"],
-            flaring=validated_data["goutdetail"]["flaring"],
-            on_ppx=validated_data["goutdetail"]["on_ppx"],
-            on_ult=validated_data["goutdetail"]["on_ult"],
-            starting_ult=validated_data["goutdetail"]["starting_ult"],
+            patient_data=get_pseudopatient_api_data(),
+            dateofbirth_data=validated_data["dateofbirth"],
+            ethnicity_data=validated_data["ethnicity"],
+            gender_data=validated_data["gender"],
+            gout_data=validated_data["gout"],
         )
 
     def update(self, instance, validated_data: PseudopatientEditSchema) -> Pseudopatient:
         return Pseudopatient.profile_objects.api_update(
-            patient=instance.pk,
-            dateofbirth=validated_data["dateofbirth"]["value"],
-            ethnicity=validated_data["ethnicity"]["value"],
-            gender=validated_data["gender"]["value"],
-            at_goal=validated_data["goutdetail"]["at_goal"],
-            at_goal_long_term=validated_data["goutdetail"]["at_goal_long_term"],
-            flaring=validated_data["goutdetail"]["flaring"],
-            on_ppx=validated_data["goutdetail"]["on_ppx"],
-            on_ult=validated_data["goutdetail"]["on_ult"],
-            starting_ult=validated_data["goutdetail"]["starting_ult"],
+            patient_data=get_pseudopatient_api_data(patient=instance),
+            dateofbirth_data=validated_data["dateofbirth"],
+            ethnicity_data=validated_data["ethnicity"],
+            gender_data=validated_data["gender"],
+            gout_data=validated_data["gout"],
         )

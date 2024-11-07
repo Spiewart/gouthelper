@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from ...users.api.services import PseudopatientBaseAPI
+from ...users.api.services import PseudopatientAPI
 from ..choices import Statuses
 from .mixins import AkiAPIMixin
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from ...utils.types import CreatinineData
 
 
-class AkiAPI(AkiAPIMixin, PseudopatientBaseAPI):
+class AkiAPI(AkiAPIMixin, PseudopatientAPI):
     def __init__(
         self,
         aki: Union["Aki", "UUID", None],

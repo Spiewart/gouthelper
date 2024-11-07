@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from ...genders.models import Gender
     from ...goalurates.models import GoalUrate
     from ...medallergys.models import MedAllergy
+    from ...medhistorydetails.choices import DialysisChoices
 
     StagesEnum = Stages
 
@@ -202,6 +203,8 @@ class CustomUltAidFactory(
         baselinecreatinine: Decimal | None = Auto,
         stage: Union["StagesEnum", None, Auto] = Auto,
         dialysis: bool | None = Auto,
+        dialysis_type: Union["DialysisChoices", None, Auto] = Auto,
+        dialysis_duration: Union["DialysisDurations", None, Auto] = Auto,
         heartattack: bool | MedHistory | None = Auto,
         hepatitis: bool | MedHistory | None = Auto,
         organtransplant: bool | MedHistory | None = Auto,
@@ -229,6 +232,8 @@ class CustomUltAidFactory(
         self.baselinecreatinine = baselinecreatinine
         self.stage = stage
         self.dialysis = dialysis
+        self.dialysis_type = dialysis_type
+        self.dialysis_duration = dialysis_duration
         self.heartattack = heartattack
         self.hepatitis = hepatitis
         self.organtransplant = organtransplant

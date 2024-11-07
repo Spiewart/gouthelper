@@ -39,12 +39,15 @@ if TYPE_CHECKING:
     from decimal import Decimal
     from uuid import UUID
 
+    from django.db.models import QuerySet
+
     from ...dateofbirths.models import DateOfBirth
     from ...genders.choices import Genders
     from ...genders.models import Gender
     from ...labs.models import BaselineCreatinine
     from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
     from ...medhistorydetails.models import CkdDetail
+    from ...medhistorys.types import GoutData
     from ...users.models import Pseudopatient
     from ...utils.types import AidTypes, MedHistorys
 
@@ -87,21 +90,24 @@ class MedHistoryAPIMixin(APIMixin):
                 user=self.patient,
                 *[(related_aid.__class__.__name__.lower(), related_aid) for related_aid in related_aids],
             )
-            setattr(
-                self,
-                medhistorytype.value.lower(),
-                new_mh,
-            )
+
+            self.set_medhistory(new_mh)
             return new_mh
 
+    def set_medhistory(self, medhistory: "MedHistory") -> None:
+        if self.object:
+            setattr(self.object, medhistory.__class__.__name__.lower(), medhistory)
+        else:
+            setattr(self, medhistory.__class__.__name__.lower(), medhistory)
+
     def get_related_aids_for_medhistorytype(self, medhistorytype: "MedHistoryTypes") -> list["AidTypes"]:
-        return (
-            [relation for relation in self.mh_relations if medhistorytype in relation.poss_medhistorytypes]
-            if (self.mh_relations and isinstance(self.mh_relations, list))
-            else [self.mh_relations]
-            if self.mh_relations
-            else []
-        )
+        if hasattr(self, "mh_relations") and self.mh_relations:
+            return (
+                [relation for relation in self.mh_relations if medhistorytype in relation.poss_medhistorytypes]
+                if isinstance(self.mh_relations, list)
+                else [self.mh_relations]
+            )
+        return []
 
     def add_mh_relation(self, relation: "AidTypes") -> None:
         self.mh_relations.append(relation)
@@ -142,17 +148,12 @@ class MedHistoryAPIMixin(APIMixin):
     def patient_has_medhistory(self, medhistorytype: "MedHistoryTypes") -> bool:
         return self.patient and bool(getattr(self.patient, medhistorytype.value.lower()))
 
-    def get_queryset(self, medhistory: "UUID", medhistorytype: Union["MedHistoryTypes"]) -> "MedHistory":
+    def get_queryset(self, medhistory: "UUID", medhistorytype: Union["MedHistoryTypes"]) -> "QuerySet":
         return (
             self.get_medhistory_model_from_medhistorytype(medhistorytype=medhistorytype)
             .objects.filter(pk=medhistory)
             .select_related("user__pseudopatientprofile__provider")
         )
-
-    def set_attrs_from_qs(self, medhistory: "UUID", medhistorytype: Union["MedHistoryTypes"]) -> None:
-        obj = self.get_queryset(medhistory=medhistory, medhistorytype=medhistorytype).get()
-        setattr(self, medhistorytype.lower(), obj)
-        self.patient = obj.user if not self.patient else self.patient
 
     def delete_medhistory(
         self,
@@ -262,9 +263,6 @@ class MedHistoryAPIMixin(APIMixin):
         medhistory: Union[MedHistory, "UUID", None],
         medhistorytype: "MedHistoryTypes",
     ) -> None:
-        if self.is_uuid(medhistory):
-            self.set_attrs_from_qs(medhistory=medhistory, medhistorytype=medhistorytype)
-
         if self.attempt_create(medhistory__value=medhistory__value, medhistory=medhistory):
             self.create_medhistory(
                 medhistory__value=medhistory__value, medhistory=medhistory, medhistorytype=medhistorytype
@@ -283,7 +281,8 @@ class MedHistoryAPIMixin(APIMixin):
         medhistory: MedHistory,
     ) -> bool:
         return medhistory.user != self.patient or (
-            self.mh_relations
+            hasattr(self, "mh_relations")
+            and self.mh_relations
             and any(
                 getattr(
                     medhistory,
@@ -570,8 +569,29 @@ class GastricbypassAPIMixin(MedHistoryAPIMixin):
 
 
 class GoutAPIMixin(MedHistoryAPIMixin):
-    gout: Union[Gout, "UUID", None]
-    gout__value: bool | None
+    gout_data: "GoutData"
+
+    @property
+    def gout(self) -> Gout | None:
+        if not hasattr(self, "object"):
+            self.object = self.get_queryset().get() if self.gout__id else None
+        if self.object:
+            if isinstance(self.object, Gout):
+                return self.object
+            return self.object.gout
+        return None
+
+    def get_queryset(self) -> "QuerySet":
+        qs = super().get_queryset()
+        return qs.select_related("goutdetail")
+
+    @property
+    def gout__id(self) -> "UUID":
+        return self.gout_data.get("id")
+
+    @property
+    def gout__value(self) -> bool | None:
+        return self.gout_data.get("value")
 
     def set_medhistorytypes(self) -> list[MedHistoryTypes]:
         super().set_medhistorytypes()

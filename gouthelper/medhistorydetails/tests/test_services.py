@@ -89,7 +89,7 @@ class TestCkdDetailAPI(TestCase):
         )
 
     def test__init_with_all_parameters(self):
-        self.assertIsNone(self.api.ckddetail)
+        self.assertEqual(self.api.ckddetail, self.ckddetail)
         self.assertEqual(self.api.ckddetail__medhistory, self.ckddetail__medhistory)
         self.assertEqual(self.api.ckddetail__dialysis, self.ckddetail_dialysis)
         self.assertEqual(self.api.ckddetail__dialysis_type, self.ckddetail__dialysis_type)

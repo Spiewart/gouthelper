@@ -11,18 +11,20 @@ from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
-from .api.services import PseudopatientAPI
+from .api.services import PseudopatientProfileAPI
 from .choices import Roles
 from .selectors import pseudopatient_base_relations, pseudopatient_related_aids, pseudopatient_relations
+from .types import PseudopatientData
 
 if TYPE_CHECKING:
-    from datetime import date
     from uuid import UUID
 
     from django.contrib.auth import get_user_model
 
-    from ..ethnicitys.choices import Ethnicitys
-    from ..genders.choices import Genders
+    from ..dateofbirths.types import DateOfBirthData
+    from ..ethnicitys.types import EthnicityData
+    from ..genders.types import GenderData
+    from ..medhistorys.types import GoutData
 
     User = get_user_model()
 
@@ -129,56 +131,32 @@ class PseudopatientProfileManager(BaseUserManager):
 
     def api_create(
         self,
-        dateofbirth: "date",
-        gender: "Genders",
-        ethnicity: "Ethnicitys",
-        provider: Union["User", None],
-        at_goal: bool | None,
-        at_goal_long_term: bool,
-        flaring: bool | None,
-        on_ppx: bool,
-        on_ult: bool,
-        starting_ult: bool,
+        patient_data: PseudopatientData,
+        dateofbirth_data: "DateOfBirthData",
+        ethnicity_data: "EthnicityData",
+        gender_data: "GenderData",
+        gout_data: "GoutData",
     ) -> "User":
-        return PseudopatientAPI(
-            patient=None,
-            dateofbirth__value=dateofbirth,
-            ethnicity__value=ethnicity,
-            gender__value=gender,
-            provider=provider,
-            goutdetail__at_goal=at_goal,
-            goutdetail__at_goal_long_term=at_goal_long_term,
-            goutdetail__flaring=flaring,
-            goutdetail__on_ppx=on_ppx,
-            goutdetail__on_ult=on_ult,
-            goutdetail__starting_ult=starting_ult,
+        return PseudopatientProfileAPI(
+            patient_data=patient_data,
+            dateofbirth_data=dateofbirth_data,
+            ethnicity_data=ethnicity_data,
+            gender_data=gender_data,
+            gout_data=gout_data,
         ).create_pseudopatient_and_profile()
 
     def api_update(
         self,
-        patient: "UUID",
-        dateofbirth: "date",
-        ethnicity: "Ethnicitys",
-        gender: "Genders",
-        at_goal: bool | None,
-        at_goal_long_term: bool,
-        flaring: bool | None,
-        on_ppx: bool,
-        on_ult: bool,
-        starting_ult: bool,
+        patient_data: PseudopatientData,
+        dateofbirth_data: "DateOfBirthData",
+        ethnicity_data: "EthnicityData",
+        gender_data: "GenderData",
+        gout_data: "GoutData",
     ) -> "User":
-        patient = self.get_queryset().get(pk=patient)
-
-        return PseudopatientAPI(
-            patient=patient,
-            dateofbirth__value=dateofbirth,
-            ethnicity__value=ethnicity,
-            gender__value=gender,
-            provider=patient.provider,
-            goutdetail__at_goal=at_goal,
-            goutdetail__at_goal_long_term=at_goal_long_term,
-            goutdetail__flaring=flaring,
-            goutdetail__on_ppx=on_ppx,
-            goutdetail__on_ult=on_ult,
-            goutdetail__starting_ult=starting_ult,
+        return PseudopatientProfileAPI(
+            patient_data=patient_data,
+            dateofbirth_data=dateofbirth_data,
+            ethnicity_data=ethnicity_data,
+            gender_data=gender_data,
+            gout_data=gout_data,
         ).update_pseudopatient_and_profile()

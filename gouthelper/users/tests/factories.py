@@ -1,7 +1,7 @@
 import random
 from collections.abc import Sequence
 from datetime import date
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -36,6 +36,9 @@ from ..models import Pseudopatient
 fake = faker.Faker()
 
 User = get_user_model()
+
+if TYPE_CHECKING:
+    from ..types import PseudopatientProfileData
 
 
 class UserFactory(DjangoModelFactory):
@@ -397,3 +400,23 @@ def create_psp(
                 except IntegrityError:
                     pass
     return psp
+
+
+def get_pseudopatient_api_data(
+    patient: Pseudopatient | None = None,
+    provider: Union["User", None] = None,
+    provider_alias: str | None = None,
+) -> "PseudopatientProfileData":
+    return {
+        "id": patient.id if patient else None,
+        "pseudopatientprofile": {
+            "id": patient.pseudopatientprofile.id if patient else None,
+            "provider": provider.id if provider else patient.provider.id if patient and patient.provider else None,
+            "provider_alias": provider_alias
+            if provider_alias
+            else patient.pseudopatientprofile.provider_alias
+            if patient
+            else None,
+            "user": patient.pk if patient else None,
+        },
+    }

@@ -1,13 +1,15 @@
 from rest_framework import serializers
 
-from ...akis.api.serializers import AkiSerializer
-from ...medhistorys.api.serializers import MedHistorySerializer
+from ...akis.api.serializers.base import AkiSerializer
+from ...labs.api.serializers import UrateSerializer
+from ...medhistorys.api.serializers.with_relations import MedHistorySerializer
 from ..models import Flare
 
 
 class FlareSerializer(serializers.ModelSerializer):
     aki = AkiSerializer(required=False)
     medhistorys_qs = MedHistorySerializer(many=True, read_only=True)
+    urate = UrateSerializer(required=False)
 
     class Meta:
         model = Flare

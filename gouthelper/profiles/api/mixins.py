@@ -1,34 +1,23 @@
 from typing import TYPE_CHECKING, Union
 
 from ...profiles.helpers import get_provider_alias
+from ...users.types import PseudopatientProfileData
 from ...utils.services import APIMixin
 from ..models import PseudopatientProfile
 
 if TYPE_CHECKING:
-    from uuid import UUID
-
     from ...users.models import Pseudopatient, User
 
 
 class PseudopatientProfileAPIMixin(APIMixin):
-    pseudopatientprofile: Union[PseudopatientProfile, "UUID", None]
-    provider: Union["User", "UUID", None]
-    patient: Union["Pseudopatient", "UUID", None]
-
-    def get_queryset(self) -> PseudopatientProfile:
-        if not self.is_uuid(self.pseudopatientprofile):
-            raise TypeError("pseudopatientprofile arg must be a UUID to call get_queryset().")
-        return PseudopatientProfile.objects.filter(pk=self.pseudopatientprofile).select_related("user", "provider")
-
-    def set_attrs_from_qs(self) -> None:
-        self.pseudopatientprofile = self.get_queryset().get()
-        self.patient = self.pseudopatientprofile.user if not self.patient else self.patient
-        self.provider = self.pseudopatientprofile.provider if not self.provider else self.provider
+    patient_data: PseudopatientProfileData
+    patient: Union["Pseudopatient", None] = None
+    provider: Union["User", None] = None
 
     def create_pseudopatientprofile(self) -> PseudopatientProfile:
         self.check_for_pseudopatientprofile_create_errors()
         self.check_for_and_raise_errors(model_name="PseudopatientProfile")
-        self.pseudopatientprofile = PseudopatientProfile.objects.create(
+        pseudopatientprofile = PseudopatientProfile.objects.create(
             user=self.patient,
             provider=self.provider,
             provider_alias=(
@@ -41,7 +30,7 @@ class PseudopatientProfileAPIMixin(APIMixin):
                 else None
             ),
         )
-        return self.pseudopatientprofile
+        return pseudopatientprofile
 
     def check_for_pseudopatientprofile_create_errors(self):
         if self.pseudopatientprofile:
@@ -59,9 +48,15 @@ class PseudopatientProfileAPIMixin(APIMixin):
                 api_args=[("patient", f"{self.patient} already has a pseudopatient profile.")],
             )
 
+    @property
+    def pseudopatientprofile(self) -> PseudopatientProfile | None:
+        return self.patient.pseudopatientprofile if self.patient_has_pseudopatientprofile else None
+
+    @property
+    def patient_has_pseudopatientprofile(self) -> bool:
+        return hasattr(self.patient, "pseudopatientprofile")
+
     def update_pseudopatientprofile(self) -> PseudopatientProfile:
-        if self.is_uuid(self.pseudopatientprofile):
-            self.set_attrs_from_qs()
         self.check_for_pseudopatientprofile_update_errors()
         self.check_for_and_raise_errors(model_name="PseudopatientProfile")
         if self.pseudopatientprofile_needs_save:
@@ -73,10 +68,6 @@ class PseudopatientProfileAPIMixin(APIMixin):
             self.add_errors(
                 api_args=[("pseudopaåtientprofile", "No PseudopatientProfile to update.")],
             )
-
-    @property
-    def patient_has_pseudopatientprofile(self) -> bool:
-        return hasattr(self.patient, "pseudopatientprofile")
 
     @property
     def pseudopatientprofile_needs_save(self) -> bool:

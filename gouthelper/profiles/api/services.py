@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Union
 
 from ...profiles.helpers import get_provider_alias
-from ...users.api.services import PseudopatientBaseAPI
+from ...users.api.services import PseudopatientAPI
 from ...utils.services import APIMixin
 from ..models import PseudopatientProfile
 
@@ -90,7 +90,7 @@ class PseudopatientProfileAPIMixin(APIMixin):
 
 class PseudopatientProfileAPI(
     PseudopatientProfileAPIMixin,
-    PseudopatientBaseAPI,
+    PseudopatientAPI,
 ):
     def __init__(
         self,

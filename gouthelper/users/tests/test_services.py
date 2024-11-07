@@ -1,22 +1,43 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
 
-from ...users.choices import Roles
-from ...users.models import Pseudopatient
-from ...users.tests.factories import create_psp
+from ...dateofbirths.schema.base import DateOfBirthSchema
+from ...profiles.schema.base import PseudopatientProfileSchema
 from ...utils.exceptions import GoutHelperValidationError
-from ..api.services import PseudopatientAPI
-from ..services import PseudopatientBaseAPI
+from ..api.base_services import PseudopatientAPI
+from ..api.services import PseudopatientProfileAPI
+from ..choices import Roles
+from ..models import Pseudopatient
+from ..schema.base import PseudopatientSchema
+from ..tests.factories import create_psp
 from .factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestPseudopatientBaseAPI(TestCase):
+class TestPseudopatientAPI(TestCase):
     def setUp(self):
         self.patient = create_psp()
-        self.mixin = PseudopatientBaseAPI(patient=self.patient)
-        self.empty_mixin = PseudopatientBaseAPI(patient=None)
+        self.patient_data = PseudopatientSchema(
+            id=self.patient.pk,
+            pseudopatientprofile=PseudopatientProfileSchema(
+                id=str(self.patient.pseudopatientprofile.pk),
+                user=str(self.patient.pseudopatientprofile.user.pk),
+                provider=None,
+                provider_alias=str(self.patient.pseudopatientprofile.provider_alias),
+            ),
+        )
+        self.mixin = PseudopatientAPI(patient_data=self.patient_data)
+        self.empty_patient_data = PseudopatientSchema(
+            id=None,
+            pseudopatientprofile=PseudopatientProfileSchema(
+                id=None,
+                user=None,
+                provider=None,
+                provider_alias=None,
+            ),
+        )
+        self.empty_mixin = PseudopatientAPI(patient_data=self.empty_patient_data)
 
     def test__create_pseudopatient(self):
         new_patient = self.empty_mixin.create_pseudopatient()
@@ -35,15 +56,8 @@ class TestPseudopatientBaseAPI(TestCase):
         )
 
     def test__get_queryset(self):
-        self.mixin.patient = self.patient.pk
         patient = self.mixin.get_queryset()
         self.assertEqual(patient.first(), self.patient)
-
-    def test__get_queryset_raises_error(self):
-        with self.assertRaises(TypeError) as context:
-            self.mixin.patient = self.patient
-            self.mixin.get_queryset()
-        self.assertEqual(context.exception.args, ("patient arg must be a UUID to call get_queryset().",))
 
     def test__add_errors(self):
         self.empty_mixin.add_errors(api_args=[("patient", "error")])
@@ -66,12 +80,26 @@ class TestPseudopatientBaseAPI(TestCase):
         )
 
 
-class TestPseudopatientAPI(TestCase):
+class TestPseudopatientProfileAPI(TestCase):
     def setUp(self):
         self.patient = create_psp(provider=UserFactory())
-        self.mixin = PseudopatientAPI(
-            patient=self.patient,
-            dateofbirth__value=self.patient.dateofbirth.value,
+        self.patient_data = PseudopatientSchema(
+            id=self.patient.pk,
+            pseudopatientprofile=PseudopatientProfileSchema(
+                id=str(self.patient.pseudopatientprofile.pk),
+                user=str(self.patient.pseudopatientprofile.user.pk),
+                provider=str(self.patient.pseudopatientprofile.provider.pk),
+                provider_alias=str(self.patient.pseudopatientprofile.provider_alias),
+            ),
+        )
+        self.dateofbirth_data = DateOfBirthSchema(
+            id=str(self.patient.dateofbirth.pk),
+            value=str(self.patient.dateofbirth.value),
+            user=self.patient_data,
+        )
+        self.mixin = PseudopatientProfileAPI(
+            patient_data=self.patient_data,
+            dateofbirth_data=self.dateofbirth_data,
             ethnicity__value=self.patient.ethnicity.value,
             gender__value=self.patient.gender.value,
             provider=self.patient.provider,
@@ -82,9 +110,23 @@ class TestPseudopatientAPI(TestCase):
             goutdetail__on_ult=True,
             goutdetail__starting_ult=True,
         )
-        self.empty_mixin = PseudopatientAPI(
-            patient=None,
-            dateofbirth__value=self.patient.dateofbirth.value,
+        self.empty_patient_data = PseudopatientSchema(
+            id=None,
+            pseudopatientprofile=PseudopatientProfileSchema(
+                id=None,
+                user=None,
+                provider=None,
+                provider_alias=None,
+            ),
+        )
+        self.dateofbirth_create_data = DateOfBirthSchema(
+            id=None,
+            value="2000-01-01",
+            user=self.empty_patient_data,
+        )
+        self.empty_mixin = PseudopatientProfileAPI(
+            patient_data=self.empty_patient_data,
+            dateofbirth_data=self.dateofbirth_create_data,
             ethnicity__value=self.patient.ethnicity.value,
             gender__value=self.patient.gender.value,
             provider=None,
@@ -102,7 +144,7 @@ class TestPseudopatientAPI(TestCase):
         self.assertTrue(isinstance(new_patient, Pseudopatient))
         self.assertEqual(new_patient.role, Roles.PSEUDOPATIENT)
         self.assertTrue(new_patient.dateofbirth)
-        self.assertEqual(new_patient.dateofbirth.value, self.patient.dateofbirth.value)
+        self.assertEqual(new_patient.dateofbirth.value, self.dateofbirth_create_data.value)
         self.assertTrue(new_patient.ethnicity)
         self.assertEqual(new_patient.ethnicity.value, self.patient.ethnicity.value)
         self.assertTrue(new_patient.gender)
@@ -129,7 +171,7 @@ class TestPseudopatientAPI(TestCase):
         )
 
     def test__create_pseudopatient_and_profile_raises_dateofbirth_error(self):
-        self.empty_mixin.dateofbirth__value = None
+        self.empty_mixin.dateofbirth_data.value = None
         with self.assertRaises(GoutHelperValidationError) as context:
             self.empty_mixin.create_pseudopatient_and_profile()
         errors_keys = [error[0] for error in context.exception.errors]
@@ -148,7 +190,7 @@ class TestPseudopatientAPI(TestCase):
         self.assertTrue(self.mixin.has_errors)
 
     def test__check_for_and_raise_errors(self):
-        self.empty_mixin.dateofbirth__value = None
+        self.empty_mixin.dateofbirth_data.value = None
         with self.assertRaises(GoutHelperValidationError) as context:
             self.empty_mixin.create_pseudopatient_and_profile()
             self.empty_mixin.check_for_and_raise_errors(model_name="Pseudopatient")

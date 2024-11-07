@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from ...dateofbirths.api.services import DateOfBirthAPIMixin
 from ...ethnicitys.api.services import EthnicityAPIMixin
@@ -6,20 +6,19 @@ from ...genders.api.services import GenderAPIMixin
 from ...medhistorydetails.api.mixins import GoutDetailAPIMixin
 from ...medhistorys.api.mixins import GoutAPIMixin
 from ...profiles.api.mixins import PseudopatientProfileAPIMixin
-from ..services import PseudopatientBaseAPI
+from .base_services import PseudopatientAPI
 
 if TYPE_CHECKING:
-    from datetime import date
-    from uuid import UUID
+    from ...dateofbirths.types import DateOfBirthData
+    from ...ethnicitys.types import EthnicityData
+    from ...genders.types import GenderData
+    from ...medhistorys.types import GoutData
+    from ..models import Pseudopatient
+    from ..types import PseudopatientProfileData
 
-    from ...ethnicitys.choices import Ethnicitys
-    from ...genders.choices import Genders
-    from ...profiles.models import PseudopatientProfile
-    from ...users.models import Pseudopatient, User
 
-
-class PseudopatientAPI(
-    PseudopatientBaseAPI,
+class PseudopatientProfileAPI(
+    PseudopatientAPI,
     DateOfBirthAPIMixin,
     EthnicityAPIMixin,
     GenderAPIMixin,
@@ -29,44 +28,30 @@ class PseudopatientAPI(
 ):
     def __init__(
         self,
-        patient: Union["Pseudopatient", "UUID", None],
-        dateofbirth__value: Union["date", None],
-        ethnicity__value: Union["Ethnicitys", None],
-        gender__value: Union["Genders", None],
-        provider: Union["User", "UUID", None],
-        goutdetail__at_goal: bool | None,
-        goutdetail__at_goal_long_term: bool,
-        goutdetail__flaring: bool | None,
-        goutdetail__on_ppx: bool,
-        goutdetail__on_ult: bool,
-        goutdetail__starting_ult: bool,
+        patient_data: "PseudopatientProfileData",
+        dateofbirth_data: "DateOfBirthData",
+        ethnicity_data: "EthnicityData",
+        gender_data: "GenderData",
+        gout_data: "GoutData",
     ):
-        super().__init__(patient=patient)
-        self.pseudopatientprofile: Union["PseudopatientProfile", None] = (
-            self.patient.pseudopatientprofile if patient else None
-        )
-        self.dateofbirth = patient.dateofbirth if patient else None
-        self.dateofbirth__value = dateofbirth__value
-        self.ethnicity = patient.ethnicity if patient else None
-        self.ethnicity__value = ethnicity__value
-        self.gender = patient.gender if patient else None
-        self.gender__value = gender__value
-        self.provider = provider
-        self.gout = patient.gout if patient else None
-        self.gout__value = True
-        self.goutdetail = patient.goutdetail if patient else None
-        self.goutdetail__at_goal = goutdetail__at_goal
-        self.goutdetail__at_goal_long_term = goutdetail__at_goal_long_term
-        self.goutdetail__flaring = goutdetail__flaring
-        self.goutdetail__on_ppx = goutdetail__on_ppx
-        self.goutdetail__on_ult = goutdetail__on_ult
-        self.goutdetail__starting_ult = goutdetail__starting_ult
+        super().__init__(patient_data=patient_data)
+        self.dateofbirth_data = dateofbirth_data
+        self.dateofbirth_patient_edit = True
+        self.dateofbirth_optional = False
+        self.ethnicity_data = ethnicity_data
+        self.ethnicity_patient_edit = True
+        self.ethnicity_optional = False
+        self.gender_data = gender_data
+        self.gender_patient_edit = True
+        self.gender_optional = False
+        self.gout_data = gout_data
+        self.set_medhistorytypes()
 
     def create_pseudopatient_and_profile(self) -> "Pseudopatient":
         self.check_for_pseudopatient_create_errors()
         self.check_for_and_raise_errors(model_name="Pseudopatient")
         self.create_pseudopatient()
-        self.create_dateofbirth()
+        self.process_dateofbirth()
         self.create_ethnicity()
         self.create_gender()
         self.create_pseudopatientprofile()
@@ -83,3 +68,11 @@ class PseudopatientAPI(
         self.process_gout()
         self.update_goutdetail()
         return self.patient
+
+    def check_for_pseudopatient_create_errors(self):
+        super().check_for_pseudopatient_create_errors()
+        self.check_for_process_medhistory_errors()
+
+    def check_for_pseudopatient_update_errors(self):
+        super().check_for_pseudopatient_update_errors()
+        self.check_for_process_medhistory_errors()

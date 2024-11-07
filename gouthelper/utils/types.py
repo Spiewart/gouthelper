@@ -8,10 +8,14 @@ if TYPE_CHECKING:
     from django.db.models import Model  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
+    from ..akis.choices import Statuses
     from ..akis.models import Aki
     from ..flareaids.models import FlareAid
+    from ..flares.choices import DiagnosedChoices, LimitedJointChoices
     from ..flares.models import Flare
+    from ..genders.choices import Genders
     from ..goalurates.models import GoalUrate
+    from ..labs.models import Creatinine
     from ..medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
     from ..medhistorys.models import (
         Angina,
@@ -163,3 +167,37 @@ CreatinineData = TypedDict(
         }
     ),
 )
+
+
+class FlareAPIData(TypedDict):
+    aki__status: Union["Statuses", None]
+    creatinines_data: list["Creatinine", "UUID"]
+    angina__value: bool | None
+    cad__value: bool | None
+    chf__value: bool | None
+    ckd__value: bool | None
+    baselinecreatinine__value: Union["Decimal", None]
+    baselinecreatinine__medhistory: Union["Ckd", "UUID", None]
+    ckddetail__medhistory: Union["Ckd", "UUID", None]
+    ckddetail__dialysis: bool | None
+    ckddetail__dialysis_type: Union["DialysisChoices", None]
+    ckddetail__dialysis_duration: Union["DialysisDurations", None]
+    ckddetail__stage: Union["Stages", None]
+    crystal_analysis: bool
+    dateofbirth__value: Union["date", None]
+    dateofbirth_optional: bool = True
+    date_ended: Union["date", None]
+    date_started: "date"
+    diagnosed: Union["DiagnosedChoices", None]
+    gender__value: Union["Genders", None]
+    gout__value: bool | None
+    joints: list["LimitedJointChoices"]
+    heartattack__value: bool | None
+    hypertension__value: bool | None
+    menopause__value: bool | None
+    onset: bool
+    pvd__value: bool | None
+    redness: bool
+    stroke__value: bool | None
+    urate__value: Union["Decimal", None]
+    urate__date_drawn: Union["date", None]

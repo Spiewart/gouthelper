@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Union
 from ...labs.models import BaselineCreatinine, Creatinine, Urate
 from ...utils.services import APIMixin
 from ..helpers import labs_sort_list_by_date_drawn
+from ..schema import BaselineCreatinineSchema
 
 if TYPE_CHECKING:
     from datetime import date
@@ -17,9 +18,12 @@ if TYPE_CHECKING:
 
 
 class BaselineCreatinineAPIMixin(APIMixin):
-    baselinecreatinine: Union["Creatinine", "UUID", None]
+    baselinecreatinine: BaselineCreatinineSchema
     baselinecreatinine__value: Union["Decimal", None]
     baselinecreatinine__medhistory: Union["Ckd", "UUID", None]
+
+    def set_attrs(self) -> None:
+        self.baselinecreatinine__value = self.baselinecreatinine.get("value", None)
 
     def process_baselinecreatinine(self) -> None:
         if self.baselinecreatinine:
@@ -225,21 +229,20 @@ class CreatininesAPIMixin(APIMixin):
 
 
 class UrateAPIMixin(APIMixin):
+    urate: Union["Urate", "UUID"]
     urate__value: Union["Decimal"]
-    urate__date_drawn: Union["date"]
+    urate__date_drawn: Union["date", None]
     patient: Union["Pseudopatient", "UUID", None]
 
-
-class UrateAPICreateMixin(UrateAPIMixin):
     def create_urate(self) -> Urate:
         self.check_for_urate_create_errors()
-        self.check_for_and_raise_errors(model_name="Urate")
-        self.urate = Urate.objects.create(
-            user=self.patient,
-            value=self.urate__value,
-            date_drawn=self.urate__date_drawn,
-        )
-        return self.urate
+        if not self.errors:
+            self.urate = Urate.objects.create(
+                user=self.patient,
+                value=self.urate__value,
+                date_drawn=self.urate__date_drawn,
+            )
+            return self.urate
 
     def check_for_urate_create_errors(self):
         if not self.urate__value or not self.urate__date_drawn:
@@ -264,14 +267,9 @@ class UrateAPICreateMixin(UrateAPIMixin):
                     ],
                 )
 
+    @property
     def urate_should_be_created(self) -> bool:
         return self.urate__value
-
-
-class UrateAPIUpdateMixin(UrateAPIMixin):
-    urate__value: Union["Decimal", None]
-    urate__date_drawn: Union["date", None]
-    urate: Union["Urate", "UUID"]
 
     def get_queryset(self) -> Urate:
         if self.urate and self.is_uuid(self.urate):
@@ -301,12 +299,7 @@ class UrateAPIUpdateMixin(UrateAPIMixin):
         if self.is_uuid(self.urate):
             self.set_attrs_from_qs()
         self.check_for_urate_update_errors()
-        self.check_for_and_raise_errors(model_name="Urate")
-        if self.urate_should_be_deleted:
-            self.urate.delete()
-            self.urate = None
-            return None
-        else:
+        if not self.errors:
             kwargs = {
                 "value": self.urate__value,
                 "date_drawn": self.urate__date_drawn,
@@ -330,3 +323,30 @@ class UrateAPIUpdateMixin(UrateAPIMixin):
     @property
     def urate_should_be_deleted(self) -> bool:
         return self.urate and not self.urate__value
+
+    def process_urate(self):
+        if self.urate:
+            if self.urate_should_be_deleted:
+                self.delete_urate()
+            elif self.urate_needs_update:
+                self.update_urate()
+        elif self.urate_should_be_created:
+            self.create_urate()
+
+    def delete_urate(self) -> None:
+        if self.is_uuid(self.urate):
+            self.set_attrs_from_qs()
+        if not self.errors:
+            self.urate.delete()
+            self.urate = None
+
+    @property
+    def urate_needs_update(self) -> bool:
+        return (
+            self.urate__value
+            and self.urate__value != self.urate.value
+            or self.urate__date_drawn
+            and self.urate__date_drawn != self.urate.date_drawn
+            or self.patient
+            and self.urate.user != self.patient
+        )

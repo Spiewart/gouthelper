@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from ...users.services import PseudopatientBaseAPI
+from ...users.api.base_services import PseudopatientAPI
 from .mixins import CkdDetailAPIMixin, GoutDetailAPIMixin
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ...users.models import Pseudopatient
 
 
-class CkdDetailAPI(CkdDetailAPIMixin, PseudopatientBaseAPI):
+class CkdDetailAPI(CkdDetailAPIMixin, PseudopatientAPI):
     def __init__(
         self,
         ckddetail: Union["CkdDetail", "UUID", None],
@@ -44,7 +44,7 @@ class CkdDetailAPI(CkdDetailAPIMixin, PseudopatientBaseAPI):
         self.gender = gender
 
 
-class GoutDetailAPI(GoutDetailAPIMixin, PseudopatientBaseAPI):
+class GoutDetailAPI(GoutDetailAPIMixin, PseudopatientAPI):
     def __init__(
         self,
         goutdetail: Union["GoutDetail", "UUID", None],

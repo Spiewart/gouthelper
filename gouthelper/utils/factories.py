@@ -1376,7 +1376,13 @@ class CustomFactoryDateOfBirthMixin:
                 )
 
     def get_dateofbirth_value_from_attr(self) -> date | None:
-        return self.dateofbirth.value if isinstance(self.dateofbirth, DateOfBirth) else self.dateofbirth
+        return (
+            self.dateofbirth.value
+            if self.dateofbirth and isinstance(self.dateofbirth, DateOfBirth)
+            else self.user.dateofbirth.value
+            if self.user
+            else self.dateofbirth
+        )
 
 
 def related_object_has_ethnicity(related_object: Any, ethnicity: Ethnicity | Ethnicitys | None):
@@ -1400,7 +1406,7 @@ def create_ethnicity(
 
 
 class CustomFactoryEthnicityMixin:
-    ethnicity: Union[Ethnicity, Ethnicitys, None, Auto]  # fmt: skip # pylint # noqa
+    ethnicity: Ethnicity | Ethnicitys | None | Auto  # fmt: skip # pylint # noqa
     related_object: Any | None
     user: Union["User", bool, None]
 
@@ -1660,8 +1666,24 @@ class CustomFactoryCkdMixin:
 
     def update_ckddetail_attr(self) -> None:
         self.dialysis = self.get_or_create_dialysis()
+        self.dialysis_type = self.get_or_create_dialysis_type()
+        self.dialysis_duration = self.get_or_create_dialysis_duration()
         self.stage = self.get_or_create_stage()
         self.baselinecreatinine = self.get_or_create_baselinecreatinine()
+
+    def get_or_create_dialysis_type(self) -> DialysisChoices | None:
+        if self.dialysis_type is Auto:
+            if self.dialysis:
+                return DialysisChoices.values[random.randint(0, len(DialysisChoices.values) - 1)]
+            return None
+        return self.dialysis_type
+
+    def get_or_create_dialysis_duration(self) -> Union["DialysisDurations", None]:
+        if self.dialysis_duration is Auto:
+            if self.dialysis:
+                return self.ModDurations[random.randint(0, len(self.ModDurations) - 1)]
+            return None
+        return self.dialysis_duration
 
     def update_ckddetail(self) -> None:
         if self.needs_ckddetail:
@@ -1759,8 +1781,7 @@ class CustomFactoryMedHistoryMixin:
                 if self.needs_ckd:
                     self.update_ckd_attr()
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
-                if self.needs_ckddetail:
-                    self.update_ckddetail_attr()
+                self.update_ckddetail_attr()
             else:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
 

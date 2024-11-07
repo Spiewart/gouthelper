@@ -1,16 +1,22 @@
 from typing import TYPE_CHECKING, Union
 
+from django.utils.functional import cached_property
+
 from ...utils.services import APIMixin
 from ..choices import Genders
 from ..models import Gender
+from ..types import GenderData
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    from django.db.models import QuerySet
 
     from ...users.models import Pseudopatient
 
 
 class GenderAPIMixin(APIMixin):
+    gender_data: GenderData
     gender: Union[Gender, "UUID", None]
     gender__value: Genders | None
     patient: Union["Pseudopatient", None]
@@ -18,20 +24,44 @@ class GenderAPIMixin(APIMixin):
     gender_patient_edit: bool
     errors: list[tuple[str, str]]
 
-    def get_queryset(self) -> Gender:
-        if not self.is_uuid(self.gender):
-            raise TypeError("gender arg must be a UUID to call get_queryset().")
-        return Gender.objects.filter(pk=self.gender).select_related("user")
+    @cached_property
+    def gender(self) -> Gender | None:
+        if not hasattr(self, "object"):
+            self.object = self.get_queryset().get() if self.gender__id else None
+        if self.object:
+            if isinstance(self.object, Gender):
+                return self.object
+            elif hasattr(self.object, "gender"):
+                return self.object.gender
+        return None
 
-    def set_attrs_from_qs(self) -> None:
-        self.gender = self.get_queryset().get()
-        self.patient = self.gender.user if not self.patient else self.patient
+    def get_queryset(self) -> Gender:
+        return self.get_gender_queryset()
+
+    def get_gender_queryset(self) -> "QuerySet":
+        return Gender.objects.filter(pk=self.gender__id).select_related("user__pseudopatientprofile__provider")
+
+    @property
+    def gender__id(self) -> Union["UUID", None]:
+        return self.gender_data.get("id", None)
+
+    @property
+    def gender__value(self) -> Genders | None:
+        return self.gender_data.get("value", None)
 
     def create_gender(self) -> Gender:
         self.check_for_gender_create_errors()
-        self.check_for_and_raise_errors(model_name="Gender")
-        self.gender = Gender.objects.create(value=self.gender__value, user=self.patient)
-        return self.gender
+        if not self.errors:
+            gender = Gender.objects.create(value=self.gender__value, user=self.patient)
+            self.set_gender(gender)
+            return gender
+
+    def set_gender(self, gender: Gender) -> None:
+        if self.object:
+            if not hasattr(self.object, "gender"):
+                self.object.gender = gender
+        else:
+            self.object = gender
 
     def check_for_gender_create_errors(self):
         if self.gender:
@@ -54,13 +84,11 @@ class GenderAPIMixin(APIMixin):
         return hasattr(self.patient, "gender")
 
     def update_gender(self) -> Gender:
-        if self.is_uuid(self.gender):
-            self.set_attrs_from_qs()
         self.check_for_gender_update_errors()
-        self.check_for_and_raise_errors(model_name="Gender")
-        if self.gender_needs_save:
-            self.update_gender_instance()
-        return self.gender
+        if not self.errors:
+            if self.gender_needs_save:
+                self.update_gender_instance()
+            return self.gender
 
     def check_for_gender_update_errors(self):
         if not self.gender:

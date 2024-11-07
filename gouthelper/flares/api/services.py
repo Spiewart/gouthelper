@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from ...users.services import PseudopatientBaseAPI
+from ...users.api.services.base import PseudopatientAPI
 from .mixins import FlareAPIMixin
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from ..models import Flare
 
 
-class FlareAPI(FlareAPIMixin, PseudopatientBaseAPI):
+class FlareAPI(FlareAPIMixin, PseudopatientAPI):
     def __init__(
         self,
         flare: Union["Flare", "UUID", None],

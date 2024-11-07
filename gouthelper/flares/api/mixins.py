@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, Union
 
-from ...akis.api.mixins import AkiAPICreateMixin
+from ...akis.api.mixins import AkiAPIMixin
 from ...dateofbirths.api.mixins import DateOfBirthAPIMixin
 from ...genders.api.mixins import GenderAPIMixin
-from ...labs.api.mixins import BaselineCreatinineAPIMixin, UrateAPICreateMixin
+from ...labs.api.mixins import BaselineCreatinineAPIMixin, UrateAPIMixin
 from ...medhistorys.api.mixins import (
     AnginaAPIMixin,
     CadAPIMixin,
@@ -16,7 +16,6 @@ from ...medhistorys.api.mixins import (
     PvdAPIMixin,
     StrokeAPIMixin,
 )
-from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ..models import Flare
 
 if TYPE_CHECKING:
@@ -50,7 +49,7 @@ if TYPE_CHECKING:
 
 
 class FlareAPIMixin(
-    AkiAPICreateMixin,
+    AkiAPIMixin,
     BaselineCreatinineAPIMixin,
     DateOfBirthAPIMixin,
     GenderAPIMixin,
@@ -64,13 +63,14 @@ class FlareAPIMixin(
     MenopauseAPIMixin,
     PvdAPIMixin,
     StrokeAPIMixin,
-    UrateAPICreateMixin,
+    UrateAPIMixin,
 ):
     flare: Union["Flare", "UUID", None]
     patient: Union["Pseudopatient", None]
     aki: Union["Aki", "UUID", bool, None]
     aki__status: Union["Statuses", None]
-    creatinines_data: list["Creatinine", "UUID"] | None
+    creatinines: list["Creatinine", "UUID"]
+    creatinines_data: list["Creatinine", "UUID"]
     angina: Union["MedHistory", "UUID", None]
     angina__value: bool | None
     cad: Union["Cad", "MedHistory", "UUID", None]
@@ -117,28 +117,30 @@ class FlareAPIMixin(
     stroke__value: bool | None
     urate: Union["Urate", "UUID", None]
     urate__value: Union["Decimal", None]
-
-    medhistorytypes = FLARE_MEDHISTORYS
+    urate__date_drawn: Union["date", None]
 
     def set_attrs(self) -> None:
         """Updates the instance attributes for correct processing between related models."""
+        self.set_medhistorytypes()
         if self.baselinecreatinine__value:
             self.dateofbirth_optional = False
             self.gender_optional = False
+        if self.urate__value:
+            if self.urate__date_drawn is None:
+                if self.urate and self.urate.date_drawn:
+                    self.urate__date_drawn = self.urate.date_drawn
+                else:
+                    self.urate__date_drawn = self.date_started
 
     def create_flare(self) -> Flare:
         self.set_attrs()
         self.check_for_flare_create_errors()
+        self.check_for_and_raise_errors(model_name="Flare")
         self.process_dateofbirth()
         self.process_gender()
         self.process_baselinecreatinine()
-        if self.aki_should_be_created:
-            self.create_aki()
-        if self.urate_should_be_created:
-            self.create_urate()
-        self.check_for_process_medhistory_errors()
-
-        self.check_for_and_raise_errors(model_name="Flare")
+        self.process_aki()
+        self.process_urate()
         self.flare = Flare.objects.create(
             patient=self.patient,
             dateofbirth=self.dateofbirth if not self.patient else None,
@@ -168,7 +170,12 @@ class FlareAPIMixin(
         return self.flare
 
     def check_for_flare_create_errors(self):
+        self.check_for_process_medhistory_errors()
+        self.check_for_flare_field_errors()
         if self.flare:
             self.add_errors(
                 api_args=[("flare", f"{self.flare} already exists.")],
             )
+
+    def check_for_flare_field_errors(self):
+        pass

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
-from ...labs.api.serializers import CreatinineSerializer
-from ..models import Aki
+from ....labs.api.serializers import CreatinineSerializer
+from ...models import Aki
 
 
 class AkiSerializer(serializers.ModelSerializer[Aki]):

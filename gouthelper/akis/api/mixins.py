@@ -27,13 +27,13 @@ if TYPE_CHECKING:
 class AkiAPIMixin(CreatininesAPIMixin):
     aki: Union["Aki", "UUID", None]
     aki__status: Union["Statuses", None]
-    creatinines: list["Creatinine", "UUID"] | None
-    creatinines_data: list["CreatinineData"] | None
+    creatinines: list["Creatinine", "UUID"]
+    creatinines_data: list["CreatinineData"]
     patient: Union["Pseudopatient", "UUID", None]
     baselinecreatinine__value: Union["Decimal", None]
     ckddetail__stage: Union["Stages", None]
     age: int | None
-    gender: Union["Genders", None]
+    gender__value: Union["Genders", None]
 
     def order_creatinines_data_by_date_drawn_desc(self):
         if self.creatinines_data:
@@ -171,7 +171,6 @@ class AkiAPIMixin(CreatininesAPIMixin):
 
     @property
     def aki_should_be_created(self) -> bool:
-        print(self.aki__status, self.creatinines_data)
         return self.aki__status or self.creatinines_data
 
     def get_queryset(self) -> Aki:
@@ -197,7 +196,7 @@ class AkiAPIMixin(CreatininesAPIMixin):
             self.patient = self.aki.user
         if self.patient:
             self.age = age_calc(self.patient.dateofbirth.value)
-            self.gender = self.patient.gender.value
+            self.gender__value = self.patient.gender.value
 
     def update_aki(self) -> Aki | None:
         """Updates the Aki and related Creatinines. If no aki__status, it will result in the

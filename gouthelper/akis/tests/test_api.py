@@ -40,7 +40,7 @@ class TestAkiAPI(TestCase):
         ckddetail__stage: Stages | None = Auto,
         patient: Union["Pseudopatient", None] = Auto,
         age: int | None = Auto,
-        gender: Genders | None = Auto,
+        gender__value: Genders | None = Auto,
     ):
         self.api.aki = aki if aki else None
         self.api.aki__status = aki__status if aki__status else aki.status if aki and aki__status is Auto else None
@@ -74,12 +74,12 @@ class TestAkiAPI(TestCase):
         )
         self.api.patient = patient if patient else aki.user if aki and patient is Auto else None
         self.api.age = age if age else self.api.patient.age if self.api.patient and age is Auto else None
-        self.api.gender = (
-            gender
-            if gender
+        self.api.gender__value = (
+            gender__value
+            if gender__value
             else (
                 self.api.patient.gender.value
-                if self.api.patient and self.api.patient.gender and gender is Auto
+                if self.api.patient and self.api.patient.gender and gender__value is Auto
                 else None
             )
         )
@@ -118,7 +118,7 @@ class TestAkiAPI(TestCase):
 
     def tet__aki_is_improving_via_creatinines_with_stage(self):
         self.api.ckddetail__stage = Stages.THREE
-        self.api.gender = Genders.MALE
+        self.api.gender__value = Genders.MALE
         self.api.age = 40
         self.creatinine1 = {"value": Decimal("2.0"), "date_drawn": timezone.now() - timedelta(days=1)}
         self.creatinines = [self.creatinine1, self.creatinine2, self.creatinine3]
@@ -133,7 +133,7 @@ class TestAkiAPI(TestCase):
 
     def test__aki_is_not_improving_via_creatinines_with_stage(self):
         self.api.ckddetail__stage = Stages.THREE
-        self.api.gender = Genders.MALE
+        self.api.gender__value = Genders.MALE
         self.api.age = 40
         self.creatinine1 = {"value": Decimal("2.8"), "date_drawn": timezone.now() - timedelta(days=1)}
         self.creatinines = [self.creatinine1, self.creatinine2, self.creatinine3]
@@ -176,7 +176,7 @@ class TestAkiAPI(TestCase):
             ckddetail__stage=None,
             patient=self.patient,
             age=self.patient.age,
-            gender=self.patient.gender.value,
+            gender__value=self.patient.gender.value,
         )
         aki = self.api.create_aki()
         self.assertTrue(aki)
@@ -189,7 +189,7 @@ class TestAkiAPI(TestCase):
             ckddetail__stage=None,
             patient=None,
             age=self.patient.age,
-            gender=self.patient.gender.value,
+            gender__value=self.patient.gender.value,
         )
         userless_aki = self.api.create_aki()
         self.assertTrue(userless_aki)
@@ -205,7 +205,7 @@ class TestAkiAPI(TestCase):
             ckddetail__stage=None,
             patient=self.patient,
             age=None,
-            gender=None,
+            gender__value=None,
         )
         self.api.create_aki()
         self.assertTrue(self.api.errors)
@@ -232,7 +232,7 @@ class TestAkiAPI(TestCase):
             ckddetail__stage=None,
             patient=self.patient,
             age=self.patient.age,
-            gender=self.patient.gender,
+            gender__value=self.patient.gender,
         )
 
         aki = self.api.create_aki()
@@ -388,7 +388,7 @@ class TestAkiAPI(TestCase):
             self.assertIn(creatinine, self.api.creatinines)
         self.assertEqual(self.api.patient, self.patient)
         self.assertEqual(self.api.age, self.patient.age)
-        self.assertEqual(self.api.gender, self.patient.gender.value)
+        self.assertEqual(self.api.gender__value, self.patient.gender.value)
 
     def test__process_aki(self):
         # Test Create

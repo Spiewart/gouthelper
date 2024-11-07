@@ -7,9 +7,11 @@ from ...dateofbirths.models import DateOfBirth
 from ...genders.models import Gender
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
+from ...medhistorys.types import GoutData
 from ...utils.services import APIMixin
 from ..choices import Stages
 from ..models import CkdDetail, GoutDetail
+from ..types import GoutDetailData
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -241,20 +243,61 @@ class CkdDetailAPIMixin(APIMixin):
 
 
 class GoutDetailAPIMixin(APIMixin):
-    goutdetail: Union[GoutDetail, "UUID", None]
-    goutdetail__at_goal: bool | None
-    goutdetail__at_goal_long_term: bool | None
-    goutdetail__flaring: bool | None
-    goutdetail__on_ppx: bool | None
-    goutdetail__on_ult: bool | None
-    goutdetail__starting_ult: bool
-    gout: Union["Gout", "UUID", None]
+    # From GoutAPIMixin
+    gout_data: GoutData
+    gout: Union["Gout", None]
+    # From PseudopatientAPI
     patient: Union["Pseudopatient", None]
+
+    @property
+    def goutdetail_data(self) -> GoutDetailData:
+        return self.gout_data.get("goutdetail")
+
+    @property
+    def goutdetail(self) -> GoutDetail | None:
+        if not hasattr(self, "object"):
+            self.object = self.get_queryset().get() if self.goutdetail__id else None
+        if self.object:
+            return self.object if isinstance(self.object, GoutDetail) else self.object.goutdetail
+        return None
+
+    def get_queryset(self) -> "GoutDetail":
+        return GoutDetail.objects.filter(pk=self.goutdetail).select_related(
+            "medhistory__user__pseudopatientprofile__provider"
+        )
+
+    @property
+    def goutdetail__id(self) -> Union["UUID", None]:
+        return self.goutdetail_data.get("id")
+
+    @property
+    def goutdetail__at_goal(self) -> bool | None:
+        return self.goutdetail_data.get("at_goal")
+
+    @property
+    def goutdetail__at_goal_long_term(self) -> bool | None:
+        return self.goutdetail_data.get("at_goal_long_term")
+
+    @property
+    def goutdetail__flaring(self) -> bool | None:
+        return self.goutdetail_data.get("flaring")
+
+    @property
+    def goutdetail__on_ppx(self) -> bool | None:
+        return self.goutdetail_data.get("on_ppx")
+
+    @property
+    def goutdetail__on_ult(self) -> bool | None:
+        return self.goutdetail_data.get("on_ult")
+
+    @property
+    def goutdetail__starting_ult(self) -> bool:
+        return self.goutdetail_data.get("starting_ult")
 
     def create_goutdetail(self) -> "GoutDetail":
         self.check_for_goutdetail_create_errors()
         self.check_for_and_raise_errors(model_name="GoutDetail")
-        self.goutdetail = GoutDetail.objects.create(
+        goutdetail = GoutDetail.objects.create(
             medhistory=self.gout,
             at_goal=self.goutdetail__at_goal,
             at_goal_long_term=self.goutdetail__at_goal_long_term,
@@ -263,7 +306,15 @@ class GoutDetailAPIMixin(APIMixin):
             on_ult=self.goutdetail__on_ult,
             starting_ult=self.goutdetail__starting_ult,
         )
-        return self.goutdetail
+        self.set_goutdetail(goutdetail=goutdetail)
+        return goutdetail
+
+    def set_goutdetail(self, goutdetail: GoutDetail) -> None:
+        if self.object:
+            if not hasattr(self.object, "goutdetail"):
+                self.object.goutdetail = goutdetail
+        else:
+            self.object = goutdetail
 
     def check_for_goutdetail_create_errors(self):
         if not self.gout:
@@ -324,25 +375,11 @@ class GoutDetailAPIMixin(APIMixin):
         return self.gout and self.gout.user and not self.patient
 
     def update_goutdetail(self) -> GoutDetail:
-        if self.is_uuid(self.goutdetail):
-            self.set_attrs_from_qs()
         self.check_for_goutdetail_update_errors()
-        self.check_for_and_raise_errors(model_name="GoutDetail")
-        if self.goutdetail_needs_save:
-            self.update_goutdetail_instance()
-        return self.goutdetail
-
-    def set_attrs_from_qs(self) -> None:
-        self.goutdetail = self.get_queryset().get()
-        self.gout = self.goutdetail.medhistory if not self.gout else self.gout
-        self.patient = self.goutdetail.medhistory.user if not self.patient else self.patient
-
-    def get_queryset(self) -> "GoutDetail":
-        if not self.is_uuid(self.goutdetail):
-            raise TypeError("goutdetail arg must be a UUID to call get_queryset()")
-        return GoutDetail.objects.filter(pk=self.goutdetail).select_related(
-            "medhistory__user__pseudopatientprofile__provider"
-        )
+        if not self.errors:
+            if self.goutdetail_needs_save:
+                self.update_goutdetail_instance()
+            return self.goutdetail
 
     def check_for_goutdetail_update_errors(self):
         if not self.goutdetail:

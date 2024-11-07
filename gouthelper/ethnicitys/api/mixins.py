@@ -1,36 +1,66 @@
 from typing import TYPE_CHECKING, Union
 
+from django.utils.functional import cached_property
+
 from ...utils.services import APIMixin
 from ..models import Ethnicity
+from ..types import EthnicityData
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    from django.db.models import QuerySet
 
     from ...users.models import Pseudopatient
     from ..choices import Ethnicitys
 
 
 class EthnicityAPIMixin(APIMixin):
+    ethnicity_data: EthnicityData
     ethnicity: Union[Ethnicity, "UUID", None]
     ethnicity__value: Union["Ethnicitys", None]
     patient: Union["Pseudopatient", None]
     ethnicity_optional: bool
     ethnicity_patient_edit: bool
 
-    def get_queryset(self) -> Ethnicity:
-        if not self.is_uuid(self.ethnicity):
-            raise TypeError("ethnicity arg must be a UUID to call get_queryset().")
-        return Ethnicity.objects.filter(pk=self.ethnicity).select_related("user")
+    @cached_property
+    def ethnicity(self) -> Ethnicity | None:
+        if not hasattr(self, "object"):
+            self.object = self.get_queryset().get() if self.ethnicity__id else None
+        if self.object:
+            if isinstance(self.object, Ethnicity):
+                return self.object
+            elif hasattr(self.object, "ethnicity"):
+                return self.object.ethnicity
+        return None
 
-    def set_attrs_from_qs(self) -> None:
-        self.ethnicity = self.get_queryset().get()
-        self.patient = self.ethnicity.user if not self.patient else self.patient
+    def get_queryset(self) -> Ethnicity:
+        return self.get_ethnicity_queryset()
+
+    def get_ethnicity_queryset(self) -> "QuerySet":
+        return Ethnicity.objects.filter(pk=self.ethnicity__id).select_related("user__pseudopatientprofile__provider")
+
+    @property
+    def ethnicity__id(self) -> Union["UUID", None]:
+        return self.ethnicity_data.get("id", None)
+
+    @property
+    def ethnicity__value(self) -> Union["Ethnicitys", None]:
+        return self.ethnicity_data.get("value", None)
 
     def create_ethnicity(self) -> Ethnicity:
         self.check_for_ethnicity_create_errors()
-        self.check_for_and_raise_errors(model_name="Ethnicity")
-        self.ethnicity = Ethnicity.objects.create(value=self.ethnicity__value, user=self.patient)
-        return self.ethnicity
+        if not self.errors:
+            ethnicity = Ethnicity.objects.create(value=self.ethnicity__value, user=self.patient)
+            self.set_ethnicity(ethnicity)
+            return ethnicity
+
+    def set_ethnicity(self, ethnicity: Ethnicity) -> None:
+        if self.object:
+            if not hasattr(self.object, "ethnicity"):
+                self.object.ethnicity = ethnicity
+        else:
+            self.object = ethnicity
 
     def check_for_ethnicity_create_errors(self):
         if self.ethnicity:
@@ -53,13 +83,11 @@ class EthnicityAPIMixin(APIMixin):
         return hasattr(self.patient, "ethnicity")
 
     def update_ethnicity(self) -> Ethnicity:
-        if self.is_uuid(self.ethnicity):
-            self.set_attrs_from_qs()
         self.check_for_ethnicity_update_errors()
-        self.check_for_and_raise_errors(model_name="Ethnicity")
-        if self.ethnicity_needs_save:
-            self.update_ethnicity_instance()
-        return self.ethnicity
+        if not self.errors:
+            if self.ethnicity_needs_save:
+                self.update_ethnicity_instance()
+            return self.ethnicity
 
     def check_for_ethnicity_update_errors(self):
         if not self.ethnicity:

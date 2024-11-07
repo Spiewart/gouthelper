@@ -1,36 +1,66 @@
 from datetime import date
 from typing import TYPE_CHECKING, Union
 
+from django.utils.functional import cached_property
+
 from ...utils.services import APIMixin
 from ..models import DateOfBirth
+from ..types import DateOfBirthData
 
 if TYPE_CHECKING:
     from uuid import UUID
+
+    from django.db.models import QuerySet
 
     from ...users.models import Pseudopatient
 
 
 class DateOfBirthAPIMixin(APIMixin):
-    dateofbirth: Union[DateOfBirth, "UUID", None]
-    dateofbirth__value: date | None
+    dateofbirth_data: DateOfBirthData
     patient: Union["Pseudopatient", None]
     dateofbirth_optional: bool
     dateofbirth_patient_edit: bool
 
+    @cached_property
+    def dateofbirth(self) -> DateOfBirth | None:
+        if not hasattr(self, "object"):
+            self.object = self.get_queryset().get() if self.dateofbirth__id else None
+        if self.object:
+            if isinstance(self.object, DateOfBirth):
+                return self.object
+            elif hasattr(self.object, "dateofbirth"):
+                return self.object.dateofbirth
+        return None
+
     def get_queryset(self) -> DateOfBirth:
-        if not self.is_uuid(self.dateofbirth):
-            raise TypeError("dateofbirth arg must be a UUID to call get_queryset().")
-        return DateOfBirth.objects.filter(pk=self.dateofbirth).select_related("user")
+        return self.get_dateofbirth_queryset()
 
-    def set_attrs_from_qs(self) -> None:
-        self.dateofbirth = self.get_queryset().get()
-        self.patient = self.dateofbirth.user if not self.patient else self.patient
+    def get_dateofbirth_queryset(self) -> "QuerySet":
+        return DateOfBirth.objects.filter(pk=self.dateofbirth__id).select_related(
+            "user__pseudopatientprofile__provider"
+        )
 
-    def create_dateofbirth(self) -> DateOfBirth:
+    @property
+    def dateofbirth__id(self) -> Union["UUID", None]:
+        return self.dateofbirth_data.get("id", None)
+
+    @property
+    def dateofbirth__value(self) -> date | None:
+        return self.dateofbirth_data.get("value", None)
+
+    def create_dateofbirth(self) -> DateOfBirth | None:
         self.check_for_dateofbirth_create_errors()
-        self.check_for_and_raise_errors(model_name="DateOfBirth")
-        self.dateofbirth = DateOfBirth.objects.create(value=self.dateofbirth__value, user=self.patient)
-        return self.dateofbirth
+        if not self.errors:
+            dateofbirth = DateOfBirth.objects.create(value=self.dateofbirth__value, user=self.patient)
+            self.set_dateofbirth(dateofbirth)
+            return dateofbirth
+
+    def set_dateofbirth(self, dateofbirth: DateOfBirth) -> None:
+        if self.object:
+            if not hasattr(self.object, "dateofbirth"):
+                self.object.dateofbirth = dateofbirth
+        else:
+            self.object = dateofbirth
 
     def check_for_dateofbirth_create_errors(self):
         if self.dateofbirth:
@@ -53,13 +83,16 @@ class DateOfBirthAPIMixin(APIMixin):
         return hasattr(self.patient, "dateofbirth")
 
     def update_dateofbirth(self) -> DateOfBirth:
-        if self.is_uuid(self.dateofbirth):
-            self.set_attrs_from_qs()
         self.check_for_dateofbirth_update_errors()
-        self.check_for_and_raise_errors(model_name="DateOfBirth")
-        if self.dateofbirth_needs_save:
-            self.update_dateofbirth_instance()
-        return self.dateofbirth
+        if not self.errors:
+            if self.dateofbirth_needs_save:
+                self.update_dateofbirth_instance()
+            if self.object:
+                if not hasattr(self.object, "dateofbirth"):
+                    self.object.dateofbirth = self.dateofbirth
+            else:
+                self.object = self.dateofbirth
+            return self.dateofbirth
 
     def check_for_dateofbirth_update_errors(self):
         if not self.dateofbirth:
@@ -96,7 +129,6 @@ class DateOfBirthAPIMixin(APIMixin):
 
     def process_dateofbirth(self) -> None:
         self.check_for_dateofbirth_process_errors()
-        self.check_for_and_raise_errors(model_name="DateOfBirth")
         if not self.dateofbirth and self.dateofbirth__value:
             self.create_dateofbirth()
         elif self.dateofbirth and self.dateofbirth__value and self.dateofbirth_needs_save:
@@ -128,4 +160,4 @@ class DateOfBirthAPIMixin(APIMixin):
 
     @property
     def missing_patient_dateofbirth(self) -> bool:
-        return self.patient and not self.dateofbirth and not self.dateofbirth_patient_edit
+        return bool(self.patient) and not self.dateofbirth and not self.dateofbirth_patient_edit

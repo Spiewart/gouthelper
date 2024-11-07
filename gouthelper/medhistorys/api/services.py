@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from ...users.services import PseudopatientBaseAPI
+from ...users.api.base_services import PseudopatientAPI
 from .mixins import GoutAPIMixin
 
 if TYPE_CHECKING:
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ..models import Gout, MedHistory
 
 
-class GoutAPI(GoutAPIMixin, PseudopatientBaseAPI):
+class GoutAPI(GoutAPIMixin, PseudopatientAPI):
     def __init__(
         self,
         gout: Union["Gout", "MedHistory", "UUID", None],

@@ -9,13 +9,7 @@ from ...labs.models import BaselineCreatinine, Creatinine
 from ...medhistorys.tests.factories import CkdFactory
 from ...users.tests.factories import create_psp
 from ...utils.test_helpers import date_days_ago
-from ..api.mixins import (
-    BaselineCreatinineAPIMixin,
-    CreatininesAPICreateMixin,
-    CreatininesAPIUpdateMixin,
-    UrateAPICreateMixin,
-    UrateAPIUpdateMixin,
-)
+from ..api.mixins import BaselineCreatinineAPIMixin, CreatininesAPIMixin, UrateAPIMixin
 from ..schema import UrateSchema
 from .factories import BaselineCreatinineFactory, CreatinineFactory, UrateFactory
 
@@ -180,7 +174,7 @@ class TestBaselineCreatinineAPIMixin(TestCase):
 
 class TestCreatininesAPICreateMixin(TestCase):
     def setUp(self):
-        self.api = CreatininesAPICreateMixin()
+        self.api = CreatininesAPIMixin()
         self.creatinines_data = [
             {"value": Decimal("1.0"), "date_drawn": date_days_ago(1)},
             {"value": Decimal("2.0"), "date_drawn": date_days_ago(2)},
@@ -202,7 +196,7 @@ class TestCreatininesAPICreateMixin(TestCase):
 
 class TestCreatininesAPIUpdateMixin(TestCase):
     def setUp(self):
-        self.api = CreatininesAPIUpdateMixin()
+        self.api = CreatininesAPIMixin()
         self.creatinines = [
             CreatinineFactory(value=Decimal("1.0"), date_drawn=date_days_ago(1)),
             CreatinineFactory(value=Decimal("2.0"), date_drawn=date_days_ago(2)),
@@ -244,9 +238,9 @@ class TestCreatininesAPIUpdateMixin(TestCase):
         self.assertEqual(Creatinine.history.count(), 9)
 
 
-class TestUrateAPICreateMixin(TestCase):
+class TestUrateAPIMixinCreate(TestCase):
     def setUp(self):
-        self.api = UrateAPICreateMixin()
+        self.api = UrateAPIMixin()
         self.urate__date_drawn = date_days_ago(1)
         self.urate__value = Decimal("1.0")
         self.patient = create_psp()
@@ -287,10 +281,10 @@ class TestUrateAPICreateMixin(TestCase):
         )
 
 
-class TestUrateAPIUpdateMixin(TestCase):
+class TestUrateAPIMixinUpdate(TestCase):
     def setUp(self):
         self.urate = UrateFactory()
-        self.api = UrateAPIUpdateMixin()
+        self.api = UrateAPIMixin()
         self.urate__date_drawn = date_days_ago(1)
         self.urate__value = Decimal("7.0")
         self.patient = create_psp()

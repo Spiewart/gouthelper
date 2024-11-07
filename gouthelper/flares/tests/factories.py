@@ -13,6 +13,7 @@ from factory.faker import faker
 
 from ...akis.choices import Statuses
 from ...akis.models import Aki
+from ...akis.schema.with_related_schema import AkiSchema
 from ...akis.tests.factories import AkiFactory
 from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
@@ -24,11 +25,13 @@ from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
 from ...labs.models import Creatinine, Urate
+from ...labs.schema import CreatinineSchema
 from ...labs.tests.factories import CreatinineFactory, UrateFactory
 from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import MedHistory
+from ...users.schema.base import PseudopatientSchema
 from ...utils.factories import (
     Auto,
     CustomFactoryAkiMixin,
@@ -51,8 +54,11 @@ from ...utils.factories import (
 )
 from ..choices import DiagnosedChoices, LimitedJointChoices
 from ..models import Flare
+from ..schema import FlareAPISchema
 
 if TYPE_CHECKING:
+    from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
+
     User = get_user_model()
 
 pytestmark = pytest.mark.django_db
@@ -101,6 +107,8 @@ class CustomFlareFactory(
         baselinecreatinine: Decimal | None = Auto,
         stage: Stages | None = Auto,
         dialysis: bool | None = Auto,
+        dialysis_type: Union["DialysisChoices", None] = Auto,
+        dialysis_duration: Union["DialysisDurations", None] = Auto,
         gout: bool | MedHistory | None = Auto,
         heartattack: bool | MedHistory | None = Auto,
         hypertension: bool | MedHistory | None = Auto,
@@ -131,6 +139,8 @@ class CustomFlareFactory(
         self.baselinecreatinine = baselinecreatinine
         self.stage = stage
         self.dialysis = dialysis
+        self.dialysis_type = dialysis_type
+        self.dialysis_duration = dialysis_duration
         self.gout = gout
         self.heartattack = heartattack
         self.hypertension = hypertension
@@ -298,6 +308,64 @@ class CustomFlareFactory(
         self.update_medhistorys()
         self.update_ckddetail()
         return self.flare
+
+    def create_api_data(self) -> FlareAPISchema:
+        self.update_medhistory_attrs()
+        return FlareAPISchema(
+            aki=AkiSchema(
+                id=self.aki.id if self.aki else None,
+                status=self.aki.status if self.aki else None,
+                creatinines=(
+                    [CreatinineSchema(id=c.id, value=c.value, date_drawn=c.date_drawn) for c in self.creatinines]
+                    if self.creatinines
+                    else []
+                ),
+                user=PseudopatientSchema(),
+            ),
+            aki__status=self.aki.status if self.aki else None,
+            creatinines_data=[c for c in self.creatinines] if self.creatinines else [],
+            angina__value=self.angina,
+            cad__value=self.cad,
+            chf__value=self.chf,
+            ckd__value=self.ckd,
+            baselinecreatinine__value=self.baselinecreatinine,
+            baselinecreatinine__medhistory=self.ckd if isinstance(self.ckd, MedHistory) else None,
+            ckddetail__medhistory=self.ckd if isinstance(self.ckd, MedHistory) else None,
+            ckddetail__dialysis=self.dialysis,
+            ckddetail__dialysis_type=self.dialysis_type,
+            ckddetail__dialysis_duration=self.dialysis_duration,
+            ckddetail__stage=self.stage,
+            crystal_analysis=self.crystal_analysis,
+            dateofbirth__value=(
+                self.dateofbirth.value
+                if self.dateofbirth and isinstance(self.dateofbirth, DateOfBirth)
+                else self.dateofbirth
+                if self.dateofbirth
+                else None
+            ),
+            dateofbirth_optional=True,
+            date_ended=self.date_ended,
+            date_started=self.date_started,
+            diagnosed=self.diagnosed,
+            gender__value=(
+                self.gender.value
+                if self.gender and isinstance(self.gender, Gender)
+                else self.gender
+                if self.gender
+                else None
+            ),
+            gout__value=self.gout,
+            joints=self.joints,
+            heartattack__value=self.heartattack,
+            hypertension__value=self.hypertension,
+            menopause__value=self.menopause,
+            onset=self.onset,
+            pvd__value=self.pvd,
+            redness=self.redness,
+            stroke__value=self.stroke,
+            urate__value=self.urate.value if self.urate else None,
+            urate__date_drawn=self.urate.date_drawn if self.urate else None,
+        )
 
 
 def flare_data_factory(

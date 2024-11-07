@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ...genders.models import Gender
     from ...labs.models import Creatinine
     from ...medallergys.models import MedAllergy
-    from ...medhistorydetails.choices import Stages
+    from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Stages
 
     User = get_user_model()
 
@@ -185,6 +185,8 @@ class CustomFlareAidFactory(
         baselinecreatinine: Union["Decimal", None] = Auto,
         stage: Union["Stages", None] = Auto,
         dialysis: bool | None = Auto,
+        dialysis_type: Union["DialysisChoices", None, Auto] = Auto,
+        dialysis_duration: Union["DialysisDurations", None, Auto] = Auto,
         colchicineinteraction: bool | MedHistory | None = Auto,
         diabetes: bool | MedHistory | None = Auto,
         gastricbypass: bool | MedHistory | None = Auto,
@@ -221,6 +223,8 @@ class CustomFlareAidFactory(
         self.baselinecreatinine = baselinecreatinine
         self.stage = stage
         self.dialysis = dialysis
+        self.dialysis_type = dialysis_type
+        self.dialysis_duration = dialysis_duration
         self.colchicineinteraction = colchicineinteraction
         self.diabetes = diabetes
         self.gastricbypass = gastricbypass

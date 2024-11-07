@@ -5,11 +5,14 @@ import pytest
 from django.db.models import Q
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from ...dateofbirths.tests.factories import get_dateofbirth_api_data
 from ...ethnicitys.choices import Ethnicitys
+from ...ethnicitys.tests.factories import get_ethnicity_api_data
 from ...genders.choices import Genders
+from ...genders.tests.factories import get_gender_api_data
 from ..api.views import PseudopatientViewSet
 from ..models import Pseudopatient
-from ..tests.factories import UserFactory, create_psp
+from .factories import UserFactory, create_psp, get_pseudopatient_api_data
 
 pytestmark = pytest.mark.django_db
 
@@ -28,16 +31,20 @@ class TestPseudopatientViewSet(APITestCase):
         self.url = "/api/pseudopatients/"
         self.provider_url = "/api/pseudopatients/provider_create/"
         self.data = {
-            "dateofbirth": {"value": date(1980, 1, 1)},
-            "ethnicity": {"value": Ethnicitys.CAUCASIANAMERICAN},
-            "gender": {"value": Genders.MALE},
-            "goutdetail": {
-                "at_goal": None,
-                "at_goal_long_term": False,
-                "flaring": True,
-                "on_ppx": False,
-                "on_ult": False,
-                "starting_ult": False,
+            "dateofbirth": get_dateofbirth_api_data(value=date(1980, 1, 1)),
+            "ethnicity": get_ethnicity_api_data(value=Ethnicitys.CAUCASIANAMERICAN),
+            "gender": get_gender_api_data(value=Genders.MALE),
+            "gout": {
+                "id": None,
+                "value": True,
+                "goutdetail": {
+                    "at_goal": None,
+                    "at_goal_long_term": False,
+                    "flaring": True,
+                    "on_ppx": False,
+                    "on_ult": False,
+                    "starting_ult": False,
+                },
             },
         }
         self.pseudopatient = create_psp(provider=self.provider)
@@ -65,7 +72,7 @@ class TestPseudopatientViewSet(APITestCase):
 
     def test__create_without_goutdetail_field_raises_400(self):
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"].pop("at_goal_long_term")
+        self.data["gout"]["goutdetail"].pop("at_goal_long_term")
         response = self.client.post(self.url, data=self.data, format="json")
         self.assertEqual(response.status_code, 400)
 
@@ -145,74 +152,74 @@ class TestPseudopatientViewSet(APITestCase):
     def test__update_goutdetail_at_goal(self):
         initial_at_goal = self.pseudopatient.goutdetail.at_goal
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["at_goal"] = not initial_at_goal
+        self.data["gout"]["goutdetail"]["at_goal"] = not initial_at_goal
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_at_goal = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.at_goal
         self.assertNotEqual(initial_at_goal, new_at_goal)
-        self.assertEqual(new_at_goal, self.data["goutdetail"]["at_goal"])
+        self.assertEqual(new_at_goal, self.data["gout"]["goutdetail"]["at_goal"])
 
     def test__update_goutdetail_at_goal_long_term(self):
         initial_at_goal_long_term = self.pseudopatient.goutdetail.at_goal_long_term
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["at_goal_long_term"] = not initial_at_goal_long_term
+        self.data["gout"]["goutdetail"]["at_goal_long_term"] = not initial_at_goal_long_term
         if initial_at_goal_long_term is False:
-            self.data["goutdetail"]["at_goal"] = True
+            self.data["gout"]["goutdetail"]["at_goal"] = True
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_at_goal_long_term = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.at_goal_long_term
         self.assertNotEqual(initial_at_goal_long_term, new_at_goal_long_term)
-        self.assertEqual(new_at_goal_long_term, self.data["goutdetail"]["at_goal_long_term"])
+        self.assertEqual(new_at_goal_long_term, self.data["gout"]["goutdetail"]["at_goal_long_term"])
 
     def test__update_goutdetail_flaring(self):
         initial_flaring = self.pseudopatient.goutdetail.flaring
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["flaring"] = not initial_flaring
+        self.data["gout"]["goutdetail"]["flaring"] = not initial_flaring
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_flaring = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.flaring
         self.assertNotEqual(initial_flaring, new_flaring)
-        self.assertEqual(new_flaring, self.data["goutdetail"]["flaring"])
+        self.assertEqual(new_flaring, self.data["gout"]["goutdetail"]["flaring"])
 
     def test__update_goutdetail_on_ppx(self):
         initial_on_ppx = self.pseudopatient.goutdetail.on_ppx
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["on_ppx"] = not initial_on_ppx
+        self.data["gout"]["goutdetail"]["on_ppx"] = not initial_on_ppx
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_on_ppx = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.on_ppx
         self.assertNotEqual(initial_on_ppx, new_on_ppx)
-        self.assertEqual(new_on_ppx, self.data["goutdetail"]["on_ppx"])
+        self.assertEqual(new_on_ppx, self.data["gout"]["goutdetail"]["on_ppx"])
 
     def test__update_goutdetail_on_ult(self):
         initial_on_ult = self.pseudopatient.goutdetail.on_ult
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["on_ult"] = not initial_on_ult
+        self.data["gout"]["goutdetail"]["on_ult"] = not initial_on_ult
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_on_ult = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.on_ult
         self.assertNotEqual(initial_on_ult, new_on_ult)
-        self.assertEqual(new_on_ult, self.data["goutdetail"]["on_ult"])
+        self.assertEqual(new_on_ult, self.data["gout"]["goutdetail"]["on_ult"])
 
     def test__update_goutdetail_starting_ult(self):
         initial_starting_ult = self.pseudopatient.goutdetail.starting_ult
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"]["starting_ult"] = not initial_starting_ult
+        self.data["gout"]["goutdetail"]["starting_ult"] = not initial_starting_ult
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 200)
         new_starting_ult = Pseudopatient.objects.get(pk=self.pseudopatient.pk).goutdetail.starting_ult
         self.assertNotEqual(initial_starting_ult, new_starting_ult)
-        self.assertEqual(new_starting_ult, self.data["goutdetail"]["starting_ult"])
+        self.assertEqual(new_starting_ult, self.data["gout"]["goutdetail"]["starting_ult"])
 
     def test__update_without_goutdetail_field_raises_400(self):
         self.client.force_authenticate(user=self.provider)
-        self.data["goutdetail"].pop("starting_ult")
+        self.data["gout"]["goutdetail"]["starting_ult"] = None
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 400)
 
     def test__update_without_dateofbirth_raises_400(self):
         self.client.force_authenticate(user=self.provider)
-        self.data.pop("dateofbirth")
+        self.data["dateofbirth"].pop("value")
         response = self.client.put(self.pseudopatient_url, data=self.data, format="json")
         self.assertEqual(response.status_code, 400)
 
@@ -267,39 +274,41 @@ class TestPseudopatientViewSet(APITestCase):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["goutdetail"]["at_goal"], self.pseudopatient.goutdetail.at_goal)
+        self.assertEqual(response.data["gout"]["goutdetail"]["at_goal"], self.pseudopatient.goutdetail.at_goal)
 
     def test__get_goutdetail_at_goal_long_term(self):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            response.data["goutdetail"]["at_goal_long_term"], self.pseudopatient.goutdetail.at_goal_long_term
+            response.data["gout"]["goutdetail"]["at_goal_long_term"], self.pseudopatient.goutdetail.at_goal_long_term
         )
 
     def test__get_goutdetail_flaring(self):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["goutdetail"]["flaring"], self.pseudopatient.goutdetail.flaring)
+        self.assertEqual(response.data["gout"]["goutdetail"]["flaring"], self.pseudopatient.goutdetail.flaring)
 
     def test__get_goutdetail_on_ppx(self):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["goutdetail"]["on_ppx"], self.pseudopatient.goutdetail.on_ppx)
+        self.assertEqual(response.data["gout"]["goutdetail"]["on_ppx"], self.pseudopatient.goutdetail.on_ppx)
 
     def test__get_goutdetail_on_ult(self):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["goutdetail"]["on_ult"], self.pseudopatient.goutdetail.on_ult)
+        self.assertEqual(response.data["gout"]["goutdetail"]["on_ult"], self.pseudopatient.goutdetail.on_ult)
 
     def test__get_goutdetail_starting_ult(self):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["goutdetail"]["starting_ult"], self.pseudopatient.goutdetail.starting_ult)
+        self.assertEqual(
+            response.data["gout"]["goutdetail"]["starting_ult"], self.pseudopatient.goutdetail.starting_ult
+        )
 
     def test__get_with_different_provider_raises_404(self):
         self.client.force_authenticate(user=self.nefarious_provider)
@@ -341,16 +350,22 @@ class TestPseudopatientViewSetRules(APITestCase):
         self.provider_url = "/api/pseudopatients/provider_create/"
         self.nefarious_provider = UserFactory()
         self.data = {
-            "dateofbirth": {"value": date(1980, 1, 1)},
-            "ethnicity": {"value": Ethnicitys.CAUCASIANAMERICAN},
-            "gender": {"value": Genders.MALE},
-            "goutdetail": {
-                "at_goal": None,
-                "at_goal_long_term": False,
-                "flaring": True,
-                "on_ppx": False,
-                "on_ult": False,
-                "starting_ult": False,
+            "patient_data": get_pseudopatient_api_data(),
+            "dateofbirth": get_dateofbirth_api_data(value=date(1980, 1, 1)),
+            "ethnicity": get_ethnicity_api_data(value=Ethnicitys.CAUCASIANAMERICAN),
+            "gender": get_gender_api_data(value=Genders.MALE),
+            "gout": {
+                "id": None,
+                "value": True,
+                "goutdetail": {
+                    "id": None,
+                    "at_goal": None,
+                    "at_goal_long_term": False,
+                    "flaring": True,
+                    "on_ppx": False,
+                    "on_ult": False,
+                    "starting_ult": False,
+                },
             },
         }
         self.provider_pseudopatient = create_psp(provider=self.provider)
@@ -377,7 +392,9 @@ class TestPseudopatientViewSetRules(APITestCase):
 
     def test__update_without_provider_returns_200(self):
         self.client.force_authenticate(user=self.nefarious_provider)
+        print(self.data)
         response = self.client.put(self.anon_pseudopatient_url, data=self.data, format="json")
+        print(response.data)
         self.assertEqual(response.status_code, 200)
 
     def test__update_with_provider_returns_200(self):

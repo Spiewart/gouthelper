@@ -91,8 +91,12 @@ def create_ckddetail(
             if stage:
                 if stage != calc_stage:
                     raise ValueError(f"Stage {stage} does not match calculated stage {calc_stage}.")
+                else:
+                    ckddetail.stage = stage
             elif fake.boolean():
                 ckddetail.stage = calc_stage
+            else:
+                ckddetail.stage = random.choice([1, 2, 3, 4, 5])
         elif stage:
             ckddetail.stage = stage
         else:
