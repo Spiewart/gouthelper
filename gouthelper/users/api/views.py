@@ -11,8 +11,8 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from ..models import Pseudopatient
 from .rules import PseudopatientAddPermissionViewSetMixin
-from .serializers.base import UserSerializer
-from .serializers.nested import PseudopatientSerializer
+from .serializers.base_serializers import UserSerializer
+from .serializers.nested_serializers import PseudopatientSerializer
 
 User = get_user_model()
 

@@ -1,6 +1,9 @@
+from typing import TYPE_CHECKING, Any, Union
+
 from factory import fuzzy  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
+from ...utils.types import _Auto
 from ..choices import MedHistoryTypes
 from ..models import (
     Angina,
@@ -29,6 +32,13 @@ from ..models import (
     Uratestones,
     Xoiinteraction,
 )
+
+Auto: Any = _Auto()
+
+if TYPE_CHECKING:
+    from ...medhistorydetails.models import GoutDetail
+    from ...users.models import Pseudopatient
+    from ..types import GoutData
 
 
 class MedHistoryFactory(DjangoModelFactory):
@@ -93,6 +103,44 @@ class GastricbypassFactory(MedHistoryFactory):
 class GoutFactory(MedHistoryFactory):
     class Meta:
         model = Gout
+
+
+def get_gout_api_data(
+    patient: Union["Pseudopatient", None] = None,
+    gout: Gout | None = None,
+    value: bool = None,
+    at_goal: bool = None,
+    at_goal_long_term: bool = None,
+    flaring: bool = None,
+    on_ppx: bool = None,
+    on_ult: bool = None,
+    starting_ult: bool = None,
+) -> "GoutData":
+    if patient and gout:
+        raise ValueError("Cannot provide both patient and gout.")
+    goutdetail: Union["GoutDetail", None] = getattr(gout, "goutdetail", None)
+
+    return {
+        "id": gout.pk if gout else None,
+        "value": value if value != Auto else True,
+        "goutdetail": {
+            "id": goutdetail.pk if goutdetail else None,
+            "at_goal": at_goal if at_goal is not None else goutdetail.at_goal if goutdetail else False,
+            "at_goal_long_term": (
+                at_goal_long_term
+                if at_goal_long_term is not None
+                else goutdetail.at_goal_long_term
+                if goutdetail
+                else False
+            ),
+            "flaring": flaring if flaring is not None else goutdetail.flaring if goutdetail else False,
+            "on_ppx": on_ppx if on_ppx is not None else goutdetail.on_ppx if goutdetail else False,
+            "on_ult": on_ult if on_ult is not None else goutdetail.on_ult if goutdetail else False,
+            "starting_ult": (
+                starting_ult if starting_ult is not None else goutdetail.starting_ult if goutdetail else False
+            ),
+        },
+    }
 
 
 class HeartattackFactory(MedHistoryFactory):

@@ -49,6 +49,7 @@ from ..treatments.choices import NsaidChoices, Treatments
 from ..users.tests.factories import create_psp
 from .db_helpers import get_or_create_attr, get_or_create_medhistory_atomic
 from .helpers import get_or_create_qs_attr, get_qs_or_set, list_of_objects_related_objects
+from .types import _Auto
 
 if TYPE_CHECKING:
     import uuid
@@ -64,17 +65,6 @@ if TYPE_CHECKING:
     from ..ults.models import Ult
 
     User = get_user_model()
-
-
-class _Auto:
-    """
-    Sentinel value used when 'None' would be allowed due to a nullable database field.
-    """
-
-    def __bool__(self):
-        # Allow `Auto` to be used like `None` or `False` in boolean expressions
-        return False
-
 
 Auto: Any = _Auto()
 
@@ -1406,7 +1396,7 @@ def create_ethnicity(
 
 
 class CustomFactoryEthnicityMixin:
-    ethnicity: Ethnicity | Ethnicitys | None | Auto  # fmt: skip # pylint # noqa
+    ethnicity: Ethnicity | Ethnicitys | None | Auto
     related_object: Any | None
     user: Union["User", bool, None]
 

@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.apps import apps  # type: ignore
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
 from django.urls import reverse  # type: ignore
 from django.utils.functional import cached_property  # type: ignore
@@ -966,6 +967,7 @@ contraindicated."
     def gout(self) -> Union["MedHistory", bool]:
         """Method that returns Gout object from self.medhistorys_qs or
         or self.medhistorys.all()."""
+        # print(self)
         return medhistory_attr(MedHistoryTypes.GOUT, self, ["goutdetail"])
 
     @cached_property
@@ -2169,6 +2171,74 @@ class GoutHelperPatientModel(GoutHelperBaseModel):
             return defaults_ppxaidsettings(user=self)
         elif trttype == TrtTypes.ULT:
             return defaults_ultaidsettings(user=self)
+
+
+class PatientOneToOneRelation(GoutHelperModel):
+    """Abstract base model for adding Patient OneToOneFields to models."""
+
+    class Meta:
+        abstract = True
+
+    # Field set on the child model
+    value: Any
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.value}"
+
+    def value_needs_update(
+        self,
+        value: Any | None,
+    ) -> bool:
+        return value is not None and self.value != value
+
+    def user_needs_update(
+        self,
+        user: Union["User", None],
+    ) -> bool:
+        return user and self.user != user
+
+    def needs_update(
+        self,
+        validated_data: dict,
+    ) -> bool:
+        return self.value_needs_update(validated_data.get("value", None)) or self.user_needs_update(
+            validated_data.get("user", None)
+        )
+
+    def update_value(
+        self,
+        value: Any,
+        commit: bool = True,
+    ) -> None:
+        self.value = value
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def update_user(
+        self,
+        user: Union["User", None],
+        commit: bool = True,
+    ) -> None:
+        if not self.user:
+            self.user = user
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def update(
+        self,
+        validated_data: dict,
+        commit: bool = True,
+    ) -> None:
+        if self.needs_update(validated_data):
+            self.update_value(validated_data["value"], commit=False)
+            self.update_user(validated_data["user"], commit=False)
+            if commit:
+                self.full_clean()
+                self.save()
+        return self
 
 
 class DecisionAidRelation(models.Model):

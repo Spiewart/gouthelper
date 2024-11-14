@@ -1,8 +1,8 @@
 from rest_framework import serializers
 
-from ...akis.api.serializers.base import AkiSerializer
+from ...akis.api.serializers.base_serializers import AkiSerializer
 from ...labs.api.serializers import UrateSerializer
-from ...medhistorys.api.serializers.with_relations import MedHistorySerializer
+from ...medhistorys.api.serializers.nested_serializers import MedHistorySerializer
 from ..models import Flare
 
 

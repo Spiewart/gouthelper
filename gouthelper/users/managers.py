@@ -11,20 +11,13 @@ from ..ppxaids.selectors import ppxaid_user_relations
 from ..ppxs.selectors import ppx_user_relations
 from ..ultaids.selectors import ultaid_user_relations
 from ..ults.selectors import ult_user_relations
-from .api.services import PseudopatientProfileAPI
 from .choices import Roles
 from .selectors import pseudopatient_base_relations, pseudopatient_related_aids, pseudopatient_relations
-from .types import PseudopatientData
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     from django.contrib.auth import get_user_model
-
-    from ..dateofbirths.types import DateOfBirthData
-    from ..ethnicitys.types import EthnicityData
-    from ..genders.types import GenderData
-    from ..medhistorys.types import GoutData
 
     User = get_user_model()
 
@@ -128,35 +121,3 @@ class PseudopatientManager(BaseUserManager):
 class PseudopatientProfileManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
         return pseudopatient_base_relations(super().get_queryset(*args, **kwargs))
-
-    def api_create(
-        self,
-        patient_data: PseudopatientData,
-        dateofbirth_data: "DateOfBirthData",
-        ethnicity_data: "EthnicityData",
-        gender_data: "GenderData",
-        gout_data: "GoutData",
-    ) -> "User":
-        return PseudopatientProfileAPI(
-            patient_data=patient_data,
-            dateofbirth_data=dateofbirth_data,
-            ethnicity_data=ethnicity_data,
-            gender_data=gender_data,
-            gout_data=gout_data,
-        ).create_pseudopatient_and_profile()
-
-    def api_update(
-        self,
-        patient_data: PseudopatientData,
-        dateofbirth_data: "DateOfBirthData",
-        ethnicity_data: "EthnicityData",
-        gender_data: "GenderData",
-        gout_data: "GoutData",
-    ) -> "User":
-        return PseudopatientProfileAPI(
-            patient_data=patient_data,
-            dateofbirth_data=dateofbirth_data,
-            ethnicity_data=ethnicity_data,
-            gender_data=gender_data,
-            gout_data=gout_data,
-        ).update_pseudopatient_and_profile()

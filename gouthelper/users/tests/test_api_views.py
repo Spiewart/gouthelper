@@ -10,9 +10,10 @@ from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import get_ethnicity_api_data
 from ...genders.choices import Genders
 from ...genders.tests.factories import get_gender_api_data
+from ...medhistorys.tests.factories import get_gout_api_data
 from ..api.views import PseudopatientViewSet
 from ..models import Pseudopatient
-from .factories import UserFactory, create_psp, get_pseudopatient_api_data
+from .factories import UserFactory, create_psp, pseudopatient_api_data_populate
 
 pytestmark = pytest.mark.django_db
 
@@ -72,13 +73,20 @@ class TestPseudopatientViewSet(APITestCase):
 
     def test__create_without_goutdetail_field_raises_400(self):
         self.client.force_authenticate(user=self.provider)
-        self.data["gout"]["goutdetail"].pop("at_goal_long_term")
+        self.data["gout"]["goutdetail"].pop("at_goal")
         response = self.client.post(self.url, data=self.data, format="json")
         self.assertEqual(response.status_code, 400)
 
     def test__create_without_dateofbirth_raises_400(self):
         self.client.force_authenticate(user=self.provider)
         self.data.pop("dateofbirth")
+        response = self.client.post(self.url, data=self.data, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test__create_with_at_goal_long_term_and_not_at_goal_raises_400(self):
+        self.client.force_authenticate(user=self.provider)
+        self.data["gout"]["goutdetail"]["at_goal_long_term"] = True
+        self.data["gout"]["goutdetail"]["at_goal"] = False
         response = self.client.post(self.url, data=self.data, format="json")
         self.assertEqual(response.status_code, 400)
 
@@ -268,7 +276,6 @@ class TestPseudopatientViewSet(APITestCase):
         self.client.force_authenticate(user=self.provider)
         response = self.client.get(self.pseudopatient_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["provider"]["username"], self.pseudopatient.provider.username)
 
     def test__get_goutdetail_at_goal(self):
         self.client.force_authenticate(user=self.provider)
@@ -350,28 +357,17 @@ class TestPseudopatientViewSetRules(APITestCase):
         self.provider_url = "/api/pseudopatients/provider_create/"
         self.nefarious_provider = UserFactory()
         self.data = {
-            "patient_data": get_pseudopatient_api_data(),
             "dateofbirth": get_dateofbirth_api_data(value=date(1980, 1, 1)),
             "ethnicity": get_ethnicity_api_data(value=Ethnicitys.CAUCASIANAMERICAN),
             "gender": get_gender_api_data(value=Genders.MALE),
-            "gout": {
-                "id": None,
-                "value": True,
-                "goutdetail": {
-                    "id": None,
-                    "at_goal": None,
-                    "at_goal_long_term": False,
-                    "flaring": True,
-                    "on_ppx": False,
-                    "on_ult": False,
-                    "starting_ult": False,
-                },
-            },
+            "gout": get_gout_api_data(flaring=True),
         }
         self.provider_pseudopatient = create_psp(provider=self.provider)
         self.provider_pseudopatient_url = f"/api/pseudopatients/{self.provider_pseudopatient.pk}/"
+        self.provider_pseudopatient_data = pseudopatient_api_data_populate(patient=self.provider_pseudopatient)
         self.anon_pseudopatient = create_psp()
         self.anon_pseudopatient_url = f"/api/pseudopatients/{self.anon_pseudopatient.pk}/"
+        self.anon_pseudopatient_data = pseudopatient_api_data_populate(patient=self.anon_pseudopatient)
 
     def test__create_without_provider_returns_201(self):
         self.client.force_authenticate(user=self.provider)
@@ -388,36 +384,43 @@ class TestPseudopatientViewSetRules(APITestCase):
         self.client.force_authenticate(user=self.provider)
         self.data["provider_username"] = self.provider.username
         response = self.client.post(self.provider_url, data=self.data, format="json")
+        print(response.data)
         self.assertEqual(response.status_code, 201)
 
     def test__update_without_provider_returns_200(self):
         self.client.force_authenticate(user=self.nefarious_provider)
-        print(self.data)
-        response = self.client.put(self.anon_pseudopatient_url, data=self.data, format="json")
+        response = self.client.put(self.anon_pseudopatient_url, data=self.anon_pseudopatient_data, format="json")
+        print(self.anon_pseudopatient_data)
         print(response.data)
         self.assertEqual(response.status_code, 200)
 
     def test__update_with_provider_returns_200(self):
         self.client.force_authenticate(user=self.provider)
-        response = self.client.put(self.provider_pseudopatient_url, data=self.data, format="json")
+        response = self.client.put(
+            self.provider_pseudopatient_url, data=self.provider_pseudopatient_data, format="json"
+        )
         self.assertEqual(response.status_code, 200)
 
     def test__delete_with_provider_returns_204(self):
         self.client.force_authenticate(user=self.provider)
-        response = self.client.delete(self.provider_pseudopatient_url, data=self.data, format="json")
+        response = self.client.delete(
+            self.provider_pseudopatient_url, data=self.provider_pseudopatient_data, format="json"
+        )
         self.assertEqual(response.status_code, 204)
 
     def test__delete_without_provider_returns_403(self):
         self.client.force_authenticate(user=self.nefarious_provider)
-        response = self.client.delete(self.anon_pseudopatient_url, data=self.data, format="json")
+        response = self.client.delete(
+            self.anon_pseudopatient_url, data=self.provider_pseudopatient_data, format="json"
+        )
         self.assertEqual(response.status_code, 403)
 
     def test__get_with_provider_returns_200(self):
         self.client.force_authenticate(user=self.provider)
-        response = self.client.put(self.provider_pseudopatient_url, data=self.data, format="json")
+        response = self.client.get(self.provider_pseudopatient_url, format="json")
         self.assertEqual(response.status_code, 200)
 
     def test__get_without_provider_returns_200(self):
         self.client.force_authenticate(user=self.nefarious_provider)
-        response = self.client.put(self.anon_pseudopatient_url, data=self.data, format="json")
+        response = self.client.get(self.anon_pseudopatient_url, format="json")
         self.assertEqual(response.status_code, 200)

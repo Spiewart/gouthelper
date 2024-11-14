@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from ...users.api.serializers.base import PseudopatientSerializer
+from ...users.api.serializers.base_serializers import PseudopatientSerializer
 from ..models import PseudopatientProfile
 
 

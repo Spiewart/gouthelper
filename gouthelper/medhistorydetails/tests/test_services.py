@@ -18,12 +18,11 @@ from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.models import BaselineCreatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorys.tests.factories import CkdFactory
-from ..api.services import CkdDetailAPI
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..forms import CkdDetailForm, CkdDetailOptionalForm
 from ..models import CkdDetail
 from ..services import CkdDetailFormProcessor
-from .factories import CkdDetailFactory, create_ckddetail
+from .factories import CkdDetailFactory
 
 if TYPE_CHECKING:
     from ...medhistorys.models import Ckd
@@ -56,73 +55,6 @@ def setup_service(
         gender=gender_form,
     )
     return service, errors
-
-
-class TestCkdDetailAPI(TestCase):
-    def setUp(self):
-        self.ckddetail = create_ckddetail(dialysis=False, medhistory=CkdFactory())
-        self.ckddetail__medhistory = CkdFactory()
-        self.ckddetail_dialysis = True
-        self.ckddetail__dialysis_type = DialysisChoices.HEMODIALYSIS
-        self.ckddetail__dialysis_duration = DialysisDurations.LESSTHANSIX
-        self.ckddetail__stage = Stages.FIVE
-        self.age = 45
-        self.baselinecreatinine = Decimal("1.2")
-        self.gender = Genders.MALE
-        self.initial = {
-            "dialysis": self.ckddetail.dialysis,
-            "dialysis_type": self.ckddetail.dialysis_type,
-            "dialysis_duration": self.ckddetail.dialysis_duration,
-            "stage": self.ckddetail.stage,
-        }
-        self.api = CkdDetailAPI(
-            ckddetail=self.ckddetail,
-            ckddetail__medhistory=self.ckddetail__medhistory,
-            ckddetail__dialysis=self.ckddetail_dialysis,
-            ckddetail__dialysis_type=self.ckddetail__dialysis_type,
-            ckddetail__dialysis_duration=self.ckddetail__dialysis_duration,
-            ckddetail__stage=self.ckddetail__stage,
-            dateofbirth=timezone.now() - timedelta(days=365 * self.age),
-            baselinecreatinine=None,
-            gender=self.gender,
-            patient=None,
-        )
-
-    def test__init_with_all_parameters(self):
-        self.assertEqual(self.api.ckddetail, self.ckddetail)
-        self.assertEqual(self.api.ckddetail__medhistory, self.ckddetail__medhistory)
-        self.assertEqual(self.api.ckddetail__dialysis, self.ckddetail_dialysis)
-        self.assertEqual(self.api.ckddetail__dialysis_type, self.ckddetail__dialysis_type)
-        self.assertEqual(self.api.ckddetail__dialysis_duration, self.ckddetail__dialysis_duration)
-        self.assertEqual(self.api.ckddetail__stage, self.ckddetail__stage)
-        self.assertEqual(self.api.age, self.age)
-        self.assertEqual(self.api.baselinecreatinine, self.baselinecreatinine)
-        self.assertEqual(self.api.gender, self.gender)
-        self.assertEqual(self.api.errors, [])
-
-    def test__init_with_no_parameters(self):
-        api = CkdDetailAPI(
-            ckddetail=None,
-            ckddetail__medhistory=None,
-            ckddetail__dialysis=None,
-            ckddetail__dialysis_type=None,
-            ckddetail__dialysis_duration=None,
-            ckddetail__stage=None,
-            dateofbirth=None,
-            baselinecreatinine=None,
-            gender=None,
-            patient=None,
-        )
-        self.assertIsNone(api.ckddetail)
-        self.assertIsNone(api.ckddetail__medhistory)
-        self.assertIsNone(api.ckddetail__dialysis)
-        self.assertIsNone(api.ckddetail__dialysis_type)
-        self.assertIsNone(api.ckddetail__dialysis_duration)
-        self.assertIsNone(api.ckddetail__stage)
-        self.assertIsNone(api.age)
-        self.assertIsNone(api.baselinecreatinine)
-        self.assertIsNone(api.gender)
-        self.assertEqual(api.errors, [])
 
 
 class TestCkdProcessor(TestCase):

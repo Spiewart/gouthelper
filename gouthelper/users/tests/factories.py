@@ -11,13 +11,13 @@ from factory.faker import faker  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
-from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...dateofbirths.tests.factories import DateOfBirthFactory, get_dateofbirth_api_data
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.models import Ethnicity
-from ...ethnicitys.tests.factories import EthnicityFactory
+from ...ethnicitys.tests.factories import EthnicityFactory, get_ethnicity_api_data
 from ...genders.choices import Genders
 from ...genders.models import Gender
-from ...genders.tests.factories import GenderFactory
+from ...genders.tests.factories import GenderFactory, get_gender_api_data
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medallergys.models import MedAllergy
 from ...medallergys.tests.factories import MedAllergyFactory
@@ -25,15 +25,20 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
+from ...medhistorys.tests.factories import get_gout_api_data
 from ...profiles.helpers import get_provider_alias
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
 from ...utils.db_helpers import get_or_create_medhistory_atomic
+from ...utils.types import _Auto
 from ..choices import Roles
 from ..models import Pseudopatient
+from ..types import PseudopatientEditData
 
 fake = faker.Faker()
+
+Auto = _Auto()
 
 User = get_user_model()
 
@@ -419,4 +424,50 @@ def get_pseudopatient_api_data(
             else None,
             "user": patient.pk if patient else None,
         },
+    }
+
+
+def pseudopatient_api_data_populate(patient: Pseudopatient) -> "PseudopatientEditData":
+    return {
+        "id": patient.id,
+        "dateofbirth": get_dateofbirth_api_data(patient=patient),
+        "ethnicity": get_ethnicity_api_data(patient=patient),
+        "gender": get_gender_api_data(patient=patient),
+        "gout": get_gout_api_data(patient=patient),
+    }
+
+
+def pseudopatient_api_data_create(
+    dateofbirth: DateOfBirth | date | None = Auto,
+    ethnicity: Ethnicity | Ethnicitys | None = Auto,
+    gender: Gender | Genders | None = Auto,
+    at_goal: bool = None,
+    at_goal_long_term: bool = None,
+    flaring: bool = None,
+    on_ppx: bool = None,
+    on_ult: bool = None,
+    starting_ult: bool = None,
+) -> "PseudopatientEditData":
+    return {
+        "dateofbirth": get_dateofbirth_api_data(
+            value=dateofbirth if isinstance(dateofbirth, date) else dateofbirth,
+            dateofbirth=dateofbirth if isinstance(dateofbirth, DateOfBirth) else None,
+        ),
+        "ethnicity": get_ethnicity_api_data(
+            value=ethnicity if isinstance(ethnicity, Ethnicitys) else ethnicity,
+            ethnicity=ethnicity if isinstance(ethnicity, Ethnicity) else None,
+        ),
+        "gender": get_gender_api_data(
+            value=gender if isinstance(gender, Genders) else gender,
+            gender=gender if isinstance(gender, Gender) else None,
+        ),
+        "gout": get_gout_api_data(
+            value=True,
+            at_goal=at_goal,
+            at_goal_long_term=at_goal_long_term,
+            flaring=flaring,
+            on_ppx=on_ppx,
+            on_ult=on_ult,
+            starting_ult=starting_ult,
+        ),
     }

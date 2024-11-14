@@ -10,6 +10,7 @@ from ..choices import BOOL_CHOICES
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
+from .types import GoutDetailData
 
 
 class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -313,6 +314,25 @@ dose adjustment (titration) phase?",
         if commit:
             self.full_clean()
             self.save()
+
+    def update(self, validated_data: "GoutDetailData") -> None:
+        if self.editable_fields_need_update(
+            validated_data.get("at_goal", None),
+            validated_data.get("at_goal_long_term", False),
+            validated_data.get("flaring", None),
+            validated_data.get("on_ppx", None),
+            validated_data.get("on_ult", None),
+            validated_data.get("starting_ult", None),
+        ):
+            self.update_editable_fields(
+                validated_data.get("at_goal", None),
+                validated_data.get("at_goal_long_term", False),
+                validated_data.get("flaring", None),
+                validated_data.get("on_ppx", None),
+                validated_data.get("on_ult", None),
+                validated_data.get("starting_ult", None),
+                commit=True,
+            )
 
     @classmethod
     def medhistorytype(cls):

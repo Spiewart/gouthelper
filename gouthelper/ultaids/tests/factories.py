@@ -199,7 +199,7 @@ class CustomUltAidFactory(
         cad: bool | MedHistory | None = Auto,
         chf: bool | MedHistory | None = Auto,
         ckd: bool | MedHistory | None = Auto,
-        ckddetail: bool | None | Auto = Auto,  # noqa
+        ckddetail: bool | None | Auto = Auto,
         baselinecreatinine: Decimal | None = Auto,
         stage: Union["StagesEnum", None, Auto] = Auto,
         dialysis: bool | None = Auto,

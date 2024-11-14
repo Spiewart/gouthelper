@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from django.forms import ModelForm  # type: ignore
 
     from ..akis.choices import Statuses
-    from ..akis.models import Aki
     from ..flareaids.models import FlareAid
     from ..flares.choices import DiagnosedChoices, LimitedJointChoices
     from ..flares.models import Flare
@@ -49,6 +48,16 @@ if TYPE_CHECKING:
     from ..ultaids.models import UltAid
     from ..ults.models import Ult
     from .forms import OneToOneForm
+
+
+class _Auto:
+    """
+    Sentinel value used when 'None' would be allowed due to a nullable database field.
+    """
+
+    def __bool__(self):
+        # Allow `Auto` to be used like `None` or `False` in boolean expressions
+        return False
 
 
 class FormModelDict(TypedDict):
@@ -150,23 +159,6 @@ MedHistoryNames = Union[
     Literal["uratestones"],
     Literal["xoiinteraction"],
 ]
-
-
-class LabData(TypedDict):
-    id: "UUID"
-    value: "Decimal"
-    date_drawn: "date"
-    user: Union["UUID", None]
-
-
-CreatinineData = TypedDict(
-    "CreatinineData",
-    LabData.update(
-        {
-            "aki": Union["Aki", "UUID", None],
-        }
-    ),
-)
 
 
 class FlareAPIData(TypedDict):

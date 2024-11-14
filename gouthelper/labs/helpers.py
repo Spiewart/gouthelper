@@ -232,7 +232,7 @@ def labs_sort_list_by_date_drawn(
 ) -> None:
     """Sorts a list of labs or JSON data by date_drawn field."""
     labs.sort(
-        key=lambda x: x.date_drawn,
+        key=lambda x: x["date_drawn"] if isinstance(x, dict) else x.date_drawn,
         reverse=True,
     )
 

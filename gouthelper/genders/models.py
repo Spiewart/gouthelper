@@ -1,6 +1,5 @@
 from typing import Literal
 
-from django.conf import settings
 from django.db import models  # type: ignore
 from django.urls import reverse_lazy
 from django.utils.text import format_lazy
@@ -9,11 +8,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GoutHelperModel
+from ..utils.models import PatientOneToOneRelation
 from .choices import Genders
 
 
-class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Gender(RulesModelMixin, PatientOneToOneRelation, TimeStampedModel, metaclass=RulesModelBase):
     """Model representing biological gender.
     Gender is stored as an integer in value field. Male=0, Female=1."""
 
@@ -35,7 +34,6 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
             reverse_lazy("genders:about"),
         ),
     )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
 
     def __str__(self) -> Genders | Literal["Gender unknown"]:
@@ -43,12 +41,3 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
             return self.get_value_display()
         else:
             return "Gender unknown"
-
-    def value_needs_update(self, value: Genders) -> bool:
-        return self.value != value
-
-    def update_value(self, value: Genders, commit: bool = True) -> None:
-        self.value = value
-        if commit:
-            self.full_clean()
-            self.save()

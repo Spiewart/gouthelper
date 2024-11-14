@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 def medhistorys_get(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
     medhistorytype: MedHistoryTypes | list[MedHistoryTypes],
-    null_return: bool | None = False,
+    null_return: bool | None = None,
 ) -> Union[bool, "MedHistory"] | list["MedHistory"]:
     """Method that iterates over a list of MedHistory objects and returns
     one whose MedHistoryType is medhistorytype or False."""

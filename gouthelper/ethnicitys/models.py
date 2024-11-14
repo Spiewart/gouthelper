@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import models  # type: ignore
 from django.urls import reverse_lazy
 from django.utils.text import format_lazy
@@ -7,11 +6,11 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..utils.models import GoutHelperModel  # type: ignore
+from ..utils.models import PatientOneToOneRelation  # type: ignore
 from .choices import Ethnicitys
 
 
-class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
+class Ethnicity(RulesModelMixin, PatientOneToOneRelation, TimeStampedModel, metaclass=RulesModelBase):
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -31,17 +30,4 @@ class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Ru
             reverse_lazy("ethnicitys:about"),
         ),
     )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     history = HistoricalRecords()
-
-    def __str__(self):
-        return self.get_value_display()
-
-    def value_needs_update(self, value: Ethnicitys) -> bool:
-        return self.value != value
-
-    def update_value(self, value: Ethnicitys, commit: bool = True) -> None:
-        self.value = value
-        if commit:
-            self.full_clean()
-            self.save()
