@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
     from ..medhistorydetails.models import CkdDetail
     from ..medhistorys.models import Ckd
+    from ..ppxs.models import Ppx
     from ..users.models import Pseudopatient
 
 
@@ -435,6 +436,7 @@ class Urate(Lab, GoalUrateMixin):
         value: Decimal,
         date_drawn: Union["date", None],
         user: Union["Pseudopatient", None],
+        ppx: Union["Ppx", None],
     ) -> None:
         needs_save = False
         if self.value != value:
@@ -446,7 +448,11 @@ class Urate(Lab, GoalUrateMixin):
         if self.user != user:
             self.user = user
             needs_save = True
+        if ppx and self.ppx != ppx:
+            self.ppx = ppx
+            needs_save = True
         if needs_save:
+            self.full_clean()
             self.save()
 
 

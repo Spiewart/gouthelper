@@ -124,12 +124,12 @@ class Aki(
     def __str__(self) -> str:
         return f"AKI, {self.get_status_display()}"
 
-    def update(self, status: Statuses, user: "Pseudopatient") -> None:
+    def update(self, status: Statuses, user: Union["Pseudopatient", None]) -> None:
         needs_save = False
         if self.status != status:
             self.status = status
             needs_save = True
-        if self.user != user:
+        if not self.user and user:
             self.user = user
             needs_save = True
         if needs_save:

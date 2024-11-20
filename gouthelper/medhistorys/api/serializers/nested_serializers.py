@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from ....medhistorydetails.api.serializers import GoutDetailSerializer
+from ....medhistorydetails.api.serializers import CkdDetailSerializer, GoutDetailSerializer
 from ....medhistorydetails.models import GoutDetail
-from ...models import Gout
+from ...models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from .base_serializers import MedHistorySerializer
 
 if TYPE_CHECKING:
@@ -10,12 +10,45 @@ if TYPE_CHECKING:
     from ...types import GoutData
 
 
-class GoutSerializer(MedHistorySerializer):
-    goutdetail = GoutDetailSerializer(required=True)
+class AnginaSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Angina
+        fields = ["id", "value", "user"]
 
+
+class CadSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Cad
+        fields = ["id", "value", "user"]
+
+
+class ChfSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Chf
+        fields = ["id", "value", "user"]
+
+
+class CkdSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Ckd
+        fields = ["id", "value", "user", "ckddetail"]
+
+    ckddetail = CkdDetailSerializer(required=True)
+
+    def __init__(self, *args, **kwargs):
+        self.ckddetail_optional: bool = kwargs.pop("ckddetail_optional", False)
+        if self.ckddetail_optional:
+            self.fields["ckddetail"].required = False
+
+        super().__init__(*args, **kwargs)
+
+
+class GoutSerializer(MedHistorySerializer):
     class Meta:
         model = Gout
         fields = ["id", "value", "user", "goutdetail"]
+
+    goutdetail = GoutDetailSerializer(required=True)
 
     def __init__(self, *args, **kwargs):
         # implicit is the kwarg indicating the API is handling data for a
@@ -37,8 +70,8 @@ class GoutSerializer(MedHistorySerializer):
         return super().should_create_or_update or "value" not in self.validated_data and self.implicit
 
     @classmethod
-    def create_gout(cls, validated_data: "GoutData") -> Gout:
-        gout = Gout.objects.create(user=validated_data["user"])
+    def create_medhistory(cls, validated_data: "GoutData") -> Gout:
+        gout = super().create_medhistory(validated_data)
         goutdetail_data = validated_data.get("goutdetail", None)
         if goutdetail_data:
             cls.create_goutdetail(gout, goutdetail_data)
@@ -50,11 +83,10 @@ class GoutSerializer(MedHistorySerializer):
         goutdetail_data.update({"medhistory": gout})
         return GoutDetail.objects.create(**goutdetail_data)
 
-    def create(self, validated_data: "GoutData") -> Gout:
-        return self.create_gout(validated_data)
-
     @classmethod
-    def update_gout(cls, instance: Gout, validated_data: "GoutDetailData") -> Gout:
+    def update_medhistory(cls, instance: Gout, validated_data: "GoutData") -> Gout:
+        super().update_medhistory(instance, validated_data)
+
         goutdetail_data = validated_data.get("goutdetail", None)
 
         if goutdetail_data:
@@ -65,5 +97,32 @@ class GoutSerializer(MedHistorySerializer):
 
         return instance
 
-    def update(self, instance: Gout, validated_data: "GoutData") -> Gout:
-        return self.update_gout(instance, validated_data)
+
+class HeartattackSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Heartattack
+        fields = ["id", "value", "user"]
+
+
+class HypertensionSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Hypertension
+        fields = ["id", "value", "user"]
+
+
+class MenopauseSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Menopause
+        fields = ["id", "value", "user"]
+
+
+class PvdSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Pvd
+        fields = ["id", "value", "user"]
+
+
+class StrokeSerializer(MedHistorySerializer):
+    class Meta(MedHistorySerializer.Meta):
+        model = Stroke
+        fields = ["id", "value", "user"]

@@ -37,16 +37,28 @@ def get_dateofbirth_api_data(
         else patient.dateofbirth.id
         if patient and hasattr(patient, "dateofbirth")
         else None,
-        "value": (
-            value
-            if value
-            else dateofbirth.value
-            if dateofbirth
-            else patient.dateofbirth.value
-            if patient and hasattr(patient, "dateofbirth")
-            else None
-            if value is None
-            else DateOfBirthFactory.stub().value
-        ),
+        "value": get_dateofbirth_value_api_data(patient, dateofbirth, value),
         "user": dateofbirth.user.pk if dateofbirth and dateofbirth.user else patient.pk if patient else None,
     }
+
+
+def get_dateofbirth_value_api_data(
+    patient: Union["Pseudopatient", None] = None,
+    dateofbirth: DateOfBirth | None = None,
+    value: Union["date", None] = Auto,
+) -> str:
+    return str(
+        value
+        if value
+        else (
+            dateofbirth.value
+            if dateofbirth
+            else (
+                patient.dateofbirth.value
+                if patient and hasattr(patient, "dateofbirth")
+                else None
+                if value is None
+                else DateOfBirthFactory.stub().value
+            )
+        )
+    )

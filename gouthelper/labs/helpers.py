@@ -57,13 +57,12 @@ def labs_calculate_baseline_creatinine_from_eGFR_age_gender(
 
 def labs_creatinine_is_at_baseline_creatinine(
     creatinine: Union["Creatinine", "LabData"],
-    baseline_creatinine: Decimal,
+    baselinecreatinine: Decimal,
 ) -> bool:
     # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198510/#:~:text=).-,Table%202.,-AKI%20definition%20and
     creatinine_value = labs_get_value_from_model_instance_or_json(creatinine)
     return not (
-        creatinine_value >= baseline_creatinine + Decimal(0.3)
-        or creatinine_value >= baseline_creatinine * Decimal(1.5)
+        creatinine_value >= baselinecreatinine + Decimal(0.3) or creatinine_value >= baselinecreatinine * Decimal(1.5)
     )
 
 

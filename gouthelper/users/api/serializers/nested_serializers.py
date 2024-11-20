@@ -1,11 +1,13 @@
 from typing import TYPE_CHECKING
 
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ChoiceField, DateField, ModelSerializer
 
 from ....dateofbirths.api.serializers import DateOfBirthSerializer
 from ....dateofbirths.helpers import age_calc
 from ....ethnicitys.api.serializers import EthnicitySerializer
+from ....ethnicitys.choices import Ethnicitys
 from ....genders.api.serializers import GenderSerializer
+from ....genders.choices import Genders
 from ....medhistorys.api.serializers.nested_serializers import GoutSerializer
 from ....profiles.helpers import get_provider_alias
 from ....profiles.models import PseudopatientProfile
@@ -17,6 +19,16 @@ if TYPE_CHECKING:
     from ...types import PseudopatientEditData
 
     User = get_user_model()
+
+
+class PseudopatientAidSerializer(ModelSerializer):
+    class Meta:
+        model = Pseudopatient
+        fields = ["id", "dateofbirth", "ethnicity", "gender"]
+
+    dateofbirth = DateField(read_only=True)
+    ethnicity = ChoiceField(choices=Ethnicitys.choices, read_only=True)
+    gender = ChoiceField(choices=Genders.choices, read_only=True)
 
 
 class PseudopatientSerializer(ModelSerializer):

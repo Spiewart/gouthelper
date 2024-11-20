@@ -13,22 +13,24 @@ from factory.faker import faker
 
 from ...akis.choices import Statuses
 from ...akis.models import Aki
-from ...akis.tests.factories import AkiFactory
+from ...akis.tests.factories import AkiFactory, create_aki_api_data
 from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
-from ...dateofbirths.tests.factories import DateOfBirthFactory
+from ...dateofbirths.tests.factories import DateOfBirthFactory, get_dateofbirth_value_api_data
 from ...flareaids.models import FlareAid
 from ...flareaids.tests.factories import CustomFlareAidFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
-from ...genders.tests.factories import GenderFactory
+from ...genders.tests.factories import GenderFactory, get_gender_value_api_data
 from ...labs.models import Creatinine, Urate
-from ...labs.tests.factories import CreatinineFactory, UrateFactory
+from ...labs.tests.factories import CreatinineFactory, UrateFactory, create_urate_api_data
 from ...medhistorydetails.choices import Stages
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import MedHistory
+from ...medhistorys.tests.data_factories import create_ckd_api_data, create_gout_api_data, create_medhistory_api_data
+from ...users.tests.factories import create_pseudopatient_aid_api_data
 from ...utils.factories import (
     Auto,
     CustomFactoryAkiMixin,
@@ -54,6 +56,7 @@ from ..models import Flare
 
 if TYPE_CHECKING:
     from ...medhistorydetails.choices import DialysisChoices, DialysisDurations
+    from ..types import FlareData
 
     User = get_user_model()
 
@@ -304,6 +307,91 @@ class CustomFlareFactory(
         self.update_medhistorys()
         self.update_ckddetail()
         return self.flare
+
+    def create_api_data(self) -> "FlareData":
+        self.update_medhistory_attrs()
+        return {
+            "aki": create_aki_api_data(
+                aki=self.aki if isinstance(self.aki, Aki) else None,
+                status=self.aki if self.aki and not isinstance(self.aki, Aki) else None,
+                creatinines=self.creatinines,
+            )
+            if self.aki or self.creatinines
+            else None,
+            "angina": create_medhistory_api_data(
+                medhistory=self.angina if isinstance(self.angina, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.ANGINA,
+                value=True if self.angina else False,
+            ),
+            "cad": create_medhistory_api_data(
+                medhistory=self.cad if isinstance(self.cad, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.CAD,
+                value=True if self.cad else False,
+            ),
+            "chf": create_medhistory_api_data(
+                medhistory=self.chf if isinstance(self.chf, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.CHF,
+                value=True if self.chf else False,
+            ),
+            "ckd": create_ckd_api_data(
+                ckd=self.ckd if isinstance(self.ckd, MedHistory) else None, value=True if self.ckd else False
+            ),
+            "crystal_analysis": self.crystal_analysis,
+            "dateofbirth": get_dateofbirth_value_api_data(
+                patient=self.user,
+                dateofbirth=self.dateofbirth,
+            ),
+            "date_ended": str(self.date_ended) if self.date_ended else None,
+            "date_started": str(self.date_started),
+            "diagnosed": self.diagnosed,
+            "gender": get_gender_value_api_data(patient=self.user, gender=self.gender),
+            "gout": create_gout_api_data(
+                patient=self.user,
+                gout=self.gout if isinstance(self.gout, MedHistory) else None,
+                value=True if self.gout else False,
+            ),
+            "joints": self.joints,
+            "heartattack": create_medhistory_api_data(
+                medhistory=self.heartattack if isinstance(self.heartattack, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.HEARTATTACK,
+                value=True if self.heartattack else False,
+            ),
+            "hypertension": create_medhistory_api_data(
+                medhistory=self.hypertension if isinstance(self.hypertension, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.HYPERTENSION,
+                value=True if self.hypertension else False,
+            ),
+            "menopause": create_medhistory_api_data(
+                medhistory=self.menopause if isinstance(self.menopause, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.MENOPAUSE,
+                value=True if self.menopause else False,
+            ),
+            "onset": self.onset,
+            "pvd": create_medhistory_api_data(
+                medhistory=self.pvd if isinstance(self.pvd, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.PVD,
+                value=True if self.pvd else False,
+            ),
+            "redness": self.redness,
+            "stroke": create_medhistory_api_data(
+                medhistory=self.stroke if isinstance(self.stroke, MedHistory) else None,
+                medhistorytype=MedHistoryTypes.STROKE,
+                value=True if self.stroke else False,
+            ),
+            "urate": create_urate_api_data(
+                urate=self.urate,
+                value=self.urate.value,
+                date_drawn=self.urate.date_drawn,
+                user=self.user,
+            )
+            if self.urate
+            else None,
+            "user": create_pseudopatient_aid_api_data(
+                patient=self.user,
+            )
+            if self.user
+            else None,
+        }
 
 
 def flare_data_factory(

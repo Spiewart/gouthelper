@@ -9,9 +9,13 @@ from factory.django import DjangoModelFactory  # pylint: disable=e0401 # type: i
 from factory.faker import faker  # pylint: disable=e0401 # type: ignore
 
 from ...choices import BOOL_CHOICES
-from ...dateofbirths.helpers import age_calc
-from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
-from ...labs.tests.factories import BaselineCreatinineFactory
+from ...dateofbirths.helpers import age_calc, get_dateofbirth_from_age
+from ...labs.helpers import (
+    labs_calculate_baseline_creatinine_range_from_ckd_stage,
+    labs_eGFR_calculator,
+    labs_stage_calculator,
+)
+from ...labs.tests.factories import BaselineCreatinineFactory, create_baselinecreatinine_api_data
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
@@ -29,6 +33,7 @@ if TYPE_CHECKING:
     from ...genders.choices import Genders
     from ...labs.models import BaselineCreatinine
     from ...medhistorys.models import Ckd
+    from ...medhistorys.types import CkdData
 
 
 class CkdDetailFactory(DjangoModelFactory):
@@ -48,15 +53,41 @@ class CkdDetailFactory(DjangoModelFactory):
 
 
 def create_ckddetail(
+    instance: "CkdDetail" = None,
     medhistory: "Ckd" = None,
     stage: "Stages" = None,
     dialysis: bool = False,
     dialysis_type: "DialysisChoices" = None,
     dialysis_duration: "DialysisDurations" = None,
     baselinecreatinine: Union["BaselineCreatinine", "Decimal"] = None,
-    dateofbirth: "date" = None,
+    dateofbirth: Union["date", int] = None,
     gender: "Genders" = None,
+    commit: bool = True,
 ) -> CkdDetail:
+    if (
+        instance
+        and medhistory
+        and hasattr(medhistory, "ckddetail")
+        and (not instance.medhistory or instance.medhistory != medhistory)
+    ):
+        raise ValueError("Instance medhistory does not match medhistory.")
+    elif medhistory and hasattr(medhistory, "ckddetail") and not instance:
+        instance = medhistory.ckddetail
+    elif instance and not medhistory:
+        medhistory = instance.medhistory
+
+    def get_ckddetail_args_from_instance() -> dict:
+        return {
+            "medhistory": instance.medhistory if not medhistory else medhistory,
+            "stage": instance.stage if not stage else stage,
+            "dialysis": instance.dialysis if dialysis is None else dialysis,
+            "dialysis_type": instance.dialysis_type if not dialysis_type else dialysis_type,
+            "dialysis_duration": instance.dialysis_duration if not dialysis_duration else dialysis_duration,
+        }
+
+    if isinstance(dateofbirth, int):
+        dateofbirth = get_dateofbirth_from_age(dateofbirth)
+
     def set_dialysis_fields(ckddetail: CkdDetail) -> None:
         if not ckddetail.dialysis:
             ckddetail.dialysis = True
@@ -73,9 +104,23 @@ def create_ckddetail(
         dateofbirth: "date",
         gender: "Genders",
         stage: Union["Stages", None] = None,
+        commit: bool = commit,
     ) -> None:
         if dateofbirth and gender is not None:
-            baselinecreatinine = BaselineCreatinineFactory(medhistory=medhistory)
+            if stage:
+                max_value, min_value = labs_calculate_baseline_creatinine_range_from_ckd_stage(
+                    stage, age_calc(dateofbirth), gender
+                )
+                baselinecreatinine = BaselineCreatinineFactory.build(
+                    value=fake.pydecimal(
+                        left_digits=2, right_digits=2, positive=True, min_value=min_value, max_value=max_value
+                    ),
+                    medhistory=medhistory,
+                )
+            else:
+                baselinecreatinine = BaselineCreatinineFactory.build(medhistory=medhistory)
+            if commit:
+                baselinecreatinine.save()
             calc_stage = labs_stage_calculator(
                 labs_eGFR_calculator(
                     creatinine=baselinecreatinine.value,
@@ -98,11 +143,15 @@ def create_ckddetail(
             ckddetail.stage = random.choice([1, 2, 3, 4, 5])
 
     ckddetail = CkdDetailFactory.build(
-        medhistory=medhistory,
-        stage=stage,
-        dialysis=dialysis,
-        dialysis_type=dialysis_type,
-        dialysis_duration=dialysis_duration,
+        **get_ckddetail_args_from_instance()
+        if instance
+        else {
+            "medhistory": medhistory,
+            "stage": stage,
+            "dialysis": dialysis,
+            "dialysis_type": dialysis_type,
+            "dialysis_duration": dialysis_duration,
+        }
     )
 
     if baselinecreatinine:
@@ -124,7 +173,9 @@ def create_ckddetail(
         raise ValueError(f"Stage {stage} does not match calculated stage {calc_stage}.")
     elif calc_stage:
         if isinstance(baselinecreatinine, Decimal):
-            BaselineCreatinineFactory(value=baselinecreatinine, medhistory=medhistory)
+            baselinecreatinine = BaselineCreatinineFactory.build(value=baselinecreatinine, medhistory=medhistory)
+            if commit:
+                baselinecreatinine.save()
         ckddetail.stage = calc_stage
     # If none of the above are True, then we're just creating a random CkdDetail
     else:
@@ -154,9 +205,46 @@ def create_ckddetail(
                 set_non_dialysis_fields(ckddetail, medhistory, dateofbirth, gender)
         else:
             set_dialysis_fields(ckddetail)
-
-    ckddetail.save()
+    if commit:
+        ckddetail.save()
     return ckddetail
+
+
+def create_ckddetail_api_data(
+    ckd: "Ckd" = None,
+    dialysis: bool = None,
+    stage: "Stages" = None,
+    dialysis_duration: "DialysisDurations" = None,
+    dialysis_type: "DialysisChoices" = None,
+    age: int | None = None,
+    gender: Union["Genders", None] = None,
+    baselinecreatinine: Union["BaselineCreatinine", Decimal] = None,
+) -> "CkdData":
+    ckddetail = create_ckddetail(
+        medhistory=ckd,
+        stage=stage,
+        dialysis=dialysis,
+        dialysis_duration=dialysis_duration,
+        dialysis_type=dialysis_type,
+        baselinecreatinine=baselinecreatinine,
+        dateofbirth=age,
+        gender=gender,
+        commit=False,
+    )
+    return {
+        "stage": ckddetail.stage,
+        "dialysis": ckddetail.dialysis,
+        "dialysis_type": ckddetail.dialysis_type,
+        "dialysis_duration": ckddetail.dialysis_duration,
+        "age": age,
+        "gender": gender,
+        "baselinecreatinine": create_baselinecreatinine_api_data(
+            baselinecreatinine=baselinecreatinine if not isinstance(baselinecreatinine, Decimal) else None,
+            value=baselinecreatinine if isinstance(baselinecreatinine, Decimal) else None,
+        )
+        if baselinecreatinine
+        else None,
+    }
 
 
 class GoutDetailFactory(DjangoModelFactory):

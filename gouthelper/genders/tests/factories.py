@@ -31,25 +31,28 @@ def get_gender_api_data(
     if patient and gender:
         raise ValueError("Cannot provide gender and patient")
 
-    def get_value() -> Genders:
-        return (
-            value
-            if (value is not None and value is not Auto)
-            else (
-                gender.value
-                if gender
-                else (
-                    patient.gender.value
-                    if patient and hasattr(patient, "gender")
-                    else None
-                    if value is None
-                    else random.choice(Genders.values)
-                )
-            )
-        )
-
     return {
         "id": gender.id if gender else patient.gender.id if patient and hasattr(patient, "gender") else None,
-        "value": get_value(),
+        "value": get_gender_value_api_data(patient=patient, gender=gender, value=value),
         "user": gender.user.pk if gender and gender.user else patient.pk if patient else None,
     }
+
+
+def get_gender_value_api_data(
+    patient: Union["Pseudopatient", None] = None, gender: Gender | None = None, value: Genders | None = Auto
+) -> str:
+    return str(
+        value
+        if (value is not None and value is not Auto)
+        else (
+            gender.value
+            if gender
+            else (
+                patient.gender.value
+                if patient and hasattr(patient, "gender")
+                else None
+                if value is None
+                else random.choice(Genders.values)
+            )
+        )
+    )

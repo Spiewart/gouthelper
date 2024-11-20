@@ -8,8 +8,15 @@ if TYPE_CHECKING:
     from ..akis.models import Aki
 
 
+class BaselineLabData(TypedDict):
+    value: "Decimal"
+
+
+class BaselineCreatinineData(BaselineLabData):
+    pass
+
+
 class LabData(TypedDict):
-    id: "UUID"
     value: "Decimal"
     date_drawn: "date"
     user: Union["UUID", None]
@@ -17,3 +24,9 @@ class LabData(TypedDict):
 
 class CreatinineData(LabData):
     aki: Union["Aki", "UUID", None]
+
+
+class UrateFlareData(TypedDict):
+    value: "Decimal"
+    date_drawn: Union["date", None]
+    user: Union["UUID", None]

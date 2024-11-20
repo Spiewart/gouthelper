@@ -25,7 +25,7 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
-from ...medhistorys.tests.factories import get_gout_api_data
+from ...medhistorys.tests.data_factories import create_gout_api_data
 from ...profiles.helpers import get_provider_alias
 from ...profiles.tests.factories import PseudopatientProfileFactory
 from ...treatments.choices import Treatments
@@ -427,13 +427,27 @@ def get_pseudopatient_api_data(
     }
 
 
+def create_pseudopatient_aid_api_data(
+    patient: Pseudopatient,
+    dateofbirth: date | None = None,
+    ethnicity: Ethnicitys | None = None,
+    gender: Genders | None = None,
+) -> "PseudopatientProfileData":
+    return {
+        "id": patient.id,
+        "dateofbirth": str(dateofbirth if dateofbirth is not None else patient.dateofbirth.value),
+        "ethnicity": str(ethnicity if ethnicity is not None else patient.ethnicity.value),
+        "gender": str(gender if gender is not None else patient.gender.value),
+    }
+
+
 def pseudopatient_api_data_populate(patient: Pseudopatient) -> "PseudopatientEditData":
     return {
         "id": patient.id,
         "dateofbirth": get_dateofbirth_api_data(patient=patient),
         "ethnicity": get_ethnicity_api_data(patient=patient),
         "gender": get_gender_api_data(patient=patient),
-        "gout": get_gout_api_data(patient=patient),
+        "gout": create_gout_api_data(patient=patient),
     }
 
 
@@ -461,7 +475,7 @@ def pseudopatient_api_data_create(
             value=gender if isinstance(gender, Genders) else gender,
             gender=gender if isinstance(gender, Gender) else None,
         ),
-        "gout": get_gout_api_data(
+        "gout": create_gout_api_data(
             value=True,
             at_goal=at_goal,
             at_goal_long_term=at_goal_long_term,

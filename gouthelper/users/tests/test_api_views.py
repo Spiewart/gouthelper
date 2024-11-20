@@ -10,7 +10,7 @@ from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import get_ethnicity_api_data
 from ...genders.choices import Genders
 from ...genders.tests.factories import get_gender_api_data
-from ...medhistorys.tests.factories import get_gout_api_data
+from ...medhistorys.tests.factories import create_gout_api_data
 from ..api.views import PseudopatientViewSet
 from ..models import Pseudopatient
 from .factories import UserFactory, create_psp, pseudopatient_api_data_populate
@@ -360,7 +360,7 @@ class TestPseudopatientViewSetRules(APITestCase):
             "dateofbirth": get_dateofbirth_api_data(value=date(1980, 1, 1)),
             "ethnicity": get_ethnicity_api_data(value=Ethnicitys.CAUCASIANAMERICAN),
             "gender": get_gender_api_data(value=Genders.MALE),
-            "gout": get_gout_api_data(flaring=True),
+            "gout": create_gout_api_data(flaring=True),
         }
         self.provider_pseudopatient = create_psp(provider=self.provider)
         self.provider_pseudopatient_url = f"/api/pseudopatients/{self.provider_pseudopatient.pk}/"

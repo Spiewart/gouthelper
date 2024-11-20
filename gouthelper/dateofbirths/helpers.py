@@ -75,3 +75,8 @@ def yearsago(years, from_date=None, use_datetime: bool = True):
         # Must be 2/29!
         assert from_date.month == 2 and from_date.day == 29  # can be removed
         return from_date.replace(month=2, day=28, year=from_date.year - years)
+
+
+def get_dateofbirth_from_age(age: int) -> "date":
+    """Method that takes an age and returns a date"""
+    return yearsago(age)
