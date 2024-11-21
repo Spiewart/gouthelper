@@ -65,14 +65,17 @@ class GoutSerializer(MedHistorySerializer):
 
         super().__init__(*args, **kwargs)
 
-    @property
-    def should_create_or_update(self) -> bool:
-        return super().should_create_or_update or "value" not in self.validated_data and self.implicit
+    def should_create_or_update(self, validated_data: "GoutData") -> bool:
+        return (
+            super().should_create_or_update(validated_data=validated_data)
+            or "value" not in self.validated_data
+            and self.implicit
+        )
 
     @classmethod
     def create_medhistory(cls, validated_data: "GoutData") -> Gout:
+        goutdetail_data = validated_data.pop("goutdetail", None)
         gout = super().create_medhistory(validated_data)
-        goutdetail_data = validated_data.get("goutdetail", None)
         if goutdetail_data:
             cls.create_goutdetail(gout, goutdetail_data)
 
@@ -85,10 +88,10 @@ class GoutSerializer(MedHistorySerializer):
 
     @classmethod
     def update_medhistory(cls, instance: Gout, validated_data: "GoutData") -> Gout:
+        goutdetail_data = validated_data.pop("goutdetail", None)
+
         super().update_medhistory(instance, validated_data)
-
-        goutdetail_data = validated_data.get("goutdetail", None)
-
+        print(instance)
         if goutdetail_data:
             if hasattr(instance, "goutdetail"):
                 instance.goutdetail.update(validated_data=goutdetail_data)

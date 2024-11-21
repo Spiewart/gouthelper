@@ -626,7 +626,7 @@ class TestFlareFactory(TestCase):
         self.assertTrue("date_started" in data)
         self.assertTrue(isinstance(data["date_started"], str))
         self.assertTrue("date_ended" in data)
-        self.assertTrue(isinstance(data["date_ended"], str))
+        self.assertTrue(isinstance(data["date_ended"], str) or data["date_ended"] is None)
         self.assertTrue("diagnosed" in data)
         self.assertTrue(isinstance(data["diagnosed"], bool) or data["diagnosed"] is None)
         self.assertTrue("crystal_analysis" in data)

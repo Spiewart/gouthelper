@@ -2,16 +2,18 @@ from typing import TYPE_CHECKING
 
 from rest_framework import serializers
 
+from ....utils.api.serializers import GoutHelperModelSerializer
 from ...models import MedHistory
 
 if TYPE_CHECKING:
     from ...types import MedHistoryData
 
 
-class MedHistorySerializer(serializers.ModelSerializer):
+class MedHistorySerializer(GoutHelperModelSerializer):
     value = serializers.BooleanField(default=False)
 
     class Meta:
+        abstract = True
         model = MedHistory
         fields = [
             "id",
@@ -36,51 +38,52 @@ class MedHistorySerializer(serializers.ModelSerializer):
             "ult": {"required": False, "allow_null": True},
         }
 
-    def save(self) -> MedHistory | None:
-        if self.should_delete:
-            self.instance.delete()
-            return None
-        elif self.should_create_or_update:
-            return super().save()
-        else:
-            return None
+    value = serializers.BooleanField(default=False)
 
-    @property
-    def should_create_or_update(self) -> bool:
+    def save(self) -> MedHistory | None:
+        try:
+            if self.should_delete(self.validated_data):
+                self.instance.delete()
+                return None
+            elif self.should_create_or_update(self.validated_data):
+                return super().save()
+            else:
+                return self.instance or None
+        except Exception as e:
+            raise serializers.ValidationError(e)
+
+    def should_create_or_update(self, validated_data: "MedHistoryData") -> bool:
         return (
-            "value" in self.validated_data
-            and self.validated_data["value"]
+            "value" in validated_data
+            and validated_data["value"]
+            and not self.instance
             or self.instance
             and not self.instance.user
-            and "user" in self.validated_data
-            and not self.should_delete
+            and self.patient
+            and not self.should_delete(validated_data)
         )
 
-    @property
-    def should_delete(self) -> bool:
-        return "value" in self.validated_data and not self.validated_data["value"] and self.instance
+    def should_delete(self, validated_data: "MedHistoryData") -> bool:
+        return "value" in validated_data and not validated_data["value"] and self.instance
 
     @classmethod
     def create_medhistory(cls, validated_data: "MedHistoryData") -> MedHistory:
-        medhistory = cls.Meta.model.objects.create(user=validated_data["user"])
+        validated_data.pop("value", None)
+        medhistory = cls.Meta.model.objects.create(**validated_data)
         return medhistory
 
     def create(self, validated_data: "MedHistoryData") -> MedHistory:
+        validated_data["user"] = self.patient
         return self.create_medhistory(validated_data)
 
     @classmethod
     def update_medhistory(cls, instance: MedHistory, validated_data: "MedHistoryData") -> MedHistory:
+        validated_data.pop("value", None)
         instance.update(
-            user=validated_data["user"],
-            flareaid=validated_data.get("flareaid", None),
-            flare=validated_data.get("flare", None),
-            goalurate=validated_data.get("goalurate", None),
-            ppxaid=validated_data.get("ppxaid", None),
-            ppx=validated_data.get("ppx", None),
-            ultaid=validated_data.get("ultaid", None),
-            ult=validated_data.get("ult", None),
+            **validated_data,
         )
         return instance
 
     def update(self, instance: MedHistory, validated_data: "MedHistoryData") -> MedHistory:
+        validated_data["user"] = self.patient
         return self.update_medhistory(instance, validated_data)

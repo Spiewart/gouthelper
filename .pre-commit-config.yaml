@@ -36,11 +36,11 @@ repos:
       - id: pyupgrade
         name: pyupgrade-default
         args: [--py311-plus]
-        exclude: '(utils | ultaids/tests)/factories\.py'
+        exclude: '(utils)|(ultaids)/tests/factories.py'
 
       - id: pyupgrade
         name: pyupgrade-keep-runtime-typing
-        files: '(utils | ultaids/tests)/factories\.py'
+        files: '(utils)|(ultaids)/tests/factories.py'
 
   - repo: https://github.com/psf/black
     rev: 23.10.1

@@ -41,23 +41,23 @@ class TestPseudopatientSerializer(TestCase):
         self.assertTrue(patient.gout)
         self.assertTrue(patient.gout.goutdetail)
         self.assertEqual(patient.gout.goutdetail.medhistory, patient.gout)
-        self.assertEqual(patient.gout.goutdetail.at_goal, serializer.validated_data["gout"]["goutdetail"]["at_goal"])
+        self.assertEqual(patient.gout.goutdetail.at_goal, data["gout"]["goutdetail"]["at_goal"])
         self.assertEqual(
             patient.gout.goutdetail.at_goal_long_term,
-            serializer.validated_data["gout"]["goutdetail"]["at_goal_long_term"],
+            data["gout"]["goutdetail"]["at_goal_long_term"],
         )
-        self.assertEqual(patient.gout.goutdetail.flaring, serializer.validated_data["gout"]["goutdetail"]["flaring"])
+        self.assertEqual(patient.gout.goutdetail.flaring, data["gout"]["goutdetail"]["flaring"])
         self.assertEqual(
             patient.gout.goutdetail.on_ppx,
-            serializer.validated_data["gout"]["goutdetail"]["on_ppx"],
+            data["gout"]["goutdetail"]["on_ppx"],
         )
         self.assertEqual(
             patient.gout.goutdetail.on_ult,
-            serializer.validated_data["gout"]["goutdetail"]["on_ult"],
+            data["gout"]["goutdetail"]["on_ult"],
         )
         self.assertEqual(
             patient.gout.goutdetail.starting_ult,
-            serializer.validated_data["gout"]["goutdetail"]["starting_ult"],
+            data["gout"]["goutdetail"]["starting_ult"],
         )
 
     def test__update(self):

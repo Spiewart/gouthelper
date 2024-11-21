@@ -66,7 +66,7 @@ class PseudopatientSerializer(ModelSerializer):
         DateOfBirthSerializer.create_dateofbirth(validated_data["dateofbirth"])
         EthnicitySerializer.create_ethnicity(validated_data["ethnicity"])
         GenderSerializer.create_gender(validated_data["gender"])
-        GoutSerializer.create_gout(validated_data["gout"])
+        GoutSerializer.create_medhistory(validated_data["gout"])
         return patient
 
     @staticmethod
@@ -82,5 +82,5 @@ class PseudopatientSerializer(ModelSerializer):
         DateOfBirthSerializer.update_dateofbirth(instance.dateofbirth, validated_data["dateofbirth"])
         EthnicitySerializer.update_ethnicity(instance.ethnicity, validated_data["ethnicity"])
         GenderSerializer.update_gender(instance.gender, validated_data["gender"])
-        GoutSerializer.update_gout(instance=instance.gout, validated_data=validated_data["gout"])
+        GoutSerializer.update_medhistory(instance=instance.gout, validated_data=validated_data["gout"])
         return instance

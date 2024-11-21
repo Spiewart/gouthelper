@@ -314,7 +314,7 @@ class MedHistory(
         ult: "Ult" = None,
     ) -> None:
         needs_save = False
-        if user and self.user != user:
+        if not self.user and user:
             self.user = user
             needs_save = True
         if self.flareaid != flareaid:

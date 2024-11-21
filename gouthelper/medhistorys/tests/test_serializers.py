@@ -1,14 +1,120 @@
 import pytest  # type: ignore
 from django.test import TestCase  # type: ignore
+from rest_framework.exceptions import ValidationError
 
 from ...medhistorydetails.models import GoutDetail
 from ...medhistorydetails.tests.factories import GoutDetailFactory
 from ...users.tests.factories import create_psp
-from ..api.serializers.nested_serializers import GoutSerializer
-from ..models import Gout
-from .factories import GoutFactory
+from ..api.serializers.nested_serializers import AnginaSerializer, GoutSerializer
+from ..models import Angina, Gout
+from .factories import AnginaFactory, GoutFactory
 
 pytestmark = pytest.mark.django_db
+
+
+class TestMedHistorySerializer(TestCase):
+    # Uses AnginaSerializer for testing because inheritance is the same for all
+    # MedHistory serializers child classes without a related MedHistoryDetail
+
+    def setUp(self):
+        self.angina = AnginaFactory()
+        self.patient = create_psp()
+        self.angina_data = {
+            "value": True,
+            "user": None,
+        }
+
+    def test__save(self):
+        self.assertEqual(Angina.objects.count(), 1)
+
+        serializer = AnginaSerializer(data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+        angina = serializer.save()
+        self.assertTrue(isinstance(angina, Angina))
+
+        self.angina_data.update({"user": self.patient.id})
+        serializer = AnginaSerializer(instance=angina, data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+        angina = serializer.save()
+        self.assertIsNotNone(angina.user)
+        self.assertEqual(angina.user, self.patient)
+
+        self.assertEqual(Angina.objects.count(), 2)
+        self.angina_data.update({"value": False})
+        serializer = AnginaSerializer(instance=angina, data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+        angina = serializer.save()
+        self.assertEqual(Angina.objects.count(), 1)
+
+    def test__save_raises_exception_without_validated_data(self):
+        serializer = AnginaSerializer(data={})
+        with self.assertRaises(ValidationError):
+            serializer.save()
+
+    def test__is_valid(self):
+        serializer = AnginaSerializer(data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+
+        self.angina_data.update({"user": self.patient.id})
+        serializer = AnginaSerializer(data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+
+        self.angina_data.pop("value")
+        serializer = AnginaSerializer(data=self.angina_data)
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["value"], False)
+
+    def test__should_create_or_update(self):
+        # Should return True because data is valid and instance should be created
+        serializer = AnginaSerializer(data=self.angina_data)
+        serializer.is_valid()
+        self.assertTrue(serializer.should_create_or_update(serializer.validated_data))
+
+        # Should return False because data is valid but instance does not need to be updated
+        serializer = AnginaSerializer(instance=self.angina, data=self.angina_data)
+        serializer.is_valid()
+        self.assertFalse(serializer.should_create_or_update(serializer.validated_data))
+
+        # Should return True because data is valid and instance should be updated
+        self.angina_data.update({"user": self.patient.id})
+        serializer = AnginaSerializer(instance=self.angina, data=self.angina_data)
+        serializer.is_valid()
+        self.assertTrue(serializer.should_create_or_update(serializer.validated_data))
+
+        serializer.update(instance=self.angina, validated_data=self.angina_data)
+        self.assertFalse(serializer.should_create_or_update(serializer.validated_data))
+
+    def test__should_delete(self):
+        # Should return False because instance should not be deleted
+        serializer = AnginaSerializer(instance=self.angina, data=self.angina_data)
+        serializer.is_valid()
+        self.assertFalse(serializer.should_delete(serializer.validated_data))
+
+        # Should return True because instance should be deleted
+        self.angina_data.update({"value": False})
+        serializer = AnginaSerializer(instance=self.angina, data=self.angina_data)
+        serializer.is_valid()
+        self.assertTrue(serializer.should_delete(serializer.validated_data))
+
+        # Should return False because there is no instance
+        self.angina_data.update({"value": True})
+        serializer = AnginaSerializer(data=self.angina_data)
+        serializer.is_valid()
+        self.assertFalse(serializer.should_delete(serializer.validated_data))
+
+    def test__create_medhistory(self):
+        serializer = AnginaSerializer(data=self.angina_data)
+        serializer.is_valid()
+        angina = serializer.save()
+        self.assertTrue(isinstance(angina, Angina))
+
+    def test__update_medhistory(self):
+        self.assertIsNone(self.angina.user)
+        self.angina_data.update({"user": self.patient.id})
+        serializer = AnginaSerializer(instance=self.angina, data=self.angina_data)
+        serializer.is_valid()
+        angina = serializer.save()
+        self.assertEqual(angina.user, self.patient)
 
 
 class TestGoutSerializer(TestCase):
@@ -108,7 +214,6 @@ class TestGoutSerializer(TestCase):
         gout = serializer.save()
         self.assertTrue(isinstance(gout, Gout))
 
-        self.gout_data.update({"value": True})
         serializer = GoutSerializer(instance=self.gout, data=self.gout_data, implicit=False, goutdetail_optional=True)
         self.assertTrue(serializer.is_valid())
         gout = serializer.save()

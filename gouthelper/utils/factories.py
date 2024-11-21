@@ -1396,7 +1396,7 @@ def create_ethnicity(
 
 
 class CustomFactoryEthnicityMixin:
-    ethnicity: Ethnicity | Ethnicitys | None | Auto
+    ethnicity: Union[Ethnicity, Ethnicitys, None, Auto]
     related_object: Any | None
     user: Union["User", bool, None]
 

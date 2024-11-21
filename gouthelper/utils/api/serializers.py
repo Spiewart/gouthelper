@@ -1,7 +1,10 @@
+from django.contrib.auth import get_user_model
 from django.utils.functional import cached_property
 from rest_framework import serializers
 
 from ...users.models import Pseudopatient
+
+User = get_user_model()
 
 
 class GoutHelperModelSerializer(serializers.ModelSerializer):
@@ -10,12 +13,15 @@ class GoutHelperModelSerializer(serializers.ModelSerializer):
 
     @cached_property
     def patient(self) -> Pseudopatient:
-        user_data = self.validated_data.get("user", None)
-        user__id = user_data.get("id") if user_data else None
-        return (
-            self.instance.user
-            if self.instance and self.instance.user
-            else Pseudopatient.objects.get(id=user__id)
-            if user__id
-            else None
-        )
+        if self.instance and self.instance.user:
+            return self.instance.user
+        else:
+            try:
+                user_or_data = self.validated_data.get("user", None)
+                if isinstance(user_or_data, User):
+                    return user_or_data
+                else:
+                    user__id = user_or_data.get("id") if user_or_data else None
+                    return Pseudopatient.objects.get(id=user__id) if user__id else None
+            except Exception as e:
+                raise serializers.ValidationError(e)

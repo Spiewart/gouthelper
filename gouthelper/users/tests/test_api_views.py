@@ -10,7 +10,7 @@ from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.tests.factories import get_ethnicity_api_data
 from ...genders.choices import Genders
 from ...genders.tests.factories import get_gender_api_data
-from ...medhistorys.tests.factories import create_gout_api_data
+from ...medhistorys.tests.data_factories import create_gout_api_data
 from ..api.views import PseudopatientViewSet
 from ..models import Pseudopatient
 from .factories import UserFactory, create_psp, pseudopatient_api_data_populate

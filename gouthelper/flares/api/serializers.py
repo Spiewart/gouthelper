@@ -118,7 +118,7 @@ class FlareSerializer(GoutHelperModelSerializer):
 
         if aki:
             aki.update({"user": self.patient})
-            aki = AkiSerializer.create_aki(validated_data_data=aki, user=self.patient)
+            aki = AkiSerializer.create_aki(validated_data_data=aki)
         if dateofbirth:
             dateofbirth = {"value": dateofbirth, "user": self.patient}
             dateofbirth = DateOfBirthSerializer.create_dateofbirth(validated_data=dateofbirth)
@@ -141,15 +141,15 @@ class FlareSerializer(GoutHelperModelSerializer):
             joints=validated_data.get("joints"),
             onset=validated_data.get("onset"),
             redness=validated_data.get("redness"),
-            user=validated_data.get("user"),
+            user__id=validated_data.get("user"),
         )
         self.instance = flare
         if angina:
-            angina["flare"] = flare
-            angina = AnginaSerializer(data=angina).is_valid(raise_exception=True)
-            angina.save()
-            if angina:
-                self.add_medhistory_to_medhistorys_qs(angina)
+            if angina.get("value", False):
+                angina["flare"] = flare
+                angina = AnginaSerializer.create_medhistory(validated_data=angina)
+                if angina:
+                    self.add_medhistory_to_medhistorys_qs(angina)
         if cad:
             cad["flare"] = flare
             cad = CadSerializer(data=cad).is_valid(raise_exception=True)
