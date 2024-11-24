@@ -16,11 +16,7 @@ from ...labs.tests.factories import (
 from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ..choices import Statuses
-from ..helpers import (
-    AkiStatusCreatininesProcessor,
-    akis_aki_is_resolved_via_creatinines,
-    akis_get_status_from_creatinines,
-)
+from ..helpers import AkiProcessor, akis_aki_is_resolved_via_creatinines, akis_get_status_from_creatinines
 from .factories import CreatinineFactory
 
 pytestmark = pytest.mark.django_db
@@ -68,7 +64,7 @@ class TestAkiIsResolvedViaCreatinines(TestCase):
         self.assertFalse(akis_aki_is_resolved_via_creatinines(creatinine))
 
 
-class TestAkiStatusCreatininesProcessor(TestCase):
+class TestAkiProcessor(TestCase):
     def setUp(self):
         self.creatinine1 = create_creatinine_api_data(
             value=Decimal("1.0"), date_drawn=timezone.now() - timedelta(days=1)
@@ -87,7 +83,7 @@ class TestAkiStatusCreatininesProcessor(TestCase):
 
     def test__aki_is_resolved_via_creatinines_most_recent_creatinine_normal(self):
         self.assertTrue(
-            AkiStatusCreatininesProcessor(
+            AkiProcessor(
                 status=Statuses.RESOLVED,
                 creatinines=self.creatinines,
             ).aki_is_resolved_via_creatinines
@@ -95,7 +91,7 @@ class TestAkiStatusCreatininesProcessor(TestCase):
 
     def test__aki_is_resolved_via_creatinines_most_recent_creatinine_at_baseline(self):
         self.assertTrue(
-            AkiStatusCreatininesProcessor(
+            AkiProcessor(
                 status=Statuses.RESOLVED,
                 creatinines=self.creatinines,
                 baselinecreatinine=self.baselinecreatinine,
@@ -105,14 +101,14 @@ class TestAkiStatusCreatininesProcessor(TestCase):
     def test__aki_is_not_resolved_via_creatinines(self):
         self.creatinine1.update({"value": Decimal("1.5")})
         self.assertFalse(
-            AkiStatusCreatininesProcessor(
+            AkiProcessor(
                 status=Statuses.RESOLVED,
                 creatinines=self.creatinines,
             ).aki_is_resolved_via_creatinines
         )
 
     def test__aki_is_improving_via_creatinines(self):
-        class_method = AkiStatusCreatininesProcessor(
+        class_method = AkiProcessor(
             status=None,
             creatinines=self.creatinines,
         )
@@ -120,7 +116,7 @@ class TestAkiStatusCreatininesProcessor(TestCase):
 
     def tet__aki_is_improving_via_creatinines_with_stage(self):
         self.creatinine1.update({"value": Decimal("2.0")})
-        class_method = AkiStatusCreatininesProcessor(
+        class_method = AkiProcessor(
             status=None,
             creatinines=self.creatinines,
             stage=self.stage,
@@ -129,7 +125,7 @@ class TestAkiStatusCreatininesProcessor(TestCase):
 
     def test__aki_is_not_improving_via_creatinines(self):
         self.creatinine1.update({"value": Decimal("3.0")})
-        class_method = AkiStatusCreatininesProcessor(
+        class_method = AkiProcessor(
             status=None,
             creatinines=self.creatinines,
         )
@@ -137,7 +133,7 @@ class TestAkiStatusCreatininesProcessor(TestCase):
 
     def test__aki_is_not_improving_via_creatinines_with_stage(self):
         self.creatinine1.update({"value": Decimal("2.8")})
-        class_method = AkiStatusCreatininesProcessor(
+        class_method = AkiProcessor(
             status=None,
             creatinines=self.creatinines,
             stage=self.stage,

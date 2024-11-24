@@ -6,7 +6,7 @@ from ....genders.choices import Genders
 from ....labs.api.serializers import CreatinineSerializer
 from ....medhistorydetails.choices import Stages
 from ....utils.api.serializers import GoutHelperModelSerializer
-from ...helpers import AkiStatusCreatininesProcessor
+from ...helpers import AkiProcessor
 from ...models import Aki
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class AkiSerializer(GoutHelperModelSerializer):
     stage = serializers.ChoiceField(choices=Stages.choices, required=False, allow_null=True)
 
     def validate(self, data: "AkiData") -> "AkiData":
-        errors = AkiStatusCreatininesProcessor(
+        errors = AkiProcessor(
             status=data.get("status", None),
             creatinines=data.get("creatinines", []),
             age=data.get("age", None),
@@ -64,7 +64,7 @@ class AkiSerializer(GoutHelperModelSerializer):
         user = validated_data.get("user", None)
 
         if not status and creatinines:
-            status = AkiStatusCreatininesProcessor(
+            status = AkiProcessor(
                 status=status,
                 creatinines=creatinines,
                 age=validated_data.get("age", None),
@@ -94,7 +94,7 @@ class AkiSerializer(GoutHelperModelSerializer):
         user = validated_data.get("user", None)
 
         if not status and creatinines:
-            status = AkiStatusCreatininesProcessor(
+            status = AkiProcessor(
                 status=status,
                 creatinines=creatinines,
                 age=validated_data.get("age", None),

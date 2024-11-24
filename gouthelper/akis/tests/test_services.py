@@ -9,7 +9,7 @@ from django.utils import timezone  # type: ignore
 from ...labs.models import Creatinine
 from ...labs.tests.factories import BaselineCreatinineFactory
 from ..choices import Statuses
-from ..services import AkiProcessor
+from ..services import AkiFormProcessor
 from .factories import CreatinineFactory
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ def add_baselinecreatinine_to_creatinines(
         creatinine.baselinecreatinine = baselinecreatinine
 
 
-class TestAkiProcessor(TestCase):
+class TestAkiFormProcessor(TestCase):
     def setUp(self):
         self.creatinines = [
             CreatinineFactory(value=Decimal("1.0"), date_drawn=timezone.now() - timedelta(days=1)),
@@ -36,7 +36,7 @@ class TestAkiProcessor(TestCase):
         self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("1.5"))
 
     def test__returns_creatinines_error_when_aki_is_false(self):
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=False,
             status=Statuses.ONGOING,
             creatinines=self.creatinines,
@@ -46,7 +46,7 @@ class TestAkiProcessor(TestCase):
         self.assertIn("creatinine", errors)
 
     def test__returns_status_and_creatinines_error_when_status_ongoing_creatinines_resolved(self):
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=True,
             status=Statuses.ONGOING,
             creatinines=self.creatinines,
@@ -60,7 +60,7 @@ class TestAkiProcessor(TestCase):
 
     def test__returns_status_and_creatinines_error_when_status_resolved_creatinines_not(self):
         self.creatinines[0] = CreatinineFactory(value=Decimal(5.0))
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=True,
             status=Statuses.RESOLVED,
             creatinines=self.creatinines,
@@ -73,7 +73,7 @@ class TestAkiProcessor(TestCase):
         self.assertIn(None, errors["creatinine"])
 
     def test__no_errors_when_resolved_and_creatinines_resolved(self):
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=True,
             status=Statuses.RESOLVED,
             creatinines=self.creatinines,
@@ -88,7 +88,7 @@ class TestAkiProcessor(TestCase):
             self.baselinecreatinine,
             self.creatinines,
         )
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=True,
             status=Statuses.IMPROVING,
             creatinines=self.creatinines,
@@ -104,7 +104,7 @@ class TestAkiProcessor(TestCase):
             self.baselinecreatinine,
             self.creatinines,
         )
-        processor = AkiProcessor(
+        processor = AkiFormProcessor(
             aki_value=True,
             status=Statuses.IMPROVING,
             creatinines=self.creatinines,

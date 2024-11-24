@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING
 
 from ....medhistorydetails.api.serializers import CkdDetailSerializer, GoutDetailSerializer
-from ....medhistorydetails.models import GoutDetail
+from ....medhistorydetails.models import CkdDetail, GoutDetail
 from ...models import Angina, Cad, Chf, Ckd, Gout, Heartattack, Hypertension, Menopause, Pvd, Stroke
 from .base_serializers import MedHistorySerializer
 
 if TYPE_CHECKING:
-    from ....medhistorydetails.types import GoutDetailData
-    from ...types import GoutData
+    from ....medhistorydetails.types import CkdDetailData, GoutDetailData
+    from ...types import CkdData, GoutData
 
 
 class AnginaSerializer(MedHistorySerializer):
@@ -41,6 +41,33 @@ class CkdSerializer(MedHistorySerializer):
             self.fields["ckddetail"].required = False
 
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def create_medhistory(cls, validated_data: "CkdData") -> Ckd:
+        ckddetail_data = validated_data.pop("ckddetail", None)
+        ckd = super().create_medhistory(validated_data)
+        if ckddetail_data:
+            cls.create_ckddetail(ckd, ckddetail_data)
+
+        return ckd
+
+    @classmethod
+    def create_ckddetail(cls, ckd: Ckd, ckddetail_data: "CkdDetailData") -> CkdDetail:
+        ckddetail_data.update({"medhistory": ckd})
+        return CkdDetail.objects.create(**ckddetail_data)
+
+    @classmethod
+    def update_medhistory(cls, instance: Ckd, validated_data: "CkdData") -> Ckd:
+        ckddetail_data = validated_data.pop("ckddetail", None)
+
+        super().update_medhistory(instance, validated_data)
+        if ckddetail_data:
+            if hasattr(instance, "ckddetail"):
+                instance.ckddetail.update(validated_data=ckddetail_data)
+            else:
+                cls.create_ckddetail(instance, ckddetail_data)
+
+        return instance
 
 
 class GoutSerializer(MedHistorySerializer):

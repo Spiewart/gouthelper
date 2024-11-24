@@ -10,7 +10,7 @@ from ..choices import BOOL_CHOICES
 from ..medhistorys.choices import MedHistoryTypes
 from ..utils.models import GoutHelperModel
 from .choices import DialysisChoices, DialysisDurations, Stages
-from .types import GoutDetailData
+from .types import CkdDetailData, GoutDetailData
 
 
 class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -115,6 +115,115 @@ class CkdDetail(MedHistoryDetail):
         else:
             suffix = f"created {self.created.date()}" if self.created else "in creation"
             return f"CKD Detail: {suffix}"
+
+    def dialysis_needs_update(
+        self,
+        dialysis: bool,
+    ) -> bool:
+        return self.dialysis != dialysis
+
+    def update_dialysis(
+        self,
+        dialysis: bool,
+        commit: bool = False,
+    ) -> None:
+        self.dialysis = dialysis
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def dialysis_duration_needs_update(
+        self,
+        dialysis_duration: str | None,
+    ) -> bool:
+        return self.dialysis_duration != dialysis_duration
+
+    def update_dialysis_duration(
+        self,
+        dialysis_duration: str | None,
+        commit: bool = False,
+    ) -> None:
+        self.dialysis_duration = dialysis_duration
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def dialysis_type_needs_update(
+        self,
+        dialysis_type: str | None,
+    ) -> bool:
+        return self.dialysis_type != dialysis_type
+
+    def update_dialysis_type(
+        self,
+        dialysis_type: str | None,
+        commit: bool = False,
+    ) -> None:
+        self.dialysis_type = dialysis_type
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def stage_needs_update(
+        self,
+        stage: int,
+    ) -> bool:
+        return self.stage != stage
+
+    def update_stage(
+        self,
+        stage: int,
+        commit: bool = False,
+    ) -> None:
+        self.stage = stage
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def editable_fields_need_update(
+        self,
+        dialysis: bool,
+        dialysis_duration: str | None,
+        dialysis_type: str | None,
+        stage: int,
+    ) -> bool:
+        return (
+            self.dialysis_needs_update(dialysis)
+            or self.dialysis_duration_needs_update(dialysis_duration)
+            or self.dialysis_type_needs_update(dialysis_type)
+            or self.stage_needs_update(stage)
+        )
+
+    def update_editable_fields(
+        self,
+        dialysis: bool,
+        dialysis_duration: str | None,
+        dialysis_type: str | None,
+        stage: int,
+        commit: bool = False,
+    ) -> None:
+        self.update_dialysis(dialysis, commit=False)
+        self.update_dialysis_duration(dialysis_duration, commit=False)
+        self.update_dialysis_type(dialysis_type, commit=False)
+        self.update_stage(stage, commit=False)
+        if commit:
+            self.full_clean()
+            self.save()
+
+    def update(self, validated_data: "CkdDetailData") -> None:
+        if self.editable_fields_need_update(
+            validated_data.get("dialysis", False),
+            validated_data.get("dialysis_duration", None),
+            validated_data.get("dialysis_type", None),
+            validated_data.get("stage", None),
+        ):
+            self.update_editable_fields(
+                validated_data.get("dialysis", False),
+                validated_data.get("dialysis_duration", None),
+                validated_data.get("dialysis_type", None),
+                validated_data.get("stage", None),
+                commit=True,
+            )
 
 
 class GoutDetail(MedHistoryDetail):

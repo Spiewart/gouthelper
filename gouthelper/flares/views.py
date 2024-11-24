@@ -24,7 +24,7 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
 )
 
 from ..akis.choices import Statuses
-from ..akis.services import AkiProcessor
+from ..akis.services import AkiFormProcessor
 from ..contents.choices import Contexts
 from ..labs.helpers import (
     labs_formset_has_one_or_more_valid_labs,
@@ -120,7 +120,7 @@ class FlareEditBase(LabFormSetsMixin, MedHistoryFormMixin, OneToOneFormMixin):
                 ordered_list_of_creatinines = labs_get_list_of_instances_from_list_of_forms_cleaned_data(
                     ordered_creatinine_formset
                 )
-                processor = AkiProcessor(
+                processor = AkiFormProcessor(
                     aki_value=aki,
                     status=status,
                     creatinines=ordered_list_of_creatinines,

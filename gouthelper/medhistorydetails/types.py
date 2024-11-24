@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING, TypedDict, Union
 
 if TYPE_CHECKING:
+    from decimal import Decimal
     from uuid import UUID
 
     from ..genders.choices import Genders
-    from ..labs.types import BaselineCreatinineData
     from .choices import DialysisChoices, DialysisDurations, Stages
 
 
@@ -15,7 +15,7 @@ class CkdDetailData(TypedDict):
     dialysis_type: Union["DialysisChoices", None]
     dialysis_duration: Union["DialysisDurations", None]
     age: int | None
-    baselinecreatinine: Union["BaselineCreatinineData", None]
+    baselinecreatinine: Union["Decimal", None]
     gender: Union["Genders", None]
 
 

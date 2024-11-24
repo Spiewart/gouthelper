@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
-class AkiProcessor:
+class AkiFormProcessor:
     """Class method to process Aki-related data."""
 
     def __init__(

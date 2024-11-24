@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from ..medhistorydetails.choices import Stages
 
 
-class AkiStatusCreatininesProcessor:
+class AkiProcessor:
     def __init__(
         self,
         status: Statuses | None = None,

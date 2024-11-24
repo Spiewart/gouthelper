@@ -2,82 +2,117 @@ from decimal import Decimal
 
 import pytest  # pylint: disable=E0401  # type: ignore
 from django.test import TestCase  # pylint: disable=E0401  # type: ignore
-from faker import Faker  # pylint: disable=E0401  # type: ignore
 
 from ...genders.choices import Genders
-from ..choices import DialysisChoices, DialysisDurations, Stages
-from .helpers import update_or_create_ckddetail_kwargs
+from ..choices import Stages
+from ..helpers import CkdDetailProcessor
+from .factories import create_ckddetail, create_ckddetail_api_data
 
 pytestmark = pytest.mark.django_db
 
-fake = Faker()
 
-ModDialysisDurations = DialysisDurations.values
-ModDialysisDurations.remove("")
-ModStages = Stages.values
-ModStages.remove(None)
+class TestCkdDetailProcessor(TestCase):
+    def setUp(self):
+        self.ckddetail = create_ckddetail()
+        self.ckddetail_data = create_ckddetail_api_data(ckd=self.ckddetail.medhistory)
 
+    def test__get_errors__no_errors(self):
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_errors()
+        self.assertEqual(errors, {})
 
-class TestUpdateOrCreateCkdDetailKwargs(TestCase):
-    def test__creates_random_ckddetail_kwargs(self):
-        kwargs_list = []
-        for _ in range(100):
-            demographic_kwargs = {}
-            if fake.boolean():
-                demographic_kwargs.update(
-                    {"age": fake.random_int(min=18, max=100), "gender": fake.random_element(Genders)}
-                )
-            kwargs = update_or_create_ckddetail_kwargs(**demographic_kwargs)
-            kwargs_list.append(kwargs)
-            self.assertIn("baselinecreatinine", kwargs)
-            if kwargs["baselinecreatinine"]:
-                self.assertIsInstance(kwargs["baselinecreatinine"], Decimal)
-            self.assertIn("dialysis", kwargs)
-            if kwargs["dialysis"]:
-                self.assertIsInstance(kwargs["dialysis"], bool)
-            self.assertIn("dialysis_duration", kwargs)
-            if kwargs["dialysis_duration"]:
-                self.assertIn(kwargs["dialysis_duration"], DialysisDurations.values)
-            self.assertIn("dialysis_type", kwargs)
-            if kwargs["dialysis_type"]:
-                self.assertIn(kwargs["dialysis_type"], DialysisChoices.values)
-            self.assertIn("stage", kwargs)
-            if kwargs["stage"]:
-                self.assertIn(kwargs["stage"], Stages.values)
-        self.assertTrue(
-            next(iter(kwargs for kwargs in kwargs_list if kwargs["baselinecreatinine"] is not None)), False
+    def test__get_arg_errors(self):
+        self.ckddetail_data.update(
+            {
+                "dialysis": False,
+                "stage": None,
+                "baselinecreatinine": None,
+            }
         )
-        self.assertTrue(
-            next(
-                iter(
-                    kwargs
-                    for kwargs in kwargs_list
-                    if kwargs["baselinecreatinine"] is not None and kwargs["stage"] is not None
-                )
-            ),
-            False,
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_arg_errors()
+        self.assertIn("stage", errors)
+        self.assertIn("baselinecreatinine", errors)
+
+        self.ckddetail_data.update(
+            {
+                "baselinecreatinine": Decimal("2.0"),
+            }
         )
-        self.assertTrue(
-            next(iter(kwargs for kwargs in kwargs_list if kwargs["dialysis"] is True)),
-            False,
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_arg_errors()
+        self.assertIn("age", errors)
+        self.assertIn("gender", errors)
+
+        self.ckddetail_data.update(
+            {
+                "dialysis": True,
+                "dialysis_type": None,
+                "dialysis_duration": None,
+            }
         )
-        self.assertTrue(
-            next(iter(kwargs for kwargs in kwargs_list if not kwargs["dialysis"])),
-            False,
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_arg_errors()
+        self.assertIn("dialysis_type", errors)
+        self.assertIn("dialysis_duration", errors)
+
+    def test__can_calculate_stage(self):
+        self.ckddetail_data.update(
+            {
+                "age": 30,
+                "baselinecreatinine": Decimal("2.0"),
+                "gender": Genders.FEMALE,
+            }
         )
-        for dialysis_type in DialysisChoices.values:
-            self.assertTrue(
-                next(
-                    iter(kwargs for kwargs in kwargs_list if kwargs["dialysis_type"] == dialysis_type),
-                    False,
-                )
-            )
-        for dialysis_duration in ModDialysisDurations:
-            self.assertTrue(
-                next(
-                    iter(kwargs for kwargs in kwargs_list if kwargs["dialysis_duration"] == dialysis_duration),
-                    False,
-                )
-            )
-        for stage in ModStages:
-            self.assertTrue(next(iter(kwargs for kwargs in kwargs_list if kwargs["stage"] == stage), False))
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        self.assertTrue(processor.can_calculate_stage)
+
+        self.ckddetail_data.update(
+            {
+                "age": None,
+            }
+        )
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        self.assertFalse(processor.can_calculate_stage)
+
+    def test__get_stage_errors(self):
+        self.ckddetail_data.update(
+            {
+                "dialysis": True,
+                "stage": Stages.FOUR,
+            }
+        )
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_stage_errors()
+        self.assertIn("stage", errors)
+
+        self.ckddetail_data.update(
+            {
+                "dialysis": False,
+                "stage": Stages.THREE,
+            }
+        )
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_stage_errors()
+        self.assertFalse(errors)
+
+        self.ckddetail_data.update(
+            {
+                "baselinecreatinine": Decimal("3.5"),
+                "age": 30,
+                "gender": Genders.MALE,
+            }
+        )
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_stage_errors()
+        self.assertIn("stage", errors)
+        self.assertEqual(errors["stage"], "Stage (3) does not match stage calculated from baseline creatinine (4).")
+
+        self.ckddetail_data.update(
+            {
+                "stage": Stages.FOUR,
+            }
+        )
+        processor = CkdDetailProcessor(**self.ckddetail_data)
+        errors = processor.get_stage_errors()
+        self.assertFalse(errors)

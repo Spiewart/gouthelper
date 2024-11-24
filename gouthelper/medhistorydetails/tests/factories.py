@@ -15,7 +15,7 @@ from ...labs.helpers import (
     labs_eGFR_calculator,
     labs_stage_calculator,
 )
-from ...labs.tests.factories import BaselineCreatinineFactory, create_baselinecreatinine_api_data
+from ...labs.tests.factories import BaselineCreatinineFactory
 from ...medhistorys.tests.factories import CkdFactory, GoutFactory
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
@@ -75,6 +75,8 @@ def create_ckddetail(
         instance = medhistory.ckddetail
     elif instance and not medhistory:
         medhistory = instance.medhistory
+    elif not medhistory:
+        medhistory = CkdFactory()
 
     def get_ckddetail_args_from_instance() -> dict:
         return {
@@ -211,14 +213,14 @@ def create_ckddetail(
 
 
 def create_ckddetail_api_data(
-    ckd: "Ckd" = None,
-    dialysis: bool = None,
-    stage: "Stages" = None,
-    dialysis_duration: "DialysisDurations" = None,
-    dialysis_type: "DialysisChoices" = None,
+    ckd: Union["Ckd", None] = None,
+    dialysis: bool | None = None,
+    stage: Union["Stages", None] = None,
+    dialysis_duration: Union["DialysisDurations", None] = None,
+    dialysis_type: Union["DialysisChoices", None] = None,
     age: int | None = None,
     gender: Union["Genders", None] = None,
-    baselinecreatinine: Union["BaselineCreatinine", Decimal] = None,
+    baselinecreatinine: Decimal | None = None,
 ) -> "CkdData":
     ckddetail = create_ckddetail(
         medhistory=ckd,
@@ -238,12 +240,7 @@ def create_ckddetail_api_data(
         "dialysis_duration": ckddetail.dialysis_duration,
         "age": age,
         "gender": gender,
-        "baselinecreatinine": create_baselinecreatinine_api_data(
-            baselinecreatinine=baselinecreatinine if not isinstance(baselinecreatinine, Decimal) else None,
-            value=baselinecreatinine if isinstance(baselinecreatinine, Decimal) else None,
-        )
-        if baselinecreatinine
-        else None,
+        "baselinecreatinine": baselinecreatinine,
     }
 
 
