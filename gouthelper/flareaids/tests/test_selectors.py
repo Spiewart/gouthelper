@@ -18,7 +18,7 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices
 from ...users.tests.factories import create_psp
-from ..selectors import flareaid_user_qs, flareaid_userless_qs
+from ..selectors import flareaid_relations
 from .factories import create_flareaid
 
 pytestmark = pytest.mark.django_db
@@ -49,7 +49,7 @@ class TestFlareAidUserlessQuerySet(TestCase):
         )
 
     def test__queryset_returns_correctly(self):
-        queryset = flareaid_userless_qs(self.flareaid.pk)
+        queryset = flareaid_relations(self.flareaid.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first(), self.flareaid)
@@ -70,37 +70,37 @@ class TestFlareAidUserlessQuerySet(TestCase):
 
 class TestFlareAidUserQuerySet(TestCase):
     def setUp(self):
-        self.user = create_psp()
-        self.custom_settings = FlareAidSettingsFactory(user=self.user)
-        self.ckd = CkdFactory(user=self.user)
+        self.patient = create_psp()
+        self.custom_settings = FlareAidSettingsFactory(patient=self.patient)
+        self.ckd = CkdFactory(patient=self.patient)
         self.baselinecreatinine = BaselineCreatinineFactory(medhistory=self.ckd, value=Decimal("2.0"))
         self.ckddetail = CkdDetailFactory(
             medhistory=self.ckd,
             stage=labs_stage_calculator(
                 eGFR=labs_eGFR_calculator(
                     creatinine=self.baselinecreatinine.value,
-                    age=age_calc(self.user.dateofbirth.value),
-                    gender=self.user.gender.value,
+                    age=age_calc(self.patient.dateofbirth.value),
+                    gender=self.patient.gender.value,
                 ),
             ),
         )
-        self.medallergy = MedAllergyFactory(user=self.user, treatment=FlarePpxChoices.COLCHICINE)
+        self.medallergy = MedAllergyFactory(patient=self.patient, treatment=FlarePpxChoices.COLCHICINE)
         self.flareaid = create_flareaid(
-            user=self.user,
+            patient=self.patient,
             mhs=[self.ckd],
             mas=[self.medallergy],
         )
 
     def test__queryset_returns_correctly(self):
-        queryset = flareaid_user_qs(self.user.pk)
+        queryset = flareaid_relations(self.patient.pk)
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
-        self.assertEqual(queryset.first(), self.user)
+        self.assertEqual(queryset.first(), self.patient)
         with CaptureQueriesContext(connection) as queries:
             queryset = queryset.get()
             self.assertEqual(queryset.flareaid, self.flareaid)
-            self.assertEqual(queryset.dateofbirth, self.user.dateofbirth)
-            self.assertEqual(queryset.gender, self.user.gender)
+            self.assertEqual(queryset.dateofbirth, self.patient.dateofbirth)
+            self.assertEqual(queryset.gender, self.patient.gender)
             self.assertTrue(hasattr(queryset, "medallergys_qs"))
             self.assertTrue(hasattr(queryset, "medhistorys_qs"))
             self.assertIn(self.medallergy, queryset.medallergys_qs)

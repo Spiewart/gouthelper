@@ -19,12 +19,13 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..choices import BOOL_CHOICES
 from ..genders.choices import Genders
 from ..medhistorys.choices import MedHistoryTypes
+from ..medhistorys.helpers import str_of_medhistorys
 from ..medhistorys.lists import FLARE_MEDHISTORYS
 from ..medhistorys.models import MedHistory
 from ..rules import add_object, change_object, delete_object, view_object
 from ..users.models import Pseudopatient
 from ..utils.helpers import calculate_duration, first_letter_lowercase, now_date, shorten_date_for_str
-from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.models import AidMixin, GoutHelperModel
 from .choices import DiagnosedChoices, LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .helpers import (
     flares_abnormal_duration,
@@ -51,7 +52,7 @@ class TsTzRange(models.Func):
 
 class Flare(
     RulesModelMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -68,22 +69,6 @@ class Flare(
             "view": view_object,
         }
         constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_valid",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        dateofbirth__isnull=True,
-                        gender__isnull=True,
-                        flareaid__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                        dateofbirth__isnull=False,
-                        gender__isnull=False,
-                    )
-                ),
-            ),
             # A user can't have two flares that overlap
             ExclusionConstraint(
                 name="%(app_label)s_%(class)s_exclude_user_overlapping",
@@ -174,13 +159,6 @@ monosodium urate crystals on polarized microscopy?"
         null=True,
         default=None,
     )
-    # Age is required, but can be null if user is not null
-    dateofbirth = models.OneToOneField(
-        "dateofbirths.DateOfBirth",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
     date_started = models.DateField(
         _("Date Flare Started"),
         help_text=_("What day did this flare start?"),
@@ -192,19 +170,6 @@ monosodium urate crystals on polarized microscopy?"
         help_text=_("Did a medical provider think these symptoms were from gout?"),
         blank=True,
         null=True,
-    )
-    flareaid = models.OneToOneField(
-        "flareaids.FlareAid",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    # Gender is required, but can be null if user is not null
-    gender = models.OneToOneField(
-        "genders.Gender",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
     )
     joints = MultiSelectField(
         choices=LimitedJointChoices.choices,
@@ -249,13 +214,13 @@ monosodium urate crystals on polarized microscopy?"
         null=True,
         verbose_name=_("Flare Urate"),
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = FlareManager()
     related_models: list[Literal["flareaid"]] = ["flareaid"]
-    decision_aid_service = FlareDecisionAid
+    decisionaid = FlareDecisionAid
     req_otos: list[Literal["dateofbirth"], Literal["gender"]] = ["dateofbirth", "gender"]
 
     @cached_property
@@ -263,13 +228,6 @@ monosodium urate crystals on polarized microscopy?"
         """Method that returns True if a Flare is abnormally long or short
         for a typical gout flare."""
         return flares_abnormal_duration(duration=self.duration, date_ended=self.date_ended)
-
-    @cached_property
-    def age(self) -> int | None:
-        age = super().age
-        if not age and getattr(self, "flare", False):
-            return self.flare.age
-        return age
 
     @classmethod
     def aid_medhistorys(cls) -> list[MedHistoryTypes]:
@@ -303,28 +261,6 @@ will include NSAIDs and colchicine in the treatment plan if they are not otherwi
             )
         return mark_safe(aki_str)
 
-    @cached_property
-    def at_risk_for_gout(self) -> bool:
-        """Method that returns True if the patient referenced by a Flare
-        is at risk for gout demographically and False if not."""
-        if self.gender:
-            return (
-                self.gender.value == Genders.MALE
-                and self.age
-                and self.age >= 18  # pylint: disable=w0143
-                or self.gender.value == Genders.FEMALE
-                and (self.post_menopausal or self.ckd)
-            )
-        elif self.user and self.user.gender:
-            return (
-                self.user.gender.value == Genders.MALE
-                and self.age
-                and self.age >= 18  # pylint: disable=w0143
-                or self.user.gender.value == Genders.FEMALE
-                and (self.post_menopausal or self.ckd)
-            )
-        return False
-
     def ckd_interp(self) -> str:
         ckd_str = super().ckd_interp()
 
@@ -344,7 +280,7 @@ which doesn't apply to {subject_the}."
             ckd_str += f" {Subject_the} {tobe} a post-menopausal woman, which GoutHelper interprets as an \
 at-risk demographic for gout with or without CKD. Demographics that are not at risk are interpreted as \
 less likely to have gout, which doesn't apply to {subject_the}."
-        elif self.user.gender.value == Genders.FEMALE if self.user else self.gender.value == Genders.FEMALE:
+        elif self.patient.gender.value == Genders.FEMALE if self.patient else self.gender.value == Genders.FEMALE:
             ckd_str += f" {Subject_the} {tobe} a pre-menopausal woman without CKD, which GoutHelper interprets as a \
 demographic that is not at risk for gout and as such is less likely to have gout."
         else:
@@ -502,6 +438,17 @@ href='#crystal_analysis'>crystal analysis</a>.""",
             )
         )
 
+    @cached_property
+    def cvdiseases(self) -> list["MedHistory"]:
+        cvdiseases = super().cvdiseases
+        if self.patient.hypertension:
+            cvdiseases.append(self.patient.hypertension)
+        return cvdiseases
+
+    @cached_property
+    def cvdiseases_str(self) -> str:
+        return str_of_medhistorys(self.cvdiseases)
+
     def cvdiseases_interp(self) -> str:
         subject_the, subject_the_pos, pos_neg, gender_pos, gender_subject = self.get_str_attrs(
             "subject_the", "subject_the_pos", "pos_neg", "gender_pos", "gender_subject"
@@ -528,19 +475,17 @@ doesn't get any extra points for {gender_pos} Diagnostic Rule score."
 
     @cached_property
     def demographic_risk(self) -> bool:
-        """Method that returns True if the patient referenced by a Flare
-        is at risk for gout demographically and False if not."""
-        if self.user.gender.value == Genders.MALE if self.user else self.gender.value == Genders.MALE:
-            return self.age >= 18
-        return self.post_menopausal or self.premenopausal_with_ckd
+        """Returns True if Flare's patient is at risk for gout demographically and False if not."""
+
+        return self.male_demographic_risk or self.post_menopausal or self.premenopausal_with_ckd
+
+    @cached_property
+    def male_demographic_risk(self) -> bool:
+        return self.gender.value == Genders.MALE and self.age >= 18
 
     def demographic_risk_interp(self) -> str:
         (Subject_the,) = self.get_str_attrs("Subject_the")
-        if (
-            self.user.gender.value == Genders.MALE
-            if self.user
-            else self.gender.value == Genders.MALE and self.age >= 18
-        ):
+        if self.male_demographic_risk:
             demo_desc = "an adult male"
         elif self.post_menopausal:
             demo_desc = "a post-menopausal female"
@@ -551,11 +496,7 @@ doesn't get any extra points for {gender_pos} Diagnostic Rule score."
         if self.demographic_risk:
             demo_str = f"<strong>{Subject_the} is {demo_desc}, which is a demographic considered at \
 risk for gout</strong>."
-            if (
-                self.user.gender.value == Genders.MALE
-                if self.user
-                else self.gender.value == Genders.MALE and self.age >= 18
-            ):
+            if self.male_demographic_risk:
                 demo_str += " This increases the Diagnostic Rule score by 2 points."
             demo_str += " GoutHelper only reduces the likelihood of a Flare being gout if the demographic is not at \
 risk."
@@ -696,15 +637,12 @@ symptoms were due to gout."
         return gender_abbrev
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("flares:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk, "pk": self.pk})
-        else:
-            return reverse("flares:detail", kwargs={"pk": self.pk})
+        return reverse("flares:detail", kwargs={"pk": self.pk})
 
     def get_pseudopatient_queryset(self) -> "QuerySet[Pseudopatient]":
         """Overwritten to pass the flare_pk kwarg to the flares_qs manager."""
         model_name = self._meta.model_name
-        return getattr(Pseudopatient.objects, f"{model_name}_qs").filter(user=self.user, flare_pk=self.pk).get()
+        return getattr(Pseudopatient.objects, f"{model_name}_qs").filter(patient=self.patient, flare_pk=self.pk).get()
 
     def gout_interp(self):
         """Method that returns a str interpretation of the gout cached_property."""
@@ -810,7 +748,7 @@ score."
             age=self.age,
             date_ended=self.date_ended,
             duration=self.duration,
-            gender=self.user.gender if self.user else self.gender,
+            gender=self.gender,
             joints=self.joints,
             menopause=self.menopause,
             crystal_analysis=self.crystal_analysis,
@@ -1142,11 +1080,7 @@ as is typical for gout flares. This does not add any points to the Diagnostic Ru
     @cached_property
     def premenopausal_with_ckd(self) -> bool:
         """Method that determines if the Flare belongs to a pre-menopausal woman with CKD."""
-        return (
-            (self.user.gender.value == Genders.FEMALE if self.user else self.gender.value == Genders.FEMALE)
-            and not self.post_menopausal
-            and self.ckd
-        )
+        return self.gender.value == Genders.FEMALE and not self.post_menopausal and self.ckd
 
     @property
     def prevalence_explanation(self) -> str:
@@ -1168,7 +1102,7 @@ gout and should probably just be treated as such."
     def prevalence_points(self) -> float:
         """Method that returns the Diagnostic Rule points for prevalence for a Flare."""
         return flares_calculate_prevalence_points(
-            gender=self.gender if self.gender else self.user.gender,
+            gender=self.gender,
             onset=self.onset,
             redness=self.redness,
             joints=self.joints,
@@ -1177,7 +1111,7 @@ gout and should probably just be treated as such."
         )
 
     def get_medhistorys_qs(self) -> "QuerySet[MedHistory]":
-        return self.user.medhistorys_qs if self.user else self.medhistorys_qs
+        return self.patient.medhistorys_qs
 
     def redness_interp(self) -> str:
         """Method that returns a str interpretation of the redness field."""

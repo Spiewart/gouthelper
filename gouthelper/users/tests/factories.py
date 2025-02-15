@@ -5,7 +5,7 @@ from typing import Any, Union
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from factory import Faker, RelatedFactory, post_generation
+from factory import Faker, post_generation
 from factory.django import DjangoModelFactory
 from factory.faker import faker  # type: ignore
 
@@ -25,13 +25,14 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory, GoutDetailFac
 from ...medhistorydetails.tests.helpers import update_or_create_ckddetail_kwargs
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.models import MedHistory
+from ...medhistorys.tests.factories import MenopauseFactory
 from ...profiles.helpers import get_provider_alias
-from ...profiles.tests.factories import PseudopatientProfileFactory
+from ...profiles.tests.factories import PatientProfileFactory
 from ...treatments.choices import Treatments
 from ...ults.choices import Indications
 from ...utils.db_helpers import get_or_create_medhistory_atomic
 from ..choices import Roles
-from ..models import Pseudopatient
+from ..models import Patient
 
 fake = faker.Faker()
 
@@ -77,24 +78,56 @@ class AdminFactory(UserFactory):
 
 class PatientFactory(UserFactory):
     role = Roles.PATIENT
-    dateofbirth = RelatedFactory(DateOfBirthFactory, "user")
-    gender = RelatedFactory(GenderFactory, "user")
-    ethnicity = RelatedFactory(EthnicityFactory, "user")
 
+    @post_generation
+    def dateofbirth(self, create: bool, extracted: DateOfBirth | date | None, **kwargs):
+        if not hasattr(self, "dateofbirth") and create:
+            kwargs = {}
+            if extracted:
+                kwargs["value"] = extracted
+            DateOfBirthFactory(patient=self, **kwargs)
 
-class PseudopatientFactory(UserFactory):
-    role = Roles.PSEUDOPATIENT
+    @post_generation
+    def ethnicity(self, create: bool, extracted: Union) -> None:
+        if not hasattr(self, "ethnicity") and create:
+            kwargs = {}
+            if extracted:
+                kwargs["value"] = extracted
+            EthnicityFactory(patient=self, **kwargs)
 
+    @post_generation
+    def gender(self, create: bool, extracted: Union) -> None:
+        if not hasattr(self, "gender") and create:
+            kwargs = {}
+            if extracted:
+                kwargs["value"] = extracted
+            GenderFactory(patient=self, **kwargs)
 
-class PseudopatientPlusFactory(PseudopatientFactory):
-    """Factory that adds a Pseudopatient with their one-to-one fields as above
-    but also creates a random number of MedHistory objects, with their associated MedHistoryDetails,
-    as well as a random number of MedAllergy objects."""
+    @post_generation
+    def menopause(self, create: bool, extracted: Union) -> None:
+        if not hasattr(self, "menopause") and create:
+            if extracted:
+                MenopauseFactory(patient=self)
+            elif self.gender.value == Genders.FEMALE:
+                age = age_calc(self.dateofbirth.value)
+                if age >= 40:
+                    if age >= 60:
+                        MenopauseFactory(patient=self)
+                    elif fake.boolean():
+                        MenopauseFactory(patient=self)
+
+    @post_generation
+    def pseudopatientprofile(self, create: bool, extracted: Union) -> None:
+        if not hasattr(self, "pseudopatientprofile") and create:
+            kwargs = {}
+            if extracted:
+                kwargs["provider"] = extracted
+            PatientProfileFactory(user=self, **kwargs)
 
 
 def set_psp_dateofbirth_attr(
     dateofbirth: DateOfBirth | date | None | bool,
-    psp: Pseudopatient,
+    psp: Patient,
 ) -> None:
     if dateofbirth:
         psp.dateofbirth = create_psp_dateofbirth(
@@ -109,7 +142,7 @@ def set_psp_dateofbirth_attr(
 
 def create_and_set_ckddetail(
     mh_dets: dict[str, dict[Any]] | None,
-    psp: Pseudopatient,
+    psp: Patient,
     medhistory: MedHistory,
 ) -> None:
     ckddetail_kwargs = mh_dets.get(MedHistoryTypes.CKD, {}) if mh_dets else {}
@@ -124,13 +157,13 @@ def create_and_set_ckddetail(
         setattr(psp, "baselinecreatinine", BaselineCreatinineFactory(medhistory=medhistory, value=bc_kwarg))
 
 
-def create_and_set_pseudopatientprofile(
-    psp: Pseudopatient,
+def create_and_set_patientprofile(
+    psp: Patient,
     provider: User | None,
 ) -> None:
     with transaction.atomic():
         try:
-            psp.pseudopatientprofile = PseudopatientProfileFactory(
+            psp.pseudopatientprofile = PatientProfileFactory(
                 user=psp,
                 provider=provider
                 if isinstance(provider, User)
@@ -146,7 +179,7 @@ def create_and_set_pseudopatientprofile(
 
 
 def create_psp_dateofbirth(
-    psp: Pseudopatient,
+    psp: Patient,
     dateofbirth: DateOfBirth | date | None = None,
 ) -> DateOfBirth:
     if not dateofbirth:
@@ -180,7 +213,7 @@ def create_psp_dateofbirth(
 
 def create_psp_ethnicity(
     ethnicity: Ethnicitys | None,
-    psp: Pseudopatient,
+    psp: Patient,
 ) -> Ethnicity:
     if isinstance(ethnicity, (str, Ethnicitys)) or ethnicity is None:
         ethnicity_factory_kwargs = {"value": ethnicity} if ethnicity else {}
@@ -222,7 +255,7 @@ def check_gender_age_menopause(
 
 def create_psp_gender(
     gender: Genders | Gender | None,
-    psp: Pseudopatient,
+    psp: Patient,
 ) -> Ethnicity:
     if isinstance(gender, (str, Genders)) or gender in Genders.values:
         with transaction.atomic():
@@ -249,7 +282,7 @@ def create_psp_gender(
 
 def set_psp_ethnicity_attr(
     ethnicity: Ethnicitys | None,
-    psp: Pseudopatient,
+    psp: Patient,
 ) -> None:
     if ethnicity is False:
         psp.ethnicity = None
@@ -259,7 +292,7 @@ def set_psp_ethnicity_attr(
 
 def set_psp_gender_attr(
     gender: Genders | None | bool | Gender,
-    psp: Pseudopatient,
+    psp: Patient,
     menopause: bool = False,
 ) -> None:
     if gender is False:
@@ -284,8 +317,8 @@ def create_psp(
     menopause: bool = False,
     plus: bool = False,
     ppx_indicated: Indications | None = None,
-) -> Pseudopatient:
-    """Method that creates a Pseudopatient and dynamically set related models
+) -> Patient:
+    """Method that creates a Patient and dynamically set related models
     using FactoryBoy. Hopefully avoids IntegrityErrors."""
     check_gender_age_menopause(
         gender=gender,
@@ -299,17 +332,17 @@ def create_psp(
         if menopause:
             gender_kwargs["value"] = Genders.FEMALE
         gender = GenderFactory.build(**gender_kwargs)
-    psp = PseudopatientFactory()
+    psp = PatientFactory()
     set_psp_dateofbirth_attr(dateofbirth, psp)
     set_psp_ethnicity_attr(ethnicity, psp)
     set_psp_gender_attr(gender, psp, menopause)
-    create_and_set_pseudopatientprofile(psp, provider)
+    create_and_set_patientprofile(psp, provider)
     # Next deal with required, optional, and randomly generated MedHistorys
     medhistorytypes = MedHistoryTypes.values
     # Remove GOUT and MENOPAUSE from the medhistorytypes, will be handled non-randomly
     medhistorytypes.remove(MedHistoryTypes.GOUT)
     medhistorytypes.remove(MedHistoryTypes.MENOPAUSE)
-    # Create a Gout MedHistory and GoutDetail, as all Pseudopatients have Gout
+    # Create a Gout MedHistory and GoutDetail, as all Patients have Gout
     gout = get_or_create_medhistory_atomic(medhistorytype=MedHistoryTypes.GOUT, user=psp)
     with transaction.atomic():
         try:
@@ -378,7 +411,7 @@ def create_psp(
                 if isinstance(treatment, Treatments):
                     # pop the treatment from the list
                     treatments.remove(treatment)
-                    # Create a MedAllergy for the Pseudopatient
+                    # Create a MedAllergy for the Patient
                     try:
                         MedAllergyFactory(user=psp, treatment=treatment)
                     except IntegrityError:

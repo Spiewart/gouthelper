@@ -4,7 +4,7 @@ import pytest  # type: ignore
 from factory import Faker  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
-from ...medhistorys.tests.factories import CkdFactory
+from ...users.tests.factories import PatientFactory
 from ..models import BaselineCreatinine, Creatinine, Hlab5801, Lab, Urate
 
 pytestmark = pytest.mark.django_db
@@ -18,6 +18,9 @@ class LabFactory(DjangoModelFactory):
     class Meta:
         model = Lab
 
+    patient = factory.SubFactory(PatientFactory)
+    # date_drawn is not set, as it will default to the current date
+
     class Params:
         dated = factory.Trait(
             date_drawn=Faker("date_between", start_date="-3y", end_date="today"),
@@ -27,6 +30,8 @@ class LabFactory(DjangoModelFactory):
 class BaselineLabFactory(DjangoModelFactory):
     class Meta:
         abstract = True
+
+    patient = factory.SubFactory(PatientFactory)
 
 
 class CreatinineBase(DjangoModelFactory):
@@ -47,27 +52,8 @@ class BaselineCreatinineFactory(CreatinineBase, BaselineLabFactory):
     class Meta:
         model = BaselineCreatinine
 
-    medhistory = factory.SubFactory(CkdFactory)
-    value = Faker(
-        "pydecimal",
-        left_digits=2,
-        right_digits=2,
-        positive=True,
-        min_value=2,
-        max_value=10,
-    )
-
 
 class CreatinineFactory(CreatinineBase, LabFactory):
-    value = Faker(
-        "pydecimal",
-        left_digits=2,
-        right_digits=2,
-        positive=True,
-        min_value=1,
-        max_value=10,
-    )
-
     class Meta:
         model = Creatinine
 
@@ -77,9 +63,13 @@ class Hlab5801Factory(DjangoModelFactory):
         model = Hlab5801
 
     value = True
+    patient = factory.SubFactory(PatientFactory)
 
 
 class UrateFactory(LabFactory):
+    class Meta:
+        model = Urate
+
     value = Faker(
         "pydecimal",
         left_digits=2,
@@ -88,6 +78,3 @@ class UrateFactory(LabFactory):
         min_value=1,
         max_value=30,
     )
-
-    class Meta:
-        model = Urate

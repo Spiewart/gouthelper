@@ -26,14 +26,7 @@ class PpxAidForm(
 
     class Meta:
         model = PpxAid
-        exclude = (
-            "dateofbirth",
-            "decisionaid",
-            "gender",
-            "medallergys",
-            "medhistorys",
-            "user",
-        )
+        exclude = ("decisionaid", "patient")
 
     def __init__(self, *args, **kwargs):
         self.medallergys = kwargs.pop("medallergys")

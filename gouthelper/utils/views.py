@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from django.contrib import messages  # type: ignore
 from django.contrib.auth import get_user_model  # type: ignore
@@ -20,35 +20,39 @@ from ..medallergys.models import MedAllergy
 from ..medhistorydetails.models import CkdDetail, GoutDetail
 from ..medhistorydetails.services import CkdDetailFormProcessor
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.dicts import MedHistoryTypesAids
-from ..medhistorys.helpers import medhistorys_get, medhistorys_get_default_medhistorytype
+from ..medhistorys.helpers import medhistorys_get_default_medhistorytype
 from ..medhistorys.models import Gout
 from ..profiles.helpers import get_provider_alias
 from ..profiles.models import PseudopatientProfile
 from ..users.choices import Roles
-from ..users.models import Pseudopatient
-from ..utils.exceptions import Continue, EmptyRelatedModel
-from ..utils.helpers import (
+from ..users.models import Patient
+from .exceptions import Continue, EmptyRelatedModel
+from .helpers import (
     attr_is_in_model_fields,
+    get_model_foreignkey_fields,
+    get_model_onetoone_field_names,
+    get_model_onetoone_fields,
     get_or_create_qs_attr,
-    get_str_attrs,
+    get_str_attrs_dict,
     list_of_objects_related_objects,
-    list_of_possible_related_object_attrs,
 )
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
-    from django.forms import BaseModelFormSet  # type: ignore
-    from django.http import HttpRequest, HttpResponse  # type: ignore
+    from datetime import date
+
+    from crispy_forms.helper import FormHelper
+    from django.db.models import OneToOneField, QuerySet
+    from django.forms import BaseModelFormSet
+    from django.http import HttpRequest, HttpResponse
 
     from ..akis.models import Aki
     from ..dateofbirths.forms import DateOfBirthForm
-    from ..dateofbirths.models import DateOfBirth
     from ..genders.forms import GenderForm
     from ..genders.models import Gender
     from ..labs.models import Lab
     from ..medhistorydetails.forms import CkdDetailForm, GoutDetailForm
     from ..medhistorys.models import MedHistory
+    from ..treatments.choices import Treatments
     from .types import Aids
 
 
@@ -58,13 +62,15 @@ User = get_user_model()
 class PatientSessionMixin:
     """Mixin to add a session to a view."""
 
+    request: "HttpRequest"
+
     def get_context_data(self, **kwargs):
         """Overwritten to add the patient to the session."""
         context = super().get_context_data(**kwargs)
         self.update_session_patient()
         return context
 
-    def add_patient_to_session(self, patient: Pseudopatient | User) -> None:
+    def add_patient_to_session(self, patient: Patient) -> None:
         self.request.session.update({"patient": str(patient), "pk": str(patient.pk)})
         if not self.request.session.get("recent_patients", None):
             self.request.session["recent_patients"] = []
@@ -86,7 +92,7 @@ class PatientSessionMixin:
 
     def remove_patient_from_session(
         self,
-        patient: Pseudopatient | User,
+        patient: Patient,
         delete: bool = False,
     ) -> None:
         self.request.session.pop("patient", None)
@@ -116,123 +122,44 @@ class PatientSessionMixin:
             self.remove_patient_from_session(patient)
 
 
-class GoutHelperDetailMixinBase(AutoPermissionRequiredMixin, DetailView, PatientSessionMixin):
+class GoutHelperDetailMixin(AutoPermissionRequiredMixin, DetailView, PatientSessionMixin):
     class Meta:
         abstract = True
 
     object: "Aids"
-    user: User | None
+    patient: Patient | None
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not request.GET.get("updated", None):
+            self.object.update_aid(qs=self.object)
+            self.object.update_related_objects(qs=self.object)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
-        """Overwritten to avoid calling get_object again, which is instead
-        called on dispatch()."""
-        if not request.GET.get("updated", None):
-            self.object.update_aid(qs=self.user if getattr(self, "user", False) else self.object)
-            self.object.update_related_objects(qs=self.user if getattr(self, "user", False) else self.object)
+        """Does NOT call get_object(), which is called in dispatch().
+        Required to set the patient and evaluate permissions."""
+
         context = self.get_context_data(object=self.object)
         return self.render_to_response(context)
 
     def get_context_data(self, **kwargs) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
-        return context
+        context["patient"] = self.patient
+        # context.update({"str_attrs": get_str_attrs(self.object, self.object.user, self.request.user)})
 
-    def get_permission_object(self):
-        return self.object
-
-    def get_queryset(self) -> "QuerySet[Any]":
-        return self.model.related_objects.filter(pk=self.kwargs["pk"])
-
-    def update_objects(self):
-        self.object.update_aid(qs=self.object)
-        if self.object.flareaid:
-            self.object.flareaid.update_aid(qs=self.object.flareaid)
-
-
-class GoutHelperDetailMixin(GoutHelperDetailMixinBase):
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        if self.object.user:
-            return HttpResponseRedirect(self.object.get_absolute_url())
-        else:
-            return super().dispatch(request, *args, **kwargs)
-
-
-class GoutHelperPseudopatientDetailMixin(GoutHelperDetailMixinBase):
-    def dispatch(self, request, *args, **kwargs):
-        try:
-            self.object = self.get_object()
-        except self.model.DoesNotExist:
-            model_name = self.model._meta.model_name
-            messages.error(request, f"{self.user} does not have a {model_name}. Create one instead.")
-            return HttpResponseRedirect(
-                reverse(f"{model_name.lower()}s:pseudopatient-create", kwargs={"pseudopatient": self.user.pk})
-            )
-        if not self.user_has_required_otos:
-            messages.error(request, "Baseline information is needed to use GoutHelper Decision and Treatment Aids.")
-            return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
-        else:
-            if not request.GET.get("updated", None):
-                self.object.update_aid(qs=self.user)
-                self.object.update_related_objects(qs=self.user)
-            return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["patient"] = self.user
         return context
 
     def get_object(self) -> "Aids":
-        try:
-            self.user: User = self.get_queryset().get()
-        except User.DoesNotExist as exc:
-            raise User.DoesNotExist("GoutPatient does not exist.") from exc
-        try:
-            model_name = self.model._meta.model_name
-            object: "Aids" = getattr(self.user, model_name.lower())
-        except self.model.DoesNotExist as exc:
-            raise self.model.DoesNotExist(f"{model_name} for {self.user} does not exist.") from exc
-        return object
+        self.object = super().get_object()
+        self.patient = self.object.patient
+        return self.object
+
+    def get_permission_object(self):
+        return self.object.patient
 
     def get_queryset(self, **kwargs) -> "QuerySet[Any]":
-        return (
-            getattr(Pseudopatient.objects, self.model._meta.model_name.lower() + "_qs")(**kwargs)
-            .filter(pk=self.kwargs["pseudopatient"])
-            .select_related("pseudopatientprofile__provider")
-        )
-
-    @property
-    def user_has_required_otos(self):
-        return all([hasattr(self.user, oto) for oto in self.model.req_otos])
-
-
-def validate_form_list(form_list: list[ModelForm]) -> bool:
-    """Method to validate a list of forms.
-
-    Args:
-        form_list: A list of ModelForms to validate.
-
-    Returns:
-        True if all forms are valid, False otherwise."""
-    forms_valid = True
-    for form in form_list:
-        if not form.is_valid():
-            forms_valid = False
-    return forms_valid
-
-
-def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
-    """Method to validate a list of formsets.
-
-        formset_list: A list of BaseModelFormSets to validate.
-
-    Returns:
-        True if all formsets are valid, False otherwise."""
-    formsets_valid = True
-    for formset in formset_list:
-        if not formset.is_valid():
-            formsets_valid = False
-    return formsets_valid
+        return self.object.related_objects.filter(pk=self.kwargs["pk"])
 
 
 class GoutHelperEditMixin:
@@ -240,11 +167,6 @@ class GoutHelperEditMixin:
     def ckddetail(self) -> bool:
         """Method that returns True if CKD is in the medhistory_details dict."""
         return hasattr(self, "medhistory_detail_forms") and "ckddetail" in self.medhistory_detail_forms.keys()
-
-    @cached_property
-    def create_view(self):
-        """Method that returns True if the view is a CreateView."""
-        return True if isinstance(self, CreateView) else False
 
     def form_invalid(self, form):
         response = super().form_invalid(form)
@@ -256,7 +178,7 @@ class GoutHelperEditMixin:
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Method to be called if all forms are valid."""
         self.form_valid_init()
-        self.form_valid_update_fks_and_related_object()
+        self.from_valid_update_fks()
         self.form_valid_end(**kwargs)
         return self.form_valid_return(**kwargs)
 
@@ -264,40 +186,30 @@ class GoutHelperEditMixin:
         if self.form_valid_form_should_save():
             self.object = self.form.save(commit=False)
             self.save_object = True
+            if self.form.instance.patient is None:
+                self.form.instance.patient = self.patient
         else:
             self.object = self.form.instance
             self.save_object = False
-        if self.user and self.object.user is None:
-            self.object.user = self.user
 
     def form_valid_form_should_save(self) -> bool:
         return (
             self.form.has_changed
             or self.oto_forms
+            # TODO: put these into another property that can be overwritten on child views
+            # TODO: that have one to one relations that may need editing
             and (self.oto_2_save or self.oto_2_rem)
-            or self.user
-            and self.form.instance.user is None
-            or self.create_view
+            and self.form.instance.patient is None
         )
 
-    def form_valid_update_fks_and_related_object(self) -> None:
-        if self.related_object:
-            self.save_related_object = False
-            self.form_valid_set_view_model_attr_on_related_object()
+    def from_valid_update_fks(self) -> None:
+        """Method to update foreign key relationships in child views."""
         if self.save_object:
             self.object.full_clean()
             self.object.save()
-        if self.related_object and self.save_related_object:
-            self.related_object.full_clean()
-            self.related_object.save()
 
     def form_valid_end(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
-        if self.user:
-            setattr(self.user, f"{self.object_attr}_qs", self.object)
-            self.object.update_aid(qs=self.user)
-        else:
-            self.object.update_aid(qs=self.object)
-        self.object.update_related_objects(qs=self.user if self.user else self.object)
+        self.object.update_aid(qs=self.object)
 
     def form_valid_return(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         messages.success(self.request, self.get_success_message(self.form.cleaned_data))
@@ -305,86 +217,37 @@ class GoutHelperEditMixin:
             return kwargs.get("htmx")
         return HttpResponseRedirect(self.get_success_url())
 
-    def set_object_attr_on_related_object(self) -> None:
-        setattr(self.related_object, self.object_attr, self.object)
-        if self.save_related_object is not True:
-            self.save_related_object = True
-
-    def form_valid_set_view_model_attr_on_related_object(self) -> None:
-        if self.model_attr_empty_on_related_object:
-            self.set_object_attr_on_related_object()
-
-    @property
-    def model_attr_empty_on_related_object(self) -> bool:
-        return (
-            self.related_object
-            and attr_is_in_model_fields(
-                self.object_attr,
-                self.related_object,
-            )
-            and getattr(self.related_object, self.object_attr, None) is None
-        )
-
     def get(self, request, *args, **kwargs):
         """Overwritten to not call get_object()."""
         self.set_forms()
         return self.render_to_response(self.get_context_data())
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        if self.oto_forms or self.req_otos:
-            self.context_onetoones(kwargs=kwargs)
-        if self.medallergy_forms:
-            self.context_medallergys(
-                kwargs=kwargs,
-            )
-        if self.medhistory_forms or self.medhistory_detail_forms:
-            self.context_medhistorys(
-                kwargs=kwargs,
-            )
-        if self.lab_formsets:
-            self.context_labs(kwargs=kwargs)
-        if "patient" not in kwargs and self.user:
-            kwargs["patient"] = self.user
+        if "patient" not in kwargs and self.patient:
+            kwargs["patient"] = self.patient
         kwargs.update({"str_attrs": self.str_attrs})
         return super().get_context_data(**kwargs)
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
-        if self.medallergy_forms:
-            kwargs["medallergys"] = self.medallergy_forms.keys()
-        kwargs.update(
-            {
-                **self.subform_kwargs,
-                "related_object": self.related_object if self.related_object else None,
-            }
-        )
+        kwargs.update({**self.subform_kwargs})
         return kwargs
 
-    def get_http_response_redirect(self) -> HttpResponseRedirect:
-        """Method that returns an HttpResponseRedirect object."""
-        return HttpResponseRedirect(self.object.get_absolute_url())
+    def get_patient_qs(self, pk: str) -> "QuerySet[Patient]":
+        """Returns a QuerySet of Patient objects. Meant to be overwritten by child
+        classes to select_related or prefetch_related objects that can be checked for
+        by the view for redirection to an update, rather than a create, view."""
 
-    def get_object(self, queryset=None) -> Model:
-        if not hasattr(self, "object"):
-            if self.create_view:
-                return self.model()
-            elif self.user:
-                if self.model not in (User, Pseudopatient):
-                    model_name = self.model.__name__.lower()
-                    try:
-                        return getattr(self.user, model_name)
-                    except self.model.DoesNotExist as exc:
-                        raise self.model.DoesNotExist(f"No {self.model.__name__} matching the query") from exc
-                else:
-                    return self.user
-            return super().get_object(queryset)
+        return Patient.objects.filter(pk=pk)
 
     def get_permission_object(self):
-        """Returns the view's object, which will have already been set by dispatch()."""
-        return self.object if not self.create_view else self.user if self.user else None
+        """The view's permission_object is the patient, which is either an attribute
+        of the view's object or derived from the view's patient kwarg."""
+        return self.patient
 
     def get_success_url(self):
-        """Overwritten to take optional next parameter from url"""
+        """Overwritten to take optional next parameter from url, which is used to direct
+        the user to a subsection of the page that was updated (i.e. FlareAid from Flare DetailView)"""
         next_url = self.request.POST.get("next", None)
         if next_url:
             next_url += f"?updated=True&related_object_id=#{self.object_attr}-card"
@@ -392,120 +255,14 @@ class GoutHelperEditMixin:
         else:
             return super().get_success_url() + "?updated=True"
 
-    def dispatch(self, request, *args, **kwargs):
-        """Overwritten to redirect if the user is attempting to create an instance of a model that the intended
-        Pseudopatient already has an instance of and their relationship is a 1to1."""
-        try:
-            self.object = self.get_object()
-        except self.model.DoesNotExist as exc:
-            if self.user:
-                return self.dispatch_redirect_to_user_create_view(request, exc)
-            else:
-                raise exc
-
-        if self.dispatch_anon_view_needs_redirect_to_user_view():
-            return self.dispatch_redirect_to_user_view()
-        elif self.user:
-            if self.dispatch_user_missing_requirements(request):
-                return self.dispatch_redirect_to_user_update_view(request)
-            elif self.dispatch_user_create_view_needs_redirect_to_user_model_update_view():
-                return self.dispatch_redirect_to_user_model_update_view(request)
-        elif self.dispatch_with_related_object_needs_redirect_to_update_view():
-            return self.dispatch_redirect_to_update_view_with_related_object_model_attr(request)
-
-        return super().dispatch(request, *args, **kwargs)
-
-    def dispatch_redirect_to_user_update_view(self, request: "HttpRequest") -> HttpResponseRedirect:
-        messages.error(request, message=f"{self.user} is missing required information.")
-        return HttpResponseRedirect(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.user.pk}))
-
-    def dispatch_user_missing_requirements(self, request: "HttpRequest") -> bool:
-        return False
-
-    def dispatch_user_create_view_needs_redirect_to_user_model_update_view(self) -> bool:
-        return (
-            self.user
-            and self.create_view
-            and self.model_name != "Flare"
-            and self.model.objects.filter(user=self.user).exists()
-        )
-
-    def dispatch_redirect_to_user_create_view(
-        self, request: "HttpRequest", exc: ValidationError
-    ) -> HttpResponseRedirect:
-        messages.error(request, exc.args[0])
-        return HttpResponseRedirect(
-            reverse(f"{self.model_app}:pseudopatient-create", kwargs={"pseudopatient": self.user.pk})
-        )
-
-    def dispatch_redirect_to_user_model_update_view(self, request: "HttpRequest") -> HttpResponseRedirect:
-        messages.error(request, f"{self.user} already has a {self.model_name}. Please update it instead.")
-        return HttpResponseRedirect(
-            reverse(f"{self.model_app}:pseudopatient-update", kwargs={"pseudopatient": self.user.pk})
-        )
-
-    def dispatch_with_related_object_needs_redirect_to_update_view(self) -> bool:
-        return self.related_object and self.create_view and self.related_object_has_model_attr()
-
-    def related_object_has_model_attr(self) -> bool:
-        return self.related_object_model_attr is not None
-
-    @property
-    def related_object_model_attr(self) -> Union["Aids", None]:
-        return getattr(self.related_object, self.model_name.lower(), None)
-
-    def dispatch_redirect_to_update_view_with_related_object_model_attr(
-        self, request: "HttpRequest"
-    ) -> HttpResponseRedirect:
-        messages.error(request, f"{self.related_object} already has a {self.model_name}. Please update it instead.")
-        return HttpResponseRedirect(
-            reverse(
-                f"{self.model_app}:update",
-                kwargs={"pk": self.related_object_model_attr.pk},
-            )
-        )
-
-    def object_has_user_and_is_not_user(self) -> bool:
-        return getattr(self.object, "user", None) and not isinstance(self.object, User)
-
-    def dispatch_anon_view_needs_redirect_to_user_view(self) -> bool:
-        return not self.user and self.object_has_user_and_is_not_user()
-
-    def dispatch_redirect_to_user_view(self) -> HttpResponseRedirect:
-        kwargs = {"pseudopatient": self.object.user.pk}
-        if self.model_name == "Flare":
-            kwargs["pk"] = self.object.pk
-        return HttpResponseRedirect(
-            reverse(
-                f"{self.model_app}:pseudopatient-{'create' if self.create_view else 'update'}",
-                kwargs=kwargs,
-            )
-        )
-
-    @classmethod
-    def get_modelform_model(cls, modelform: ModelForm) -> Model:
-        return modelform._meta.model
-
     @cached_property
     def goutdetail(self) -> bool:
         """Method that returns True if GOUT is in the medhistorys dict."""
         return hasattr(self, "medhistory_detail_forms") and "goutdetail" in self.medhistory_detail_forms.keys()
 
     @cached_property
-    def model_app(self) -> str:
-        return self.model._meta.app_label
-
-    @cached_property
-    def model_name(self) -> str:
-        return self.model.__name__
-
-    @cached_property
-    def model_field_names(self) -> list[str]:
-        return [field.name for field in self.model._meta.get_fields()]
-
-    @cached_property
     def object_attr(self) -> str:
-        return self.object.__class__.__name__.lower() if not isinstance(self.object, Pseudopatient) else "user"
+        return self.object.__class__.__name__.lower()
 
     def post(self, request, *args, **kwargs):
         self.post_init()
@@ -524,279 +281,238 @@ class GoutHelperEditMixin:
         )
 
     def post_forms_valid(self) -> bool:
+        """Overwritten in child classes to validate additional forms and formsets."""
         return self.form.is_valid()
 
     def post_process_forms(self) -> None:
+        """Parent method for child classes to inherit. super() will be called in the child class."""
         self.errors_bool = False
         self.form.save(commit=False)
 
     def post_errors(self) -> Union["HttpResponse", None]:
         self.errors = self.render_errors() if self.errors_bool else None
 
-    def post_get_qs_target(self, post_object: Union["Aids", User]) -> Union["Aids", User]:
-        return self.query_object if isinstance(self.query_object, User) else post_object
-
-    def post_get_ckd(self) -> Union["MedHistory", None]:
-        ckd_form = self.medhistory_forms.get(MedHistoryTypes.CKD, None) if self.medhistory_forms else None
-        if ckd_form:
-            if hasattr(ckd_form, "cleaned_data") and "value" in ckd_form.cleaned_data:
-                return ckd_form.cleaned_data["value"]
-            else:
-                return None
-        else:
-            return (
-                self.query_object.ckd.value if self.query_object and getattr(self.query_object, "ckd", False) else None
-            )
-
-    def get_dateofbirth_form(self) -> Union["DateOfBirthForm", None]:
-        return self.oto_forms.get("dateofbirth", None) if self.oto_forms and not self.user else None
-
-    def get_gender_form(self) -> Union["GenderForm", None]:
-        return self.oto_forms.get("gender", None) if self.oto_forms and not self.user else None
-
-    def post_get_dateofbirth_value(self) -> Union["DateOfBirth", None]:
-        dateofbirth_form = self.get_dateofbirth_form()
-        if dateofbirth_form and hasattr(dateofbirth_form, "cleaned_data") and "value" in dateofbirth_form.cleaned_data:
-            return dateofbirth_form.cleaned_data["value"]
-        else:
-            return (
-                self.query_object.dateofbirth.value
-                if self.query_object and getattr(self.query_object, "dateofbirth", False)
-                else None
-            )
-
-    def post_get_age_value(self) -> int | None:
-        dateofbirth_value = self.post_get_dateofbirth_value()
-        return age_calc(dateofbirth_value) if dateofbirth_value else None
-
-    def post_get_gender_value(self) -> Union["Gender", None]:
-        gender_form = self.get_gender_form()
-        if gender_form and hasattr(gender_form, "cleaned_data") and "value" in gender_form.cleaned_data:
-            return gender_form.cleaned_data["value"]
-        else:
-            return (
-                self.query_object.gender.value
-                if self.query_object and getattr(self.query_object, "gender", False)
-                else None
-            )
-
     @cached_property
-    def query_object(self) -> Union["Aids", User, None]:
-        return self.user if self.user else self.object if not self.create_view else self.related_object
-
-    @cached_property
-    def query_obj_attr(self) -> str:
-        return (
-            self.query_object.__class__.__name__.lower()
-            if self.query_object and not isinstance(self.query_object, User)
-            else "user"
-            if self.query_object
-            else None
-        )
-
-    @cached_property
-    def related_object(self) -> Any:
-        """Meant to defualt to None, but can be overwritten in child views."""
+    def patient(self) -> User | None:
+        """Method that returns the User object from the username kwarg
+        and sets the user attr on the view."""
+        if self.object.patient and not self.object._state.adding:
+            return self.object.patient
+        patient_pk = self.kwargs.get("patient")
+        if patient_pk:
+            return self.get_patient_qs(pk=patient_pk).get()
         return None
-
-    @cached_property
-    def related_objects(self) -> list[Model]:
-        def append_rel_objs_rel_objs(rel_obj: "Aids") -> None:
-            for aid_type in rel_obj.related_models:
-                if hasattr(rel_obj, aid_type):
-                    rel_rel_obj = getattr(rel_obj, aid_type)
-                    if rel_rel_obj and rel_rel_obj != self.object and rel_rel_obj not in rel_obj_list:
-                        rel_obj_list.append(rel_rel_obj)
-
-        rel_obj_list = []
-
-        if self.create_view and not self.user:
-            for aid_type in self.model.related_models:
-                if hasattr(self, aid_type):
-                    rel_obj = getattr(self, aid_type)
-                    if rel_obj:
-                        rel_obj_list.append(rel_obj)
-                        append_rel_objs_rel_objs(rel_obj)
-        elif not self.user:
-            for aid_type in self.object.related_models:
-                if hasattr(self.object, aid_type):
-                    rel_obj = getattr(self.object, aid_type)
-                    if rel_obj:
-                        rel_obj_list.append(rel_obj)
-                        append_rel_objs_rel_objs(rel_obj)
-        return rel_obj_list
-
-    @property
-    def subform_kwargs(self) -> dict[str, Any]:
-        return {
-            "patient": self.user,
-            "request_user": self.request_user,
-            "str_attrs": self.str_attrs,
-        }
-
-    @classmethod
-    def get_related_objects_attrs(cls) -> list[str]:
-        return list_of_possible_related_object_attrs()
-
-    @classmethod
-    def get_related_object_attr(cls, related_object: Any) -> str:
-        return related_object.__class__.__name__.lower()
-
-    @cached_property
-    def related_object_attr(self) -> str:
-        return self.get_related_object_attr(self.related_object) if self.related_object else None
-
-    @cached_property
-    def request_user(self):
-        return self.request.user
 
     def render_errors(self) -> "HttpResponse":
         """Renders forms with errors in multiple locations in post()."""
+        context = self.get_errors_context()
         return self.render_to_response(
             self.get_context_data(
                 form=self.form,
-                **self.oto_forms if self.oto_forms else {},
-                **self.medhistory_forms if self.medhistory_forms else {},
-                **self.medhistory_detail_forms if self.medhistory_detail_forms else {},
-                **self.medallergy_forms if self.medallergy_forms else {},
-                **(
-                    {f"{lab}_formset": lab_tup[0] for lab, lab_tup in self.lab_formsets.items()}
-                    if self.lab_formsets
-                    else {}
-                ),
-                **(
-                    {f"{lab}_formset_helper": lab_tup[1] for lab, lab_tup in self.lab_formsets.items()}
-                    if self.lab_formsets
-                    else {}
-                ),
+                **context,
             )
         )
 
-    def set_errors_bool_True(self) -> None:
-        if not self.errors_bool:
-            self.errors_bool = True
+    def get_errors_context(self) -> dict[str, Any]:
+        """To be overwritten by child classes to add additional forms to the errors context."""
+        return self.get_context_data(form=self.form)
 
     def set_forms(self) -> None:
+        """Method that sets attributes for forms and formsets."""
         self.set_lab_formsets()
         self.set_medallergy_forms()
         self.set_medhistory_forms()
         self.set_medhistory_detail_forms()
         self.set_oto_forms()
-        self.set_req_otos()
 
     def set_lab_formsets(self) -> None:
-        self.lab_formsets = self.LAB_FORMSETS.copy() if hasattr(self, "LAB_FORMSETS") else {}
+        self.lab_formsets = (
+            {lab_formset[0]._meta.model.__class__.__name__.lower(): lab_formset for lab_formset in self.LAB_FORMSETS}
+            if hasattr(self, "LAB_FORMSETS")
+            else {}
+        )
 
     def set_medallergy_forms(self) -> None:
-        self.medallergy_forms = self.MEDALLERGY_FORMS.copy() if hasattr(self, "MEDALLERGY_FORMS") else {}
+        self.medallergy_forms = (
+            {f"medallergy_{treatment}_form": ma_form for treatment, ma_form in self.MEDALLERGY_FORMS.items()}
+            if hasattr(self, "MEDALLERGY_FORMS")
+            else {}
+        )
 
     def set_medhistory_forms(self) -> None:
-        self.medhistory_forms = self.MEDHISTORY_FORMS.copy() if hasattr(self, "MEDHISTORY_FORMS") else {}
+        self.medhistory_forms = (
+            {f"{mhtype}_form": mh_form for mhtype, mh_form in self.MEDHISTORY_FORMS.items()}
+            if hasattr(self, "MEDHISTORY_FORMS")
+            else {}
+        )
 
     def set_medhistory_detail_forms(self) -> None:
         self.medhistory_detail_forms = (
-            self.MEDHISTORY_DETAIL_FORMS.copy() if hasattr(self, "MEDHISTORY_DETAIL_FORMS") else {}
+            {f"{mhdet}": mh_det_form for mhdet, mh_det_form in self.MEDHISTORY_DETAIL_FORMS.items()}
+            if hasattr(self, "MEDHISTORY_DETAIL_FORMS")
+            else {}
         )
 
     def set_oto_forms(self) -> None:
-        oto_forms_without_related_objects = (
-            {key: val for key, val in self.OTO_FORMS.items() if self.onetoone_not_attr_of_related_object(key)}
-            if hasattr(self, "OTO_FORMS")
-            else {}
+        self.oto_forms = (
+            {f"{oto}_form": oto_form for oto, oto_form in self.OTO_FORMS.items()} if hasattr(self, "OTO_FORMS") else {}
         )
-        self.oto_forms = oto_forms_without_related_objects
-
-    def set_req_otos(self) -> None:
-        if not hasattr(self, "req_otos"):
-            self.req_otos = self.REQ_OTOS.copy() if hasattr(self, "REQ_OTOS") else []
-            if self.related_object and hasattr(self, "OTO_FORMS"):
-                for key in self.OTO_FORMS.keys():
-                    if not self.onetoone_not_attr_of_related_object(key):
-                        self.req_otos.append(key)
 
     @cached_property
     def str_attrs(self) -> dict[str, str]:
         """Returns a dict of string attributes to make forms context-sensitive."""
-        return get_str_attrs(self.object if not self.create_view else None, self.user, self.request.user)
+        return get_str_attrs_dict(self.patient, self.request.user)
 
-    @cached_property
-    def user(self) -> User | None:
-        """Method that returns the User object from the username kwarg
-        and sets the user attr on the view."""
-        pseudopatient = self.kwargs.get("pseudopatient", None)
-        if pseudopatient:
-            if hasattr(self, "get_user_queryset"):
-                return self.get_user_queryset(pseudopatient=pseudopatient).get()
-            else:
-                return self.get_queryset().get(id=pseudopatient)
-        else:
-            return None
+    @property
+    def subform_kwargs(self) -> dict[str, Any]:
+        return {
+            "patient": self.patient,
+            "request_user": self.request.user,
+            "str_attrs": self.str_attrs,
+        }
+
+    @staticmethod
+    def validate_form_list(form_list: list[ModelForm]) -> bool:
+        """Method to validate a list of forms.
+
+        Args:
+            form_list: A list of ModelForms to validate.
+
+        Returns:
+            True if all forms are valid, False otherwise."""
+        forms_valid = True
+        for form in form_list:
+            if not form.is_valid():
+                forms_valid = False
+        return forms_valid
+
+    @staticmethod
+    def validate_formset_list(formset_list: list["BaseModelFormSet"]) -> bool:
+        """Method to validate a list of formsets.
+
+            formset_list: A list of BaseModelFormSets to validate.
+
+        Returns:
+            True if all formsets are valid, False otherwise."""
+        formsets_valid = True
+        for formset in formset_list:
+            if not formset.is_valid():
+                formsets_valid = False
+        return formsets_valid
 
 
 class LabFormSetsMixin(GoutHelperEditMixin):
-    def context_labs(
-        self,
-        kwargs: dict,
-    ) -> None:
-        """Method adds a formset of labs to the context. Uses a QuerySet that takes a query_object
-        as an arg to populate existing Lab objects."""
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        """Overwritten to add the lab formsets to the context."""
+
+        context = super().get_context_data(**kwargs)
+
         for lab, lab_tup in self.lab_formsets.items():
-            if f"{lab}_formset" not in kwargs:
-                if self.query_object and self.lab_belongs_to_query_object(lab):
-                    queryset_kwargs = {self.query_obj_attr: self.query_object}
-                else:
-                    lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
-                    if lab_related_onetoone_attr:
-                        queryset_kwargs = {lab_related_onetoone_attr: getattr(self.object, lab_related_onetoone_attr)}
-                    elif self.user:
-                        queryset_kwargs = {"user": self.user}
-                    elif self.lab_belongs_to_object(lab):
-                        queryset_kwargs = {self.object_attr: self.object}
-                    else:
-                        queryset_kwargs = None
-                kwargs[f"{lab}_formset"] = self.populate_a_lab_formset(lab, queryset_kwargs)
-            if f"{lab}_formset_helper" not in kwargs:
-                kwargs[f"{lab}_formset_helper"] = lab_tup[1]
+            self.update_lab_formset_context(
+                context=context,
+                lab=lab,
+                lab_formset=lab_tup[0],
+                lab_formset_helper=lab_tup[1],
+            )
 
-    def form_valid_update_fks_and_related_object(self) -> None:
-        super().form_valid_update_fks_and_related_object()
-        self.form_valid_save_and_delete_labs()
+        return context
 
-    def lab_belongs_to_query_object(self, lab: str) -> bool:
-        return not self.user and self.query_obj_attr in self.lab_formsets[lab][0].model.related_models()
+    def get_errors_context(self) -> dict[str, Any]:
+        """Overwritten to add the lab formsets to the errors context."""
+        context = super().get_errors_context()
+        context.update(
+            {
+                **(
+                    {
+                        # https://stackoverflow.com/questions/23983908/multiple-key-value-pairs-in-dict-comprehension
+                        k: v
+                        for pair in self.lab_formsets.items()
+                        for k, v in zip((f"{pair[0]}_formset", f"{pair[0]}_formset_helper"), pair[1])
+                    }
+                )
+            }
+        )
+        return context
 
-    def lab_belongs_to_object(self, lab: str) -> bool:
-        return self.object_attr in self.lab_formsets[lab][0].model.related_models()
+    def update_lab_formset_context(
+        self,
+        context: dict[str, Any],
+        lab: str,
+        lab_formset: "BaseModelFormSet",
+        lab_formset_helper: "FormHelper",
+    ) -> None:
+        """ "Method that checks if a lab formset is in the context and adds it if it is not.
+        Adds kwargs to the formset to inform the labs' queryset, as the lab may belong to one of
+        the view's models OneToOne fields and not the model itself. Also adds the formset helper
+        to the context if it is not already there."""
 
-    def lab_belongs_to_onetoone(self, lab: str) -> str | None:
+        if f"{lab}_formset" not in context:
+            queryset_kwargs = self.get_lab_formset_queryset_kwargs(lab_formset)
+
+            context[f"{lab}_formset"] = self.get_lab_formset_kwargs(lab, queryset_kwargs)
+
+        if f"{lab}_formset_helper" not in context:
+            context[f"{lab}_formset_helper"] = lab_formset_helper
+
+    def get_lab_formset_queryset_kwargs(
+        self,
+        lab_formset: "BaseModelFormSet",
+    ) -> dict[str, Any] | None:
+        """Method that gets kwargs for a lab formset instance. Returns None if no extra kwargs are needed."""
+
+        # If the lab is a ForeignKey of the view's model
+        # return kwargs to filter the queryset for the model and the view's object
+        # only if the view's object is not being added
+        if self.lab_is_fk(lab_formset.model):
+            return {self.object_attr: self.object} if not self.object._state.adding else {}
+        else:
+            # Otherwise, if the lab is a ForeignKey of one of the view's model's OneToOne related models
+            # return kwargs to filter the queryset for the related model and the instance on the view's object
+            rel_oto = self.lab_is_oto_fk(lab_model=lab_formset.model)
+            if rel_oto:
+                oto_attr = rel_oto.name.lower()
+                rel_oto = getattr(self.object, oto_attr, None) if not self.object._state.adding else None
+                return {oto_attr: rel_oto} if rel_oto else {}
+            # Otherwise, the lab must be a ForeignKey of the User model
+            # return kwargs to filter the queryset for the patient
+            else:
+                return {"patient": self.patient} if self.patient else {}
+
+    def lab_is_fk(self, lab_model: Model) -> bool:
+        """Method that checks if a lab model is a foreign key of the view's model."""
+        return lab_model in get_model_foreignkey_fields(self.model)
+
+    def lab_is_oto_fk(self, lab_model: Model) -> Union["OneToOneField", None]:
+        """Method that checks if a lab model is a foreign key of one of the view's model's
+        one-to-one related models. Returns the one-to-one field if it is."""
         return next(
             iter(
-                [
-                    attr
-                    for attr in self.lab_formsets[lab][0].model.related_models()
-                    if attr in self.oto_forms.keys() and attr in self.model_field_names
-                ]
+                fk
+                for fk in [get_model_foreignkey_fields(field.model) for field in get_model_onetoone_fields(self.model)]
+                if fk.model == lab_model
             ),
             None,
         )
 
-    def lab_oto_belongs_to_query_object(self, oto_attr: str) -> bool:
-        return self.query_obj_attr in self.oto_forms[oto_attr].model.related_models()
+    def from_valid_update_fks(self) -> None:
+        super().from_valid_update_fks()
+        self.form_valid_save_and_delete_labs()
 
     def form_valid_save_and_delete_labs(self) -> None:
         if self.labs_2_save:
             # Modify and remove labs from the object
             for lab in self.labs_2_save:
-                if self.user:
-                    if lab.user is None:
-                        lab.user = self.user
-                # check if the lab has the object_attr in its list of fields
-                elif self.object_attr in lab.related_models():
+                if self.patient:
+                    if lab.patient is None:
+                        lab.patient = self.patient
+                if self.lab_is_fk(lab.__class__):
                     if getattr(lab, self.object_attr, None) is None:
                         setattr(lab, self.object_attr, self.object)
-                lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab.__class__.__name__.lower())
-                if lab_related_onetoone_attr and getattr(lab, lab_related_onetoone_attr, None) is None:
-                    setattr(lab, lab_related_onetoone_attr, getattr(self.object, lab_related_onetoone_attr))
+                else:
+                    rel_oto = self.lab_is_oto_fk(lab.__class__)
+                    oto_attr = rel_oto.name.lower() if rel_oto else None
+                    if oto_attr and getattr(lab, oto_attr, None) is None:
+                        setattr(lab, oto_attr, getattr(self.object, oto_attr))
                 lab.save()
         if self.labs_2_rem:
             for lab in self.labs_2_rem:
@@ -806,12 +522,23 @@ class LabFormSetsMixin(GoutHelperEditMixin):
         super().post_init()
         self.post_populate_lab_formsets()
 
+    def post_populate_lab_formsets(self) -> None:
+        """Method to populate a dict of lab forms with POST data in the post() method."""
+        for lab, lab_tup in self.lab_formsets.items():
+            queryset_kwargs = self.get_lab_formset_queryset_kwargs(lab_tup[0])
+            self.lab_formsets.update(
+                {
+                    lab: (
+                        self.get_lab_formset_kwargs(lab, queryset_kwargs),
+                        lab_tup[1],
+                    )
+                }
+            )
+
     def post_forms_valid(self) -> bool:
         other_forms_valid = super().post_forms_valid()
-        lab_formsets_valid = (
-            validate_formset_list(formset_list=[lab_tup[0] for lab_tup in self.lab_formsets.values()])
-            if self.lab_formsets
-            else True
+        lab_formsets_valid = self.validate_formset_list(
+            formset_list=[lab_tup[0] for lab_tup in self.lab_formsets.values()]
         )
         return other_forms_valid and lab_formsets_valid
 
@@ -819,93 +546,63 @@ class LabFormSetsMixin(GoutHelperEditMixin):
         super().post_process_forms()
         self.post_process_lab_formsets()
 
-    def post_populate_lab_formsets(self) -> None:
-        """Method to populate a dict of lab forms with POST data in the post() method."""
-        for lab, lab_tup in self.lab_formsets.items():
-            if self.query_obj_attr and self.lab_belongs_to_query_object(lab):
-                queryset_kwargs = {self.query_obj_attr: self.query_object}
-            else:
-                lab_related_onetoone_attr = self.lab_belongs_to_onetoone(lab)
-                if lab_related_onetoone_attr and self.lab_belongs_to_object(lab):
-                    queryset_kwargs = (
-                        {lab_related_onetoone_attr: getattr(self.object, lab_related_onetoone_attr)}
-                        if getattr(self.object, lab_related_onetoone_attr, None)
-                        else None
-                    )
-                elif self.user:
-                    queryset_kwargs = {"user": self.user}
-                else:
-                    queryset_kwargs = None
-            self.lab_formsets.update(
-                {
-                    lab: (
-                        self.populate_a_lab_formset(lab, queryset_kwargs),
-                        lab_tup[1],
-                    )
-                }
-            )
-
     def post_process_lab_formsets(self) -> None:
         """Method to process the forms in a Lab formset for the post() method.
         Requires a list of existing labs (can be empty) to iterate over and compare to the forms in the
-        formset to identify labs that need to be removed.
-
-        Args:
-            lab_formset (BaseModelFormSet): A formset of LabForms
-            query_object (Aids | User): The object to which the labs are related
-
-        Returns:
-            tuple[list[Lab], list[Lab]]: A tuple of lists of labs to save and remove"""
+        formset to identify labs that need to be removed or updated."""
 
         def _lab_needs_relation_set(lab: "Lab") -> bool:
-            if self.user:
-                return lab.user is None
-            elif self.object_attr in [lab.related_models()]:
+            if self.lab_is_fk(lab.__class__):
                 return getattr(lab, self.object_attr, None) is None
             else:
-                for related_model in lab.related_models():
-                    if getattr(lab, related_model, None) is None and (
-                        related_model in list(self.req_otos) + list(self.oto_forms.keys())
-                    ):
-                        return True
-                for oto in self.req_otos + list(self.oto_forms.keys()):
-                    if hasattr(lab, oto) and getattr(lab, oto, None) is None:
-                        return True
-                return False
+                if self.lab_is_oto_fk(lab.__class__):
+                    oto_attr = self.lab_is_oto_fk(lab.__class__).name.lower()
+                    return getattr(lab, oto_attr, None) is None
+                else:
+                    return lab.patient is None
 
-        # Assign lists to return
-        post_qs_target = self.post_get_qs_target(self.form.instance)
+        def _lab_qs_object(lab: "Lab") -> Union["Aids", "Aki", Patient, None]:
+            if self.lab_is_fk(lab.__class__):
+                return self.object
+            else:
+                if self.lab_is_oto_fk(lab.__class__):
+                    oto_attr = self.lab_is_oto_fk(lab.__class__).name.lower()
+                    return getattr(self.object, oto_attr, None)
+                else:
+                    return self.patient
+
+        # Set attrs for labs to save and remove
         self.labs_2_save: list["Lab"] = []
         self.labs_2_rem: list["Lab"] = []
 
         if self.lab_formsets:
             for lab_name, lab_tup in self.lab_formsets.items():
-                qs_target_method = getattr(self, f"post_get_{lab_name}_qs_target", None)
-                qs_attr = get_or_create_qs_attr(
-                    qs_target_method(post_qs_target) if qs_target_method else post_qs_target,
-                    lab_name,
-                    self.query_object,
+                qs_object = _lab_qs_object(lab_tup[0].model())
+                qs_attr = (
+                    get_or_create_qs_attr(
+                        qs_object,
+                        lab_name,
+                    )
+                    if qs_object
+                    else None
                 )
                 # Check for and iterate over the existing queryset of labs to catch objects that
                 # are not changed in the formset but NEED to be saved for the view (i.e. to add relations)
                 if qs_attr:
                     cleaned_data = lab_tup[0].cleaned_data
-                    # NOTE: FOR FUTURE SELF: COPY A LIST WHEN ITERATING OVER IT AND ADDING/REMOVING ELEMENTS
-                    for lab in qs_attr.copy():
+                    for lab in qs_attr:
                         for lab_form in cleaned_data:
-                            try:
-                                if lab_form["id"] == lab:
+                            lab_id = lab_form.get("id", None)
+                            if lab_id:
+                                if lab_id == lab:
                                     if not lab_form["DELETE"]:
                                         if _lab_needs_relation_set(lab):
                                             self.labs_2_save.append(lab)
-                                        if lab not in qs_attr:
-                                            qs_attr.append(lab)
                                         break
-                            except KeyError:
+                            else:
                                 pass
                         else:
                             self.labs_2_rem.append(lab)
-                            qs_attr.remove(lab)
                 for form in lab_tup[0]:
                     if form.instance_should_persist and (
                         (form.instance and form.has_changed())
@@ -913,10 +610,8 @@ class LabFormSetsMixin(GoutHelperEditMixin):
                         or _lab_needs_relation_set(form.instance)
                     ):
                         self.labs_2_save.append(form.instance)
-                    if form.instance_should_persist and form.instance not in qs_attr:
-                        qs_attr.append(form.instance)
 
-    def populate_a_lab_formset(
+    def get_lab_formset_kwargs(
         self,
         lab: str,
         queryset_kwargs: dict[str, Any] | None,
@@ -936,295 +631,285 @@ class LabFormSetsMixin(GoutHelperEditMixin):
             **formset_kwargs,
         )
 
-    def post_get_creatinine_qs_target(
-        self,
-        post_object: Union["Aids", User],
-    ) -> Union["Aids", User]:
-        qs_target = getattr(post_object, "aki", None) if post_object else None
-        if not qs_target:
-            qs_target = self.oto_forms["aki"].instance
-        return qs_target
-
-    def post_get_urate_qs_target(
-        self,
-        post_object: Union["Aids", User],
-    ) -> Union["Aids", User]:
-        return post_object
-
 
 class MedAllergyFormMixin(GoutHelperEditMixin):
-    def context_medallergys(
-        self,
-        kwargs: dict,
-    ) -> None:
-        for treatment, medallergy_form in self.medallergy_forms.items():
-            form_str = f"medallergy_{treatment}_form"
-            if form_str not in kwargs:
-                ma_obj = (
-                    next(
-                        iter(
-                            [
-                                ma
-                                for ma in getattr(self.query_object, "medallergys_qs", [])
-                                if ma.treatment == treatment
-                            ]
-                        ),
-                        None,
-                    )
-                    if self.query_object
-                    else None
-                )
-                kwargs[form_str] = (
-                    medallergy_form
-                    if isinstance(medallergy_form, ModelForm)
-                    else medallergy_form(
-                        treatment=treatment,
-                        instance=ma_obj,
-                        initial={
-                            f"medallergy_{treatment}": True if ma_obj else None,
-                            f"{treatment}_matype": ma_obj.matype if ma_obj else None,
-                        },
-                        patient=self.user,
-                        request_user=self.request_user,
-                        str_attrs=self.str_attrs,
-                    )
-                )
+    def get_context_data(self, **kwargs):
+        """Ovewritten to add the medallergy forms to the context."""
 
-    def form_valid_update_fks_and_related_object(self) -> None:
-        super().form_valid_update_fks_and_related_object()
-        self.form_valid_save_medallergys()
-        self.form_valid_delete_medallergys()
+        context = super().get_context_data(**kwargs)
+
+        for treatment, medallergy_form in self.medallergy_forms.items():
+            self.update_ma_form_context(context, treatment, medallergy_form)
+
+        return context
+
+    def get_errors_context(self) -> dict[str, Any]:
+        """Overwritten to add the medallergy forms to the errors context."""
+        context = super().get_errors_context()
+        context.update({**self.medallergy_forms})
+        return context
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        # Pass the medallergy treatments to the form kwargs so the form will render the MedAllergyForms
+        if self.medallergy_forms:
+            kwargs["medallergys"] = self.medallergy_forms.keys()
+        return kwargs
+
+    def update_ma_form_context(
+        self,
+        context: dict[str, Any],
+        treatment: str,
+        ma_form: ModelForm | type[ModelForm],
+    ) -> None:
+        form_str = f"medallergy_{treatment}_form"
+        if form_str not in context:
+            context[form_str] = (
+                ma_form
+                if isinstance(ma_form, ModelForm)
+                else ma_form(
+                    **self.get_ma_form_kwargs(
+                        treatment=treatment,
+                        ma_obj=self.get_ma_obj(treatment),
+                    )
+                )
+            )
+
+    def get_ma_obj(self, treatment: "Treatments") -> Union["MedAllergy", None]:
+        return getattr(self.patient, f"{treatment.lower()}_medallergy", None) if self.patient else None
+
+    @staticmethod
+    def get_ma_form_initial(
+        ma_obj: Union["MedAllergy", None],
+    ) -> dict[str, Any]:
+        return {
+            f"medallergy_{ma_obj.treatment}": ma_obj.value if ma_obj else None,
+            f"{ma_obj.treatment}_matype": ma_obj.matype if ma_obj else None,
+        }
+
+    def get_ma_form_kwargs(self, treatment: "Treatments", ma_obj: Union["MedAllergy", None]) -> dict[str, Any]:
+        kwargs = {
+            "treatment": treatment,
+            "instance": ma_obj,
+            "initial": self.get_ma_form_initial(ma_obj),
+            **self.subform_kwargs,
+        }
+        if self.request.method == "POST":
+            kwargs.update({"data": self.request.POST})
+        return kwargs
 
     def post_init(self) -> None:
         super().post_init()
         self.post_populate_ma_forms()
 
+    def post_populate_ma_forms(self) -> None:
+        """Method to populate the forms for the MedAllergys for the post() method."""
+        for treatment, medallergy_form in self.medallergy_forms.items():
+            self.medallergy_forms.update(
+                {
+                    treatment: medallergy_form(
+                        **self.get_ma_form_kwargs(
+                            treatment=treatment,
+                            ma_obj=self.get_ma_obj(treatment),
+                        )
+                    )
+                }
+            )
+
     def post_forms_valid(self) -> bool:
         other_forms_valid = super().post_forms_valid()
-        ma_forms_valid = (
-            validate_form_list(form_list=self.medallergy_forms.values()) if self.medallergy_forms else True
-        )
+        ma_forms_valid = self.validate_form_list(form_list=self.medallergy_forms.values())
         return other_forms_valid and ma_forms_valid
 
     def post_process_forms(self) -> None:
         super().post_process_forms()
         self.post_process_ma_forms()
 
-    def post_populate_ma_forms(self) -> None:
-        """Method to populate the forms for the MedAllergys for the post() method."""
-        if self.medallergy_forms:
-            for treatment, medallergy_form in self.medallergy_forms.items():
-                ma_obj = (
-                    next(
-                        iter(
-                            [
-                                ma
-                                for ma in getattr(self.query_object, "medallergys_qs", [])
-                                if ma.treatment == treatment
-                            ]
-                        ),
-                        None,
-                    )
-                    if self.query_object
-                    else None
-                )
-                self.medallergy_forms.update(
-                    {
-                        treatment: medallergy_form(
-                            self.request.POST,
-                            treatment=treatment,
-                            instance=ma_obj,
-                            initial={
-                                f"medallergy_{treatment}": True if ma_obj else None,
-                                f"{treatment}_matype": ma_obj.matype if ma_obj else None,
-                            },
-                            patient=self.user,
-                            request_user=self.request_user,
-                            str_attrs=self.str_attrs,
-                        )
-                    }
-                )
-
     def post_process_ma_forms(self) -> None:
-        post_qs_target = self.post_get_qs_target(self.form.instance)
+        """Method to process the forms for the MedAllergys for the post() method."""
+
         self.ma_2_save: list["MedAllergy"] = []
         self.ma_2_rem: list["MedAllergy"] = []
-        get_or_create_qs_attr(post_qs_target, "medallergy")
+
         for treatment, medallergy_form in self.medallergy_forms.items():
             if f"medallergy_{treatment}" in medallergy_form.cleaned_data:
-                ma_obj = (
-                    next(
-                        iter(
-                            [
-                                ma
-                                for ma in getattr(self.query_object, "medallergys_qs", [])
-                                if ma.treatment == treatment
-                            ]
-                        ),
-                        None,
-                    )
-                    if self.query_object
-                    else None
-                )
-                if ma_obj and not medallergy_form.cleaned_data[f"medallergy_{treatment}"]:
+                ma_obj = getattr(self.patient, f"{treatment.lower()}_medallergy", None) if self.patient else None
+                medallergy = medallergy_form.cleaned_data["treatment"]
+                if ma_obj and not medallergy:
                     self.ma_2_rem.append(ma_obj)
-                    getattr(post_qs_target, "medallergys_qs", []).remove(ma_obj)
-                else:
-                    if medallergy_form.cleaned_data[f"medallergy_{treatment}"]:
-                        # If there is already an instance, it will not have changed so it doesn't need to be changed
-                        if not ma_obj:
-                            ma = medallergy_form.save(commit=False)
-                            # Assign MedAllergy object treatment attr from the cleaned_data["treatment"]
-                            ma.treatment = medallergy_form.cleaned_data["treatment"]
-                            ma.matype = medallergy_form.cleaned_data.get(f"{treatment}_matype", None)
-                            self.ma_2_save.append(ma)
-                            # Add the medallergy to the form instance's medallergys_qs if it's not already there
-                            if ma not in getattr(post_qs_target, "medallergys_qs", []):
-                                getattr(post_qs_target, "medallergys_qs", []).append(ma)
-                        else:
-                            if ma_obj.matype != medallergy_form.cleaned_data[f"{treatment}_matype"]:
-                                ma_obj.matype = medallergy_form.cleaned_data[f"{treatment}_matype"]
-                                self.ma_2_save.append(ma_obj)
-                            # Add the medallergy to the form instance's medallergys_qs if it's not already there
-                            if ma_obj not in getattr(post_qs_target, "medallergys_qs", []):
-                                getattr(post_qs_target, "medallergys_qs", []).append(ma_obj)
+                elif medallergy:
+                    matype = medallergy_form.cleaned_data.get(f"{treatment}_matype", None)
+                    if not ma_obj:
+                        ma = medallergy_form.save(commit=False)
+                        # MedAllergy fields need to be specified for the type of allergy
+                        ma.treatment = medallergy
+                        ma.matype = matype
+                        self.ma_2_save.append(ma)
+                    # MedAllergy type could potentially change during an update (i.e. to/from hypersensitivity)
+                    elif matype and ma_obj.matype != matype:
+                        ma_obj.matype = matype
+                        self.ma_2_save.append(ma_obj)
+
+    def from_valid_update_fks(self) -> None:
+        super().from_valid_update_fks()
+        self.form_valid_save_medallergys()
+        self.form_valid_delete_medallergys()
 
     def form_valid_save_medallergys(self) -> None:
-        if self.ma_2_save:
-            for ma in self.ma_2_save:
-                if self.user:
-                    if ma.user is None:
-                        ma.user = self.user
-                else:
-                    if getattr(ma, self.object_attr, None) is None:
-                        setattr(ma, self.object_attr, self.object)
-                ma.save()
+        for ma in self.ma_2_save:
+            if ma.patient is None:
+                ma.patient = self.patient
+            ma.full_clean()
+            ma.save()
 
     def form_valid_delete_medallergys(self) -> None:
-        if self.ma_2_rem:
-            for ma in self.ma_2_rem:
-                ma.delete()
+        for ma in self.ma_2_rem:
+            ma.delete()
 
 
 class MedHistoryFormMixin(GoutHelperEditMixin):
-    @classmethod
-    def add_mh_to_qs(cls, mh: "MedHistory", qs: list["MedHistory"], check: bool = True) -> None:
-        """Method to add a MedHistory to a list of MedHistories."""
-        if not check or mh not in qs:
-            qs.append(mh)
+    def get_context_data(self, **kwargs):
+        """Overwritten to add MedHistory and MedHistoryDetail forms to the context."""
 
-    def context_medhistorys(
+        context = super().get_context_data(**kwargs)
+
+        # Need to check for MedHistory forms because some views will have just MedHistory Details
+        if self.medhistory_forms:
+            for mhtype, mh_form in self.medhistory_forms.items():
+                self.update_mh_form_context(context=context, mhtype=mhtype, mh_form=mh_form)
+
+        # Need to check for MedHistoryDetail forms because some views will have just MedHistorys
+        if self.medhistory_detail_forms:
+            for mhdet, mhdet_form in self.medhistory_detail_forms.items():
+                self.update_mhdet_form_context(context=context, mhdet=mhdet, mhdet_form=mhdet_form)
+
+        return context
+
+    def update_mh_form_context(
         self,
-        kwargs: dict,
+        context: dict[str, Any],
+        mhtype: str,
+        mh_form: ModelForm | type[ModelForm],
     ) -> None:
-        """Method that iterates over the medhistorys dict and adds the forms to the context."""
-        for mhtype, mh_form in self.medhistory_forms.items():
-            form_str = f"{mhtype}_form"
-            if form_str not in kwargs:
-                mh_obj = self.get_mh_obj(mhtype)
-                if mhtype == MedHistoryTypes.CKD:
-                    extra_kwargs = {"ckddetail": self.ckddetail, "sub-form": True}
-                    self.ckddetail_mh_context(
-                        kwargs=kwargs,
-                        mh_obj=mh_obj,
-                    )
-                elif mhtype == MedHistoryTypes.GOUT:
-                    extra_kwargs = {"goutdetail": self.goutdetail, "sub-form": True}
-                    if self.goutdetail:
-                        try:
-                            self.goutdetail_mh_context(kwargs=kwargs, mh_obj=mh_obj)
-                        except Continue:
-                            continue
-                        kwargs[form_str] = (
-                            mh_form
-                            if isinstance(mh_form, ModelForm)
-                            else mh_form(
-                                instance=mh_obj,
-                                initial={f"{mhtype}-value": True},
-                                **self.subform_kwargs,
-                                **extra_kwargs,
-                            )
-                        )
-                        continue
-                else:
-                    extra_kwargs = {}
-                kwargs[form_str] = (
-                    mh_form
-                    if isinstance(mh_form, ModelForm)
-                    else mh_form(
-                        instance=mh_obj,
-                        initial=self.get_mh_initial(mhtype, mh_obj),
-                        **self.subform_kwargs,
-                        **extra_kwargs,
-                    )
-                )
+        """Method to update the context with a MedHistory form and its related
+        MedHistoryDetail form as needed."""
 
-    def ckddetail_mh_context(
-        self,
-        kwargs: dict[str, Any],
-        mh_obj: Union["MedHistory", None] = None,
-    ) -> None:
-        """Method that populates the context dictionary with the CkdDetailForm."""
-        if self.ckddetail:
-            if "ckddetail_form" not in kwargs:
-                ckddetail_i = getattr(mh_obj, "ckddetail", None) if mh_obj else None
-                ckddetail_form = self.medhistory_detail_forms["ckddetail"]
-                kwargs["ckddetail_form"] = (
-                    ckddetail_form
-                    if isinstance(ckddetail_form, ModelForm)
-                    else ckddetail_form(
-                        instance=ckddetail_i,
-                        **self.subform_kwargs,
-                    )
-                )
-            if "baselinecreatinine_form" not in kwargs:
-                bc_i = getattr(mh_obj, "baselinecreatinine", None) if mh_obj else None
-                bc_form = self.medhistory_detail_forms["baselinecreatinine"]
-                kwargs["baselinecreatinine_form"] = (
-                    bc_form
-                    if isinstance(bc_form, ModelForm)
-                    else bc_form(
-                        instance=bc_i,
-                        **self.subform_kwargs,
-                    )
-                )
-
-    def form_valid_update_fks_and_related_object(self) -> None:
-        super().form_valid_update_fks_and_related_object()
-        self.form_valid_save_medhistorys()
-        self.form_valid_save_medhistory_details()
-        self.form_valid_delete_medhistorys()
-        self.form_valid_delete_medhistory_details()
-
-    def goutdetail_mh_context(
-        self,
-        kwargs: dict[str, Any],
-        mh_obj: Union["MedHistory", User, None] = None,
-    ) -> None:
-        """Method that adds the GoutDetailForm to the context."""
-        if "goutdetail_form" not in kwargs:
-            goutdetail_i = getattr(mh_obj, "goutdetail", None) if mh_obj else None
-            goutdetail_form = self.medhistory_detail_forms["goutdetail"]
-            kwargs["goutdetail_form"] = (
-                goutdetail_form
-                if isinstance(goutdetail_form, ModelForm)
-                else goutdetail_form(
-                    instance=goutdetail_i,
-                    **self.subform_kwargs,
-                )
+        form_str = f"{mhtype}_form"
+        # Add the MedHistory form to the context if it is not already there
+        if form_str not in context:
+            context[form_str] = (
+                mh_form
+                # If the form is already an instance, it is being re-rendered with errors
+                if isinstance(mh_form, ModelForm)
+                else mh_form(**self.get_mh_form_kwargs(mhtype=mhtype, context=context))
             )
-            if hasattr(mh_obj, "user") and mh_obj.user:
-                raise Continue
+
+    def get_mh_form_kwargs(
+        self,
+        mhtype: MedHistoryTypes,
+    ) -> dict[str, Any]:
+        """Returns a dict of kwargs for the MedHistory form.
+        Also updates context with the MedHistoryDetail form if needed."""
+
+        mh_obj = getattr(self.patient, mhtype, None) if self.patient else None
+        mh_kwargs = {}
+        if self.request.method == "POST":
+            mh_kwargs.update({"data": self.request.POST})
+        # Check for the MedHistoryType's related MedHistoryDetail
+        mh_det = f"{mhtype.lower()}detail"
+        # Check if the MedHistoryType has a detail attr set on the view
+        mh_det_attr = getattr(self, mh_det, False)
+        # If so, there is a MedHistoryDetail form to render
+        if mh_det_attr:
+            mh_kwargs.update(
+                {
+                    mh_det: mh_det_attr,
+                    # The sub_form kwarg indicates to the MedHistoryForm that there is an
+                    # embedded MedHistoryDetail form to render
+                    "sub_form": True,
+                }
+            )
+        return {
+            "instance": mh_obj,
+            "initial": {f"{mhtype}-value": mh_obj.value} if mh_obj else None,
+            **self.subform_kwargs,
+            **mh_kwargs,
+        }
+
+    def update_mhdet_form_context(
+        self,
+        context: dict[str, Any],
+        mhdet: str,
+        mhdet_form: ModelForm | type[ModelForm],
+    ) -> None:
+        """Method to update the context with a MedHistoryDetail form."""
+
+        form_str = f"{mhdet}_form"
+        if form_str not in context:
+            context[form_str] = (
+                mhdet_form
+                if isinstance(mhdet_form, ModelForm)
+                else mhdet_form(**self.get_mhdet_form_kwargs(mhdet=mhdet))
+            )
+
+    def get_mhdet_form_kwargs(
+        self,
+        mhdet: Literal["baselinecreatinine", "ckddetail", "goutdetail"],
+    ) -> dict[str, Any]:
+        instance = getattr(self.patient, mhdet, None) if self.patient else None
+        kwargs = {
+            "instance": instance,
+            **self.subform_kwargs,
+        }
+        if self.request.method == "POST":
+            kwargs.update({"data": self.request.POST})
+        return kwargs
+
+    def get_errors_context(self) -> dict[str, Any]:
+        """Overwritten to add the MedHistory and MedHistoryDetail forms to the errors context."""
+        context = super().get_errors_context()
+        if self.medhistory_forms:
+            context.update({**self.medhistory_forms})
+        if self.medhistory_detail_forms:
+            context.update({**self.medhistory_detail_forms})
+        return context
 
     def post_init(self) -> None:
         super().post_init()
-        self.post_populate_mh_forms()
+        if self.medhistory_forms:
+            self.post_populate_mh_forms()
+        if self.medhistory_detail_forms:
+            self.post_populate_mhdet_forms()
+
+    def post_populate_mh_forms(self) -> None:
+        """Populates forms for MedHistory and MedHistoryDetail objects in post() method."""
+
+        for mhtype, mh_form in self.medhistory_forms.items():
+            self.medhistory_forms.update(
+                {
+                    mhtype: mh_form(
+                        **self.get_mh_form_kwargs(mhtype=mhtype),
+                    )
+                }
+            )
+
+    def post_populate_mhdet_forms(self) -> None:
+        """Populates forms for MedHistoryDetail objects in post() method."""
+
+        for mhdet, mhdet_form in self.medhistory_detail_forms.items():
+            self.medhistory_detail_forms.update(
+                {
+                    mhdet: mhdet_form(
+                        **self.get_mhdet_form_kwargs(mhdet=mhdet),
+                    )
+                }
+            )
 
     def post_forms_valid(self) -> bool:
         other_forms_valid = super().post_forms_valid()
-        mh_forms_valid = self.validate_medhistory_form_list() if self.medhistory_forms else True
+        mh_forms_valid = self.validate_form_list(self.medhistory_forms) if self.medhistory_forms else True
         mh_det_forms_valid = (
-            validate_form_list(form_list=self.medhistory_detail_forms.values())
+            self.validate_form_list(form_list=self.medhistory_detail_forms.values())
             if self.medhistory_detail_forms
             else True
         )
@@ -1233,159 +918,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
     def post_process_forms(self) -> None:
         super().post_process_forms()
         self.post_process_mh_forms()
-
-    def post_populate_mh_forms(self) -> None:
-        """Populates forms for MedHistory and MedHistoryDetail objects in post() method."""
-        if self.medhistory_forms:
-            for mhtype, mh_form in self.medhistory_forms.items():
-                mh_obj = self.get_mh_obj(mhtype)
-                form_kwargs = {"patient": self.user, "request_user": self.request_user, "str_attrs": self.str_attrs}
-                if mhtype == MedHistoryTypes.CKD:
-                    extra_kwargs = {"ckddetail": self.ckddetail, "sub-form": True}
-                    if self.ckddetail:
-                        self.ckddetail_mh_post_pop(ckd=mh_obj)
-                elif mhtype == MedHistoryTypes.GOUT:
-                    extra_kwargs = {"goutdetail": self.goutdetail, "sub-form": True}
-                    if self.goutdetail:
-                        try:
-                            self.goutdetail_mh_post_pop(gout=mh_obj)
-                        except Continue:
-                            continue
-                        self.medhistory_forms.update(
-                            {
-                                mhtype: mh_form(
-                                    self.request.POST,
-                                    instance=(
-                                        mh_obj if mh_obj else self.get_modelform_model(self.medhistory_forms[mhtype])()
-                                    ),
-                                    initial={f"{mhtype}-value": True},
-                                    **form_kwargs,
-                                    **extra_kwargs,
-                                )
-                            }
-                        )
-                        continue
-                else:
-                    extra_kwargs = {}
-                self.medhistory_forms.update(
-                    {
-                        mhtype: mh_form(
-                            self.request.POST,
-                            instance=(mh_obj if mh_obj else self.get_modelform_model(self.medhistory_forms[mhtype])()),
-                            initial=({f"{mhtype}-value": self.get_mh_initial(mhtype, mh_obj)}),
-                            **form_kwargs,
-                            **extra_kwargs,
-                        )
-                    }
-                )
-
-    def ckddetail_mh_post_pop(
-        self,
-        ckd: Union["MedHistory", None],
-    ) -> None:
-        """Method that updates the CkdDetail and BaselineCreatinine forms in the post() method."""
-        if ckd:
-            ckddetail = getattr(ckd, "ckddetail", None)
-            bc = getattr(ckd, "baselinecreatinine", None)
-        else:
-            ckddetail = CkdDetail()
-            bc = BaselineCreatinine()
-        self.medhistory_detail_forms.update(
-            {
-                "ckddetail": self.medhistory_detail_forms["ckddetail"](
-                    self.request.POST,
-                    instance=ckddetail,
-                    **self.subform_kwargs,
-                )
-            }
-        )
-        self.medhistory_detail_forms.update(
-            {
-                "baselinecreatinine": self.medhistory_detail_forms["baselinecreatinine"](
-                    self.request.POST, instance=bc, **self.subform_kwargs
-                )
-            }
-        )
-
-    def goutdetail_mh_post_pop(
-        self,
-        gout: Union["MedHistory", None],
-    ) -> None:
-        """Method that adds the GoutDetailForm to the mh_det_forms dict."""
-        if gout:
-            gd = getattr(gout, "goutdetail", None)
-        else:
-            gd = GoutDetail()
-        self.medhistory_detail_forms.update(
-            {
-                "goutdetail": self.medhistory_detail_forms["goutdetail"](
-                    self.request.POST,
-                    instance=gd,
-                    **self.subform_kwargs,
-                )
-            }
-        )
-        if gout and hasattr(gout, "user") and gout.user:
-            raise Continue
-
-    def get_mh_obj(self, mhtype: MedHistoryTypes) -> Union["MedHistory", None]:
-        if self.user:
-            return (
-                medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None)
-                if self.query_object
-                else None
-            )
-        elif self.query_object and mhtype in self.query_object.aid_medhistorys():
-            return (
-                medhistorys_get(self.query_object.medhistorys_qs, mhtype, null_return=None)
-                if self.query_object
-                else None
-            )
-        else:
-            return next(
-                iter(
-                    medhistorys_get(rel_obj.medhistorys_qs, mhtype, null_return=None)
-                    for rel_obj in self.related_objects
-                    if mhtype in rel_obj.aid_medhistorys()
-                ),
-                None,
-            )
-
-    def default_get_mh_initial_value(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> bool:
-        return (
-            True
-            if mh_obj
-            else (
-                False
-                if (
-                    self.medhistory_crossref_with_related_objects_required
-                    and self.mhtypes_aids.mhtype_in_related_object_aid(mhtype=mhtype)
-                )
-                or not self.create_view
-                else None
-            )
-        )
-
-    def get_mh_initial(self, mhtype: MedHistoryTypes, mh_obj: "MedHistory") -> dict[str, Any]:
-        if hasattr(self, f"get_{mhtype}_initial_value"):
-            return {f"{mhtype}-value": getattr(self, f"get_{mhtype}_initial_value")(mh_obj)}
-        else:
-            return {f"{mhtype}-value": (self.default_get_mh_initial_value(mhtype, mh_obj))}
-
-    @cached_property
-    def mhtypes_aids(self) -> MedHistoryTypesAids:
-        return MedHistoryTypesAids(
-            mhtypes=list(self.medhistory_forms.keys()),
-            related_object=(self.object_to_crossref_medhistorys_with),
-        )
-
-    @property
-    def medhistory_crossref_with_related_objects_required(self) -> bool:
-        return self.create_view and (self.object_to_crossref_medhistorys_with)
-
-    @property
-    def object_to_crossref_medhistorys_with(self) -> Union["Aids", User, None]:
-        return self.user if self.user else self.related_object if self.related_object else None
+        self.post_process_mhdet_forms()
 
     def post_process_mh_forms(
         self,
@@ -1393,22 +926,17 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
         list["MedHistory"],
         list["MedHistory"],
         list["CkdDetailForm", BaselineCreatinine, "GoutDetailForm"],
-        list[CkdDetail, BaselineCreatinine, None],
+        list[CkdDetail, BaselineCreatinine, GoutDetail],
     ]:
-        post_qs_target = self.post_get_qs_target(self.form.instance)
+        """Method that processes the MedHistory forms in the post() method."""
+
         self.mhs_2_save: list["MedHistory"] = []
         self.mhs_2_remove: list["MedHistory"] = []
-        self.mhdets_2_save: list["CkdDetailForm" | BaselineCreatinine] = []
-        self.mhdets_2_remove: list[CkdDetail | BaselineCreatinine | None] = []
+
         # Create medhistory_qs attribute on the form instance if it doesn't exist
-        get_or_create_qs_attr(post_qs_target, "medhistory")
+        # TODO: several deprecated methods commented out for linter to allow commit
+        # get_or_create_qs_attr(post_qs_target, "medhistory")
         for mhtype, mh_form in self.medhistory_forms.items():
-            if not isinstance(mh_form, ModelForm):
-                self.post_process_medhistory_detail(
-                    mhtype=mhtype,
-                    medhistory=getattr(self.query_object, mhtype.lower(), None),
-                )
-                continue
             mh_obj = self.get_mh_obj(mhtype)
             if self.get_mh_cleaned_value(mhtype, mh_form.cleaned_data):
                 if mh_obj:
@@ -1423,25 +951,23 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
                 else:
                     mh_obj = mh_form.save(commit=False)
                     self.add_mh_to_qs(mh=mh_obj, qs=self.mhs_2_save)
-                self.add_mh_to_qs(mh=mh_obj, qs=post_qs_target.medhistorys_qs)
+                # self.add_mh_to_qs(mh=mh_obj, qs=post_qs_target.medhistorys_qs)
                 if self.related_object:
                     self.add_mh_to_qs(mh=mh_obj, qs=self.related_object.medhistorys_qs)
                 self.post_process_medhistory_detail(mhtype, mh_obj)
             elif mh_obj:
                 self.mhs_2_remove.append(mh_obj)
-                self.post_remove_mh_from_medhistorys_qs(post_qs_target, mh_obj)
+                # self.post_remove_mh_from_medhistorys_qs(post_qs_target, mh_obj)
 
-    def medhistory_needs_object_attr_update_for_any_related_object(self, mh: "MedHistory") -> bool:
-        return any(
-            [
-                self.medhistory_needs_object_attr_update(
-                    mh=mh,
-                    object=related_object,
-                    object_attr=related_object.__class__.__name__.lower(),
-                )
-                for related_object in self.related_objects
-            ]
-        )
+    def post_process_mhdet_forms(self) -> None:
+        """Method that processes the MedHistoryDetail forms in the post() method."""
+
+        self.mhdets_2_save: list["CkdDetailForm" | BaselineCreatinine | "GoutDetailForm"] = []
+        self.mhdets_2_remove: list[CkdDetail | BaselineCreatinine | GoutDetail] = []
+
+        for mhdet_form in self.medhistory_detail_forms.values():
+            if mhdet_form.has_changed or not mhdet_form.instance:
+                self.post_process_medhistory_detail(mhdet_form.instance.mhtype, mhdet_form.instance)
 
     def post_process_medhistory_detail(self, mhtype: MedHistoryTypes, medhistory: Union["MedHistory", None]) -> None:
         if mhtype == MedHistoryTypes.GOUT and self.goutdetail:
@@ -1456,7 +982,7 @@ class MedHistoryFormMixin(GoutHelperEditMixin):
     def post_process_menopause(self) -> None:
         gender = self.post_get_gender_value()
         if gender == Genders.FEMALE:
-            ckd = self.post_get_ckd()
+            ckd = self.medhistory_forms.get(MedHistoryTypes.CKD).value
             age = self.post_get_age_value()
             if not age and not ckd:
                 dateofbirth_error = ValidationError(
@@ -1554,6 +1080,13 @@ menopause status to evaluate their flare."
         else:
             self.query_object.medhistorys_qs.remove(mh_obj)
 
+    def from_valid_update_fks(self) -> None:
+        super().from_valid_update_fks()
+        self.form_valid_save_medhistorys()
+        self.form_valid_save_medhistory_details()
+        self.form_valid_delete_medhistorys()
+        self.form_valid_delete_medhistory_details()
+
     def form_valid_update_mh_det_mh(self, mh: "MedHistory", commit: bool = True) -> None:
         """Checks if the MedHistory object has a MedHistoryDetail that needs to be saved and adjusts the set_date to
         timezone.now(), also checks if a MedHistoryDetail object that is going to be saved has a MedHistory object
@@ -1626,22 +1159,6 @@ menopause status to evaluate their flare."
                 self.form_valid_update_mh_det_mh(
                     mh_det.instance.medhistory if isinstance(mh_det, ModelForm) else mh_det.medhistory,
                 )
-                self.form_valid_update_fks_and_related_object_medhistorydetail(
-                    mh_det.instance if isinstance(mh_det, ModelForm) else mh_det
-                )
-
-    def form_valid_update_fks_and_related_object_medhistorydetail(
-        self, mh_detail: Union["CkdDetail", "GoutDetail"]
-    ) -> None:
-        for related_object in self.related_objects:
-            medhistory_attr = f"{mh_detail.medhistory.medhistorytype.lower()}"
-            if medhistory_attr in related_object.aid_medhistorys():
-                medhistorydetail_attr = f"{mh_detail.__class__.__name__.lower()}"
-                related_object_medhistory = getattr(related_object, medhistory_attr, None)
-                # These are 100% necessary because of the cached_property decorator-the related medhistory (CKD, Gout)
-                # references the now oudated medhistorydetail object (CKDDetail, GoutDetail)
-                setattr(related_object_medhistory, medhistorydetail_attr, mh_detail)
-                setattr(related_object, medhistorydetail_attr, mh_detail)
 
     def form_valid_delete_medhistorys(self) -> None:
         if self.mhs_2_remove:
@@ -1686,53 +1203,64 @@ menopause status to evaluate their flare."
                 setattr(related_object_medhistory, medhistorydetail_attr, None)
                 setattr(related_object, medhistorydetail_attr, None)
 
-    def validate_medhistory_form_list(self) -> bool:
-        forms_valid = True
-        for form in self.medhistory_forms.values():
-            if not isinstance(form, ModelForm):
-                continue
-            elif not form.is_valid():
-                forms_valid = False
-        return forms_valid
-
 
 class OneToOneFormMixin(GoutHelperEditMixin):
     request: "HttpRequest"
 
-    @property
-    def user_has_required_otos(self) -> bool:
-        if not hasattr(self, "req_otos"):
-            self.set_req_otos()
-        return all(hasattr(self.user, onetoone) for onetoone in self.req_otos)
+    def get_context_data(self, **kwargs):
+        """Overwritten to add OneToOne forms to the context."""
 
-    def context_onetoones(
-        self,
-        kwargs: dict,
-    ) -> None:
+        context = super().get_context_data(**kwargs)
+
         for onetoone, oto_form in self.oto_forms.items():
-            if self.related_object and getattr(self.related_object, onetoone, None) and onetoone not in kwargs:
-                self.context_update_onetoone(onetoone, kwargs)
-            else:
-                form_str = f"{onetoone}_form"
-                oto_obj = self.get_oto_obj(onetoone) if self.query_object else None
-                if form_str not in kwargs:
-                    if isinstance(oto_form, ModelForm):
-                        kwargs[form_str] = oto_form
-                    else:
-                        onetoone_form_kwargs = {
-                            "instance": oto_obj if oto_obj else oto_form._meta.model(),
-                            "patient": self.user,
-                            "request_user": self.request_user,
-                            "str_attrs": self.str_attrs,
-                        }
-                        onetoone_form_kwargs.update({"initial": self.get_onetoone_initial(onetoone)})
-                        kwargs[form_str] = oto_form(**onetoone_form_kwargs)
-        for onetoone in self.req_otos:
-            if onetoone not in kwargs:
-                self.context_update_onetoone(onetoone, kwargs)
+            self.update_oto_form_context(context=context, onetoone=onetoone, oto_form=oto_form, query_obj=self.object)
 
-    def context_update_onetoone(self, onetoone: str, kwargs: dict) -> None:
-        kwargs.update({"age" if onetoone == "dateofbirth" else onetoone: self.get_onetoone_value(onetoone)})
+        for onetoone, oto_form in self.patient_oto_forms.items():
+            self.update_oto_form_context(
+                context=context, onetoone=onetoone, oto_form=oto_form, query_obj=self.patient if self.patient else None
+            )
+
+        return context
+
+    def get_errors_context(self) -> dict[str, Any]:
+        """Overwritten to add the OneToOne forms to the errors context."""
+        context = super().get_errors_context()
+        context.update(
+            {
+                **self.oto_forms,
+                **self.patient_oto_forms,
+            }
+        )
+        return context
+
+    def update_oto_form_context(
+        self,
+        context: dict[str, Any],
+        onetoone: str,
+        oto_form: ModelForm | type[ModelForm],
+        query_obj: Model | None,
+    ) -> None:
+        """Method to update the context with a OneToOne form."""
+        # When rendering errors, the ModelForm will already be an instance
+        # and should be rendereda as such, containing errors.
+        form_str = f"{onetoone}_form"
+        if form_str not in context:
+            if isinstance(oto_form, ModelForm):
+                context[form_str] = oto_form
+            # Otherwise, an instance needs to be created
+            else:
+                oto_obj = getattr(query_obj, onetoone, None) if query_obj else None
+                context[form_str] = oto_form(
+                    **{
+                        "instance": oto_obj if oto_obj else oto_form._meta.model(),
+                        "patient": self.patient,
+                        "request_user": self.request.user,
+                        "str_attrs": self.str_attrs,
+                        "initial": (
+                            getattr(query_obj, onetoone, None) if query_obj and not query_obj._state.adding else None
+                        ),
+                    }
+                )
 
     def dispatch_user_missing_requirements(self, request: "HttpRequest") -> bool:
         return not self.user_has_required_otos or super().dispatch_user_missing_requirements(request)
@@ -1776,43 +1304,6 @@ class OneToOneFormMixin(GoutHelperEditMixin):
             ):
                 setattr(self.form.instance, oto_attr, related_object_oto)
 
-    def get_onetoone_initial(self, onetoone: str) -> dict[str, Any]:
-        if hasattr(self, f"get_{onetoone}_initial"):
-            return getattr(self, f"get_{onetoone}_initial")()
-        else:
-            return {"value": self.get_onetoone_value(onetoone)}
-
-    def get_onetoone_value(
-        self,
-        onetoone: str,
-    ) -> Any | None:
-        if hasattr(self, f"get_{onetoone}_value"):
-            return getattr(self, f"get_{onetoone}_value")()
-        else:
-            onetoone_object = getattr(self.query_object, onetoone, None) if self.query_object else None
-            return onetoone_object.value if onetoone_object else None
-
-    def get_dateofbirth(self) -> Union["DateOfBirth", None]:
-        return getattr(self.query_object, "dateofbirth", None)
-
-    def get_dateofbirth_value(self) -> int:
-        dateofbirth = self.get_dateofbirth()
-        return age_calc(dateofbirth.value) if dateofbirth else None
-
-    def get_gender(self) -> Union["Gender", None]:
-        return getattr(self.query_object, "gender", None)
-
-    def get_gender_value(self) -> Genders | None:
-        gender = self.get_gender()
-        return gender.value if gender else None
-
-    @cached_property
-    def str_attrs(self) -> dict[str, str]:
-        """Returns a dict of string attributes to make forms context-sensitive."""
-        return get_str_attrs(
-            self.object if not self.create_view else self.get_gender_value(), self.user, self.request.user
-        )
-
     @cached_property
     def aki(self) -> Union["Aki", None]:
         return self.get_aki()
@@ -1845,7 +1336,7 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                 oto_form_kwargs = {
                     "instance": oto_obj if oto_obj else oto_form._meta.model(),
                     "patient": self.user,
-                    "request_user": self.request_user,
+                    "request_user": self.request.user,
                     "str_attrs": self.str_attrs,
                 }
                 oto_form_kwargs.update({"initial": self.get_onetoone_initial(onetoone=onetoone)})
@@ -1871,8 +1362,17 @@ class OneToOneFormMixin(GoutHelperEditMixin):
 
     def post_forms_valid(self) -> bool:
         other_forms_valid = super().post_forms_valid()
-        oto_forms_valid = validate_form_list(form_list=self.oto_forms.values()) if self.oto_forms else True
+        oto_forms_valid = self.validate_form_list(form_list=self.oto_forms.values()) if self.oto_forms else True
         return other_forms_valid and oto_forms_valid
+
+    def post_get_dateofbirth_value(self) -> Union["date", None]:
+        return self.oto_forms["dateofbirth"].cleaned_data["value"]
+
+    def post_get_age_value(self) -> int | None:
+        return age_calc(self.post_get_dateofbirth_value())
+
+    def post_get_gender_value(self) -> Union["Gender", None]:
+        return self.oto_forms["gender"].cleaned_data["value"]
 
     def post_process_forms(self) -> None:
         super().post_process_forms()
@@ -1905,10 +1405,34 @@ class OneToOneFormMixin(GoutHelperEditMixin):
                     self.oto_2_rem.append(oto_form.instance)
 
 
-class GoutHelperUserDetailMixin(PatientSessionMixin):
-    @cached_property
-    def user(self) -> User | None:
-        return self.object if isinstance(self.object, User) else getattr(self.object, "user", None)
+class GoutHelperCreateView(
+    GoutHelperEditMixin,
+    CreateView,
+):
+    def dispatch(self, request, *args, **kwargs):
+        """Overwritten to redirect if the user is attempting to create an instance of a model that the intended
+        Pseudopatient already has an instance of and their relationship is a 1to1."""
+
+        if self.patient_has_model_to_be_created:
+            return self.dispatch_redirect_to_update_view()
+
+        return super().dispatch(request, *args, **kwargs)
+
+    @property
+    def patient_has_model_to_be_created(self) -> bool:
+        """Checks if the patient has an instance of the model to be created.
+        It will have been fetched and set by the get_patient_qs() method."""
+
+        return hasattr(self.patient, self.model.__name__.lower())
+
+    def dispatch_redirect_to_update_view(self, request: "HttpRequest") -> HttpResponseRedirect:
+        messages.error(request, f"{self.patient} already has a {self.model.__name__}. Please update it instead.")
+        return HttpResponseRedirect(
+            reverse(
+                f"{self.model._meta.app_label}:update",
+                kwargs={"pk": self.object.pk},
+            )
+        )
 
 
 class GoutHelperUserEditMixin(
@@ -1934,7 +1458,7 @@ class GoutHelperUserEditMixin(
     def form_valid(self, **kwargs) -> Union["HttpResponseRedirect", "HttpResponse"]:
         """Overwritten to facilitate creating Users."""
 
-        def create_pseudopatient() -> Pseudopatient:
+        def create_pseudopatient() -> Patient:
             self.form.instance.username = uuid.uuid4().hex[:30]
             self.form.instance.role = Roles.PSEUDOPATIENT
             new_goutpatient = self.form.save()
@@ -2078,7 +1602,7 @@ class GoutHelperUserEditMixin(
 
     def update_related_object_oto_fields(self, related_object: Any) -> bool:
         save_related_obj = False
-        for oto in related_object.get_list_of_onetoone_fields():
+        for oto in get_model_onetoone_field_names(related_object):
             related_obj_oto = getattr(related_object, oto, None)
             if related_obj_oto:
                 if oto in self.req_otos:
@@ -2132,7 +1656,7 @@ class GoutHelperUserEditMixin(
                 else goutdetail_form(
                     instance=goutdetail_i,
                     patient=self.user,
-                    request_user=self.request_user,
+                    request_user=self.request.user,
                     str_attrs=self.str_attrs,
                 )
             )
@@ -2154,7 +1678,7 @@ class GoutHelperUserEditMixin(
                     instance=gd,
                     str_attrs=self.str_attrs,
                     patient=self.user,
-                    request_user=self.request_user,
+                    request_user=self.request.user,
                 )
             }
         )

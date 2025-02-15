@@ -27,14 +27,7 @@ class UltAidForm(
 
     class Meta:
         model = UltAid
-        exclude = (
-            "dateofbirth",
-            "decisionaid",
-            "gender",
-            "hlab5801",
-            "ethnicity",
-            "user",
-        )
+        exclude = ("decisionaid",)
 
     def __init__(self, *args, **kwargs):
         self.ult = kwargs.pop("ult", None)

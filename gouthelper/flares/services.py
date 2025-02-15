@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db.models.query import QuerySet
 
 from ..medhistorys.choices import CVDiseases, MedHistoryTypes
-from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.helpers import get_medhistory, get_medhistorys
 from ..utils.services import AidService, aids_assign_baselinecreatinine, aids_assign_ckddetail
 from .helpers import (
     flares_calculate_likelihood,
@@ -29,12 +29,12 @@ class FlareDecisionAid(AidService):
     ):
         super().__init__(qs=qs, model=apps.get_model(app_label="flares", model_name="Flare"))
         self.urate = qs.urate if isinstance(qs, self.model) else self.model_attr.urate
-        self.ckd = medhistorys_get(self.medhistorys, MedHistoryTypes.CKD)
+        self.ckd = get_medhistory(self.medhistorys, MedHistoryTypes.CKD)
         self.baselinecreatinine = aids_assign_baselinecreatinine(medhistorys=self.medhistorys)
         self.ckddetail = aids_assign_ckddetail(medhistorys=self.medhistorys)
-        self.cvdiseases = medhistorys_get(self.medhistorys, CVDiseases.values)
-        self.gout = medhistorys_get(self.medhistorys, MedHistoryTypes.GOUT)
-        self.menopause = medhistorys_get(self.medhistorys, MedHistoryTypes.MENOPAUSE)
+        self.cvdiseases = get_medhistorys(self.medhistorys, CVDiseases.values)
+        self.gout = get_medhistory(self.medhistorys, MedHistoryTypes.GOUT)
+        self.menopause = get_medhistory(self.medhistorys, MedHistoryTypes.MENOPAUSE)
         self.initial_likelihood = self.model_attr.likelihood
         self.initial_prevalence = self.model_attr.prevalence
 

@@ -14,10 +14,10 @@ class TestCanChangePpxAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
+        self.provider_ppxaid = create_ppxaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
+        self.admin_ppxaid = create_ppxaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppxaid = create_ppxaid()
 
@@ -47,12 +47,12 @@ class TestCanDeletePpxAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
+        self.provider_ppxaid = create_ppxaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
+        self.admin_ppxaid = create_ppxaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppxaid = create_ppxaid()
 
@@ -70,7 +70,7 @@ class TestCanDeletePpxAid(TestCase):
         assert not rules.test_rule("can_delete_object", self.anon, self.provider_ppxaid)
 
     def test__delete_admin_object(self):
-        """Test that only an admin can delete an object for another user."""
+        """Test that only an admin can delete an object for another patient."""
         assert rules.test_rule("can_delete_object", self.admin, self.admin_ppxaid)
         assert not rules.test_rule("can_delete_object", self.provider, self.admin_ppxaid)
         assert not rules.test_rule("can_delete_object", self.anon, self.admin_ppxaid)
@@ -82,12 +82,12 @@ class TestCanViewPpxAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppxaid = create_ppxaid(user=self.provider_pseudopatient)
+        self.provider_ppxaid = create_ppxaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppxaid = create_ppxaid(user=self.admin_pseudopatient)
+        self.admin_ppxaid = create_ppxaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppxaid = create_ppxaid()
 

@@ -25,7 +25,7 @@ def test_default_superuser_role_admin():
     assert superuser.role == User.Roles.ADMIN
 
 
-class TestPseudopatient(TestCase):
+class TestPatient(TestCase):
     def setUp(self):
         self.psp = create_psp()
         self.provider_psp = create_psp(provider=UserFactory())
@@ -36,10 +36,10 @@ class TestPseudopatient(TestCase):
             gender=Genders(self.provider_psp.gender.value),
         )
 
-    def test_pseudopatient_get_absolute_url(self):
+    def test_patient_get_absolute_url(self):
         self.assertEqual(
             self.psp.get_absolute_url(),
-            f"/users/pseudopatients/{self.psp.pk}/",
+            f"/users/patients/{self.psp.pk}/",
         )
 
     def test__str__without_provider(self):

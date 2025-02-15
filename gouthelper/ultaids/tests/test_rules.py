@@ -14,10 +14,10 @@ class TestCanChangeUltAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.provider_ultaid = create_ultaid(user=self.provider_pseudopatient)
+        self.provider_ultaid = create_ultaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.admin_ultaid = create_ultaid(user=self.admin_pseudopatient)
+        self.admin_ultaid = create_ultaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ultaid = create_ultaid()
 
@@ -47,12 +47,12 @@ class TestCanDeleteUltAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ultaid = create_ultaid(user=self.provider_pseudopatient)
+        self.provider_ultaid = create_ultaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ultaid = create_ultaid(user=self.admin_pseudopatient)
+        self.admin_ultaid = create_ultaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ultaid = create_ultaid()
 
@@ -82,12 +82,12 @@ class TestCanViewUltAid(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ultaid = create_ultaid(user=self.provider_pseudopatient)
+        self.provider_ultaid = create_ultaid(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ultaid = create_ultaid(user=self.admin_pseudopatient)
+        self.admin_ultaid = create_ultaid(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ultaid = create_ultaid()
 

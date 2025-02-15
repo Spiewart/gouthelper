@@ -15,14 +15,15 @@ from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory, UrateFactory
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
-from ...medhistorys.helpers import medhistorys_get
+from ...medhistorys.helpers import get_medhistory
 from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import MedHistory
 from ...medhistorys.tests.factories import CkdFactory
-from ...users.models import Pseudopatient
+from ...users.models import Patient
 from ...users.tests.factories import UserFactory, create_psp
 from ..choices import Likelihoods, LimitedJointChoices, Prevalences
-from ..selectors import flare_userless_qs, flares_user_qs
+from ..models import Flare
+from ..selectors import flare_relations
 from ..services import FlareDecisionAid
 from .factories import CustomFlareFactory, create_flare
 
@@ -70,7 +71,7 @@ class TestFlareMethods(TestCase):
 
     def test__init_without_user(self):
         with CaptureQueriesContext(connection) as context:
-            decisionaid = FlareDecisionAid(qs=flare_userless_qs(pk=self.flare_userless.pk))
+            decisionaid = FlareDecisionAid(qs=flare_relations(Flare.objects.filter(pk=self.flare.pk)))
         self.assertEqual(len(context.captured_queries), 3)
         self.assertEqual(decisionaid.flare, self.flare_userless)
         self.assertEqual(decisionaid.dateofbirth, self.flare_userless.dateofbirth)
@@ -83,11 +84,11 @@ class TestFlareMethods(TestCase):
         self.assertEqual(self.userless_baselinecreatinine, decisionaid.baselinecreatinine)
         self.assertEqual(self.userless_ckd.ckddetail, decisionaid.ckddetail)
         self.assertEqual(decisionaid.ckd, self.userless_ckd)
-        self.assertEqual(decisionaid.gout, medhistorys_get(flare_mhs, MedHistoryTypes.GOUT))
-        self.assertEqual(decisionaid.menopause, medhistorys_get(flare_mhs, MedHistoryTypes.MENOPAUSE))
+        self.assertEqual(decisionaid.gout, get_medhistory(flare_mhs, MedHistoryTypes.GOUT))
+        self.assertEqual(decisionaid.menopause, get_medhistory(flare_mhs, MedHistoryTypes.MENOPAUSE))
 
     def test__init__with_user(self):
-        for psp in Pseudopatient.objects.flares_qs().all():
+        for psp in Patient.objects.flares_qs().all():
             if psp.flares_qs:
                 psp.flare_qs = psp.flares[0]
                 with CaptureQueriesContext(connection) as context:
@@ -114,13 +115,13 @@ class TestFlareMethods(TestCase):
         """Test that the __init__method removes dateofbirth and gender from the Flare
         object when it has a user to avoid saving a Flare to the database with either of
         these fields an a user, which will raise an IntegrityError."""
-        user = Pseudopatient.objects.flares_qs().first()
+        user = Patient.objects.flares_qs().first()
         flare = create_flare(user=user)
         self.assertIsNone(flare.dateofbirth)
         self.assertIsNone(flare.gender)
         flare.dateofbirth = flare.user.dateofbirth
         flare.gender = flare.user.gender
-        decisionaid = FlareDecisionAid(qs=flares_user_qs(pseudopatient=flare.user.pk, flare_pk=flare.pk))
+        decisionaid = FlareDecisionAid(qs=flare_relations(Flare.objects.filter(pk=flare.pk)))
         self.assertIsNone(decisionaid.flare.dateofbirth)
         self.assertIsNone(decisionaid.flare.gender)
         self.assertEqual(decisionaid.dateofbirth, flare.user.dateofbirth)
@@ -129,7 +130,7 @@ class TestFlareMethods(TestCase):
     def test__update(self):
         self.assertIsNone(self.flare_userless.likelihood)
         self.assertIsNone(self.flare_userless.prevalence)
-        decisionaid = FlareDecisionAid(qs=flare_userless_qs(pk=self.flare_userless.pk))
+        decisionaid = FlareDecisionAid(qs=flare_relations(Flare.objects.filter(pk=self.flare.pk)))
         decisionaid._update()  # pylint: disable=w0212
         self.flare_userless.refresh_from_db()
         self.assertIsNotNone(self.flare_userless.likelihood)
@@ -183,7 +184,7 @@ class TestFlareMethods(TestCase):
         MedHistory.objects.create(flare=flare, medhistorytype=MedHistoryTypes.CAD)
         flare.gender.value = Genders.MALE
         flare.gender.save()
-        flare = flare_userless_qs(pk=flare.pk).first()
+        flare = flare_relations(Flare.objects.filter(pk=flare.pk))
         decisionaid = FlareDecisionAid(qs=flare)
         decisionaid.update_prevalence()
         decisionaid.update_likelihood()

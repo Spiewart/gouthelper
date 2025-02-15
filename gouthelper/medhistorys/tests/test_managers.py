@@ -1,5 +1,5 @@
 from django.db import connection  # type: ignore
-from django.test import TestCase
+from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ..choices import MedHistoryTypes

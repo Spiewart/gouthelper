@@ -35,7 +35,7 @@ class CreatePpxData(MedHistoryDataMixin, LabDataMixin):
 
 
 def ppx_data_factory(
-    user: Union["User", None] = None,
+    patient: Union["User", None] = None,
     ppx: Ppx | None = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
     urates: list[Urate, Decimal, tuple[Urate, Any]] | None = [],
@@ -44,7 +44,7 @@ def ppx_data_factory(
     """Create data for related MedHistory and Urate objects for the Ppx.
 
     Args:
-        user: The user to associate with the Ppx data.
+        patient: The patient to associate with the Ppx data.
         ppx: The Ppx to associate with the data.
         mh_dets: Dictionary of MedHistoryTypes and to add kwargs to the creation / modification of their
                     related MedHistoryDetails.
@@ -65,7 +65,7 @@ def ppx_data_factory(
         labs={"urate": urates if urates is not None else None},
         mh_dets=mh_dets,
         req_mh_dets=[MedHistoryTypes.GOUT],
-        user=user,
+        patient=patient,
         aid_obj=ppx,
     ).create()
     ppx_stub = PpxFactory.stub()
@@ -87,7 +87,7 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
         mhs_specified = kwargs.pop("mhs_specified", False)
 
         # Create the Ppx
-        ppx = PpxFactory(user=self.user, **kwargs)
+        ppx = PpxFactory(patient=self.patient, **kwargs)
 
         # Create the labs related to the Ppx
         self.create_labs(ppx)
@@ -100,12 +100,12 @@ class CreatePpx(LabCreatorMixin, MedHistoryCreatorMixin):
 
 
 def create_ppx(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", bool, None] = None,
     labs: list[Lab, Decimal] | None = None,
     mh_dets: dict[MedHistoryTypes : dict[str, Any]] | None = None,
     **kwargs,
 ) -> Ppx:
-    """Creates a Ppx with the given user, labs, and medhistorys."""
+    """Creates a Ppx with the given patient, labs, and medhistorys."""
     # Set the Urates to be created
     if labs is None:
         labs_kwarg = {UrateFactory: [UrateFactory.build() for _ in range(random.randint(0, 5))]}
@@ -123,7 +123,7 @@ def create_ppx(
         labs=labs_kwarg,
         mhs=PPX_MEDHISTORYS,
         mh_dets=mh_dets if mh_dets is not None else {MedHistoryTypes.GOUT: {}},
-        user=user,
+        patient=patient,
     ).create(mhs_specified=True, **kwargs)
 
 

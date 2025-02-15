@@ -15,12 +15,12 @@ class TestPpxsCheckUrateHyperuricemicDiscrepant(TestCase):
         self.urate = UrateFactory(value=5.1)
         self.low_urate = UrateFactory(value=4.9)
         self.goutdetail = GoutDetailFactory(at_goal=True)
-        self.goalurate = GoalUrateFactory(goal_urate=GoalUrates.FIVE)
+        self.goalurate = GoalUrateFactory(goalurate=GoalUrates.FIVE)
 
     def test__urate_at_goal_discrepant(self):
         self.assertFalse(
-            ppxs_check_urate_at_goal_discrepant(self.low_urate, self.goutdetail, self.goalurate.goal_urate)
+            ppxs_check_urate_at_goal_discrepant(self.low_urate, self.goutdetail, self.goalurate.goalurate)
         )
 
     def test__urate_at_goal_discrepant_false(self):
-        self.assertTrue(ppxs_check_urate_at_goal_discrepant(self.urate, self.goutdetail, self.goalurate.goal_urate))
+        self.assertTrue(ppxs_check_urate_at_goal_discrepant(self.urate, self.goutdetail, self.goalurate.goalurate))

@@ -22,13 +22,5 @@ class TestGoalUrateUrls(TestCase):
         assert resolve(path).view_name == "goalurates:detail"
 
     def test_goalurate_pseudopatient_create_url(self):
-        path = reverse("goalurates:pseudopatient-create", kwargs={"pseudopatient": self.goalurateuser.user.pk})
-        assert resolve(path).view_name == "goalurates:pseudopatient-create"
-
-    def test_goalurate_pseudopatient_detail_url(self):
-        path = reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.goalurateuser.user.pk})
-        assert resolve(path).view_name == "goalurates:pseudopatient-detail"
-
-    def test_goalurate_pseudopatient_update_url(self):
-        path = reverse("goalurates:pseudopatient-update", kwargs={"pseudopatient": self.goalurateuser.user.pk})
-        assert resolve(path).view_name == "goalurates:pseudopatient-update"
+        path = reverse("goalurates:patient-create", kwargs={"patient": self.goalurateuser.user.pk})
+        assert resolve(path).view_name == "goalurates:patient-create"

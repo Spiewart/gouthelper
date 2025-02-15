@@ -2,12 +2,11 @@ import random
 
 import pytest  # type: ignore
 from django.db import connection  # type: ignore
-from django.db.models import QuerySet
 from django.test import TestCase  # type: ignore
 from django.test.utils import CaptureQueriesContext  # type: ignore
 
 from ...dateofbirths.helpers import age_calc
-from ...defaults.models import DefaultMedHistory, DefaultTrt, FlareAidSettings
+from ...defaults.models import DefaultMedHistory, FlareAidSettings
 from ...defaults.selectors import defaults_defaultmedhistorys_trttype
 from ...defaults.tests.factories import (
     DefaultColchicineFlareFactory,
@@ -19,9 +18,10 @@ from ...medallergys.tests.factories import MedAllergyFactory
 from ...medhistorys.choices import Contraindications, MedHistoryTypes
 from ...medhistorys.lists import FLAREAID_MEDHISTORYS
 from ...treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
+from ...users.models import Patient
 from ...utils.services import aids_dict_to_json
 from ..models import FlareAid
-from ..selectors import flareaid_user_qs, flareaid_userless_qs
+from ..selectors import flareaid_relations
 from ..services import FlareAidDecisionAid
 from .factories import create_flareaid
 
@@ -31,69 +31,42 @@ pytestmark = pytest.mark.django_db
 class TestFlareAidMethods(TestCase):
     def setUp(self):
         # Create a FlareAids with Users and without for testing against
-        self.fas_userless = []
         self.fas_user = []
         for _ in range(5):
-            self.fas_userless.append(create_flareaid())
-            self.fas_user.append(create_flareaid(user=True))
+            self.fas_user.append(create_flareaid())
         self.flareaid = create_flareaid()
 
-    def test__init_no_user(self):
+    def test__init_with_patient(self):
         """Test that the __init__ method sets the attrs on the service class correctly
-        when there is no user and that the custom settings are set correctly."""
-        for fa in self.fas_userless:
+        when there is a patient and that the custom settings are set correctly."""
+        for fa in self.fas_patient:
+            custom_settings = FlareAidSettingsFactory(patient=fa.patient)
             with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=fa.pk))
-            self.assertEqual(len(context.captured_queries), 4)  # 3 queries for medhistorys
-            self.assertEqual(age_calc(fa.dateofbirth.value), decisionaid.age)
-            if hasattr(fa, "gender"):
-                self.assertEqual(fa.gender, decisionaid.gender)
-            else:
-                self.assertIsNone(decisionaid.gender)
-            if hasattr(fa, "ckddetail"):
-                self.assertEqual(fa.ckddetail, decisionaid.ckddetail)
-            else:
-                self.assertIsNone(decisionaid.ckddetail)
-            for mh in fa.medhistory_set.all():
-                self.assertIn(mh, decisionaid.medhistorys)
-            self.assertEqual(fa, decisionaid.flareaid)
-            for ma in fa.medallergy_set.filter(treatment__in=FlarePpxChoices.values).all():
-                self.assertIn(ma, decisionaid.medallergys)
-            self.assertIsNone(decisionaid.user)
-            self.assertIsNone(decisionaid.sideeffects)
-            self.assertTrue(isinstance(decisionaid.defaultsettings, FlareAidSettings))
-            self.assertIsNone(decisionaid.defaultsettings.user)  # type: ignore
-
-    def test__init_with_user(self):
-        """Test that the __init__ method sets the attrs on the service class correctly
-        when there is a user and that the custom settings are set correctly."""
-        for fa in self.fas_user:
-            custom_settings = FlareAidSettingsFactory(user=fa.user)
-            with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
+                decisionaid = FlareAidDecisionAid(qs=flareaid_relations(Patient.objects.filter(pk=fa.patient.pk)))
             self.assertEqual(len(context.captured_queries), 4)
-            self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
-            if hasattr(fa.user, "gender"):
-                self.assertEqual(fa.user.gender, decisionaid.gender)
+            self.assertEqual(age_calc(fa.patient.dateofbirth.value), decisionaid.age)
+            if hasattr(fa.patient, "gender"):
+                self.assertEqual(fa.patient.gender, decisionaid.gender)
             else:
                 self.assertIsNone(decisionaid.gender)
-            for mh in fa.user.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all():
+            for mh in fa.patient.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all():
                 self.assertIn(mh, decisionaid.medhistorys)
                 if mh.medhistorytype == MedHistoryTypes.CKD:
                     self.assertEqual(mh.ckddetail, decisionaid.ckddetail)
-            for ma in fa.user.medallergy_set.filter(treatment__in=FlarePpxChoices.values).all():
+            for ma in fa.patient.medallergy_set.filter(treatment__in=FlarePpxChoices.values).all():
                 self.assertIn(ma, decisionaid.medallergys)
             self.assertIsNone(decisionaid.sideeffects)
             self.assertEqual(decisionaid.defaultsettings, custom_settings)
 
-    def test__init_with_flareaid_with_user(self):
+    def test__init_with_flareaid_with_patient(self):
         """Test that when the Class Method is called with a FlareAid that has a User,
         the __init__ method removes attrs from the FlareAid after setting them
-        on the service class in order to avoid saving a FlareAid with a user as well as
+        on the service class in order to avoid saving a FlareAid with a patient as well as
         onetoones that violate the model CheckConstraint (i.e. dateofbirth, gender)."""
-        for fa in self.fas_user:
-            fa_user = flareaid_user_qs(pseudopatient=fa.user.pk).get()
-            fa = fa_user.flareaid
+        for fa in self.fas_patient:
+            fa_user = flareaid_relations(Patient.objects.filter(pk=fa.patient.pk)).get()
+            fa_patient = flareaid_relations(Patient.objects.filter(pk=fa.patient.pk)).get()
+            fa = fa_patient.flareaid
             fa.dateofbirth = fa.user.dateofbirth
             fa.gender = fa.user.gender if hasattr(fa.user, "gender") else None
             fa.medallergys_qs = fa_user.medallergys_qs
@@ -113,7 +86,7 @@ class TestFlareAidMethods(TestCase):
         for fa in self.fas_user:
             custom_settings = FlareAidSettingsFactory(user=fa.user)
             with CaptureQueriesContext(connection) as context:
-                decisionaid = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk).get())
+                decisionaid = FlareAidDecisionAid(qs=flareaid_relations(pseudopatient=fa.user.pk).get())
             self.assertEqual(len(context.captured_queries), 4)
             self.assertEqual(age_calc(fa.user.dateofbirth.value), decisionaid.age)
             if hasattr(fa.user, "gender"):
@@ -133,63 +106,20 @@ class TestFlareAidMethods(TestCase):
         with self.assertRaises(TypeError):
             FlareAidDecisionAid(qs="Hogwarts is not the place for me...")
 
-    def test__defaulttrts_no_user(self):
-        """Check that the default_trts property returns a QuerySet of DefaultTrts that is correct."""
-        fa = FlareAid.objects.filter(user=None).last()
-        default_trt_qs = DefaultTrt.objects.filter(
-            user=None,
-            trttype=TrtTypes.FLARE,
-            treatment__in=FlarePpxChoices.values,
-        ).all()
-        da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=fa.pk))
-        default_trts = da.default_trts
-        self.assertTrue(isinstance(default_trts, QuerySet))
-        for default in list(default_trts):
-            self.assertTrue(isinstance(default, DefaultTrt))
-            self.assertIsNone(default.user)
-            self.assertIn(default, default_trt_qs)
-        for flare_trt in FlarePpxChoices:
-            self.assertTrue(default.treatment for default in list(default_trts) if default.treatment == flare_trt)
-        self.assertEqual(len(default_trts), len(default_trt_qs))
-
     def test__defaulttrts_with_user(self):
         """Check that the default_trts property returns a QuerySet of DefaultTrts that is correct and filtered
         by the FlareAid or it's users default_trts."""
         fa = FlareAid.objects.filter(user__isnull=False).last()
         custom_colchicine_default = DefaultColchicineFlareFactory(user=fa.user)
-        da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
+        da = FlareAidDecisionAid(qs=flareaid_relations())
         self.assertEqual(len(da.default_trts), 9)
         self.assertIn(custom_colchicine_default, da.default_trts)
-
-    def test__defaultmedhistorys_no_user(self):
-        """Test that the default_medhistorys property returns a QuerySet of DefaultMedHistorys
-        that is correct and filtered by trttype=FLARE and the FlareAid or it's users medhistorys."""
-        for fa in self.fas_userless:
-            da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=fa.pk))
-            default_mhs = da.default_medhistorys
-            fa_mhtypes = [
-                mh.medhistorytype for mh in fa.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all()
-            ]
-            mhs_qs = DefaultMedHistory.objects.filter(
-                user=None,
-                trttype=TrtTypes.FLARE,
-                medhistorytype__in=fa_mhtypes,
-                treatment__in=FlarePpxChoices.values,
-            ).all()
-            for default in list(default_mhs):
-                self.assertTrue(isinstance(default, DefaultMedHistory))
-                self.assertIsNone(default.user)
-                self.assertIn(default.medhistorytype, fa_mhtypes)
-                self.assertIn(default, mhs_qs)
-                self.assertNotEqual(default.medhistorytype, MedHistoryTypes.DIABETES)
-                self.assertNotEqual(default.medhistorytype, MedHistoryTypes.GOUT)
-            self.assertEqual(len(default_mhs), len(mhs_qs))
 
     def test__defaultmedhistorys_with_user(self):
         """Test that the default_medhistorys property returns a QuerySet of DefaultMedHistorys
         that is correct and filtered by trttype=FLARE and the FlareAid or it's users medhistorys."""
         for fa in self.fas_user:
-            da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
+            da = FlareAidDecisionAid(qs=flareaid_relations(pseudopatient=fa.user.pk))
             custom_default = DefaultMedHistoryFactory(
                 user=fa.user,
                 medhistorytype=random.choice(
@@ -214,7 +144,7 @@ class TestFlareAidMethods(TestCase):
 
     def test___create_trts_dict(self):
         """Test that the _create_trts_dict method returns a dict with the correct keys and values."""
-        da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=FlareAid.objects.filter(user__isnull=True).last().pk))
+        da = FlareAidDecisionAid(qs=flareaid_relations(pk=FlareAid.objects.filter(user__isnull=True).last().pk))
         trts_dict = da._create_trts_dict()  # pylint: disable=w0212
         self.assertTrue(isinstance(trts_dict, dict))
         for trt in FlarePpxChoices:
@@ -223,7 +153,7 @@ class TestFlareAidMethods(TestCase):
 
     def test__decision_aid_dict_created(self):
         """Test that the _create_decisionaid_dict method returns a dict with the correct keys and values."""
-        da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=FlareAid.objects.filter(user__isnull=True).last().pk))
+        da = FlareAidDecisionAid(qs=flareaid_relations(pk=FlareAid.objects.filter(user__isnull=True).last().pk))
         decisionaid_dict = da._create_decisionaid_dict()  # pylint: disable=w0212
         self.assertTrue(isinstance(decisionaid_dict, dict))
         for trt in FlarePpxChoices:
@@ -233,7 +163,7 @@ class TestFlareAidMethods(TestCase):
         """Test that the _create_decisionaid_dict method sets the contra value to True for each treatment
         that has a medhistory that contraindicates it."""
         for fa in self.fas_userless:
-            da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=fa.pk))
+            da = FlareAidDecisionAid(qs=flareaid_relations(pk=fa.pk))
             decisionaid_dict = da._create_decisionaid_dict()  # pylint: disable=w0212
             defaults = list(da.default_medhistorys)
             for default in defaults:
@@ -244,7 +174,7 @@ class TestFlareAidMethods(TestCase):
         """Test that the _create_decisionaid_dict method sets the contra value to True for each treatment
         that has a medallergy that contraindicates it."""
         for fa in self.fas_userless:
-            da = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=fa.pk))
+            da = FlareAidDecisionAid(qs=flareaid_relations(pk=fa.pk))
             decisionaid_dict = da._create_decisionaid_dict()  # pylint: disable=w0212
             for medallergy in da.medallergys:
                 self.assertTrue(decisionaid_dict[medallergy.treatment]["contra"])
@@ -254,7 +184,7 @@ class TestFlareAidMethods(TestCase):
         the decisionaid_dict will contraindicate all NSAIDs together."""
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
         flareaid = create_flareaid(mas=[medallergy])
-        decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
+        decisionaid = FlareAidDecisionAid(qs=flareaid_relations(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         for nsaid in NsaidChoices:
             self.assertTrue(decisionaid_dict[nsaid]["contra"])
@@ -266,7 +196,7 @@ class TestFlareAidMethods(TestCase):
         FlareAidSettings.objects.filter(user=None).update(nsaids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.IBUPROFEN)
         flareaid = create_flareaid(mas=[medallergy], mhs=[])
-        decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
+        decisionaid = FlareAidDecisionAid(qs=flareaid_relations(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         for nsaid in NsaidChoices:
             if nsaid == NsaidChoices.IBUPROFEN:
@@ -279,7 +209,7 @@ class TestFlareAidMethods(TestCase):
         the decisionaid_dict will contraindicate steroids together."""
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
         flareaid = create_flareaid(mas=[medallergy], mhs=[])
-        decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
+        decisionaid = FlareAidDecisionAid(qs=flareaid_relations(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])
         self.assertTrue(decisionaid_dict[Treatments.PREDNISONE]["contra"])
@@ -291,7 +221,7 @@ class TestFlareAidMethods(TestCase):
         FlareAidSettings.objects.filter(user=None).update(steroids_equivalent=False)
         medallergy = MedAllergyFactory(treatment=Treatments.METHYLPREDNISOLONE)
         flareaid = create_flareaid(mas=[medallergy])
-        decisionaid = FlareAidDecisionAid(qs=flareaid_userless_qs(pk=flareaid.pk))
+        decisionaid = FlareAidDecisionAid(qs=flareaid_relations(pk=flareaid.pk))
         decisionaid_dict = decisionaid._create_decisionaid_dict()  # pylint: disable=w0212
         self.assertTrue(decisionaid_dict[Treatments.METHYLPREDNISOLONE]["contra"])
         self.assertFalse(decisionaid_dict[Treatments.PREDNISONE]["contra"])
@@ -299,7 +229,7 @@ class TestFlareAidMethods(TestCase):
     def test__save_decisionaid_dict_to_decisionaid_saves(self):
         """Test that the _save_decisionaid_dict_to_decisionaid method saves the decisionaid field as a JSON string.
         Also test that the decisionaid field is an empty dict, as this is the default for the field."""
-        fa_user = flareaid_user_qs(pseudopatient=FlareAid.objects.filter(user__isnull=False).last().user.pk).get()
+        fa_user = flareaid_relations(pseudopatient=FlareAid.objects.filter(user__isnull=False).last().user.pk).get()
         fa = fa_user.flareaid
         da = FlareAidDecisionAid(qs=fa_user)
         da_dict = da._create_decisionaid_dict()  # pylint: disable=w0212, line-too-long # noqa: E501
@@ -313,7 +243,7 @@ class TestFlareAidMethods(TestCase):
     def test__save_decisionaid_dict_to_decisionaid_commit_False_doesnt_save(self):
         """Test that the _save_decisionaid_dict_to_decisionaid method doesn't save the decisionaid field
         when commit=False."""
-        fa = flareaid_userless_qs(
+        fa = flareaid_relations(
             pk=FlareAid.objects.filter(user__isnull=True).values_list("pk", flat=True).last()
         ).get()
         da = FlareAidDecisionAid(qs=fa)
@@ -329,7 +259,7 @@ class TestFlareAidMethods(TestCase):
     def test__update(self):
         """Test that update works by checking that it populates the FlareAid's decisionaid field."""
         fa = FlareAid.objects.filter(user__isnull=False).last()
-        da = FlareAidDecisionAid(qs=flareaid_user_qs(pseudopatient=fa.user.pk))
+        da = FlareAidDecisionAid(qs=flareaid_relations(pseudopatient=fa.user.pk))
         self.assertFalse(fa.decisionaid)
         da._update()  # pylint: disable=w0212
         fa.refresh_from_db()

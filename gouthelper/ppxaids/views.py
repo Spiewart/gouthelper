@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any  # pylint: disable=e0401, e0015 # type: ignore
+from typing import Any  # pylint: disable=e0401, e0015 # type: ignore
 
 from django.apps import apps  # pylint: disable=e0401 # type: ignore
 from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
@@ -12,29 +12,10 @@ from rules.contrib.views import (  # pylint: disable=e0401 # type: ignore
 
 from ..contents.choices import Contexts
 from ..ppxs.models import Ppx
-from ..users.models import Pseudopatient
-from ..utils.views import (
-    GoutHelperDetailMixin,
-    GoutHelperPseudopatientDetailMixin,
-    MedAllergyFormMixin,
-    MedHistoryFormMixin,
-    OneToOneFormMixin,
-)
-from .dicts import (
-    MEDALLERGY_FORMS,
-    MEDHISTORY_DETAIL_FORMS,
-    MEDHISTORY_FORMS,
-    OTO_FORMS,
-    PATIENT_OTO_FORMS,
-    PATIENT_REQ_OTOS,
-)
+from ..utils.views import GoutHelperDetailMixin, MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin
+from .dicts import MEDALLERGY_FORMS, MEDHISTORY_DETAIL_FORMS, MEDHISTORY_FORMS, OTO_FORMS
 from .forms import PpxAidForm
 from .models import PpxAid
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from django.db.models import QuerySet  # type: ignore
 
 User = get_user_model()
 
@@ -105,63 +86,6 @@ class PpxAidCreate(PpxAidEditBase, PermissionRequiredMixin, CreateView, SuccessM
 class PpxAidDetail(GoutHelperDetailMixin):
     model = PpxAid
     object: PpxAid
-
-
-class PpxAidPatientBase(PpxAidEditBase):
-    class Meta:
-        abstract = True
-
-    OTO_FORMS = PATIENT_OTO_FORMS
-    REQ_OTOS = PATIENT_REQ_OTOS
-
-    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
-        """Used to set the user attribute on the view, with associated related models
-        select_related and prefetch_related."""
-        return Pseudopatient.objects.ppxaid_qs().filter(pk=pseudopatient)
-
-
-class PpxAidPseudopatientCreate(PpxAidPatientBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
-    """View for creating a PpxAid for a patient."""
-
-    permission_required = "ppxaids.can_add_ppxaid"
-    success_message = "%(user)s's PpxAid successfully created."
-
-    def get_permission_object(self):
-        return self.user
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, user=self.user)
-
-    def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        if self.errors:
-            return self.errors
-        else:
-            return self.form_valid()
-
-
-class PpxAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
-    model = PpxAid
-    object: PpxAid
-
-
-class PpxAidPseudopatientUpdate(PpxAidPatientBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):
-    success_message = "%(user)s's PpxAid successfully updated."
-
-    def get_permission_object(self):
-        return self.object
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, user=self.user)
-
-    def post(self, request, *args, **kwargs):
-        """Overwritten to finish the post() method and avoid conflicts with the MRO.
-        For PpxAid, no additional processing is needed."""
-        super().post(request, *args, **kwargs)
-        if self.errors:
-            return self.errors
-        else:
-            return self.form_valid()
 
 
 class PpxAidUpdate(PpxAidEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin):

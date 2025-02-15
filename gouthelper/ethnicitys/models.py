@@ -33,7 +33,7 @@ class Ethnicity(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Ru
             reverse_lazy("ethnicitys:about"),
         ),
     )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(User, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     def __str__(self):

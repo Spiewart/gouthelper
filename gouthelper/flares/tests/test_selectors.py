@@ -27,9 +27,9 @@ from ...medhistorys.tests.factories import (
     PvdFactory,
     StrokeFactory,
 )
-from ...users.models import Pseudopatient
+from ...users.models import Patient
 from ..models import Flare
-from ..selectors import flare_userless_qs, flares_user_qs
+from ..selectors import flare_relations
 from .factories import create_flare
 
 pytestmark = pytest.mark.django_db
@@ -81,7 +81,7 @@ class TestFlareUserlessQuerySet(TestCase):
             gender=self.gender,
             urate=self.urate,
         )
-        queryset = flare_userless_qs(flare.pk)
+        queryset = flare_relations(Flare.objects.filter(pk=flare.pk))
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first(), flare)
@@ -115,7 +115,7 @@ class TestFlareUserlessQuerySet(TestCase):
 
     def test__queryset_returns_correctly_no_relateds(self):
         flare = create_flare(mhs=[], dateofbirth=self.dateofbirth, gender=Genders.MALE, urate=None)
-        queryset = flare_userless_qs(flare.pk)
+        queryset = flare_relations(Flare.objects.filter(pk=flare.pk))
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         with CaptureQueriesContext(connection) as queries:
@@ -143,7 +143,8 @@ class TestFlaresUserQuerySet(TestCase):
         """Test that the flares_user_qs() returns the correct QuerySet"""
         for psp in self.psps:
             with CaptureQueriesContext(connection) as queries:
-                qs = flares_user_qs(psp.pk, psp.flare_set.last().pk).get()
+                flare = psp.flare_set.last()
+                qs = flare_relations(Flare.objects.filter(pk=flare.pk))
             if qs.flare_qs[0].aki:
                 self.assertEqual(len(queries.captured_queries), 6)
                 self.assertTrue(hasattr(qs.flare_qs[0].aki, "creatinines_qs"))
@@ -161,10 +162,11 @@ class TestFlaresUserQuerySet(TestCase):
     def test__queryset_returns_correctly_without_pk(self):
         """Test that the queryset returns the correct objects and
         number of queries."""
-        for psp in Pseudopatient.objects.flares_qs().all():
+        for psp in Patient.objects.flares_qs().all():
+            flare = psp.flare_set.last()
             with self.assertNumQueries(5):
-                qs = flares_user_qs(psp.pk).get()
-                self.assertTrue(isinstance(qs, Pseudopatient))
+                qs = flare_relations(Flare.objects.filter(pk=flare.pk))
+                self.assertTrue(isinstance(qs, Patient))
                 self.assertTrue(getattr(qs, "dateofbirth", None))
                 self.assertTrue(getattr(qs, "gender", None))
                 self.assertTrue(hasattr(qs, "flares_qs"))

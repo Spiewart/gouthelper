@@ -12,7 +12,8 @@ from ...genders.tests.factories import GenderFactory
 from ...goalurates.tests.factories import GoalUrateFactory
 from ...labs.tests.factories import Hlab5801Factory
 from ...medhistorys.choices import MedHistoryTypes
-from ..selectors import ultaid_userless_qs
+from ..models import UltAid
+from ..selectors import ultaid_relations
 from .factories import create_ultaid
 
 pytestmark = pytest.mark.django_db
@@ -38,7 +39,7 @@ class TestUltAidQuerySet(TestCase):
         self.goalurate = GoalUrateFactory(ultaid=self.ultaid)
 
     def test__queryset_returns_correctly(self):
-        queryset = ultaid_userless_qs(self.ultaid.pk)
+        queryset = ultaid_relations(UltAid.objects.filter(pk=self.ultaid.pk))
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         ultaid = queryset.first()
@@ -55,7 +56,7 @@ class TestUltAidQuerySet(TestCase):
 
     def test__empty_queryset_returns_correctly(self):
         ultaid = create_ultaid(dateofbirth=None, gender=None, hlab5801=None, mas=[], mhs=[])
-        queryset = ultaid_userless_qs(ultaid.pk)
+        queryset = ultaid_relations(UltAid.objects.filter(pk=self.ultaid.pk))
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         qs_obj = queryset.first()

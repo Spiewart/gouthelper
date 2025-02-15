@@ -15,7 +15,7 @@
       <li>
         Uric acid:
         {% if object.at_goal %}
-          at goal (under {{ object.goal_urate.get_goal_urate_display }})
+          at goal (under {{ object.goalurate.get_goalurate_display }})
         {% elif object.at_goal is None %}
           status unknown
         {% else %}

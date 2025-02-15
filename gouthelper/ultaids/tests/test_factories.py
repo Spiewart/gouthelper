@@ -23,10 +23,10 @@ pytestmark = pytest.mark.django_db
 
 class TestUltAidDataFactory(TestCase):
     def setUp(self):
-        self.user_with_ultaid = create_psp(plus=True)
-        self.user_ultaid = create_ultaid(user=self.user_with_ultaid)
-        self.user_without_ultaid = create_psp()
-        self.ultaid_no_user = create_ultaid()
+        self.patient_with_ultaid = create_psp(plus=True)
+        self.patient_ultaid = create_ultaid(patient=self.patient_with_ultaid)
+        self.patient_without_ultaid = create_psp()
+        self.ultaid_no_patient = create_ultaid()
         self.bools = [True, False]
         self.bools_or_empty_str = [True, False, ""]
         self.True_or_empty_str = [True, ""]
@@ -38,9 +38,9 @@ class TestUltAidDataFactory(TestCase):
             MedHistoryTypes.XOIINTERACTION,
         ]
 
-    def test__without_user_or_ultaid(self):
+    def test__without_patient_or_ultaid(self):
         """Tests that the data factory returns a dict with the correct keys and values
-        when called without a user."""
+        when called without a patient."""
         for _ in range(10):
             data = ultaid_data_factory()
             assert isinstance(data, dict)
@@ -62,9 +62,9 @@ class TestUltAidDataFactory(TestCase):
             if data.get("gender-value", None):
                 self.assertIn(data["gender-value"], Genders.values)
 
-    def test__without_user_or_ultaid_with_medallergys_medhistorys(self):
+    def test__without_patient_or_ultaid_with_medallergys_medhistorys(self):
         """Tests that the data factory returns a dict with the correct keys and values
-        when called without a user."""
+        when called without a patient."""
         for _ in range(10):
             data = ultaid_data_factory(mhs=[MedHistoryTypes.CKD, MedHistoryTypes.CAD], mas=[UltChoices.ALLOPURINOL])
             assert isinstance(data, dict)
@@ -92,9 +92,9 @@ class TestUltAidDataFactory(TestCase):
             if data.get("gender-value", None):
                 self.assertIn(data["gender-value"], Genders.values)
 
-    def test__without_user_or_ultaid_with_oto_kwargs(self):
+    def test__without_patient_or_ultaid_with_oto_kwargs(self):
         """Tests that the data factory returns a dict with the correct keys and values
-        when called without a user."""
+        when called without a patient."""
         for _ in range(10):
             data = ultaid_data_factory(
                 otos={"dateofbirth": 50, "ethnicity": Ethnicitys.CAUCASIANAMERICAN, "gender": Genders.FEMALE}
@@ -118,35 +118,35 @@ class TestUltAidDataFactory(TestCase):
             self.assertIn("gender-value", data)
             self.assertEqual(data["gender-value"], Genders.FEMALE)
 
-    def test__with_user(self):
+    def test__with_patient(self):
         for _ in range(10):
-            data = ultaid_data_factory(user=self.user_with_ultaid)
+            data = ultaid_data_factory(patient=self.patient_with_ultaid)
             assert isinstance(data, dict)
             for mh in ULTAID_MEDHISTORYS:
                 self.assertIn(f"{mh}-value", data)
                 self.assertEqual(
                     data[f"{mh}-value"],
-                    True if getattr(self.user_with_ultaid, mh.lower()) else False if mh in self.bool_mhs else "",
+                    True if getattr(self.patient_with_ultaid, mh.lower()) else False if mh in self.bool_mhs else "",
                 )
             for treatment in UltChoices.values:
                 self.assertIn(f"medallergy_{treatment}", data)
                 self.assertEqual(
                     data[f"medallergy_{treatment}"],
-                    True if getattr(self.user_with_ultaid, f"{treatment.lower()}_allergy") else "",
+                    True if getattr(self.patient_with_ultaid, f"{treatment.lower()}_allergy") else "",
                 )
             if data.get("hlab5801-value", None):
                 if data["hlab5801-value"] is True:
-                    self.assertEqual(data["hlab5801-value"], self.user_with_ultaid.hlab5801.value)
+                    self.assertEqual(data["hlab5801-value"], self.patient_with_ultaid.hlab5801.value)
                 else:
                     self.assertEqual(data["hlab5801-value"], False)
             self.assertNotIn("dateofbirth-value", data)
             self.assertNotIn("ethnicity-value", data)
             self.assertNotIn("gender-value", data)
 
-    def test__with_user_with_medallergys_medhistorys(self):
+    def test__with_patient_with_medallergys_medhistorys(self):
         for _ in range(10):
             data = ultaid_data_factory(
-                user=self.user_with_ultaid,
+                patient=self.patient_with_ultaid,
                 mhs=[MedHistoryTypes.CKD, MedHistoryTypes.CAD],
                 mas=[UltChoices.ALLOPURINOL],
             )
@@ -156,7 +156,11 @@ class TestUltAidDataFactory(TestCase):
                 if mh not in [MedHistoryTypes.CKD, MedHistoryTypes.CAD]:
                     self.assertEqual(
                         data[f"{mh}-value"],
-                        True if getattr(self.user_with_ultaid, mh.lower()) else False if mh in self.bool_mhs else "",
+                        True
+                        if getattr(self.patient_with_ultaid, mh.lower())
+                        else False
+                        if mh in self.bool_mhs
+                        else "",
                     )
             self.assertIn(f"{MedHistoryTypes.CKD}-value", data)
             self.assertTrue(data[f"{MedHistoryTypes.CKD}-value"])
@@ -167,13 +171,13 @@ class TestUltAidDataFactory(TestCase):
                 if treatment != UltChoices.ALLOPURINOL:
                     self.assertEqual(
                         data[f"medallergy_{treatment}"],
-                        True if getattr(self.user_with_ultaid, f"{treatment.lower()}_allergy") else "",
+                        True if getattr(self.patient_with_ultaid, f"{treatment.lower()}_allergy") else "",
                     )
             self.assertIn(f"medallergy_{UltChoices.ALLOPURINOL}", data)
             self.assertTrue(data[f"medallergy_{UltChoices.ALLOPURINOL}"])
             if data.get("hlab5801-value", None):
                 if data["hlab5801-value"] is True:
-                    self.assertEqual(data["hlab5801-value"], self.user_with_ultaid.hlab5801.value)
+                    self.assertEqual(data["hlab5801-value"], self.patient_with_ultaid.hlab5801.value)
                 else:
                     self.assertEqual(data["hlab5801-value"], False)
             self.assertNotIn("dateofbirth-value", data)
@@ -182,24 +186,24 @@ class TestUltAidDataFactory(TestCase):
 
     def test__with_ultaid(self):
         for _ in range(10):
-            data = ultaid_data_factory(ultaid=self.ultaid_no_user)
+            data = ultaid_data_factory(ultaid=self.ultaid_no_patient)
             assert isinstance(data, dict)
             for mh in ULTAID_MEDHISTORYS:
                 self.assertIn(f"{mh}-value", data)
                 self.assertEqual(
                     data[f"{mh}-value"],
-                    True if getattr(self.ultaid_no_user, mh.lower()) else False if mh in self.bool_mhs else "",
+                    True if getattr(self.ultaid_no_patient, mh.lower()) else False if mh in self.bool_mhs else "",
                 )
             for treatment in UltChoices.values:
                 self.assertIn(f"medallergy_{treatment}", data)
                 self.assertEqual(
                     data[f"medallergy_{treatment}"],
-                    True if getattr(self.ultaid_no_user, f"{treatment.lower()}_allergy") else "",
+                    True if getattr(self.ultaid_no_patient, f"{treatment.lower()}_allergy") else "",
                 )
             if data.get("hlab5801-value", None):
                 self.assertEqual(
                     data["hlab5801-value"],
-                    self.ultaid_no_user.hlab5801.value if self.ultaid_no_user.hlab5801 else False,
+                    self.ultaid_no_patient.hlab5801.value if self.ultaid_no_patient.hlab5801 else False,
                 )
             if data.get("baselinecreatinine-value", None):
                 self.assertIn("dateofbirth-value", data)
@@ -207,17 +211,17 @@ class TestUltAidDataFactory(TestCase):
             if data.get("dateofbirth-value", None) and data["dateofbirth-value"] != "":
                 self.assertTrue(isinstance(data["dateofbirth-value"], int))
             self.assertIn("ethnicity-value", data)
-            self.assertEqual(data["ethnicity-value"], (self.ultaid_no_user.ethnicity.value))
+            self.assertEqual(data["ethnicity-value"], (self.ultaid_no_patient.ethnicity.value))
             if data.get("gender-value", None):
-                if self.ultaid_no_user.gender:
-                    self.assertEqual(data["gender-value"], self.ultaid_no_user.gender.value)
+                if self.ultaid_no_patient.gender:
+                    self.assertEqual(data["gender-value"], self.ultaid_no_patient.gender.value)
                 else:
                     self.assertTrue(isinstance(data["gender-value"], int))
 
     def test__with_ultaid_with_medallergys_medhistorys(self):
         for _ in range(10):
             data = ultaid_data_factory(
-                ultaid=self.ultaid_no_user,
+                ultaid=self.ultaid_no_patient,
                 mhs=[MedHistoryTypes.CKD, MedHistoryTypes.CAD],
                 mas=[UltChoices.ALLOPURINOL],
             )
@@ -227,7 +231,7 @@ class TestUltAidDataFactory(TestCase):
                 if mh not in [MedHistoryTypes.CKD, MedHistoryTypes.CAD]:
                     self.assertEqual(
                         data[f"{mh}-value"],
-                        True if getattr(self.ultaid_no_user, mh.lower()) else False if mh in self.bool_mhs else "",
+                        True if getattr(self.ultaid_no_patient, mh.lower()) else False if mh in self.bool_mhs else "",
                     )
             self.assertIn(f"{MedHistoryTypes.CKD}-value", data)
             self.assertTrue(data[f"{MedHistoryTypes.CKD}-value"])
@@ -238,14 +242,14 @@ class TestUltAidDataFactory(TestCase):
                 if treatment != UltChoices.ALLOPURINOL:
                     self.assertEqual(
                         data[f"medallergy_{treatment}"],
-                        True if getattr(self.ultaid_no_user, f"{treatment.lower()}_allergy") else "",
+                        True if getattr(self.ultaid_no_patient, f"{treatment.lower()}_allergy") else "",
                     )
             self.assertIn(f"medallergy_{UltChoices.ALLOPURINOL}", data)
             self.assertTrue(data[f"medallergy_{UltChoices.ALLOPURINOL}"])
             if data.get("hlab5801-value", None):
                 self.assertEqual(
                     data["hlab5801-value"],
-                    self.ultaid_no_user.hlab5801.value if self.ultaid_no_user.hlab5801 else False,
+                    self.ultaid_no_patient.hlab5801.value if self.ultaid_no_patient.hlab5801 else False,
                 )
             if data.get("baselinecreatinine-value", None):
                 self.assertIn("dateofbirth-value", data)
@@ -253,14 +257,14 @@ class TestUltAidDataFactory(TestCase):
             if data.get("dateofbirth-value", None) and data["dateofbirth-value"] != "":
                 self.assertTrue(isinstance(data["dateofbirth-value"], int))
             self.assertIn("ethnicity-value", data)
-            self.assertEqual(data["ethnicity-value"], (self.ultaid_no_user.ethnicity.value))
+            self.assertEqual(data["ethnicity-value"], (self.ultaid_no_patient.ethnicity.value))
             if data.get("gender-value", None) and data["gender-value"] != "":
                 self.assertIn(data["gender-value"], Genders.values)
 
     def test__with_ultaid_with_otos(self):
         for _ in range(10):
             data = ultaid_data_factory(
-                ultaid=self.ultaid_no_user,
+                ultaid=self.ultaid_no_patient,
                 otos={"dateofbirth": 50, "ethnicity": Ethnicitys.CAUCASIANAMERICAN, "gender": Genders.FEMALE},
             )
             assert isinstance(data, dict)
@@ -268,18 +272,18 @@ class TestUltAidDataFactory(TestCase):
                 self.assertIn(f"{mh}-value", data)
                 self.assertEqual(
                     data[f"{mh}-value"],
-                    True if getattr(self.ultaid_no_user, mh.lower()) else False if mh in self.bool_mhs else "",
+                    True if getattr(self.ultaid_no_patient, mh.lower()) else False if mh in self.bool_mhs else "",
                 )
             for treatment in UltChoices.values:
                 self.assertIn(f"medallergy_{treatment}", data)
                 self.assertEqual(
                     data[f"medallergy_{treatment}"],
-                    True if getattr(self.ultaid_no_user, f"{treatment.lower()}_allergy") else "",
+                    True if getattr(self.ultaid_no_patient, f"{treatment.lower()}_allergy") else "",
                 )
             if data.get("hlab5801-value", None):
                 self.assertEqual(
                     data["hlab5801-value"],
-                    self.ultaid_no_user.hlab5801.value if self.ultaid_no_user.hlab5801 else False,
+                    self.ultaid_no_patient.hlab5801.value if self.ultaid_no_patient.hlab5801 else False,
                 )
             self.assertIn("dateofbirth-value", data)
             self.assertEqual(data["dateofbirth-value"], 50)
@@ -292,11 +296,11 @@ class TestUltAidDataFactory(TestCase):
 class TestUltAid(TestCase):
     """Tests for the create_ultaid function."""
 
-    def test__without_user(self):
+    def test__without_patient(self):
         for _ in range(10):
             ultaid = create_ultaid()
             self.assertIsInstance(ultaid, UltAid)
-            self.assertIsNone(ultaid.user)
+            self.assertIsNone(ultaid.patient)
             self.assertTrue(hasattr(ultaid, "medallergys_qs"))
             self.assertTrue(hasattr(ultaid, "medhistorys_qs"))
             self.assertTrue(hasattr(ultaid, "dateofbirth"))
@@ -311,12 +315,12 @@ class TestUltAid(TestCase):
             if getattr(ultaid, "hlab5801", None):
                 self.assertTrue(isinstance(ultaid.hlab5801, Hlab5801))
 
-    def test__without_user_with_otos(self):
+    def test__without_patient_with_otos(self):
         for _ in range(10):
             dob = timezone.now() - timedelta(days=365 * 50)
             ultaid = create_ultaid(ethnicity=Ethnicitys.HANCHINESE, dateofbirth=dob, gender=Genders.FEMALE)
             self.assertIsInstance(ultaid, UltAid)
-            self.assertIsNone(ultaid.user)
+            self.assertIsNone(ultaid.patient)
             self.assertTrue(hasattr(ultaid, "medallergys_qs"))
             self.assertTrue(hasattr(ultaid, "medhistorys_qs"))
             self.assertTrue(ultaid.dateofbirth)
@@ -329,7 +333,7 @@ class TestUltAid(TestCase):
             if getattr(ultaid, "hlab5801", None):
                 self.assertTrue(isinstance(ultaid.hlab5801, Hlab5801))
 
-    def test__without_user_with_hlab5801(self):
+    def test__without_patient_with_hlab5801(self):
         ultaid_none = create_ultaid(hlab5801=None)
         self.assertIsNone(ultaid_none.hlab5801)
         ultaid_false = create_ultaid(hlab5801=False)
@@ -339,28 +343,28 @@ class TestUltAid(TestCase):
         self.assertTrue(ultaid_true.hlab5801)
         self.assertTrue(ultaid_true.hlab5801.value)
 
-    def test__without_user_ckd_no_ckddetail(self):
+    def test__without_patient_ckd_no_ckddetail(self):
         ultaid = create_ultaid(mhs=[MedHistoryTypes.CKD], ckddetail=None)
         self.assertTrue(ultaid.ckd)
         self.assertFalse(ultaid.ckddetail)
 
-    def test__without_user_ckd_and_ckddetail(self):
+    def test__without_patient_ckd_and_ckddetail(self):
         ultaid = create_ultaid(mhs=[MedHistoryTypes.CKD], ckddetail={"stage": Stages.THREE})
         self.assertTrue(ultaid.ckd)
         self.assertTrue(ultaid.ckddetail)
         self.assertEqual(ultaid.ckddetail.stage, Stages.THREE)
 
-    def test__with_user(self):
+    def test__with_patient(self):
         for _ in range(5):
-            user = create_psp(plus=True)
-            ultaid = create_ultaid(user=user)
+            patient = create_psp(plus=True)
+            ultaid = create_ultaid(patient=patient)
             self.assertIsInstance(ultaid, UltAid)
-            self.assertEqual(ultaid.user, user)
+            self.assertEqual(ultaid.patient, patient)
             self.assertTrue(hasattr(ultaid, "medallergys_qs"))
-            for ma in user.medallergy_set.all():
+            for ma in patient.medallergy_set.all():
                 if ma.treatment in UltChoices.values:
                     self.assertIn(ma, ultaid.medallergys_qs)
-            for mh in user.medhistory_set.all():
+            for mh in patient.medhistory_set.all():
                 if mh.medhistorytype in ULTAID_MEDHISTORYS:
                     self.assertIn(mh, ultaid.medhistorys_qs)
             self.assertTrue(hasattr(ultaid, "medhistorys_qs"))

@@ -27,36 +27,13 @@ class TestPpxAidUrls(TestCase):
         self.assertEqual(resolve(url).view_name, "ppxaids:detail")
 
     def test_pseudopatient_create(self):
-        """Test that the pseudopatient create url is correct."""
+        """Test that the patient create url is correct."""
         self.assertEqual(
-            reverse("ppxaids:pseudopatient-create", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
+            reverse("ppxaids:patient-create", kwargs={"patient": self.user_ppxaid.user.pk}),
             f"/ppxaids/goutpatient-create/{self.user_ppxaid.user.pk}/",
         )
         assert (
-            resolve(f"/ppxaids/goutpatient-create/{self.user_ppxaid.user.pk}/").view_name
-            == "ppxaids:pseudopatient-create"
-        )
-
-    def test_pseudopatient_detail(self):
-        """Test that the pseudopatient detail url is correct."""
-        self.assertEqual(
-            reverse("ppxaids:pseudopatient-detail", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
-            f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/",
-        )
-        assert (
-            resolve(f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/").view_name
-            == "ppxaids:pseudopatient-detail"
-        )
-
-    def test_pseudopatient_update(self):
-        """Test that the pseudopatient update url is correct."""
-        self.assertEqual(
-            reverse("ppxaids:pseudopatient-update", kwargs={"pseudopatient": self.user_ppxaid.user.pk}),
-            f"/ppxaids/goutpatient-update/{self.user_ppxaid.user.pk}/",
-        )
-        assert (
-            resolve(f"/ppxaids/goutpatient-update/{self.user_ppxaid.user.pk}/").view_name
-            == "ppxaids:pseudopatient-update"
+            resolve(f"/ppxaids/goutpatient-create/{self.user_ppxaid.user.pk}/").view_name == "ppxaids:patient-create"
         )
 
     def test_update_url(self):

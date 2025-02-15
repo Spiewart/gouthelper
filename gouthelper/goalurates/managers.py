@@ -1,11 +1,11 @@
 from django.db.models import Manager, QuerySet  # type: ignore
 
-from .selectors import goalurate_userless_relations
+from .selectors import goalurate_relations
 
 
 class GoalUrateQuerySet(QuerySet):
     def related_objects(self) -> QuerySet:
-        return goalurate_userless_relations(self)
+        return goalurate_relations(self)
 
 
 class GoalUrateManager(Manager):

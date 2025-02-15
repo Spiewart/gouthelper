@@ -7,7 +7,9 @@ from .models import UltAid
 @admin.register(UltAid)
 class UltAidHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "user",
+        "patient",
+        "modified",
+        "created",
         "pk",
     )
     history_list_display = ["status"]

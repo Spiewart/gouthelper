@@ -14,10 +14,10 @@ class TestCanChangeFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flare = create_flare(user=self.provider_psp)
+        self.provider_psp_flare = create_flare(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_flare = create_flare(user=self.admin_psp)
+        self.admin_flare = create_flare(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flare = create_flare()
 
@@ -76,10 +76,10 @@ class TestCanDeleteFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flare = create_flare(user=self.provider_psp)
+        self.provider_psp_flare = create_flare(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_flare = create_flare(user=self.admin_psp)
+        self.admin_flare = create_flare(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flare = create_flare()
 
@@ -107,10 +107,10 @@ class TestCanViewFlare(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flare = create_flare(user=self.provider_psp)
+        self.provider_psp_flare = create_flare(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_flare = create_flare(user=self.admin_psp)
+        self.admin_flare = create_flare(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flare = create_flare()
 

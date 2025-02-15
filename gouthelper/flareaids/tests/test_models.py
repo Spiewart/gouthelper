@@ -25,8 +25,8 @@ pytestmark = pytest.mark.django_db
 class TestFlareAid(TestCase):
     def setUp(self):
         self.flareaid = create_flareaid()
-        self.settings = FlareAidSettings.objects.get(user=None)
-        self.user_flareaid = create_flareaid(user=True)
+        self.settings = FlareAidSettings.objects.get(patient=None)
+        self.patient_flareaid = create_flareaid(patient=True)
         self.empty_flareaid = create_flareaid(mhs=[], mas=[])
         self.empty_flareaid_mh_kwargs = {mhtype.lower(): None for mhtype in FLAREAID_MEDHISTORYS}
 
@@ -46,7 +46,7 @@ class TestFlareAid(TestCase):
 
     def test___str__(self):
         self.assertEqual(str(self.flareaid), f"FlareAid: {self.flareaid.created.date()}")
-        self.assertEqual(str(self.user_flareaid), f"{str(self.user_flareaid.user)}'s FlareAid")
+        self.assertEqual(str(self.patient_flareaid), f"{str(self.patient_flareaid.patient)}'s FlareAid")
 
     def test__aid_dict(self):
         self.assertFalse(self.flareaid.decisionaid)
@@ -68,7 +68,7 @@ class TestFlareAid(TestCase):
 
     def test__defaulttrtsettings(self):
         self.assertIsInstance(self.flareaid.defaulttrtsettings, FlareAidSettings)
-        self.assertEqual(self.flareaid.defaulttrtsettings, FlareAidSettings.objects.get(user=None))
+        self.assertEqual(self.flareaid.defaulttrtsettings, FlareAidSettings.objects.get(patient=None))
 
     def test__get_absolute_url(self):
         self.assertEqual(self.flareaid.get_absolute_url(), f"/flareaids/{self.flareaid.id}/")
@@ -79,7 +79,7 @@ class TestFlareAid(TestCase):
             self.assertIn(flare_trt, self.empty_flareaid.options.keys())
             self.assertIsInstance(self.empty_flareaid.options[flare_trt], dict)
 
-    def test__recommendation_no_user(self):
+    def test__recommendation_no_patient(self):
         self.assertIsInstance(self.empty_flareaid.recommendation, tuple)
         self.assertEqual(self.empty_flareaid.recommendation[0], self.settings.flaretrt1)
         HeartattackFactory(flareaid=self.empty_flareaid)
@@ -100,12 +100,12 @@ class TestFlareAid(TestCase):
         flare = create_flare(flareaid=flareaid)
         self.assertEqual(flareaid.related_flare, flare)
 
-    def test__related_flare_with_user(self):
-        user_flareaid = create_flareaid(user=True)
-        user_flare = create_flare(user=user_flareaid.user)
-        user = flares_user_qs(pseudopatient=user_flareaid.user.pk, flare_pk=user_flare.pk).get()
-        flareaid = user.flareaid
-        flare = user.flare_qs[0]
+    def test__related_flare_with_patient(self):
+        patient_flareaid = create_flareaid()
+        patient_flare = create_flare(patient=patient_flareaid.patient)
+        patient = flares_user_qs(pseudopatient=patient_flareaid.patient.pk, flare_pk=patient_flare.pk).get()
+        flareaid = patient.flareaid
+        flare = patient.flare_qs[0]
         self.assertEqual(flareaid.related_flare, flare)
 
     def test__get_flare_options_without_aki(self):

@@ -1,6 +1,7 @@
-from factory import fuzzy  # type: ignore
+from factory import SubFactory, fuzzy  # type: ignore
 from factory.django import DjangoModelFactory  # type: ignore
 
+from ...users.tests.factories import PatientFactory
 from ..choices import MedHistoryTypes
 from ..models import (
     Angina,
@@ -36,6 +37,8 @@ class MedHistoryFactory(DjangoModelFactory):
         model = MedHistory
 
     medhistorytype = fuzzy.FuzzyChoice(MedHistoryTypes.values)
+    value = True
+    patient = SubFactory(PatientFactory)
 
 
 class AnginaFactory(MedHistoryFactory):

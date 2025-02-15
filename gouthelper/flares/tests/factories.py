@@ -19,7 +19,6 @@ from ...dateofbirths.helpers import age_calc
 from ...dateofbirths.models import DateOfBirth
 from ...dateofbirths.tests.factories import DateOfBirthFactory
 from ...flareaids.models import FlareAid
-from ...flareaids.tests.factories import CustomFlareAidFactory
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...genders.tests.factories import GenderFactory
@@ -38,7 +37,7 @@ from ...utils.factories import (
     CustomFactoryGenderMixin,
     CustomFactoryMedHistoryMixin,
     CustomFactoryMenopauseMixin,
-    CustomFactoryUserMixin,
+    CustomFactoryPatientMixin,
     LabCreatorMixin,
     LabDataMixin,
     MedHistoryCreatorMixin,
@@ -79,11 +78,11 @@ class CustomFlareFactory(
     CustomFactoryGenderMixin,
     CustomFactoryMedHistoryMixin,
     CustomFactoryMenopauseMixin,
-    CustomFactoryUserMixin,
+    CustomFactoryPatientMixin,
 ):
     def __init__(
         self,
-        user: Union["User", bool, None] = None,
+        patient: Union["User", bool, None] = None,
         flare: Flare | None = None,
         flareaid: Union["FlareAid", bool, None] = None,
         crystal_analysis: bool | None = Auto,
@@ -113,7 +112,7 @@ class CustomFlareFactory(
         gender: Union[Genders, "Gender", None] = Auto,
         urate: Union["Urate", Decimal, None] = Auto,
     ):
-        self.user = user
+        self.patient = patient
         self.flare = flare
         self.flareaid = flareaid
         self.crystal_analysis = crystal_analysis
@@ -157,7 +156,7 @@ class CustomFlareFactory(
 
     def get_or_create_flareaid(self) -> Union["FlareAid", None]:
         if self.flareaid:
-            if self.user:
+            if self.patient:
                 raise ValueError("Cannot create a Flare with a FlareAid and a User.")
         return self.flareaid or None
 
@@ -236,8 +235,7 @@ class CustomFlareFactory(
         return self.diagnosed or fake.boolean() if self.medical_evaluation else None
 
     def sequentially_update_attrs(self) -> None:
-        self.user = self.get_or_create_user()
-        self.flareaid = self.get_or_create_flareaid()
+        self.patient = self.get_or_create_patient()
         self.dateofbirth = self.get_or_create_dateofbirth()
         self.gender = self.get_or_create_gender()
         self.date_started = self.get_or_create_date_started()
@@ -255,12 +253,9 @@ class CustomFlareFactory(
     def create_object(self):
         if self.flareaid and not isinstance(self.flareaid, FlareAid):
             flareaid_kwargs = {
-                "dateofbirth": self.dateofbirth,
-                "gender": self.gender,
-                "user": self.user,
+                "patient": self.patient,
             }
             flareaid_kwargs.update(self.get_medhistory_kwargs_for_related_object(FlareAid))
-            self.flareaid = CustomFlareAidFactory(**flareaid_kwargs).create_object()
             self.update_medhistory_attrs_for_related_object_medhistorys(self.flareaid)
 
         flare_kwargs = {
@@ -275,7 +270,7 @@ class CustomFlareFactory(
             "dateofbirth": self.dateofbirth,
             "gender": self.gender,
             "urate": self.urate,
-            "user": self.user,
+            "patient": self.patient,
             "flareaid": self.flareaid,
         }
         if self.flare:
@@ -291,8 +286,8 @@ class CustomFlareFactory(
             self.flare = Flare.objects.create(
                 **flare_kwargs,
             )
-        if self.user:
-            self.user.flare_qs = [self.flare]
+        if self.patient:
+            self.patient.flare_qs = [self.flare]
         self.update_related_object_attr(self.flare)
         self.update_related_objects_related_objects()
         self.update_medhistorys()
@@ -301,7 +296,7 @@ class CustomFlareFactory(
 
 
 def flare_data_factory(
-    user: Union["User", None] = None,
+    patient: Union["User", None] = None,
     flare: Flare | None = None,
     mhs: list[MedHistoryTypes] | None = None,
     otos: dict[str:Any] | None = None,
@@ -333,8 +328,8 @@ def flare_data_factory(
         aid_otos=["aki", "dateofbirth", "gender", "urate"],
         otos=otos,
         req_otos=["aki", "dateofbirth", "gender"],
-        user_otos=["dateofbirth", "gender"],
-        user=user,
+        patient_otos=["dateofbirth", "gender"],
+        patient=patient,
         aid_obj=flare,
         aid_obj_attr="flare",
     )
@@ -479,8 +474,8 @@ class CreateFlare(MedHistoryCreatorMixin, LabCreatorMixin, OneToOneCreatorMixin)
         # Save the Flare
         flare.save()
         # Process menopause here
-        age = age_calc(flare.dateofbirth.value if not flare.user else flare.user.dateofbirth.value)
-        gender = flare.gender.value if not flare.user else flare.user.gender.value
+        age = age_calc(flare.patient.dateofbirth.value)
+        gender = flare.patient.gender.value
         menopause_mh = get_menopause_from_list_of_mhs(self.mhs) if mhs_specified else None
         if menopause_mh and isinstance(menopause_mh, MedHistory):
             check_menopause_gender(gender=gender)
@@ -494,9 +489,7 @@ class CreateFlare(MedHistoryCreatorMixin, LabCreatorMixin, OneToOneCreatorMixin)
             check_menopause_gender(gender=gender)
             menopause = get_or_create_medhistory_atomic(
                 medhistorytype=MedHistoryTypes.MENOPAUSE,
-                user=self.user,
-                aid_obj=flare,
-                aid_obj_attr="flare",
+                patient=self.patient,
             )
             create_or_append_mhs_qs(flare, menopause)
         # Create the MedHistorys related to the Flare
@@ -516,18 +509,18 @@ class CreateFlare(MedHistoryCreatorMixin, LabCreatorMixin, OneToOneCreatorMixin)
 
 
 def create_flare(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", None] = None,
     mhs: list[FLARE_MEDHISTORYS] | None = None,
     labs: list[Creatinine, Decimal] | None = None,
     **kwargs,
 ) -> Flare:
-    """Creates a Flare with the given user, onetoones, and medhistorys."""
+    """Creates a Flare with the given patient, onetoones, and medhistorys."""
     if mhs is None:
-        if user and not isinstance(user, bool):
+        if patient:
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=FLARE_MEDHISTORYS).all()
             )
         else:
             mhs = FLARE_MEDHISTORYS
@@ -559,7 +552,7 @@ def create_flare(
         mh_dets={MedHistoryTypes.CKD: {}},
         otos={"aki": AkiFactory, "dateofbirth": DateOfBirthFactory, "gender": GenderFactory, "urate": UrateFactory},
         req_otos=["dateofbirth", "gender"],
-        user=user,
+        patient=patient,
     ).create(mhs_specified=mhs_specified, **kwargs)
 
 

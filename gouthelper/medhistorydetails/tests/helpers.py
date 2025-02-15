@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from ...ppxs.models import Ppx
     from ...ultaids.models import UltAid
     from ...ults.models import Ult
-    from ...users.models import Pseudopatient
+    from ...users.models import Patient
 
 
 fake = faker.Faker()
@@ -411,19 +411,19 @@ def update_or_create_ckddetail_kwargs(
 
 def update_or_create_goutdetail_data(
     data: dict,
-    user: Union["Pseudopatient", None] = None,
+    patient: Union["Patient", None] = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
     req_mh_dets: list[MedHistoryTypes] | None = None,
     mh_dets: list[MedHistoryTypes] | None = None,
 ) -> None:
-    if user:
+    if patient:
         gout_value = True
     else:
         gout_value = data[f"{MedHistoryTypes.GOUT}-value"]
     if req_mh_dets and gout_value and MedHistoryTypes.GOUT in req_mh_dets:
-        if user:
-            if hasattr(user, "goutdetail"):
-                goutdetail = user.goutdetail
+        if patient:
+            if hasattr(patient, "goutdetail"):
+                goutdetail = patient.goutdetail
                 update_goutdetail_data(goutdetail, data, **make_goutdetail_kwargs(mh_dets, goutdetail))
             else:
                 data.update(**make_goutdetail_data(**make_goutdetail_kwargs(mh_dets)))

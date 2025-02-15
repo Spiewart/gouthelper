@@ -13,15 +13,15 @@ pytestmark = pytest.mark.django_db
 class TestCanChangeMedAllergy(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.provider_medallergy = MedAllergyFactory(user=self.provider_pseudopatient)
+        self.provider_patient = create_psp()
+        self.provider_patient.profile.provider = self.provider
+        self.provider_patient.profile.save()
+        self.provider_medallergy = MedAllergyFactory(user=self.provider_patient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.admin_medallergy = MedAllergyFactory(user=self.admin_pseudopatient)
+        self.admin_patient = create_psp()
+        self.admin_patient.profile.provider = self.admin
+        self.admin_patient.profile.save()
+        self.admin_medallergy = MedAllergyFactory(user=self.admin_patient)
         self.anon = AnonymousUser()
         self.anon_medallergy = MedAllergyFactory()
 
@@ -48,15 +48,15 @@ class TestCanChangeMedAllergy(TestCase):
 class TestCanDeleteMedAllergy(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.provider_medallergy = MedAllergyFactory(user=self.provider_pseudopatient)
+        self.provider_patient = create_psp()
+        self.provider_patient.profile.provider = self.provider
+        self.provider_patient.profile.save()
+        self.provider_medallergy = MedAllergyFactory(user=self.provider_patient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.admin_medallergy = MedAllergyFactory(user=self.admin_pseudopatient)
+        self.admin_patient = create_psp()
+        self.admin_patient.profile.provider = self.admin
+        self.admin_patient.profile.save()
+        self.admin_medallergy = MedAllergyFactory(user=self.admin_patient)
         self.anon = AnonymousUser()
         self.anon_medallergy = MedAllergyFactory()
 
@@ -83,15 +83,15 @@ class TestCanDeleteMedAllergy(TestCase):
 class TestCanViewMedAllergy(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.provider_medallergy = MedAllergyFactory(user=self.provider_pseudopatient)
+        self.provider_patient = create_psp()
+        self.provider_patient.profile.provider = self.provider
+        self.provider_patient.profile.save()
+        self.provider_medallergy = MedAllergyFactory(user=self.provider_patient)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.admin_medallergy = MedAllergyFactory(user=self.admin_pseudopatient)
+        self.admin_patient = create_psp()
+        self.admin_patient.profile.provider = self.admin
+        self.admin_patient.profile.save()
+        self.admin_medallergy = MedAllergyFactory(user=self.admin_patient)
         self.anon = AnonymousUser()
         self.anon_medallergy = MedAllergyFactory()
 

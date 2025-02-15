@@ -18,14 +18,6 @@ class TestMedHistory(TestCase):
     def test__str__(self):
         self.assertEqual(str(self.medhistory), MedHistoryTypes(self.medhistory.medhistorytype).label)
 
-    def test__medhistorytype_set_date_valid_constraint(self):
-        with self.assertRaises(IntegrityError) as error:
-            MedHistory.objects.create(medhistorytype=MedHistoryTypes.ANTICOAGULATION, set_date="2025-01-01")
-        self.assertIn(
-            "set_date_valid",
-            str(error.exception),
-        )
-
     def test__medhistorytype_valid_constraint(self):
         with self.assertRaises(IntegrityError) as error:
             MedHistory.objects.create(medhistorytype="invalid")

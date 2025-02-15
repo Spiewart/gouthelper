@@ -7,7 +7,7 @@ from ...ethnicitys.models import Ethnicity
 from ...genders.choices import Genders
 from ...genders.models import Gender
 from ...medhistorys.choices import MedHistoryTypes
-from ..models import Pseudopatient
+from ..models import Patient
 from .factories import create_psp
 
 pytestmark = pytest.mark.django_db
@@ -15,10 +15,10 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-def test__create_pseudopatient():
+def test__create_patient():
     for _ in range(10):
         psp = create_psp()
-        assert isinstance(psp, Pseudopatient)
+        assert isinstance(psp, Patient)
         assert isinstance(psp.dateofbirth, DateOfBirth)
         assert isinstance(psp.ethnicity, Ethnicity)
         assert isinstance(psp.gender, Gender)
@@ -33,12 +33,12 @@ def test__create_pseudopatient():
                 assert MedHistoryTypes.MENOPAUSE not in [x.medhistorytype for x in psp_mhs]
 
 
-def test__create_pseudopatient_plus():
+def test__create_patient_plus():
     mas_created = False
     mhs_created = False
     for _ in range(10):
         psp = create_psp(plus=True)
-        assert isinstance(psp, Pseudopatient)
+        assert isinstance(psp, Patient)
         assert isinstance(psp.dateofbirth, DateOfBirth)
         assert isinstance(psp.ethnicity, Ethnicity)
         assert isinstance(psp.gender, Gender)

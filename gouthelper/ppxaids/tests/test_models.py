@@ -17,7 +17,7 @@ class TestPpxAidMethods(TestCase):
     def setUp(self):
         self.ppxaid = create_ppxaid()
         self.empty_ppxaid = create_ppxaid(mas=[], mhs=[])
-        self.user_ppxaid = create_ppxaid(user=True)
+        self.user_ppxaid = create_ppxaid(patient=True)
 
     def test__aid_dict(self):
         # Test when decisionaid is empty
@@ -38,7 +38,7 @@ class TestPpxAidMethods(TestCase):
         )
         self.assertEqual(
             self.user_ppxaid.get_absolute_url(),
-            f"/ppxaids/goutpatient-detail/{self.user_ppxaid.user.pk}/",
+            f"/ppxaids/goutpatient-detail/{self.user_ppxaid.patient.pk}/",
         )
 
     def test__aid_medhistorys(self):
@@ -57,7 +57,7 @@ class TestPpxAidMethods(TestCase):
         self.assertEqual(self.ppxaid.defaulttrtsettings, gouthelper_default)
         self.assertTrue(isinstance(self.ppxaid.defaulttrtsettings, PpxAidSettings))
         self.assertEqual(self.user_ppxaid.defaulttrtsettings, gouthelper_default)
-        user_defaults = PpxAidSettingsFactory(user=self.user_ppxaid.user)
+        user_defaults = PpxAidSettingsFactory(patient=self.user_ppxaid.patient)
         # Need to delete the attr for a cached_property
         delattr(self.user_ppxaid, "defaulttrtsettings")
         self.assertEqual(self.user_ppxaid.defaulttrtsettings, user_defaults)
@@ -97,4 +97,4 @@ class TestPpxAidMethods(TestCase):
         """Test the __str__() method for PpxAid."""
 
         self.assertEqual(str(self.ppxaid), f"PpxAid: created {self.ppxaid.created.date()}")
-        self.assertEqual(str(self.user_ppxaid), f"{str(self.user_ppxaid.user)}'s PpxAid")
+        self.assertEqual(str(self.user_ppxaid), f"{str(self.user_ppxaid.patient)}'s PpxAid")

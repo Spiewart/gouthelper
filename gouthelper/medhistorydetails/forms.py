@@ -163,7 +163,7 @@ class GoutDetailForm(ModelFormKwargMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.goalurate = (
-            self.patient.goalurate.get_goal_urate_display()
+            self.patient.goalurate.get_goalurate_display()
             if self.patient and hasattr(self.patient, "goalurate")
             else "6.0 mg/dL"
         )

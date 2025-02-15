@@ -9,26 +9,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..users.choices import Roles
 from ..users.models import Admin, Provider
 from ..utils.models import GoutHelperModel
-
-
-def get_user_change(instance, request, **kwargs):
-    # https://django-simple-history.readthedocs.io/en/latest/user_tracking.html
-    """Method for django-simple-history to assign the user who made the change
-    to the HistoricalProfile history_user field. Written to deal with the case where
-    the User is deleting his or her own account and its associated profile and
-    setting the history_user to the User's id will result in an IntegrityError."""
-    # Check if the user is authenticated and the user is the User instance
-    # and if the url for the request is for the User's deletion
-    if request and request.user and request.user.is_authenticated:
-        if request.user == instance.user and request.path.endswith(reverse("users:delete")):
-            # Set the history_user to None
-            return None
-        else:
-            # Otherwise, return the request.user
-            return request.user
-    else:
-        # Otherwise, return None
-        return None
+from .helpers import get_user_change
 
 
 class Profile(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
@@ -48,12 +29,7 @@ class Profile(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rule
         return reverse("users:detail", kwargs={"username": self.user_username})
 
 
-class ProviderBase(Profile):
-    class Meta:
-        abstract = True
-
-
-class AdminProfile(ProviderBase):
+class AdminProfile(Profile):
     """Admin User Profile. Meant for superusers, organizational staff who are not explicitly providers,
     or contributors to GoutHelper.
     """
@@ -78,21 +54,40 @@ def update_or_create_adminprofile(sender, instance, created, **kwargs):
 
 
 class PatientProfile(Profile):
-    """Profile for an actual patient.
-    Can be created by a Patient his or her self, a Provider, or an Admin."""
+    pass
+
+
+class PseudopatientProfile(Profile):
+    """Profile for a hypothetical patient that has no relationship to a real human."""
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(provider__isnull=False) | models.Q(provider__isnull=True, provider_alias__isnull=True)
+                ),
+                name="%(class)s_alias_requires_provider",
+            ),
+        ]
 
     provider = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="patient_providers",
+        related_name="patients_profiles",
         null=True,
         blank=True,
         default=None,
     )
+    provider_alias = models.IntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        editable=False,
+    )
     history = HistoricalRecords(get_user=get_user_change)
 
 
-class ProviderProfile(ProviderBase):
+class ProviderProfile(Profile):
     """Provider User Profile.
     Meant for providers who want to keep track of their patients GoutHelper data.
     """
@@ -114,34 +109,3 @@ def update_or_create_providerprofile(sender, instance, created, **kwargs):
     # Check if the User is a Provider and is being created
     if instance.role == Roles.PROVIDER and created:
         ProviderProfile.objects.create(user=instance)
-
-
-class PseudopatientProfile(Profile):
-    """Profile for a fake patient.
-    Used to aggregate DecisionAid's and other GoutHelper data."""
-
-    class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    models.Q(provider__isnull=False) | models.Q(provider__isnull=True, provider_alias__isnull=True)
-                ),
-                name="%(class)s_alias_requires_provider",
-            ),
-        ]
-
-    provider = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        related_name="pseudopatient_providers",
-        null=True,
-        blank=True,
-        default=None,
-    )
-    provider_alias = models.IntegerField(
-        null=True,
-        blank=True,
-        default=None,
-        editable=False,
-    )
-    history = HistoricalRecords()

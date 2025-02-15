@@ -18,13 +18,13 @@ fake = faker.Faker()
 class TestUltAidManager(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_ultaid(user=create_psp() if fake.boolean() else None)
+            create_ultaid(patient=create_psp() if fake.boolean() else None)
 
     def test__related_objects(self):
         self.assertEqual(UltAid.objects.count(), 10)
         with self.assertNumQueries(3):
             for ultaid in UltAid.related_objects.all():
-                if ultaid.user:
+                if ultaid.patient:
                     self.assertIsNone(ultaid.dateofbirth)
                     self.assertIsNone(ultaid.gender)
                     self.assertIsNone(ultaid.hlab5801)
@@ -32,7 +32,7 @@ class TestUltAidManager(TestCase):
                     self.assertFalse(ultaid.medallergys_qs)
                     self.assertFalse(ultaid.medhistorys_qs)
                 else:
-                    self.assertIsNone(ultaid.user)
+                    self.assertIsNone(ultaid.patient)
                     if ultaid.medhistorys_qs and ultaid.ckd and ultaid.ckddetail and ultaid.baselinecreatinine:
                         self.assertTrue(ultaid.dateofbirth)
                         self.assertTrue(ultaid.gender)

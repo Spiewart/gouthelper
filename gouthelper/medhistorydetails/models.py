@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
+from django.conf import settings
 from django.db import models  # type: ignore
 from django.db.models.fields import BooleanField, IntegerField  # type: ignore
 from django.utils.safestring import mark_safe  # type: ignore
@@ -27,7 +28,11 @@ class MedHistoryDetail(RulesModelMixin, GoutHelperModel, TimeStampedModel, metac
     class Meta:
         abstract = True
 
-    medhistory = models.OneToOneField("medhistorys.MedHistory", on_delete=models.CASCADE)
+    patient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        editable=False,
+    )
     history = HistoricalRecords(inherit=True)
 
 
@@ -118,11 +123,7 @@ class CkdDetail(MedHistoryDetail):
         return MedHistoryTypes.CKD
 
     def __str__(self):
-        if getattr(self.medhistory, "user"):
-            return f"{self.medhistory.user.username.capitalize()}'s CKD Detail"
-        else:
-            suffix = f"created {self.created.date()}" if self.created else "in creation"
-            return f"CKD Detail: {suffix}"
+        return f"CKD {self.dialysis_type if self.dialysis else self.stage}"
 
 
 class GoutDetail(MedHistoryDetail):
@@ -192,18 +193,18 @@ dose adjustment (titration) phase?",
     def at_goal_needs_update(
         self,
         most_recent_urate: "Urate",
-        goal_urate: GoalUrates = GoalUrates.SIX,
+        goalurate: GoalUrates = GoalUrates.SIX,
     ) -> bool:
         """Returns True if the at_goal field needs updating."""
-        return self.at_goal != (most_recent_urate.value <= goal_urate)
+        return self.at_goal != (most_recent_urate.value <= goalurate)
 
     def at_goal_long_term_needs_update(
         self,
         urates: Union["QuerySet[Urate]", list["Urate"]],
-        goal_urate: GoalUrates = GoalUrates.SIX,
+        goalurate: GoalUrates = GoalUrates.SIX,
     ) -> bool:
         """Returns True if the at_goal_long_term field needs updating."""
-        return self.at_goal_long_term != labs_urates_six_months_at_goal(urates, goal_urate)
+        return self.at_goal_long_term != labs_urates_six_months_at_goal(urates, goalurate)
 
     def update_at_goal(
         self,

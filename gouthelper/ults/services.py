@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Union
 
-from django.apps import apps  # pylint: disable=E0401 # type: ignore
-from django.contrib.auth import get_user_model  # pylint: disable=E0401 # type: ignore
+from django.apps import apps  # type: ignore
 
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..utils.services import AidService, aids_assign_baselinecreatinine, aids_assign_ckddetail
@@ -12,15 +11,13 @@ if TYPE_CHECKING:
     from ..medhistorys.models import MedHistory
     from .models import Ult
 
-User = get_user_model()
-
 
 class UltDecisionAid(AidService):
     """Class method for creating/updating Ult indication fields."""
 
     def __init__(
         self,
-        qs: Union["Ult", User, None] = None,
+        qs: Union["Ult", None] = None,
     ):
         super().__init__(qs=qs, model=apps.get_model(app_label="ults", model_name="Ult"))
         self._assign_medhistorys()

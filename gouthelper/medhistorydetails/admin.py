@@ -7,10 +7,12 @@ from .models import CkdDetail, GoutDetail
 @admin.register(CkdDetail)
 class CkdDetailHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
+        "patient",
         "stage",
         "dialysis",
         "dialysis_type",
         "dialysis_duration",
+        "updated",
         "created",
         "pk",
     )
@@ -20,12 +22,14 @@ class CkdDetailHistoryAdmin(SimpleHistoryAdmin):
 @admin.register(GoutDetail)
 class GoutDetailHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
+        "patient",
         "flaring",
         "at_goal",
         "at_goal_long_term",
         "on_ppx",
         "on_ult",
         "starting_ult",
+        "updated",
         "created",
         "pk",
     )

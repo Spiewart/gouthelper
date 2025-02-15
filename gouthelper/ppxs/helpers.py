@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def ppxs_check_urate_at_goal_discrepant(
     urate: "Urate",
     goutdetail: "GoutDetail",
-    goal_urate: "GoalUrates",
+    goalurate: "GoalUrates",
 ) -> bool:
     """Check if the urate and goutdetail hyperuricemic fields are discrepant."""
-    return goutdetail.at_goal != (urate.value <= goal_urate)
+    return goutdetail.at_goal != (urate.value <= goalurate)

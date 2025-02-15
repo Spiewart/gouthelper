@@ -33,11 +33,11 @@ from ..labs.helpers import (
 )
 from ..labs.models import Creatinine
 from ..medhistorys.choices import MedHistoryTypes
-from ..users.models import Pseudopatient
+from ..users.models import Patient
 from ..utils.helpers import wrap_in_samepage_links_anchor
 from ..utils.views import (
     GoutHelperDetailMixin,
-    GoutHelperPseudopatientDetailMixin,
+    GoutHelperPatientDetailMixin,
     LabFormSetsMixin,
     MedHistoryFormMixin,
     OneToOneFormMixin,
@@ -280,6 +280,11 @@ class FlareCreate(FlareAnonEditBase, AutoPermissionRequiredMixin, CreateView, Su
         initial["redness"] = None
         return initial
 
+    @property
+    def patient_has_model_to_be_created(self) -> bool:
+        """Returns False because a Patient can have more than one Flare."""
+        return False
+
 
 class FlareDetail(GoutHelperDetailMixin):
     model = Flare
@@ -294,10 +299,10 @@ class FlarePatientEditBase(FlareEditBase):
     OTO_FORMS = PATIENT_OTO_FORMS
     REQ_OTOS = PATIENT_REQ_OTOS
 
-    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
+    def get_user_queryset(self, patient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flares_qs().filter(pk=pseudopatient)  # pylint:disable=E1101
+        return Patient.objects.flares_qs().filter(pk=patient)  # pylint:disable=E1101
 
     def get_success_message(self, cleaned_data) -> str:
         return self.success_message % dict(cleaned_data, user=self.user)
@@ -361,8 +366,8 @@ class FlarePatientEditBase(FlareEditBase):
                                 self.object.date_started,
                                 conflicting_flare,
                                 reverse(
-                                    "flares:pseudopatient-update",
-                                    kwargs={"pseudopatient": self.user.pk, "pk": conflicting_flare.pk},
+                                    "flares:update",
+                                    kwargs={"pk": conflicting_flare.pk},
                                 ),
                             )
                         )
@@ -380,8 +385,8 @@ class FlarePatientEditBase(FlareEditBase):
                                 self.object.date_ended,
                                 conflicting_flare,
                                 reverse(
-                                    "flares:pseudopatient-update",
-                                    kwargs={"pseudopatient": self.user.pk, "pk": conflicting_flare.pk},
+                                    "flares:update",
+                                    kwargs={"pk": conflicting_flare.pk},
                                 ),
                             )
                         )
@@ -390,7 +395,7 @@ class FlarePatientEditBase(FlareEditBase):
             self.set_errors_bool_True()
 
 
-class FlarePseudopatientList(PermissionRequiredMixin, ListView):
+class FlarePatientList(PermissionRequiredMixin, ListView):
     context_object_name = "flares"
     model = Flare
     permission_required = "flares.can_view_flare_list"
@@ -414,10 +419,10 @@ class FlarePseudopatientList(PermissionRequiredMixin, ListView):
         return self.user
 
     def get_queryset(self):
-        return Pseudopatient.objects.flares_qs().filter(pk=self.kwargs["pseudopatient"])
+        return Patient.objects.flares_qs().filter(pk=self.kwargs["patient"])
 
 
-class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
+class FlarePatientCreate(FlarePatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
     """View for creating a Flare for a patient."""
 
     permission_required = "flares.can_add_flare"
@@ -439,9 +444,8 @@ class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, Cr
         )
         return HttpResponseRedirect(
             reverse(
-                "flares:pseudopatient-detail",
+                "flares:detail",
                 kwargs={
-                    "pseudopatient": self.user.pk,
                     "pk": flare_pk,
                 },
             )
@@ -457,7 +461,7 @@ class FlarePseudopatientCreate(FlarePatientEditBase, PermissionRequiredMixin, Cr
         return self.model()
 
 
-class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessMessageMixin):
+class FlareDelete(AutoPermissionRequiredMixin, DeleteView, SuccessMessageMixin):
     """View for deleting a Flare for a patient."""
 
     model = Flare
@@ -484,13 +488,13 @@ class FlarePseudopatientDelete(AutoPermissionRequiredMixin, DeleteView, SuccessM
         return self.object
 
     def get_success_url(self) -> str:
-        return reverse("flares:pseudopatient-list", kwargs={"pseudopatient": self.object.user.pk})
+        return reverse("flares:list", kwargs={"patient": self.object.user.pk})
 
     def get_queryset(self) -> "QuerySet[Any]":
-        return Pseudopatient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["pseudopatient"])
+        return Patient.objects.flares_qs(flare_pk=self.kwargs["pk"]).filter(pk=self.kwargs["patient"])
 
 
-class FlarePseudopatientDetail(GoutHelperPseudopatientDetailMixin):
+class FlarePatientDetail(GoutHelperPatientDetailMixin):
     model = Flare
     object: Flare
     user: User
@@ -539,7 +543,7 @@ class FlareUpdateMixin:
         return initial
 
 
-class FlarePseudopatientUpdate(
+class FlarePatientUpdate(
     FlareUpdateMixin,
     FlarePatientEditBase,
     PermissionRequiredMixin,

@@ -7,8 +7,7 @@ from .models import Flare
 class FlareAdmin(admin.ModelAdmin):
     list_display = (
         "__str__",
-        "dateofbirth",
-        "gender",
+        "patient",
         "onset",
         "joints",
         "urate",

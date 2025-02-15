@@ -13,11 +13,11 @@ from ...medhistorydetails.choices import DialysisChoices, DialysisDurations, Sta
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import ULTAID_MEDHISTORYS
 from ...treatments.choices import FebuxostatDoses, Freqs, Treatments, UltChoices
-from ...users.models import Pseudopatient
+from ...users.models import Patient
 from ...users.tests.factories import create_psp
 from ...utils.services import aids_dict_to_json, aids_process_medhistorys
 from ..models import UltAid
-from ..selectors import ultaid_user_qs
+from ..selectors import ultaid_relations
 from ..services import UltAidDecisionAid
 from .factories import create_ultaid
 
@@ -61,7 +61,7 @@ class TestUltAidDecisionAid(TestCase):
                 self.assertIn(medallergy, decisionaid.medallergys)
 
     def test__init_with_user(self):
-        for user in Pseudopatient.objects.ultaid_qs().all():
+        for user in Patient.objects.ultaid_qs().all():
             if hasattr(user, "ultaid"):
                 with CaptureQueriesContext(connection) as context:
                     decisionaid = UltAidDecisionAid(qs=user)
@@ -100,7 +100,7 @@ class TestUltAidDecisionAid(TestCase):
 
     def test__init_with_ultaid_with_user(self):
         for ultaid in UltAid.objects.select_related("user").filter(user__isnull=False).all():
-            ultaid_qs = ultaid_user_qs(pseudopatient=ultaid.user.pk)
+            ultaid_qs = ultaid_relations(UltAid.objects.filter(pk=self.ultaid.pk))
             user = ultaid_qs.get()
             ultaid = user.ultaid
             ultaid.medhistorys_qs = user.medhistorys_qs

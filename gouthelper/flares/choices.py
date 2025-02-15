@@ -9,16 +9,16 @@ class DiagnosedChoices(IntegerChoices):
 
 
 class LessLikelys(TextChoices):
-    FEMALE = 0, _("Pre-menopausal female without CKD")
-    TOOYOUNG = 1, _("Too young for gout")
-    TOOLONG = 2, _("Flare duration is atypically long for gout")
-    TOOSHORT = 3, _("Flare duration is atypically short for gout")
-    JOINTS = 4, _("Flare only involves joints atypical for gout")
-    NEGCRYSTALS = 5, _("Joint aspiration did not have urate crystals")
+    FEMALE = "FEMALE", _("Pre-menopausal female without CKD")
+    TOOYOUNG = "TOOYOUNG", _("Too young for gout")
+    TOOLONG = "TOOLONG", _("Flare duration is atypically long for gout")
+    TOOSHORT = "TOOSHORT", _("Flare duration is atypically short for gout")
+    JOINTS = "JOINTS", _("Flare only involves joints atypical for gout")
+    NEGCRYSTALS = "NEGCRYSTALS", _("Joint aspiration did not have urate crystals")
 
 
 class MoreLikelys(TextChoices):
-    POSCRYSTALS = 0, _("Joint aspiration had urate crystals")
+    POSCRYSTALS = "POSCRYSTALS", _("Joint aspiration had urate crystals")
 
 
 class LimitedJointChoices(TextChoices):

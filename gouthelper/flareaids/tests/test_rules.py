@@ -14,10 +14,10 @@ class TestCanChangeFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flareaid = create_flareaid(user=self.provider_psp)
+        self.provider_psp_flareaid = create_flareaid(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_psp_flareaid = create_flareaid(user=self.admin_psp)
+        self.admin_psp_flareaid = create_flareaid(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flareaid = create_flareaid()
 
@@ -45,10 +45,10 @@ class TestCanDeleteFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flareaid = create_flareaid(user=self.provider_psp)
+        self.provider_psp_flareaid = create_flareaid(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_psp_flareaid = create_flareaid(user=self.admin_psp)
+        self.admin_psp_flareaid = create_flareaid(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flareaid = create_flareaid()
 
@@ -76,10 +76,10 @@ class TestCanViewFlareAid(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_psp = create_psp(provider=self.provider)
-        self.provider_psp_flareaid = create_flareaid(user=self.provider_psp)
+        self.provider_psp_flareaid = create_flareaid(patient=self.provider_psp)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_psp = create_psp(provider=self.admin)
-        self.admin_psp_flareaid = create_flareaid(user=self.admin_psp)
+        self.admin_psp_flareaid = create_flareaid(patient=self.admin_psp)
         self.anon = AnonymousUser()
         self.anon_flareaid = create_flareaid()
 

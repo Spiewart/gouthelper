@@ -22,7 +22,7 @@ from ...ultaids.tests.factories import create_ultaid
 from ...ults.models import Ult
 from ...ults.tests.factories import create_ult
 from ...utils.db_helpers import create_onetoone_factory_atomic
-from ..models import Pseudopatient
+from ..models import Patient
 from .factories import create_psp
 
 pytestmark = pytest.mark.django_db
@@ -30,7 +30,7 @@ pytestmark = pytest.mark.django_db
 fake = faker.Faker()
 
 
-class TestPseudopatientManager(TestCase):
+class TestPatientManager(TestCase):
     def setUp(self):
         for _ in range(10):
             psp = create_psp(plus=True)
@@ -57,7 +57,7 @@ class TestPseudopatientManager(TestCase):
 
     def test__flareaid_qs(self):
         with self.assertNumQueries(5):
-            for psp in Pseudopatient.objects.flareaid_qs().all():
+            for psp in Patient.objects.flareaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "flareaid"):
                         self.assertTrue(isinstance(psp.flareaid, FlareAid))
@@ -74,7 +74,7 @@ class TestPseudopatientManager(TestCase):
 
     def test__flares_qs(self):
         with self.assertNumQueries(5):
-            for psp in Pseudopatient.objects.flares_qs().all():
+            for psp in Patient.objects.flares_qs().all():
                 self.assertTrue(hasattr(psp, "flares_qs"))
                 self.assertTrue(psp.dateofbirth)
                 self.assertTrue(psp.gender)
@@ -85,17 +85,17 @@ class TestPseudopatientManager(TestCase):
                         self.assertTrue(isinstance(flare.aki, Aki))
                     if flare.urate:
                         self.assertTrue(isinstance(flare.urate, Urate))
-        for psp in Pseudopatient.objects.flares_qs().all():
+        for psp in Patient.objects.flares_qs().all():
             if psp.flares_qs and len(psp.flares_qs) <= 1:
                 with self.assertNumQueries(5):
-                    psp_flare_qs = Pseudopatient.objects.flares_qs(flare_pk=psp.flares_qs[0].pk).get(pk=psp.pk)
-                    self.assertTrue(isinstance(psp_flare_qs, Pseudopatient))
+                    psp_flare_qs = Patient.objects.flares_qs(flare_pk=psp.flares_qs[0].pk).get(pk=psp.pk)
+                    self.assertTrue(isinstance(psp_flare_qs, Patient))
                     self.assertTrue(hasattr(psp_flare_qs, "flare_qs"))
                     self.assertEqual(psp_flare_qs.flare_qs[0], psp.flares_qs[0])
 
     def test__goalurate_qs(self):
         with self.assertNumQueries(4):
-            for psp in Pseudopatient.objects.goalurate_qs().filter(goalurate__isnull=False):
+            for psp in Patient.objects.goalurate_qs().filter(goalurate__isnull=False):
                 self.assertTrue(hasattr(psp, "goalurate"))
                 self.assertTrue(isinstance(psp.goalurate, GoalUrate))
                 self.assertTrue(hasattr(psp, "medhistorys_qs"))
@@ -109,7 +109,7 @@ class TestPseudopatientManager(TestCase):
 
     def test__ppxaid_qs(self):
         with self.assertNumQueries(6):
-            for psp in Pseudopatient.objects.ppxaid_qs().all():
+            for psp in Patient.objects.ppxaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ppxaid"):
                         self.assertTrue(isinstance(psp.ppxaid, PpxAid))
@@ -125,7 +125,7 @@ class TestPseudopatientManager(TestCase):
                     self.assertTrue(hasattr(psp, "medallergys_qs"))
 
     def test__ppx_qs(self):
-        for psp in Pseudopatient.objects.ppx_qs().filter(ppx__isnull=False).all():
+        for psp in Patient.objects.ppx_qs().filter(ppx__isnull=False).all():
             with self.assertNumQueries(3):
                 self.assertTrue(psp.ppx)
                 self.assertTrue(isinstance(psp.ppx, Ppx))
@@ -142,7 +142,7 @@ class TestPseudopatientManager(TestCase):
 
     def test__ultaid_qs(self):
         with self.assertNumQueries(5):
-            for psp in Pseudopatient.objects.ultaid_qs().all():
+            for psp in Patient.objects.ultaid_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ultaid"):
                         self.assertTrue(isinstance(psp.ultaid, UltAid))
@@ -168,7 +168,7 @@ class TestPseudopatientManager(TestCase):
 
     def test__ult_qs(self):
         with self.assertNumQueries(5):
-            for psp in Pseudopatient.objects.ult_qs().all():
+            for psp in Patient.objects.ult_qs().all():
                 with self.assertNumQueries(0):
                     if hasattr(psp, "ult"):
                         self.assertTrue(isinstance(psp.ult, Ult))

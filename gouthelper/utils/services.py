@@ -20,7 +20,7 @@ from ..ethnicitys.helpers import ethnicitys_hlab5801_risk
 from ..medhistorydetails.choices import DialysisChoices, Stages
 from ..medhistorys.choices import Contraindications, MedHistoryTypes
 from ..medhistorys.dicts import CVD_CONTRAS
-from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.helpers import get_medhistory
 from ..treatments.choices import (
     AllopurinolDoses,
     ColchicineDoses,
@@ -63,7 +63,7 @@ def aids_assign_baselinecreatinine(
     Returns:
         Union[BaselineCreatinine, None]: BaselineCreatinine object or None.
     """
-    ckd = medhistorys_get(medhistorys, MedHistoryTypes.CKD)
+    ckd = get_medhistory(medhistorys, MedHistoryTypes.CKD)
     if ckd and hasattr(ckd, "baselinecreatinine"):
         return ckd.baselinecreatinine
     return None
@@ -80,7 +80,7 @@ def aids_assign_ckddetail(
     Returns:
         Union[CkdDetail, None]: CkdDetail object or None.
     """
-    ckd = medhistorys_get(medhistorys, MedHistoryTypes.CKD)
+    ckd = get_medhistory(medhistorys, MedHistoryTypes.CKD)
     if ckd and hasattr(ckd, "ckddetail"):
         return ckd.ckddetail
     return None
@@ -97,7 +97,7 @@ def aids_assign_goutdetail(
     Returns:
         Union[GoutDetail, None]: GoutDetail object or None.
     """
-    gout = medhistorys_get(medhistorys, MedHistoryTypes.GOUT)
+    gout = get_medhistory(medhistorys, MedHistoryTypes.GOUT)
     if gout and hasattr(gout, "goutdetail"):
         return gout.goutdetail
     return None
@@ -627,15 +627,10 @@ def aids_probenecid_ckd_contra(
     Returns:
         bool: True if probenecid should be contraindicated, False if not.
     """
-    # Check if there's a Ckd object
-    if ckd and (
-        # If there's no information on CKD stage or CKD stage is 3 or greater
-        # contraindicate probenecid
-        not ckddetail
-        or ckddetail.stage >= defaulttrtsettings.prob_ckd_stage_contra
-    ):
-        return True
-    return False
+    # Contraindications to probenecid are CKD w/o a known stage OR
+    # with stage >= 3 (default), but Users will be able to modify that in their
+    # preferences at some point
+    return ckd and (not ckddetail or ckddetail.stage >= defaulttrtsettings.prob_ckd_stage_contra)
 
 
 def aids_process_sideeffects(trt_dict: dict, sideeffects: Union["QuerySet", None]) -> dict:

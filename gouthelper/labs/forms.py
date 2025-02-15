@@ -1,13 +1,13 @@
-from crispy_forms.helper import FormHelper  # type: ignore
-from crispy_forms.layout import Div, Field, Fieldset, Layout  # type: ignore
-from django import forms  # type: ignore
-from django.core.exceptions import ValidationError  # type: ignore
-from django.urls import reverse_lazy  # type: ignore
-from django.utils import timezone  # type: ignore
-from django.utils.functional import cached_property  # type: ignore
-from django.utils.safestring import mark_safe  # type: ignore
-from django.utils.text import format_lazy  # type: ignore
-from django.utils.translation import gettext_lazy as _  # type: ignore
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Field, Fieldset, Layout
+from django import forms
+from django.core.exceptions import ValidationError
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.utils.functional import cached_property
+from django.utils.safestring import mark_safe
+from django.utils.text import format_lazy
+from django.utils.translation import gettext_lazy as _
 
 from ..choices import YES_OR_NO_OR_UNKNOWN
 from ..utils.exceptions import EmptyRelatedModel

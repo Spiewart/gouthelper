@@ -14,7 +14,7 @@ from ...medhistorydetails.choices import Stages
 from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory
-from ...users.tests.factories import create_psp
+from ...patients.tests.factories import create_psp
 from ..choices import Abnormalitys, Units
 from ..models import Urate
 from .factories import BaselineCreatinineFactory, CreatinineFactory, Hlab5801Factory, UrateFactory
@@ -67,7 +67,7 @@ class TestBaselineLab(TestCase):
     def setUp(self):
         self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("2.20"))
 
-    def test__str__without_user(self):
+    def test__str__(self):
         assert (
             self.baselinecreatinine.__str__()
             == "Baseline Creatinine: "
@@ -150,8 +150,8 @@ class TestUrate(TestCase):
         self.urate = UrateFactory(value=Decimal("5.0"))
 
     def test__goalurate(self) -> None:
-        self.assertTrue(self.urate.goal_urate)
-        self.assertEqual(self.urate.goal_urate, GoalUrates.SIX)
+        self.assertTrue(self.urate.goalurate)
+        self.assertEqual(self.urate.goalurate, GoalUrates.SIX)
 
     def test__at_goal(self) -> None:
         self.assertTrue(self.urate.at_goal)
@@ -184,42 +184,27 @@ class TestCreatinine(TestCase):
     def setUp(self) -> None:
         self.patient = create_psp()
 
-    def test__ckd_is_None_with_user(self):
-        creatinine = CreatinineFactory(user=self.patient)
+    def test__ckd_is_None_with_patient(self):
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertIsNone(creatinine.ckd)
 
-    def test__ckd_is_None_without_user(self):
+    def test__ckd_is_None_without_patient(self):
         creatinine = CreatinineFactory()
         self.assertIsNone(creatinine.ckd)
 
-    def test__ckd_with_user(self):
-        ckd = CkdFactory(user=self.patient)
-        creatinine = CreatinineFactory(user=self.patient)
+    def test__ckd_with_patient(self):
+        ckd = CkdFactory(patient=self.patient)
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertEqual(creatinine.ckd, ckd)
 
-    def test__ckd_with_aki_flare_without_user(self):
-        flare = create_flare(mhs=[MedHistoryTypes.CKD])
-        aki = AkiFactory(flare=flare)
-        creatinine = CreatinineFactory(aki=aki)
-        self.assertEqual(creatinine.ckd, flare.ckd)
-
-    def test__ckd_with_aki_without_user(self):
-        aki = AkiFactory()
-        creatinine = CreatinineFactory(aki=aki)
-        self.assertIsNone(creatinine.ckd)
-
-    def test__ckddetail_without_user_or_flare(self):
-        creatinine = CreatinineFactory()
+    def test__ckddetail_with_patient_without_ckddetail(self):
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertIsNone(creatinine.ckddetail)
 
-    def test__ckddetail_with_user_without_ckddetail(self):
-        creatinine = CreatinineFactory(user=self.patient)
-        self.assertIsNone(creatinine.ckddetail)
-
-    def test__ckddetail_with_user_with_ckddetail(self):
-        ckd = CkdFactory(user=self.patient)
+    def test__ckddetail_with_patient_with_ckddetail(self):
+        ckd = CkdFactory(patient=self.patient)
         ckddetail = CkdDetailFactory(medhistory=ckd)
-        creatinine = CreatinineFactory(user=self.patient)
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertEqual(creatinine.ckddetail, ckddetail)
 
     def test__ckddetail_with_aki_flare_without_ckddetail(self):
@@ -243,18 +228,14 @@ class TestCreatinine(TestCase):
         creatinine = CreatinineFactory(aki=aki)
         self.assertEqual(creatinine.ckddetail, ckddetail)
 
-    def test__baselinecreatinine_without_user_or_flare(self):
-        creatinine = CreatinineFactory()
+    def test__baselinecreatinine_with_patient_without_baselinecreatinine(self):
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertIsNone(creatinine.baselinecreatinine)
 
-    def test__baselinecreatinine_with_user_without_baselinecreatinine(self):
-        creatinine = CreatinineFactory(user=self.patient)
-        self.assertIsNone(creatinine.baselinecreatinine)
-
-    def test__baselinecreatinine_with_user_with_baselinecreatinine(self):
-        ckd = CkdFactory(user=self.patient)
+    def test__baselinecreatinine_with_patient_with_baselinecreatinine(self):
+        ckd = CkdFactory(patient=self.patient)
         baselinecreatinine = BaselineCreatinineFactory(medhistory=ckd)
-        creatinine = CreatinineFactory(user=self.patient)
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertEqual(creatinine.baselinecreatinine, baselinecreatinine)
 
     def test__baselinecreatinine_with_aki_flare_without_baselinecreatinine(self):
@@ -271,33 +252,13 @@ class TestCreatinine(TestCase):
         creatinine = CreatinineFactory(aki=aki)
         self.assertEqual(creatinine.baselinecreatinine, baselinecreatinine)
 
-    def test__dateofbirth_without_user_or_flare(self):
-        creatinine = CreatinineFactory()
-        self.assertIsNone(creatinine.dateofbirth)
-
-    def test__dateofbirth_with_user(self):
-        creatinine = CreatinineFactory(user=self.patient)
+    def test__dateofbirth_with_patient(self):
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertEqual(creatinine.dateofbirth, self.patient.dateofbirth)
 
-    def test__dateofbirth_with_flare(self):
-        flare = create_flare()
-        aki = AkiFactory(flare=flare)
-        creatinine = CreatinineFactory(aki=aki)
-        self.assertEqual(creatinine.dateofbirth, flare.dateofbirth)
-
-    def test__gender_without_user_or_flare(self):
-        creatinine = CreatinineFactory()
-        self.assertIsNone(creatinine.gender)
-
-    def test__gender_with_user(self):
-        creatinine = CreatinineFactory(user=self.patient)
+    def test__gender_with_patient(self):
+        creatinine = CreatinineFactory(patient=self.patient)
         self.assertEqual(creatinine.gender, self.patient.gender)
-
-    def test__gender_with_flare(self):
-        flare = create_flare()
-        aki = AkiFactory(flare=flare)
-        creatinine = CreatinineFactory(aki=aki)
-        self.assertEqual(creatinine.gender, flare.gender)
 
     def test__is_at_baseline_with_baselinecreatinine(self):
         ckd = CkdFactory()

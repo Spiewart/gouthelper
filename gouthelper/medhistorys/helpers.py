@@ -1,119 +1,91 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
-from .choices import CVDiseases, MedHistoryTypes
+from .choices import MedHistoryTypes
 
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
 
     from ..medhistorys.models import MedHistory
-    from ..utils.models import GoutHelperAidModel
+    from ..utils.models import AidMixin
 
 
-def medhistorys_get(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
-    medhistorytype: MedHistoryTypes | list[MedHistoryTypes],
-    null_return: bool | None = False,
-) -> Union[bool, "MedHistory"] | list["MedHistory"]:
-    """Method that iterates over a list of MedHistory objects and returns
-    one whose MedHistoryType is medhistorytype or False."""
-    if isinstance(medhistorytype, MedHistoryTypes):
-        return next(
-            iter([medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype]),
-            null_return,
-        )
-    elif isinstance(medhistorytype, list):
-        return [medhistory for medhistory in medhistorys if medhistory.medhistorytype in medhistorytype]
+def get_patient_relation_medhistory_value(
+    obj: Any,
+    medhistorytype: MedHistoryTypes,
+) -> bool | None:
+    return get_patient_medhistory_value(obj.patient, medhistorytype)
+
+
+def get_patient_medhistory_value(
+    patient: "AidMixin",
+    medhistorytype: MedHistoryTypes,
+) -> bool | None:
+    medhistory = get_patient_medhistory(patient, medhistorytype)
+    return medhistory.value if medhistory else None
+
+
+def get_patient_medhistory(
+    patient: "AidMixin",
+    medhistorytype: MedHistoryTypes,
+) -> Union["MedHistory", None]:
+    if hasattr(patient, "medhistorys_qs"):
+        return get_medhistory(patient.medhistorys_qs, medhistorytype)
     else:
-        return null_return
+        set_medhistorys_qs(patient)
+        return get_medhistory(patient.medhistorys_qs, medhistorytype)
 
 
-def medhistorys_get_or_none(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
+def get_medhistory(
+    medhistorys: "QuerySet[MedHistory]",
+    medhistorytype: MedHistoryTypes,
+) -> Union["MedHistory", None]:
+    return next(iter(medhistory for medhistory in medhistorys if medhistory.medhistorytype == medhistorytype), None)
+
+
+def set_medhistorys_qs(patient: "AidMixin") -> None:
+    patient.medhistorys_qs = patient.medhistory_set.all()
+
+
+def get_patient_relation_medhistorys(
+    obj: Any,
     medhistorytype: MedHistoryTypes | list[MedHistoryTypes],
-) -> Union[None, "MedHistory"] | list["MedHistory"]:
-    return medhistorys_get(medhistorys, medhistorytype, null_return=None)
+) -> list["MedHistory"]:
+    return get_patient_medhistorys(obj.patient, medhistorytype)
 
 
-def medhistory_attr(
-    medhistory: MedHistoryTypes | list[MedHistoryTypes],
-    obj: "GoutHelperAidModel",
-    select_related: str | list[str] = None,
-    mh_get=medhistorys_get,
-) -> Union[bool, "MedHistory"]:
-    """Method that consolidates the Try / Except logic for getting a MedHistory."""
-    if hasattr(obj, "medhistorys_qs"):
-        return mh_get(obj.medhistorys_qs, medhistory)
-    elif hasattr(obj, "user") and obj.user and hasattr(obj.user, "medhistorys_qs"):
-        return mh_get(obj.user.medhistorys_qs, medhistory)
+def get_patient_medhistorys(
+    patient: "AidMixin",
+    medhistorytypes: list[MedHistoryTypes],
+) -> list["MedHistory"]:
+    if hasattr(patient, "medhistorys_qs"):
+        return get_medhistorys(patient.medhistorys_qs, medhistorytypes)
     else:
-        if isinstance(medhistory, MedHistoryTypes):
-            if hasattr(obj, "user") and obj.user:
-                qs = obj.user.medhistory_set.filter(medhistorytype=medhistory)
-            else:
-                qs = obj.medhistory_set.filter(medhistorytype=medhistory)
-        elif isinstance(medhistory, list):
-            if hasattr(obj, "user") and obj.user:
-                qs = obj.user.medhistory_set.filter(medhistorytype__in=medhistory)
-            else:
-                qs = obj.medhistory_set.filter(medhistorytype__in=medhistory)
-        else:
-            raise TypeError("medhistory must be a MedHistoryTypes or list[MedHistoryTypes].")
-        if select_related:
-            if isinstance(select_related, str):
-                qs = qs.select_related(select_related)
-            elif isinstance(select_related, list):
-                qs = qs.select_related(*select_related)
-            else:
-                raise TypeError("select_related must be a str or list[str].")
-        return mh_get(qs.all(), medhistory)
+        set_medhistorys_qs(patient)
+        return get_medhistorys(patient.medhistorys_qs, medhistorytypes)
 
 
-def medhistorys_get_cvdiseases_str(
-    medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"], hypertension=False
-) -> str:
-    return (", ").join(
-        [
-            str(medhistory)
-            for medhistory in medhistorys_get(
-                medhistorys,
-                medhistorytype=CVDiseases.values + [MedHistoryTypes.HYPERTENSION]
-                if hypertension
-                else CVDiseases.values,
-            )
-        ]
-    )
+def get_medhistorys(
+    medhistorys: "QuerySet[MedHistory]",
+    medhistorytypes: list[MedHistoryTypes],
+) -> list["MedHistory"]:
+    return [medhistory for medhistory in medhistorys if medhistory.medhistorytype in medhistorytypes]
+
+
+def str_of_medhistorys(medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"]) -> str:
+    return (", ").join([str(medhistory) for medhistory in medhistorys])
 
 
 def medhistorys_get_ckd_3_or_higher(
     medhistorys: Union[list["MedHistory"], "QuerySet[MedHistory]"],
-    mhtype: MedHistoryTypes = MedHistoryTypes.CKD,
 ) -> Union[bool, "MedHistory"]:
-    """Method that iterates over a list of medhistorys and returns one
-    whose medhistorytype field is CKD and that has an associated ckddetail
-    with a stage field that is Stages.THREE or higher.
+    """Gets the CKD MedHistory if the patient has CKD stage 3 or higher."""
 
-    Args:
-        medhistorys (Union[list["MedHistory"], "QuerySet[MedHistory]"])
-
-    returns:
-        Union[bool, "MedHistory"]
-    """
-    return next(
-        iter(
-            [
-                medhistory
-                for medhistory in medhistorys
-                if medhistory.medhistorytype == mhtype
-                and hasattr(medhistory, "ckddetail")
-                and medhistory.ckddetail.stage >= medhistory.ckddetail.Stages.THREE
-            ]
-        ),
-        False,
-    )
+    ckd = get_medhistory(medhistorys, MedHistoryTypes.CKD)
+    return ckd if ckd and hasattr(ckd.patient, "ckddetail") and ckd.patient.ckddetail.stage >= 3 else False
 
 
 def medhistorys_get_default_medhistorytype(medhistory: "MedHistory") -> MedHistoryTypes:
-    """Method that returns the defualt MedHistoryType for a given MedHistory proxy model.
+    """Gets the defualt MedHistoryType for a given MedHistory proxy model.
     Will raise an error if called on a Generic Lab parent model because it won't
     find a MedHistoryType for MEDHISTORY in MedHistoryTypes."""
     try:

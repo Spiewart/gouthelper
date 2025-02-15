@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
 
 
-def annotate_pseudopatient_queryset_with_age(qs: "QuerySet") -> "QuerySet":
+def annotate_patient_queryset_with_age(qs: "QuerySet") -> "QuerySet":
     return qs.annotate(
         age=Func(
             Value("year"),

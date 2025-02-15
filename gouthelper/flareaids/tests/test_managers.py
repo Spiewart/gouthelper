@@ -16,19 +16,19 @@ fake = faker.Faker()
 class TestFlareAidManager(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_flareaid(user=create_psp() if fake.boolean() else None)
+            create_flareaid(patient=create_psp() if fake.boolean() else None)
 
     def test__related_objects(self):
         self.assertEqual(FlareAid.objects.count(), 10)
         with self.assertNumQueries(3):
             for flareaid in FlareAid.related_objects.all():
-                if flareaid.user:
+                if flareaid.patient:
                     self.assertIsNone(flareaid.dateofbirth)
                     self.assertIsNone(flareaid.gender)
                     self.assertFalse(flareaid.medallergys_qs)
                     self.assertFalse(flareaid.medhistorys_qs)
                 else:
-                    self.assertIsNone(flareaid.user)
+                    self.assertIsNone(flareaid.patient)
                     if flareaid.medhistorys_qs and flareaid.ckd and flareaid.ckddetail and flareaid.baselinecreatinine:
                         self.assertTrue(flareaid.dateofbirth)
                         self.assertTrue(flareaid.gender)

@@ -16,12 +16,11 @@ User = get_user_model()
 
 # Create your models here.
 class DateOfBirth(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=RulesModelBase):
-    """Model definition for DateOfBirth.
-    Optional user OneToOneField for easy access to user's date of birth."""
+    """Model definition for DateOfBirth."""
 
     class Meta:
-        # Create constraint such that date of birth is not any year before
-        # exactly 18 years ago from now
+        # GoutHelper is for adults only
+        # Date of birth cannot be any year before 18 years ago from now
         constraints = [
             models.CheckConstraint(
                 check=models.Q(value__lte=(models.functions.Now() - timedelta(days=365 * 18))),
@@ -36,7 +35,7 @@ class DateOfBirth(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=
             reverse_lazy("dateofbirths:about"),
         ),
     )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(User, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     def __str__(self):

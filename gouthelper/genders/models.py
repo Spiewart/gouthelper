@@ -37,7 +37,7 @@ class Gender(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rules
             reverse_lazy("genders:about"),
         ),
     )
-    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(User, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     def __str__(self) -> Genders | Literal["Gender unknown"]:

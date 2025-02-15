@@ -8,7 +8,7 @@ from .models import Gender  # type: ignore
 class GenderAdmin(SimpleHistoryAdmin):
     list_display = (
         "value",
-        "user",
+        "patient",
         "created",
         "pk",
     )

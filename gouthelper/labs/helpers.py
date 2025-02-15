@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from django.db.models.query import QuerySet  # type: ignore
     from django.forms import ModelForm  # type: ignore
 
+    from ..medhistorydetails.models import GoutDetail
     from .forms import PpxUrateFormSet, UrateForm
     from .models import BaselineCreatinine, Creatinine, Lab, Urate
 
@@ -308,7 +309,8 @@ def labs_stage_calculator(eGFR: Decimal) -> "Stages":
     )
 
 
-def labs_urate_is_newer_than_goutdetail_set_date(urate, goutdetail):
+def labs_urate_is_newer_than_goutdetail_set_date(urate: "Urate", goutdetail: "GoutDetail"):
+    # TODO: update this method, as GoutDetails no longer have a medhistory and, by association, a set_date
     return labs_urate_date_drawn_newer_than_set_date(urate.date, goutdetail.medhistory.set_date)
 
 
@@ -360,13 +362,13 @@ def labs_urates_annotate_order_by_flare_date_or_date_drawn(
 
 def labs_urates_last_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Methot that takes a list or QuerySet of urates and returns True if the last Urate
-    is less than the goal_urate, False if not. Raises a ValueError if the urates are not
+    is less than the goalurate, False if not. Raises a ValueError if the urates are not
     in chronological order."""
     labs_urates_check_chronological_order_by_date(urates)
-    return urates[0].value <= goal_urate if urates else False
+    return urates[0].value <= goalurate if urates else False
 
 
 def labs_check_date_drawn_is_date(
@@ -418,29 +420,23 @@ def labs_forms_get_date_drawn_value_DELETE(form) -> tuple[str, Decimal, bool]:
 
 def labs_urate_form_at_goal_within_last_month(
     urate_form: "UrateForm",
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Returns True if a UrateForm's uric acid was drawn within the last month and is
     less than or equal to the goal urate."""
     date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(urate_form)
-    if (
-        date_drawn
-        and labs_check_date_drawn_within_a_month(date_drawn)
-        and value
-        and not delete
-        and value <= goal_urate
-    ):
+    if date_drawn and labs_check_date_drawn_within_a_month(date_drawn) and value and not delete and value <= goalurate:
         return True
     return False
 
 
 def labs_urate_form_not_at_goal_within_last_month(
     urate_form: "UrateForm",
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Returns True if a UrateForm's uric acid was drawn within the last month and is greater than the goal urate."""
     date_drawn, value, delete = labs_forms_get_date_drawn_value_DELETE(urate_form)
-    if date_drawn and labs_check_date_drawn_within_a_month(date_drawn) and value and not delete and value > goal_urate:
+    if date_drawn and labs_check_date_drawn_within_a_month(date_drawn) and value and not delete and value > goalurate:
         return True
     return False
 
@@ -495,18 +491,18 @@ def labs_formset_has_one_or_more_valid_labs(
 def labs_urate_formset_at_goal_for_x_months(
     ordered_urate_formset: "PpxUrateFormSet",
     months: int,
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
     r: int = 0,
 ) -> bool:
     """Recursive that iterates over urates formset cleaned data and checks if the urates suggest that
     the Patient has been at goal for x months. If so, returns True, otherwise False."""
-    # If the recursion has run beyond the end of the list, a x month period where > 1 Urates were < goal_urate
+    # If the recursion has run beyond the end of the list, a x month period where > 1 Urates were < goalurate
     # has not been found, thus returns False
     if r >= len(ordered_urate_formset):
         return False
 
-    # Check if urate at LabCheck[r] is under goal_urate
-    if ordered_urate_formset[r].cleaned_data.get("value") <= goal_urate:
+    # Check if urate at LabCheck[r] is under goalurate
+    if ordered_urate_formset[r].cleaned_data.get("value") <= goalurate:
         if (
             ordered_urate_formset[0].cleaned_data.get("date_drawn")
             - ordered_urate_formset[r].cleaned_data.get("date_drawn")
@@ -515,7 +511,7 @@ def labs_urate_formset_at_goal_for_x_months(
         else:
             return labs_urate_formset_at_goal_for_x_months(
                 ordered_urate_formset=ordered_urate_formset,
-                goal_urate=goal_urate,
+                goalurate=goalurate,
                 months=months,
                 r=r + 1,
             )
@@ -525,14 +521,14 @@ def labs_urate_formset_at_goal_for_x_months(
 
 def labs_urate_formset_at_goal_for_six_months(
     ordered_urate_formset: "PpxUrateFormSet",
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Calls the labs_urate_formset_at_goal_for_x_months function on an ordered urate_formset
     with a default of 6 months. Ordered: sorted by date_drawn in descending order, forms marked for deletion
     removed."""
     return labs_urate_formset_at_goal_for_x_months(
         ordered_urate_formset=ordered_urate_formset,
-        goal_urate=goal_urate,
+        goalurate=goalurate,
         months=6,
     )
 
@@ -557,28 +553,28 @@ If this value is correct, an emergency medical evaluation is warranted."
 
 def labs_urates_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is at goal."""
     labs_urates_check_chronological_order_by_date(urates)
-    return urates[0].value <= goal_urate if urates else False
+    return urates[0].value <= goalurate if urates else False
 
 
 def labs_urates_not_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal."""
     labs_urates_check_chronological_order_by_date(urates)
-    return urates[0].value > goal_urate if urates else False
+    return urates[0].value > goalurate if urates else False
 
 
 def labs_urates_at_goal_within_last_month(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is at goal within the last month."""
-    return labs_urates_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+    return labs_urates_at_goal(urates, goalurate) and labs_check_date_drawn_within_a_month(
         urates[0].flare_date_or_date_drawn
     )
 
@@ -586,20 +582,20 @@ def labs_urates_at_goal_within_last_month(
 def labs_urates_not_at_goal_within_last_x_days(
     urates: Union["QuerySet[Urate]", list["Urate"]],
     x: int,
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last x days."""
-    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_is_within_x_days(
+    return labs_urates_not_at_goal(urates, goalurate) and labs_check_date_drawn_is_within_x_days(
         urates[0].flare_date_or_date_drawn, x
     )
 
 
 def labs_urates_not_at_goal_within_last_month(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
 ) -> bool:
     """Checks if the most recent urate in a list or QuerySet of Urates is not at goal within the last month."""
-    return labs_urates_not_at_goal(urates, goal_urate) and labs_check_date_drawn_within_a_month(
+    return labs_urates_not_at_goal(urates, goalurate) and labs_check_date_drawn_within_a_month(
         urates[0].flare_date_or_date_drawn
     )
 
@@ -607,7 +603,7 @@ def labs_urates_not_at_goal_within_last_month(
 def labs_urates_at_goal_x_months(
     urates: Union["QuerySet[Urate]", list["Urate"]],
     x: int,
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
     r: int = 0,
 ) -> bool:
     """Recursive function that determines if a set of Urates indicate the Uric acid has been
@@ -618,34 +614,34 @@ def labs_urates_at_goal_x_months(
         urates (QuerySet[Urate] or list[Urate]): QuerySet or list of Urates,
             require using a QuerySet that annotates each Urate with a date, derived
             either from the Urate.date_drawn or the Urate.flare.date_started.
-        goal_urate (GoalUrates enum): goal urate for the user, defaults to 6.0 mg/dL
+        goalurate (GoalUrates enum): goal urate for the user, defaults to 6.0 mg/dL
         x (int): number of months to check for, defaults to 6
         r (int): recursion counter, defaults to 0
 
     Returns:
         bool: True if there is a 6 or greater month period where the current
-        and all other preceding Urates were < goal_urate. Must contain Urate
+        and all other preceding Urates were < goalurate. Must contain Urate
         values at least 6 months apart.
     """
     # If index + r is greater than the length of the list
     # The recursion has run beyond the end of the list
-    # Has not found a 6 month period where > 1 Urates were < goal_urate, thus returns False
+    # Has not found a 6 month period where > 1 Urates were < goalurate, thus returns False
     if r >= len(urates):
         return False
-    # Check if urate at LabCheck[r] is under goal_urate
-    if urates[r].value <= goal_urate:
+    # Check if urate at LabCheck[r] is under goalurate
+    if urates[r].value <= goalurate:
         # Return True if urates[r] is greater than x months apart from current urate at urates[0]
         labs_urates_compare_chronological_order_by_date(
             current_urate=urates[r], previous_urate=urates[r - 1] if r > 0 else None, first_urate=urates[0]
         )
         if (urates[0].flare_date_or_date_drawn - urates[r].flare_date_or_date_drawn) >= timedelta(days=30 * x):
             return True
-        # If Urates aren't x months apart but both are below goal_urate
+        # If Urates aren't x months apart but both are below goalurate
         # Recurse to the next urate further back in time urates[r+1]
         else:
             return labs_urates_at_goal_x_months(
                 urates=urates,
-                goal_urate=goal_urate,
+                goalurate=goalurate,
                 x=x,
                 r=r + 1,
             )
@@ -664,13 +660,13 @@ def labs_urate_date_drawn_newer_than_set_date(
 
 def labs_urates_six_months_at_goal(
     urates: Union["QuerySet[Urate]", list["Urate"]],
-    goal_urate: GoalUrates = GoalUrates.SIX,
+    goalurate: GoalUrates = GoalUrates.SIX,
     r: int = 0,
 ) -> bool:
     """Calls the labs_urates_at_goal_x_months function with a default of 6 months."""
     return labs_urates_at_goal_x_months(
         urates=urates,
-        goal_urate=goal_urate,
+        goalurate=goalurate,
         x=6,
         r=r,
     )

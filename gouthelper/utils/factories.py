@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Union
 
-from django.contrib.auth import get_user_model  # pylint: disable=e0401 # type: ignore
+from django.contrib.auth import get_patient_model  # pylint: disable=e0401 # type: ignore
 from django.db.models import QuerySet  # pylint: disable=e0401 # type: ignore
 from django.db.utils import IntegrityError  # pylint: disable=e0401 # type: ignore
 from django.utils import timezone  # pylint: disable=e0401 # type: ignore
@@ -63,7 +63,7 @@ if TYPE_CHECKING:
     from ..ultaids.models import UltAid
     from ..ults.models import Ult
 
-    User = get_user_model()
+    User = get_patient_model()
 
 
 class _Auto:
@@ -78,7 +78,7 @@ class _Auto:
 
 Auto: Any = _Auto()
 
-User = get_user_model()
+User = get_patient_model()
 
 fake = faker.Faker()
 
@@ -296,7 +296,7 @@ def ckd_data_bool(
     aid_mhs: list[MedHistoryTypes],
     mhs: list[MedHistoryTypes],
     req_mhs: list[MedHistoryTypes] | None = None,
-    user: User | None = None,
+    patient: User | None = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
 ) -> bool:
     """Method that determines if data for Ckd should be present in a form
@@ -305,7 +305,7 @@ def ckd_data_bool(
     if ckd_mh:
         if mhs and ckd_mh in mhs:
             return True
-        elif user and ((req_mhs and ckd_mh in req_mhs) or getattr(user, "ckd")):
+        elif patient and ((req_mhs and ckd_mh in req_mhs) or getattr(patient, "ckd")):
             return True
         elif aid_obj and ((req_mhs and ckd_mh in req_mhs) or getattr(aid_obj, "ckd")):
             return True
@@ -321,7 +321,7 @@ def ckddetail_bool(
     aid_mh_dets: list[MedHistoryTypes] = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
     req_mh_dets: list[MedHistoryTypes] = None,
-    user: User | None = None,
+    patient: User | None = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
 ) -> bool:
     """Method that determines if OneToOnes for a CkdDetail are required or not."""
@@ -330,8 +330,8 @@ def ckddetail_bool(
         if ckddetail_mh_det:
             if mh_dets and ckddetail_mh_det in mh_dets or req_mh_dets and ckddetail_mh_det in req_mh_dets:
                 return True
-            elif user:
-                return getattr(medhistory_attr(MedHistoryTypes.CKD, user, "ckddetail"), "ckddetail", False)
+            elif patient:
+                return getattr(medhistory_attr(MedHistoryTypes.CKD, patient, "ckddetail"), "ckddetail", False)
             elif aid_obj:
                 return getattr(medhistory_attr(MedHistoryTypes.CKD, aid_obj, "ckddetail"), "ckddetail", False)
     return False
@@ -341,7 +341,7 @@ def goutdetail_bool(
     aid_mh_dets: list[MedHistoryTypes] = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] = None,
     req_mh_dets: list[MedHistoryTypes] = None,
-    user: User | None = None,
+    patient: User | None = None,
     aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"] | None = None,
 ) -> bool:
     """Method that determines if GoutDetail data should be included."""
@@ -350,8 +350,8 @@ def goutdetail_bool(
         if goutdetail_mh_det:
             if mh_dets and goutdetail_mh_det in mh_dets or req_mh_dets and goutdetail_mh_det in req_mh_dets:
                 return True
-            elif user:
-                return getattr(medhistory_attr(MedHistoryTypes.GOUT, user, "goutdetail"), "goutdetail", False)
+            elif patient:
+                return getattr(medhistory_attr(MedHistoryTypes.GOUT, patient, "goutdetail"), "goutdetail", False)
             elif aid_obj:
                 return getattr(medhistory_attr(MedHistoryTypes.GOUT, aid_obj, "goutdetail"), "goutdetail", False)
     return False
@@ -360,13 +360,13 @@ def goutdetail_bool(
 def add_ckddetail_req_otos(
     ckddetail_kwargs: dict[str:Any],
     req_otos: list[str],
-    user: User | None = None,
+    patient: User | None = None,
 ) -> None:
     """Method that determines which OneToOnes for a CkdDetail are required or not."""
     if "baselinecreatinine" in ckddetail_kwargs:
-        if not req_otos or not user or "dateofbirth" not in req_otos:
+        if not req_otos or not patient or "dateofbirth" not in req_otos:
             req_otos.append("dateofbirth")
-        if not req_otos or not user or "gender" not in req_otos:
+        if not req_otos or not patient or "gender" not in req_otos:
             req_otos.append("gender")
 
 
@@ -387,23 +387,23 @@ class DataMixin:
         aid_otos: list[str] = None,
         otos: dict[str:Any] = None,
         req_otos: list[str] = None,
-        user_otos: list[str] = None,
-        user: User = None,
+        patient_otos: list[str] = None,
+        patient: User = None,
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid", None] = None,
         aid_obj_attr: str | None = None,
     ):
         """Method to set class attributes. Anything that is required (*req) should not have data."""
-        self.user = user if user else aid_obj.user if aid_obj else None
+        self.patient = patient if patient else aid_obj.patient if aid_obj else None
         self.aid_obj = aid_obj
         self.aid_obj_attr = aid_obj_attr if aid_obj_attr else aid_obj.__class__.__name__.lower() if aid_obj else None
         if self.aid_obj:
-            if self.user and self.aid_obj.user != self.user:
-                raise ValueError(f"{self.aid_obj} does not belong to {self.user}. Something wrong.")
-            elif self.aid_obj.user and not self.user:
-                self.user = self.aid_obj.user
+            if self.patient and self.aid_obj.patient != self.patient:
+                raise ValueError(f"{self.aid_obj} does not belong to {self.patient}. Something wrong.")
+            elif self.aid_obj.patient and not self.patient:
+                self.patient = self.aid_obj.patient
         self.ckd = (
-            getattr(self.user, "ckd", None)
-            if self.user
+            getattr(self.patient, "ckd", None)
+            if self.patient
             else getattr(self.aid_obj, "ckd", None)
             if self.aid_obj
             else None
@@ -415,8 +415,8 @@ class DataMixin:
             self.baselinecreatinine = None
             self.ckddetail = None
         self.dateofbirth = (
-            self.user.dateofbirth
-            if self.user
+            self.patient.dateofbirth
+            if self.patient
             else getattr(self.aid_obj, "dateofbirth", None)
             if self.aid_obj
             else None
@@ -426,7 +426,7 @@ class DataMixin:
         else:
             self.age = None
         self.gender = (
-            self.user.gender if self.user else getattr(self.aid_obj, "gender", None) if self.aid_obj else None
+            self.patient.gender if self.patient else getattr(self.aid_obj, "gender", None) if self.aid_obj else None
         )
         self.aid_mas = aid_mas
         self.aid_mhs = aid_mhs
@@ -434,7 +434,7 @@ class DataMixin:
         self.aid_otos = aid_otos
         self.otos = otos
         self.req_otos = req_otos if req_otos is not None else []
-        self.user_otos = user_otos
+        self.patient_otos = patient_otos
         self.mas = mas
         self.mhs = mhs
         self.labs = labs
@@ -444,9 +444,9 @@ class DataMixin:
         self.mh_dets = mh_dets
         self.req_mh_dets = req_mh_dets
         # Check if Ckd is going to be in the data and, if so, whether CkdDetail data is
-        self.ckd_bool = ckd_data_bool(self.aid_mhs, mhs, req_mhs, self.user, self.aid_obj)
+        self.ckd_bool = ckd_data_bool(self.aid_mhs, mhs, req_mhs, self.patient, self.aid_obj)
         self.ckddetail_bool = (
-            ckddetail_bool(self.aid_mh_dets, self.mh_dets, self.req_mh_dets, self.user, self.aid_obj)
+            ckddetail_bool(self.aid_mh_dets, self.mh_dets, self.req_mh_dets, self.patient, self.aid_obj)
             if self.ckd_bool
             else False
         )
@@ -464,16 +464,24 @@ class DataMixin:
             )
             add_ckddetail_req_otos(self.ckddetail_kwargs, self.req_otos)
         if self.aid_otos:
-            rel_obj = user if user else aid_obj.user if aid_obj and aid_obj.user else aid_obj if aid_obj else None
+            rel_obj = (
+                patient
+                if patient
+                else aid_obj.patient
+                if aid_obj and aid_obj.patient
+                else aid_obj
+                if aid_obj
+                else None
+            )
             for onetoone in self.aid_otos:
                 if self.otos and onetoone in self.otos:
-                    if user and self.user_otos and onetoone in self.user_otos:
-                        raise ValueError(f"{onetoone} for {user} doesn't belong in the data.")
+                    if patient and self.patient_otos and onetoone in self.patient_otos:
+                        raise ValueError(f"{onetoone} for {patient} doesn't belong in the data.")
                     else:
                         setattr(self, onetoone, otos[onetoone])
                 # Set these here, because they may be used to calculate CkdDetail stage
-                # They will not be added to the data but sub-classes when they are in user_otos
-                # and there is a user.
+                # They will not be added to the data but sub-classes when they are in patient_otos
+                # and there is a patient.
                 elif rel_obj:
                     set_oto_from_obj(
                         self_obj=self,
@@ -579,8 +587,8 @@ class LabDataMixin(DataMixin):
         for lab in self.aid_labs:
             if self.labs is None or self.labs.get(lab, None) is None:
                 init_labs = None
-            elif self.user:
-                init_labs = get_qs_or_set(self.user, lab)
+            elif self.patient:
+                init_labs = get_qs_or_set(self.patient, lab)
             elif self.aid_obj:
                 if hasattr(self.aid_obj, f"{lab}_set"):
                     init_labs = get_qs_or_set(self.aid_obj, lab)
@@ -676,18 +684,18 @@ class MedHistoryDataMixin(DataMixin):
 
         Args:
             req: list[MedHistoryTypes], for which data WILL NOT be created if there
-            is a user attr on the class. GoutHelper requires this to be set elsewhere for
-            user-based views. If there is not a user attr, dict value will always be True."""
+            is a patient attr on the class. GoutHelper requires this to be set elsewhere for
+            patient-based views. If there is not a patient attr, dict value will always be True."""
         data = {}
         # Create MedHistory data
         for medhistory in self.aid_mhs:
             if self.mhs and medhistory in self.mhs:
                 data[f"{medhistory}-value"] = True
-            elif self.user:
+            elif self.patient:
                 if not self.req_mhs or (self.req_mhs and medhistory not in self.req_mhs):
                     data[f"{medhistory}-value"] = (
                         True
-                        if getattr(self.user, medhistory.lower())
+                        if getattr(self.patient, medhistory.lower())
                         else False
                         if medhistory in self.bool_mhs
                         else ""
@@ -723,12 +731,12 @@ class MedHistoryDataMixin(DataMixin):
                     self.aid_mh_dets,
                     self.mh_dets,
                     self.req_mh_dets,
-                    self.user,
+                    self.patient,
                     self.aid_obj,
                 ):
                     update_or_create_goutdetail_data(
                         data,
-                        self.user,
+                        self.patient,
                         self.aid_obj,
                         self.req_mh_dets,
                         self.mh_dets,
@@ -745,11 +753,11 @@ class MedAllergyDataMixin(DataMixin):
     def create_ma_data(self):
         data = {}
         # Create MedAllergy data
-        if self.user:
+        if self.patient:
             try:
-                ma_qs = self.user.medallergys_qs
+                ma_qs = self.patient.medallergys_qs
             except AttributeError:
-                ma_qs = self.user.medallergy_set.filter(treatment__in=self.aid_mas).all()
+                ma_qs = self.patient.medallergy_set.filter(treatment__in=self.aid_mas).all()
         elif self.aid_obj:
             try:
                 ma_qs = self.aid_obj.medallergys_qs
@@ -778,7 +786,7 @@ class OneToOneDataMixin(DataMixin):
     def create_oto_data(self):
         data = {}
         for onetoone in self.aid_otos:
-            if self.user and self.user_otos and onetoone in self.user_otos:
+            if self.patient and self.patient_otos and onetoone in self.patient_otos:
                 continue
             elif getattr(self, onetoone, None) is not None:
                 data[f"{onetoone}-value"] = getattr(self, onetoone)
@@ -802,7 +810,7 @@ class CreateAidMixin:
         mh_dets: dict[MedHistoryTypes : dict[str, Any]] = None,
         otos: list[tuple[str, DjangoModelFactory | DateOfBirth | Ethnicity | Gender | Urate]] = None,
         req_otos: list[str] = None,
-        user: User | bool = None,
+        patient: User | bool = None,
     ):
         self.labs = labs
         self.mas = mas
@@ -811,20 +819,20 @@ class CreateAidMixin:
         self.otos = otos
         self.req_otos = req_otos
         # Check for equality, not Truthiness, because a User object could be Truthy
-        if user is True:
-            self.user = create_psp(
+        if patient is True:
+            self.patient = create_psp(
                 dateofbirth=False,
                 ethnicity=False,
                 gender=False,
             )
-            # Set just_created attr on user to be used in processing mhs
-            self.user.just_created = True
-        elif user:
-            self.user = user
-            # Set just_created attr on user to be used in processing mhs
-            self.user.just_created = False
+            # Set just_created attr on patient to be used in processing mhs
+            self.patient.just_created = True
+        elif patient:
+            self.patient = patient
+            # Set just_created attr on patient to be used in processing mhs
+            self.patient.just_created = False
         else:
-            self.user = None
+            self.patient = None
 
     def create(self, **kwargs):
         # If there are otos, then unpack and pop() them from the kwargs
@@ -880,15 +888,20 @@ class LabCreatorMixin(CreateAidMixin):
                 qs_attr = get_or_create_qs_attr(related_obj if related_obj else aid_obj, lab_name)
                 for lab in lab_list:
                     if isinstance(lab, Lab):
-                        if self.user:
-                            get_or_create_attr(lab, "user", self.user, commit=True)
+                        if self.patient:
+                            get_or_create_attr(lab, "patient", self.patient, commit=True)
                         else:
                             get_or_create_attr(lab, aid_obj_attr, aid_obj, commit=True)
                         if related_obj:
                             related_obj_attr = related_obj.__class__.__name__.lower()
                             get_or_create_attr(lab, related_obj_attr, related_obj, commit=True)
                     elif isinstance(lab, Decimal):
-                        lab_factory_kwargs = {aid_obj_attr: aid_obj, "value": lab, "user": self.user, "dated": True}
+                        lab_factory_kwargs = {
+                            aid_obj_attr: aid_obj,
+                            "value": lab,
+                            "patient": self.patient,
+                            "dated": True,
+                        }
                         if related_obj:
                             related_obj_attr = related_obj.__class__.__name__.lower()
                             lab_factory_kwargs.update({related_obj_attr: related_obj})
@@ -916,14 +929,14 @@ class MedAllergyCreatorMixin(CreateAidMixin):
         if self.mas:
             for treatment in self.mas:
                 if isinstance(treatment, MedAllergy):
-                    if self.user:
-                        if treatment.user is None:
+                    if self.patient:
+                        if treatment.patient is None:
                             try:
-                                treatment.user = self.user
+                                treatment.patient = self.patient
                                 treatment.save()
                             except IntegrityError as exc:
                                 raise IntegrityError(
-                                    f"MedAllergy {treatment} already exists for {self.user}."
+                                    f"MedAllergy {treatment} already exists for {self.patient}."
                                 ) from exc
                         aid_obj.medallergys_qs.append(treatment)
                     else:
@@ -939,18 +952,21 @@ class MedAllergyCreatorMixin(CreateAidMixin):
                             aid_obj.medallergys_qs.append(
                                 MedAllergyFactory(
                                     treatment=treatment,
-                                    user=self.user,
-                                    **{aid_obj_attr: aid_obj} if not self.user else {},
+                                    patient=self.patient,
+                                    **{aid_obj_attr: aid_obj} if not self.patient else {},
                                 )
                             )
                         except IntegrityError as exc:
                             raise IntegrityError(
-                                f"MedAllergy {treatment} already exists for {aid_obj if not self.user else self.user}."
+                                f"MedAllergy {treatment} already exists for "
+                                f"{aid_obj if not self.patient else self.patient}."
                             ) from exc
-                    elif not self.user or self.user.just_created:
+                    elif not self.patient or self.patient.just_created:
                         aid_obj.medallergys_qs.append(
                             MedAllergyFactory(
-                                treatment=treatment, user=self.user, **{aid_obj_attr: aid_obj} if not self.user else {}
+                                treatment=treatment,
+                                patient=self.patient,
+                                **{aid_obj_attr: aid_obj} if not self.patient else {},
                             )
                         )
 
@@ -975,16 +991,16 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                 if isinstance(medhistory, MedHistory):
                     if medhistory.medhistorytype == MedHistoryTypes.MENOPAUSE:
                         continue
-                    if self.user:
-                        if medhistory.user != self.user:
+                    if self.patient:
+                        if medhistory.patient != self.patient:
                             try:
-                                medhistory.user = self.user
+                                medhistory.patient = self.patient
                                 medhistory.save()
                             except IntegrityError as exc:
                                 raise IntegrityError(
-                                    f"MedHistory {medhistory} already exists for {self.user}."
+                                    f"MedHistory {medhistory} already exists for {self.patient}."
                                 ) from exc
-                            medhistory.user = self.user
+                            medhistory.patient = self.patient
                             medhistory.save()
                     else:
                         # Set the MedHistory's appropriate FK to the Aid object
@@ -1001,24 +1017,24 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                     if specified:
                         new_mh = get_or_create_medhistory_atomic(
                             medhistory,
-                            user=self.user,
+                            patient=self.patient,
                             aid_obj=aid_obj,
                             aid_obj_attr=aid_obj_attr,
                         )
-                    elif not self.user or self.user.just_created:
-                        if self.user and medhistory == MedHistoryTypes.GOUT:
-                            new_mh = getattr(self.user, "gout")
+                    elif not self.patient or self.patient.just_created:
+                        if self.patient and medhistory == MedHistoryTypes.GOUT:
+                            new_mh = getattr(self.patient, "gout")
                             if not new_mh:
                                 new_mh = get_or_create_medhistory_atomic(
                                     medhistory,
-                                    user=self.user,
+                                    patient=self.patient,
                                     aid_obj=aid_obj,
                                     aid_obj_attr=aid_obj_attr,
                                 )
                         else:
                             new_mh = get_or_create_medhistory_atomic(
                                 medhistory,
-                                user=self.user,
+                                patient=self.patient,
                                 aid_obj=aid_obj,
                                 aid_obj_attr=aid_obj_attr,
                             )
@@ -1030,7 +1046,7 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                         if self.mh_dets and medhistory in self.mh_dets:
                             if medhistory == MedHistoryTypes.CKD:
                                 ckddetail_kwargs = self.mh_dets.get(medhistory, None)
-                                if self.user:
+                                if self.patient:
                                     if not getattr(new_mh, "ckddetail", None):
                                         if not opt_mh_dets or (
                                             opt_mh_dets
@@ -1041,13 +1057,13 @@ class MedHistoryCreatorMixin(CreateAidMixin):
                                             create_ckddetail(
                                                 medhistory=new_mh,
                                                 dateofbirth=(
-                                                    self.user.dateofbirth.value
-                                                    if getattr(self.user, "dateofbirth", None)
+                                                    self.patient.dateofbirth.value
+                                                    if getattr(self.patient, "dateofbirth", None)
                                                     else None
                                                 ),
                                                 gender=(
-                                                    self.user.gender.value
-                                                    if getattr(self.user, "gender", None)
+                                                    self.patient.gender.value
+                                                    if getattr(self.patient, "gender", None)
                                                     else None
                                                 ),
                                                 **ckddetail_kwargs if ckddetail_kwargs else {},
@@ -1119,12 +1135,12 @@ class OneToOneCreatorMixin(CreateAidMixin):
         )
 
     @staticmethod
-    def _create_factory(model_factory: DjangoModelFactory | None, factory: Any, user: User | None = None):
+    def _create_factory(model_factory: DjangoModelFactory | None, factory: Any, patient: User | None = None):
         return (
-            model_factory(value=factory, user=user)
+            model_factory(value=factory, patient=patient)
             if model_factory is not None
             and "value" in [field.name for field in model_factory._meta.model._meta.fields]
-            else model_factory(user=user)
+            else model_factory(patient=patient)
             if model_factory
             else None
         )
@@ -1157,34 +1173,34 @@ class OneToOneCreatorMixin(CreateAidMixin):
         aid_obj: Union["FlareAid", "Flare", "GoalUrate", "PpxAid", "Ppx", "Ult", "UltAid"],
     ) -> None:
         aid_obj_attr = aid_obj.__class__.__name__.lower()
-        if self.user:
-            # If there's a user, assign that user to the Aid object
-            aid_obj.user = self.user
+        if self.patient:
+            # If there's a patient, assign that patient to the Aid object
+            aid_obj.patient = self.patient
             for onetoone, factory in self.otos.items():
                 if self._factory_is_model_object(factory):
-                    if factory.user != self.user:
+                    if factory.patient != self.patient:
                         try:
-                            factory.user = self.user
+                            factory.patient = self.patient
                             factory.save()
                         except IntegrityError as exc:
-                            raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                            raise IntegrityError(f"{factory} already exists for {self.patient}.") from exc
                     self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory)
                 elif self._factory_is_model_datatype(factory, onetoone):
-                    if self.user.just_created:
+                    if self.patient.just_created:
                         model_fact = self._get_model_factory(factory, onetoone)
                         try:
-                            factory_obj = self._create_factory(model_fact, factory, user=self.user)
+                            factory_obj = self._create_factory(model_fact, factory, patient=self.patient)
                             self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory_obj)
                         except IntegrityError as exc:
-                            raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                            raise IntegrityError(f"{factory} already exists for {self.patient}.") from exc
                     else:
-                        oto = getattr(self.user, onetoone, None)
+                        oto = getattr(self.patient, onetoone, None)
                         if not oto:
                             model_fact = self._get_model_factory(factory, onetoone)
                             try:
-                                factory_obj = self._create_factory(model_fact, factory, user=self.user)
+                                factory_obj = self._create_factory(model_fact, factory, patient=self.patient)
                             except IntegrityError as exc:
-                                raise IntegrityError(f"{factory} already exists for {self.user}.") from exc
+                                raise IntegrityError(f"{factory} already exists for {self.patient}.") from exc
                             self._check_and_assign_onetoone_to_aid_obj(onetoone, aid_obj, factory_obj)
                         else:
                             oto.value = factory
@@ -1192,13 +1208,13 @@ class OneToOneCreatorMixin(CreateAidMixin):
                 elif factory is not None and DjangoModelFactory in factory.__mro__:
                     if (self.req_otos and onetoone in self.req_otos) or fake.boolean():
                         if onetoone == "urate" or onetoone == "aki":
-                            oto = factory(user=self.user, **{aid_obj_attr: aid_obj})
+                            oto = factory(patient=self.patient, **{aid_obj_attr: aid_obj})
                             setattr(self, onetoone, oto)
                         else:
-                            oto = getattr(self.user, onetoone, None)
+                            oto = getattr(self.patient, onetoone, None)
                             if not oto:
-                                oto = factory(user=self.user)
-                                setattr(self.user, onetoone, oto)
+                                oto = factory(patient=self.patient)
+                                setattr(self.patient, onetoone, oto)
                 elif factory is not None:
                     raise ValueError(f"Invalid factory arg: {factory}.")
         else:
@@ -1223,7 +1239,7 @@ class OneToOneCreatorMixin(CreateAidMixin):
                     raise ValueError(f"Invalid factory arg: {factory}.")
 
 
-def form_data_colchicine_contra(data: dict, user: User) -> Contraindications | None:
+def form_data_colchicine_contra(data: dict, patient: User) -> Contraindications | None:
     """Determines if there are contraindications to Colchicine in an Aid (Flare or PPx)
     form's data. When checking for contraindication, need to check if out put is not None,
     rather than Falsey, because the output could be 0 (Contraindications.ABSOLUTE),
@@ -1239,8 +1255,8 @@ def form_data_colchicine_contra(data: dict, user: User) -> Contraindications | N
                 and labs_stage_calculator(
                     labs_eGFR_calculator(
                         creatinine=data.get("baselinecreatinine-value"),
-                        age=age_calc(user.dateofbirth.value) if user.dateofbirth else data["dateofbirth-value"],
-                        gender=user.gender.value if user.gender else data["gender-value"],
+                        age=age_calc(patient.dateofbirth.value) if patient.dateofbirth else data["dateofbirth-value"],
+                        gender=patient.gender.value if patient.gender else data["gender-value"],
                     )
                 )
                 > 3
@@ -1282,11 +1298,11 @@ class CustomFactoryBaseMixin:
             self.related_objects_related_objects = None
 
 
-class CustomFactoryUserMixin:
-    user: Union["User", bool, None]
+class CustomFactoryPatientMixin:
+    patient: Union["User", None]
 
-    def get_or_create_user(self) -> Union["User", None]:
-        if self.user is True:
+    def get_or_create_patient(self) -> "User":
+        if not self.patient:
             kwargs = {}
             if hasattr(self, "dateofbirth") and self.dateofbirth:
                 if not isinstance(self.dateofbirth, date):
@@ -1298,21 +1314,19 @@ class CustomFactoryUserMixin:
                 kwargs["gender"] = self.gender
             return create_psp(**kwargs)
         else:
-            if self.user:
-                has_dateofbirth = hasattr(self, "dateofbirth")
-                has_gender = hasattr(self, "gender")
+            has_dateofbirth = hasattr(self, "dateofbirth")
+            has_gender = hasattr(self, "gender")
 
-                if has_dateofbirth and self.dateofbirth and has_gender and self.gender:
-                    raise ValueError(
-                        f"{self.user} already has a dateofbirth: {self.user.date} and a gender: {self.user.gender}."
-                    )
-                elif has_dateofbirth and self.dateofbirth:
-                    raise ValueError(f"{self.user} already has a dateofbirth: {self.user.dateofbirth}")
-                elif has_gender and self.gender:
-                    raise ValueError(f"{self.user} already has a gender: {self.user.gender}")
-                return self.user
-            else:
-                return None
+            if has_dateofbirth and self.dateofbirth and has_gender and self.gender:
+                raise ValueError(
+                    f"{self.patient} already has a dateofbirth: {self.patient.date}"
+                    f"and a gender: {self.patient.gender}."
+                )
+            elif has_dateofbirth and self.dateofbirth:
+                raise ValueError(f"{self.patient} already has a dateofbirth: {self.patient.dateofbirth}")
+            elif has_gender and self.gender:
+                raise ValueError(f"{self.patient} already has a gender: {self.patient.gender}")
+            return self.patient
 
 
 def related_object_has_dob(related_object: Any | None = None, dateofbirth: DateOfBirth | date | None = None):
@@ -1348,11 +1362,11 @@ def create_dateofbirth(
 class CustomFactoryDateOfBirthMixin:
     dateofbirth: DateOfBirth | date | None
     related_object: Any | None
-    user: Union["User", bool, None]
+    patient: Union["User", None]
 
     def get_or_create_dateofbirth(self) -> DateOfBirth | date | None:
         if self.dateofbirth is Auto:
-            if self.user:
+            if self.patient:
                 return None
             elif related_object_has_dob(self.related_object, self.dateofbirth):
                 return self.related_object.dateofbirth
@@ -1362,7 +1376,7 @@ class CustomFactoryDateOfBirthMixin:
                     menopause=self.menopause if hasattr(self, "menopause") else None,
                 )
         else:
-            if self.user:
+            if self.patient:
                 return None
             elif related_object_has_dob(self.related_object, self.dateofbirth):
                 raise ValueError("Cannot create a DateOfBirth for a related object that already has one!")
@@ -1403,11 +1417,11 @@ class CustomFactoryGenderMixin:
     gender: Union["Gender", "Genders", None]
     menopause: Union["MedHistory", bool, None]
     related_object: Any | None
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
 
     def get_or_create_gender(self) -> Union["Gender", "Genders", None]:
         if self.gender is Auto:
-            if self.user:
+            if self.patient:
                 return None
             elif related_object_has_gender(related_object=self.related_object, gender=self.gender):
                 return self.related_object.gender
@@ -1417,7 +1431,7 @@ class CustomFactoryGenderMixin:
                     menopause=self.menopause if hasattr(self, "menopause") else None,
                 )
         else:
-            if self.user:
+            if self.patient:
                 return None
             elif related_object_has_gender(related_object=self.related_object, gender=self.gender):
                 raise ValueError("Cannot create a Gender for a related object that already has one!")
@@ -1435,7 +1449,7 @@ class CustomFactoryAkiMixin:
     aki: Union[Statuses, "Aki", None]
     creatinines: list["Creatinine", "Decimal", tuple["Creatinine", "date"]] | None
     flare: Union["Flare", bool, None]
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
 
     def get_or_create_aki(self) -> Aki:
         def create_aki(status: Statuses | None = None) -> Aki:
@@ -1444,7 +1458,7 @@ class CustomFactoryAkiMixin:
                 kwargs["creatinines"] = self.creatinines
             if status:
                 kwargs["status"] = status
-            return AkiFactory(user=self.user, **kwargs)
+            return AkiFactory(patient=self.patient, **kwargs)
 
         if self.aki is Auto:
             return (
@@ -1472,7 +1486,7 @@ class CustomFactoryCkdMixin:
     baselinecreatinine: BaselineCreatinine | Decimal | None
     stage: Stages | None
     dialysis: bool | None
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
     related_object: Any | None
     dateofbirth: DateOfBirth | date | None
     gender: Union["Gender", "Genders", None]
@@ -1518,15 +1532,15 @@ class CustomFactoryCkdMixin:
                             self.dateofbirth
                             if isinstance(self.dateofbirth, date)
                             else self.dateofbirth.value
-                            if not self.user
-                            else self.user.dateofbirth
+                            if not self.patient
+                            else self.patient.dateofbirth
                         ),
                         gender=(
                             self.gender
                             if isinstance(self.gender, Genders)
                             else self.gender.value
-                            if not self.user
-                            else self.user.gender.value
+                            if not self.patient
+                            else self.patient.gender.value
                         ),
                     )
                 )
@@ -1605,9 +1619,11 @@ class CustomFactoryCkdMixin:
     def update_ckddetail(self) -> None:
         if self.needs_ckddetail:
             ckddetail_kwargs = self.create_ckddetail_kwargs()
-            if self.user and self.user.ckddetail:
-                if next(iter(k for k, v in ckddetail_kwargs.items() if v != getattr(self.user.ckddetail, k)), False):
-                    self.user.ckddetail.update(**ckddetail_kwargs)
+            if self.patient and self.patient.ckddetail:
+                if next(
+                    iter(k for k, v in ckddetail_kwargs.items() if v != getattr(self.patient.ckddetail, k)), False
+                ):
+                    self.patient.ckddetail.update(**ckddetail_kwargs)
             elif self.related_object and self.related_object.ckddetail:
                 ckddetail_needs_to_be_saved = False
                 for k, v in ckddetail_kwargs.items():
@@ -1628,13 +1644,13 @@ class CustomFactoryCkdMixin:
                     else self.baselinecreatinine.value
                 )
                 if (
-                    self.user
-                    and self.user.baselinecreatinine
-                    and self.user.baselinecreatinine.value != baselinecreatinine_value
+                    self.patient
+                    and self.patient.baselinecreatinine
+                    and self.patient.baselinecreatinine.value != baselinecreatinine_value
                 ):
-                    self.user.baselinecreatinine.value = baselinecreatinine_value
-                    self.user.baselinecreatinine.full_clean()
-                    self.user.baselinecreatinine.save()
+                    self.patient.baselinecreatinine.value = baselinecreatinine_value
+                    self.patient.baselinecreatinine.full_clean()
+                    self.patient.baselinecreatinine.save()
                 elif (
                     self.related_object
                     and self.related_object.baselinecreatinine
@@ -1654,14 +1670,14 @@ class CustomFactoryMedHistoryMixin:
     related_object: Any | None
     related_object_attr: str | None
     related_objects_related_objects: list[Any] | None
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
 
     def get_or_create_medhistory(self, medhistorytype: MedHistoryTypes) -> MedHistory | bool | None:
         mh_attr = medhistorytype.lower()
         mh = getattr(self, mh_attr)
         if mh is Auto:
-            if self.user:
-                return getattr(self.user, mh_attr, None)
+            if self.patient:
+                return getattr(self.patient, mh_attr, None)
             elif self.related_object:
                 return getattr(self.related_object, mh_attr, None)
             else:
@@ -1699,28 +1715,32 @@ class CustomFactoryMedHistoryMixin:
             else:
                 self.set_medhistory_attr(medhistory, self.get_or_create_medhistory(medhistory))
 
-    def mh_object_needs_related_object_or_user_update(self, mh_val_or_object: MedHistory) -> bool:
+    def mh_object_needs_related_object_or_patient_update(self, mh_val_or_object: MedHistory) -> bool:
         if self.related_object:
             related_object_attr = self.related_object.__class__.__name__.lower()
             return isinstance(mh_val_or_object, MedHistory) and (
                 getattr(mh_val_or_object, related_object_attr) != self.related_object
                 or getattr(mh_val_or_object, related_object_attr) is None
-                or mh_val_or_object.user != self.related_object.user
+                or mh_val_or_object.patient != self.related_object.patient
             )
         else:
-            return isinstance(mh_val_or_object, MedHistory) and mh_val_or_object.user
+            return isinstance(mh_val_or_object, MedHistory) and mh_val_or_object.patient
 
     def update_mh_object(self, mh_val_or_object: MedHistory) -> None:
-        setattr(mh_val_or_object, self.related_object_attr, self.related_object if not self.user else None)
-        mh_val_or_object.user = (
-            self.related_object.user if self.related_object and not self.user else self.user if self.user else None
+        setattr(mh_val_or_object, self.related_object_attr, self.related_object if not self.patient else None)
+        mh_val_or_object.patient = (
+            self.related_object.patient
+            if self.related_object and not self.patient
+            else self.patient
+            if self.patient
+            else None
         )
         mh_val_or_object.full_clean()
         mh_val_or_object.save()
 
     def get_mh_to_delete(self, mh_attr: str) -> MedHistory | None:
-        if self.user:
-            return getattr(self.user, mh_attr, False)
+        if self.patient:
+            return getattr(self.patient, mh_attr, False)
         elif self.related_object:
             return getattr(self.related_object, mh_attr, False)
         else:
@@ -1734,19 +1754,19 @@ class CustomFactoryMedHistoryMixin:
 
     def delete_mh_to_delete(self, mh_to_delete: MedHistory, mh_attr: str) -> None:
         mh_to_delete.delete()
-        delattr(self.user, mh_attr) if self.user else delattr(  # pylint: disable=W0106
+        delattr(self.patient, mh_attr) if self.patient else delattr(  # pylint: disable=W0106
             self.related_object, mh_attr
         ) if self.related_object else None
-        if self.user and mh_to_delete in self.user.medhistorys_qs:
-            self.user.medhistorys_qs.remove(mh_to_delete)
+        if self.patient and mh_to_delete in self.patient.medhistorys_qs:
+            self.patient.medhistorys_qs.remove(mh_to_delete)
         elif mh_to_delete in self.related_object.medhistorys_qs:
             self.related_object.medhistorys_qs.remove(mh_to_delete)
         if mh_to_delete.medhistorytype == MedHistoryTypes.CKD and self.related_object:
             self.delete_related_object_ckddetail_properties()
 
     def update_medhistorys(self) -> None:
-        if self.user:
-            get_or_create_qs_attr(self.user, "medhistorys")
+        if self.patient:
+            get_or_create_qs_attr(self.patient, "medhistorys")
         else:
             get_or_create_qs_attr(self.related_object, "medhistorys")
             if self.related_objects_related_objects:
@@ -1756,19 +1776,19 @@ class CustomFactoryMedHistoryMixin:
             mh_attr = medhistory.lower()
             mh_val_or_object = getattr(self, mh_attr)
             if mh_val_or_object:
-                if self.mh_object_needs_related_object_or_user_update(mh_val_or_object):
+                if self.mh_object_needs_related_object_or_patient_update(mh_val_or_object):
                     self.update_mh_object(mh_val_or_object)
-                elif self.user and getattr(self.user, mh_attr, False):
-                    setattr(self, mh_attr, getattr(self.user, mh_attr))
+                elif self.patient and getattr(self.patient, mh_attr, False):
+                    setattr(self, mh_attr, getattr(self.patient, mh_attr))
                 else:
                     if not isinstance(mh_val_or_object, MedHistory):
                         mh_kwargs = {}
-                        if self.related_object and not self.user:
+                        if self.related_object and not self.patient:
                             related_object_attr = self.related_object.__class__.__name__.lower()
                             mh_kwargs.update({related_object_attr: self.related_object})
                         mh_val_or_object = MedHistory.objects.create(
                             medhistorytype=medhistory,
-                            user=self.user,
+                            patient=self.patient,
                             **mh_kwargs,
                         )
                     setattr(
@@ -1776,8 +1796,8 @@ class CustomFactoryMedHistoryMixin:
                         mh_attr,
                         mh_val_or_object,
                     )
-                if self.user and mh_val_or_object not in self.user.medhistorys_qs:
-                    self.user.medhistorys_qs.append(mh_val_or_object)
+                if self.patient and mh_val_or_object not in self.patient.medhistorys_qs:
+                    self.patient.medhistorys_qs.append(mh_val_or_object)
                 elif self.related_object and mh_val_or_object not in self.related_object.medhistorys_qs:
                     self.related_object.medhistorys_qs.append(mh_val_or_object)
                     # Need to set the mh_attr on the related_object to get around cached_property
@@ -1816,13 +1836,13 @@ class CustomFactoryMenopauseMixin:
     menopause: MedHistory | bool | None
     dateofbirth: DateOfBirth | date | None
     gender: Union["Gender", "Genders", None]
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
     related_object: Any | None
 
     def get_or_create_menopause(self) -> MedHistory | None:
         if self.menopause == Auto:
-            if self.user:
-                return getattr(self.user, "menopause", None)
+            if self.patient:
+                return getattr(self.patient, "menopause", None)
             elif self.flare:
                 return getattr(self.flare, "menopause", None)
             else:
@@ -1854,14 +1874,14 @@ class CustomFactoryMedAllergyMixin:
     treatments: list[Treatments]
     related_object: Any | None
     related_object_attr: str | None
-    user: Union["User", bool, None]
+    patient: Union["User", bool, None]
 
     def get_or_create_medallergy(self, treatment: Treatments) -> MedAllergy | bool | None:
         ma_attr = f"{treatment.lower()}_allergy"
         ma = getattr(self, ma_attr)
         if ma is Auto:
-            if self.user:
-                return getattr(self.user, ma_attr, None)
+            if self.patient:
+                return getattr(self.patient, ma_attr, None)
             elif self.related_object:
                 return getattr(self.related_object, ma_attr, None)
             else:
@@ -1881,27 +1901,31 @@ class CustomFactoryMedAllergyMixin:
         for treatment in self.treatments:
             self.set_medallergy_attr(treatment, self.get_or_create_medallergy(treatment))
 
-    def ma_object_needs_related_object_or_user_update(self, ma_val_or_object: MedAllergy) -> bool:
+    def ma_object_needs_related_object_or_patient_update(self, ma_val_or_object: MedAllergy) -> bool:
         if self.related_object:
             return isinstance(ma_val_or_object, MedAllergy) and (
                 getattr(ma_val_or_object, self.related_object_attr) != self.related_object
                 or getattr(ma_val_or_object, self.related_object_attr) is None
-                or ma_val_or_object.user != self.related_object.user
+                or ma_val_or_object.patient != self.related_object.patient
             )
         else:
-            return isinstance(ma_val_or_object, MedAllergy) and ma_val_or_object.user
+            return isinstance(ma_val_or_object, MedAllergy) and ma_val_or_object.patient
 
     def update_ma_object(self, ma_val_or_object: MedAllergy) -> None:
-        setattr(ma_val_or_object, self.related_object_attr, self.related_object if not self.user else None)
-        ma_val_or_object.user = (
-            self.related_object.user if self.related_object and not self.user else self.user if self.user else None
+        setattr(ma_val_or_object, self.related_object_attr, self.related_object if not self.patient else None)
+        ma_val_or_object.patient = (
+            self.related_object.patient
+            if self.related_object and not self.patient
+            else self.patient
+            if self.patient
+            else None
         )
         ma_val_or_object.full_clean()
         ma_val_or_object.save()
 
     def get_ma_to_delete(self, ma_attr: str) -> MedAllergy | None:
-        if self.user:
-            return getattr(self.user, ma_attr, False)
+        if self.patient:
+            return getattr(self.patient, ma_attr, False)
         elif self.related_object:
             return getattr(self.related_object, ma_attr, False)
         else:
@@ -1910,38 +1934,38 @@ class CustomFactoryMedAllergyMixin:
     def delete_ma_to_delete(self, ma_to_delete: MedAllergy, ma_attr: str) -> None:
         ma_to_delete.delete()
         (
-            delattr(self.user, ma_attr)
-            if self.user
+            delattr(self.patient, ma_attr)
+            if self.patient
             else delattr(self.related_object, ma_attr)
             if self.related_object
             else None
         )
-        if self.user and ma_to_delete in self.user.medallergys_qs:
-            self.user.medallergys_qs.remove(ma_to_delete)
+        if self.patient and ma_to_delete in self.patient.medallergys_qs:
+            self.patient.medallergys_qs.remove(ma_to_delete)
         elif ma_to_delete in self.related_object.medallergys_qs:
             self.related_object.medallergys_qs.remove(ma_to_delete)
 
     def update_medallergys(self) -> None:
-        if self.user:
-            get_or_create_qs_attr(self.user, "medallergys")
+        if self.patient:
+            get_or_create_qs_attr(self.patient, "medallergys")
         else:
             get_or_create_qs_attr(self.flareaid, "medallergys")
         for treatment in self.treatments:
             ma_attr = f"{treatment.lower()}_allergy"
             ma_val_or_object = getattr(self, ma_attr)
             if ma_val_or_object:
-                if self.ma_object_needs_related_object_or_user_update(ma_val_or_object):
+                if self.ma_object_needs_related_object_or_patient_update(ma_val_or_object):
                     self.update_ma_object(ma_val_or_object)
-                elif self.user and getattr(self.user, ma_attr, False):
-                    setattr(self, ma_attr, getattr(self.user, ma_attr))
+                elif self.patient and getattr(self.patient, ma_attr, False):
+                    setattr(self, ma_attr, getattr(self.patient, ma_attr))
                 else:
                     if not isinstance(ma_val_or_object, MedAllergy):
                         ma_kwargs = {}
-                        if self.related_object and not self.user:
+                        if self.related_object and not self.patient:
                             ma_kwargs.update({self.related_object_attr: self.related_object})
                         ma_val_or_object = MedAllergy.objects.create(
                             treatment=treatment,
-                            user=self.user,
+                            patient=self.patient,
                             **ma_kwargs,
                         )
                     setattr(
@@ -1949,8 +1973,8 @@ class CustomFactoryMedAllergyMixin:
                         ma_attr,
                         ma_val_or_object,
                     )
-                if self.user and ma_val_or_object not in self.user.medallergys_qs:
-                    self.user.medallergys_qs.append(ma_val_or_object)
+                if self.patient and ma_val_or_object not in self.patient.medallergys_qs:
+                    self.patient.medallergys_qs.append(ma_val_or_object)
                 elif self.related_object and ma_val_or_object not in self.related_object.medallergys_qs:
                     self.related_object.medallergys_qs.append(ma_val_or_object)
             else:

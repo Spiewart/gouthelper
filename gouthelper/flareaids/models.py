@@ -17,7 +17,7 @@ from ..medhistorys.choices import Contraindications
 from ..medhistorys.lists import FLAREAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, NsaidChoices, Treatments, TrtTypes
-from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
+from ..utils.models import AidMixin, FlarePpxMixin, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import (
     aids_dose_adjust_colchicine,
     aids_get_colchicine_contraindication_for_stage,
@@ -28,20 +28,16 @@ from .managers import FlareAidManager
 from .services import FlareAidDecisionAid
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model  # type: ignore
-
     from ..akis.models import Aki
     from ..flares.models import Flare
     from ..medhistorys.choices import MedHistoryTypes
-
-    User = get_user_model()
 
 
 class FlareAid(
     RulesModelMixin,
     FlarePpxMixin,
     TreatmentAidMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -55,54 +51,22 @@ class FlareAid(
             "delete": delete_object,
             "view": view_object,
         }
-        constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_valid",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        dateofbirth__isnull=True,
-                        gender__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                        dateofbirth__isnull=False,
-                        # gender can be null because not all FlareAids will have CkdDetail
-                    )
-                ),
-            ),
-        ]
 
-    dateofbirth = models.OneToOneField(
-        "dateofbirths.DateOfBirth",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-    )
     decisionaid = models.JSONField(
         default=dict,
         blank=True,
     )
-    gender = models.OneToOneField(
-        "genders.Gender",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = FlareAidManager()
     related_models: list[Literal["flare"]] = ["flare"]
     req_otos: list[Literal["dateofbirth"]] = ["dateofbirth"]
-    decision_aid_service = FlareAidDecisionAid
+    decisionaid = FlareAidDecisionAid
 
     def __str__(self):
-        if self.user:
-            return f"{str(self.user)}'s FlareAid"
-        else:
-            return f"FlareAid: {self.created.date()}"
+        return f"FlareAid: {self.created.date()}"
 
     @cached_property
     def aki(self) -> Union["Aki", None]:
@@ -211,12 +175,12 @@ treatment is typically very short and the risk of bleeding is low."
 
     @cached_property
     def defaulttrtsettings(self) -> FlareAidSettings:
-        """Returns a FlareAidSettings object based on whether the FlareAid has a user
-        field or not and whether or not the user has a related flareaidsettings if so."""
+        """Returns a FlareAidSettings object based on whether the FlareAid has a patient
+        field or not and whether or not the patient has a related flareaidsettings if so."""
         return (
-            self.user.flareaidsettings
-            if (self.user and hasattr(self.user, "flareaidsettings"))
-            else defaults_flareaidsettings(user=self.user)
+            self.patient.flareaidsettings
+            if hasattr(self.patient, "flareaidsettings")
+            else defaults_flareaidsettings(user=self.patient)
         )
 
     @cached_property
@@ -244,10 +208,7 @@ treatment is typically very short and the risk of bleeding is low."
         ]
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("flareaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-        else:
-            return reverse("flareaids:detail", kwargs={"pk": self.pk})
+        return reverse("flareaids:detail", kwargs={"pk": self.pk})
 
     @cached_property
     def might_have_more_options_with_age_or_gender(self) -> bool:
@@ -385,8 +346,8 @@ treatment is typically very short and the risk of bleeding is low."
 
     @property
     def related_flare(self) -> Union["Flare", None]:
-        if self.user:
-            flare_qs = getattr(self.user, "flare_qs", None)
+        if self.patient:
+            flare_qs = getattr(self.patient, "flare_qs", None)
             return flare_qs.first() if isinstance(flare_qs, models.QuerySet) else flare_qs[0] if flare_qs else None
         else:
             return getattr(self, "flare", None)

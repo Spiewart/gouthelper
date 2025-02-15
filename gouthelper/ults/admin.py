@@ -7,10 +7,12 @@ from .models import Ult
 @admin.register(Ult)
 class UltHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
-        "pk",
+        "patient",
         "num_flares",
         "freq_flares",
         "indication",
         "modified",
+        "created",
+        "pk",
     )
     ordering = ("-modified",)

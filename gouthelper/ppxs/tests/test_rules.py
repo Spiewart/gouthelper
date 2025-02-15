@@ -14,10 +14,10 @@ class TestCanChangePpx(TestCase):
     def setUp(self):
         self.provider = UserFactory(role=Roles.PROVIDER)
         self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.provider_ppx = create_ppx(user=self.provider_pseudopatient)
+        self.provider_ppx = create_ppx(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.admin_ppx = create_ppx(user=self.admin_pseudopatient)
+        self.admin_ppx = create_ppx(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppx = create_ppx()
 
@@ -47,12 +47,12 @@ class TestCanDeletePpx(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppx = create_ppx(user=self.provider_pseudopatient)
+        self.provider_ppx = create_ppx(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppx = create_ppx(user=self.admin_pseudopatient)
+        self.admin_ppx = create_ppx(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppx = create_ppx()
 
@@ -82,12 +82,12 @@ class TestCanViewPpx(TestCase):
         self.provider_pseudopatient = create_psp()
         self.provider_pseudopatient.profile.provider = self.provider
         self.provider_pseudopatient.profile.save()
-        self.provider_ppx = create_ppx(user=self.provider_pseudopatient)
+        self.provider_ppx = create_ppx(patient=self.provider_pseudopatient)
         self.admin = UserFactory(role=Roles.ADMIN)
         self.admin_pseudopatient = create_psp()
         self.admin_pseudopatient.profile.provider = self.admin
         self.admin_pseudopatient.profile.save()
-        self.admin_ppx = create_ppx(user=self.admin_pseudopatient)
+        self.admin_ppx = create_ppx(patient=self.admin_pseudopatient)
         self.anon = AnonymousUser()
         self.anon_ppx = create_ppx()
 

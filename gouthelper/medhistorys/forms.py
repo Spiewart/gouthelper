@@ -42,20 +42,7 @@ class MedHistoryForm(ModelFormKwargMixin, forms.ModelForm):
     class Meta:
         abstract = True
         model = MedHistory
-        exclude = [
-            "flareaid",
-            "flare",
-            "goalurate",
-            "last_modified",
-            "ppxaid",
-            "ppx",
-            "setter",
-            "set_date",
-            "ultaid",
-            "ult",
-            "user",
-            "visit",
-        ]
+        fields = ["value"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -292,6 +279,10 @@ class GastricbypassForm(MHCheckForm):
 
 
 class GoutForm(MedHistoryForm):
+    """Form to create or delete a Gout object.
+    Widget is a select box with Yes, No, or blank as options.
+    If the goutdetail kwarg is True, then ONLY the GoutDetailForm will be shown."""
+
     class Meta(MedHistoryForm.Meta):
         model = Gout
         prefix = MedHistoryTypes.GOUT
@@ -311,10 +302,8 @@ class GoutForm(MedHistoryForm):
             }
         )
         # Check if the goutdetail kwarg is True
-        # If it is, then the patient has had gout before
+        # If it is, then only the GoutDetailForm will be shown
         if goutdetail:
-            # Set the initial value to True
-            self.fields[self.value].initial = True
             # Hide the field
             self.fields[self.value].widget = forms.HiddenInput()
         else:

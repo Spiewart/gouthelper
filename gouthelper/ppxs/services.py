@@ -1,12 +1,11 @@
 from typing import TYPE_CHECKING, Union
 
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model
 from django.db.models.query import QuerySet
 
 from ..labs.helpers import labs_urate_within_90_days, labs_urate_within_last_month
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.helpers import get_medhistory
 from ..ults.choices import Indications
 from ..utils.services import AidService, aids_assign_goutdetail
 
@@ -15,18 +14,16 @@ if TYPE_CHECKING:
     from ..medhistorys.models import MedHistory
     from ..ppxs.models import Ppx
 
-User = get_user_model()
-
 
 class PpxDecisionAid(AidService):
     """Class method for creating/updating Ppx indication field."""
 
     def __init__(
         self,
-        qs: Union["Ppx", User, QuerySet] = None,
+        qs: Union["Ppx", QuerySet] = None,
     ):
         super().__init__(qs=qs, model=apps.get_model(app_label="ppxs", model_name="Ppx"))
-        self.gout = medhistorys_get(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
+        self.gout = get_medhistory(medhistorys=self.medhistorys, medhistorytype=MedHistoryTypes.GOUT)
         self.goutdetail = aids_assign_goutdetail(medhistorys=[self.gout]) if self.gout else None
         self._check_for_gout_and_detail()
         self.urates = self.qs.urates_qs
@@ -94,22 +91,20 @@ class PpxDecisionAid(AidService):
             ppx: Ppx object
         """
 
-        def _goutdetail_at_goal_needs_update() -> bool:
-            return self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month
-
-        def _goutdetail_at_goal_long_term_needs_update() -> bool:
-            return (
-                self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month
-            )
-
         # Check and update the at_goal and at_goal_long_term fields in the GoutDetail
-        if _goutdetail_at_goal_needs_update() or _goutdetail_at_goal_long_term_needs_update():
+        if self._goutdetail_at_goal_needs_update() or self._goutdetail_at_goal_long_term_needs_update():
             self.model_attr.goutdetail.update_at_goal(at_goal=self.at_goal)
             self.model_attr.goutdetail.update_at_goal_long_term(at_goal_long_term=self.at_goal_long_term)
             self.model_attr.goutdetail.full_clean()
             self.model_attr.goutdetail.save()
         self.set_model_attr_indication()
         return super()._update(commit=commit)
+
+    def _goutdetail_at_goal_needs_update(self) -> bool:
+        return self.model_attr.goutdetail.at_goal != self.at_goal and self.urate_within_last_month
+
+    def _goutdetail_at_goal_long_term_needs_update(self) -> bool:
+        return self.model_attr.goutdetail.at_goal_long_term != self.at_goal_long_term and self.urate_within_last_month
 
     def aid_needs_2_be_saved(self) -> bool:
         return self.indication_has_changed()

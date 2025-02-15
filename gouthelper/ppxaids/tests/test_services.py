@@ -22,7 +22,7 @@ from ...medhistorys.tests.factories import CkdFactory
 from ...treatments.choices import FlarePpxChoices, Freqs, NsaidChoices, Treatments, TrtTypes
 from ...users.tests.factories import create_psp
 from ..models import PpxAid
-from ..selectors import ppxaid_user_qs, ppxaid_userless_qs
+from ..selectors import ppxaid_relations
 from ..services import PpxAidDecisionAid
 from .factories import create_ppxaid
 
@@ -45,15 +45,15 @@ class TestPpxAidMethods(TestCase):
         self.ppxaid = create_ppxaid(mhs=medhistorys, mas=[Treatments.COLCHICINE])
         if not self.ppxaid.baselinecreatinine:
             self.baselinecreatinine = BaselineCreatinineFactory(value=Decimal("2.20"), medhistory=self.ppxaid.ckd)
-        self.decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.ppxaid.pk))
+        self.decisionaid = PpxAidDecisionAid(qs=ppxaid_relations(pk=self.ppxaid.pk))
         self.empty_ppxaid = create_ppxaid(mhs=[], mas=[])
-        self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_userless_qs(pk=self.empty_ppxaid.pk))
+        self.empty_decisionaid = PpxAidDecisionAid(qs=ppxaid_relations(pk=self.empty_ppxaid.pk))
 
     def test__init_without_user(self):
         """Test the __init__() method when the QuerySet is a PpxAid without a user."""
         for ppxaid in PpxAid.objects.filter(user__isnull=True).all():
             with CaptureQueriesContext(connection) as context:
-                ppxaid_qs = ppxaid_userless_qs(pk=ppxaid.pk).get()
+                ppxaid_qs = ppxaid_relations(pk=ppxaid.pk).get()
                 decisionaid = PpxAidDecisionAid(qs=ppxaid_qs)
             self.assertEqual(len(context.captured_queries), 4)  # 4 queries for medhistorys
             self.assertEqual(age_calc(ppxaid_qs.dateofbirth.value), decisionaid.age)
@@ -86,7 +86,7 @@ class TestPpxAidMethods(TestCase):
         if not hasattr(ppxaid.user.ckd, "baselinecreatinine"):
             BaselineCreatinineFactory(medhistory=ppxaid.user.ckd)
         ppxaidsettings = PpxAidSettingsFactory(user=ppxaid.user)
-        qs = ppxaid_user_qs(pseudopatient=ppxaid.user.pk)
+        qs = ppxaid_relations(pseudopatient=ppxaid.user.pk)
         with self.assertNumQueries(5):
             # QuerySet is 3 queries because the user has a ppxaidsettings
             qs = qs.get()
@@ -182,8 +182,8 @@ class TestPpxAidMethods(TestCase):
         NSAID_CONTRAS = CVDiseases.values + OTHER_NSAID_CONTRAS + [MedHistoryTypes.CKD]
         # Iterate over the PpxAid's with a User and get the user's username
         for username in PpxAid.objects.filter(user__isnull=False).values_list("user__username", flat=True):
-            # Iterate over the username and get the ppxaid_user_qs
-            ppxaid_qs = ppxaid_user_qs(username=username).get()
+            # Iterate over the username and get the ppxaid_relations
+            ppxaid_qs = ppxaid_relations(username=username).get()
             # Assign the ppxaid from the User
             ppxaid = ppxaid_qs.ppxaid
 

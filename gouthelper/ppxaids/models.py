@@ -13,9 +13,8 @@ from ..defaults.selectors import defaults_ppxaidsettings
 from ..medhistorys.lists import PPXAID_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..treatments.choices import FlarePpxChoices, TrtTypes
-from ..users.models import Pseudopatient
 from ..utils.helpers import TrtDictStr
-from ..utils.models import FlarePpxMixin, GoutHelperAidModel, GoutHelperModel, TreatmentAidMixin
+from ..utils.models import AidMixin, FlarePpxMixin, GoutHelperModel, TreatmentAidMixin
 from ..utils.services import aids_json_to_trt_dict
 from .managers import PpxAidManager
 from .services import PpxAidDecisionAid
@@ -33,7 +32,7 @@ class PpxAid(
     RulesModelMixin,
     FlarePpxMixin,
     TreatmentAidMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -47,55 +46,22 @@ class PpxAid(
             "delete": delete_object,
             "view": view_object,
         }
-        constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_valid",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        dateofbirth__isnull=True,
-                        gender__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                        dateofbirth__isnull=False,
-                        # gender can be null because not all FlareAids will have CkdDetail
-                    )
-                ),
-            ),
-        ]
 
-    dateofbirth = models.OneToOneField(
-        "dateofbirths.DateOfBirth",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-    )
     decisionaid = models.JSONField(
         default=dict,
         blank=True,
     )
-    gender = models.OneToOneField(
-        "genders.Gender",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = PpxAidManager()
     related_models: list[Literal["ppx"]] = ["ppx"]
     req_otos: list[Literal["dateofbirth"]] = ["dateofbirth"]
-    decision_aid_service = PpxAidDecisionAid
+    decisionaid = PpxAidDecisionAid
 
     def __str__(self):
-        if self.user:
-            return f"{str(self.user)}'s PpxAid"
-        else:
-            suffix = f"created {self.created.date()}" if self.created else "in creation"
-            return f"PpxAid: {suffix}"
+        return f"{str(self.patient)}'s PpxAid" if self.patient else f"PpxAid {self.pk}"
 
     @cached_property
     def aid_dict(self) -> dict:
@@ -146,10 +112,7 @@ class PpxAid(
         ]
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("ppxaids:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-        else:
-            return reverse("ppxaids:detail", kwargs={"pk": self.pk})
+        return reverse("ppxaids:detail", kwargs={"pk": self.pk})
 
     @cached_property
     def recommendation(self, ppx_settings: Union["PpxAidSettings", None] = None) -> tuple["Treatments", None] | None:
@@ -189,6 +152,3 @@ class PpxAid(
     @classmethod
     def trttype(cls) -> str:
         return TrtTypes.PPX
-
-    def get_update_qs_from_users_objects(self) -> Pseudopatient:
-        pass

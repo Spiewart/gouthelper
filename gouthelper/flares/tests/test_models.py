@@ -12,10 +12,10 @@ from ...genders.choices import Genders
 from ...genders.tests.factories import GenderFactory
 from ...labs.tests.factories import UrateFactory
 from ...medhistorys.tests.factories import CkdFactory, MenopauseFactory
-from ...users.tests.factories import PseudopatientFactory
+from ...users.tests.factories import PatientFactory
 from ..choices import Likelihoods, LimitedJointChoices
 from ..models import Flare
-from ..selectors import flare_userless_qs
+from ..selectors import flare_relations
 from .factories import create_flare
 
 pytestmark = pytest.mark.django_db
@@ -57,30 +57,30 @@ class TestFlareMethods(TestCase):
         self.flare.save()
         self.assertFalse(self.flare.abnormal_duration)
 
-    def test__at_risk_for_gout_True(self):
+    def test__demographic_risk_True(self):
         flare = create_flare(
             gender=GenderFactory(value=Genders.MALE),
             dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 40)),
         )
-        self.assertTrue(flare.at_risk_for_gout)
+        self.assertTrue(flare.demographic_risk)
 
-    def test__at_risk_for_gout_female_True(self):
+    def test__demographic_risk_female_True(self):
         flare = create_flare(
             gender=GenderFactory(value=Genders.FEMALE),
             dateofbirth=DateOfBirthFactory(value=(timezone.now() - timedelta(days=365 * 40)).date()),
             mhs=[CkdFactory()],
             menopause=True,
         )
-        self.assertTrue(flare.at_risk_for_gout)
+        self.assertTrue(flare.demographic_risk)
 
-    def test__at_risk_for_gout_False(self):
+    def test__demographic_risk_False(self):
         flare = create_flare(
             gender=GenderFactory(value=Genders.FEMALE),
             dateofbirth=DateOfBirthFactory(value=timezone.now() - timedelta(days=365 * 40)),
             mhs=[],  # No medhistorys
             menopause=False,
         )
-        self.assertFalse(flare.at_risk_for_gout)
+        self.assertFalse(flare.demographic_risk)
 
     def test__duration_returns_timedelta(self):
         """Check that the duration property returns a timedelta object and that the
@@ -224,7 +224,7 @@ class TestFlareMethods(TestCase):
             self.flare.__str__(),
             f"Flare ({self.flare.date_started.strftime('%-m/%d')} - {self.flare.date_ended.strftime('%-m/%d')})",
         )
-        self.flare.user = PseudopatientFactory()
+        self.flare.patient = PatientFactory()
         self.assertEqual(
             self.flare.__str__(),
             f"Flare ({self.flare.date_started.strftime('%-m/%d')} \
@@ -250,7 +250,7 @@ class TestFlareMethods(TestCase):
     def test__update_with_kwarg(self):
         self.assertIsNone(self.flare.prevalence)
         self.assertIsNone(self.flare.likelihood)
-        self.assertEqual(self.flare, self.flare.update_aid(qs=flare_userless_qs(pk=self.flare.pk)))
+        self.assertEqual(self.flare, self.flare.update_aid(qs=flare_relations(Flare.objects.filter(pk=self.flare.pk))))
         self.flare.refresh_from_db()
         self.assertIsNotNone(self.flare.prevalence)
         self.assertIsNotNone(self.flare.likelihood)

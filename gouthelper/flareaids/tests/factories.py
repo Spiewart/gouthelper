@@ -21,7 +21,7 @@ from ...utils.factories import (
     CustomFactoryGenderMixin,
     CustomFactoryMedAllergyMixin,
     CustomFactoryMedHistoryMixin,
-    CustomFactoryUserMixin,
+    CustomFactoryPatientMixin,
     MedAllergyCreatorMixin,
     MedAllergyDataMixin,
     MedHistoryCreatorMixin,
@@ -65,7 +65,7 @@ class CreateFlareAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataM
 
 
 def flareaid_data_factory(
-    user: Union["User", None] = None,
+    patient: Union["User", None] = None,
     flareaid: "FlareAid" = None,
     mas: list[FlarePpxChoices.values] | None = None,
     mhs: list[MedHistoryTypes] | None = None,
@@ -89,8 +89,8 @@ def flareaid_data_factory(
         aid_otos=["dateofbirth", "gender"],
         otos=otos,
         req_otos=["dateofbirth"],
-        user_otos=["dateofbirth", "gender"],
-        user=user,
+        patient_otos=["dateofbirth", "gender"],
+        patient=patient,
         aid_obj=flareaid,
     ).create()
 
@@ -119,7 +119,7 @@ class CreateFlareAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCre
 
 
 def create_flareaid(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", None] = None,
     mas: list[FlarePpxChoices.values] | None = None,
     mhs: list[FLAREAID_MEDHISTORYS] | None = None,
     **kwargs,
@@ -134,11 +134,11 @@ def create_flareaid(
     else:
         mas_specified = True
     if mhs is None:
-        if user and not isinstance(user, bool):
+        if patient:
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=FLAREAID_MEDHISTORYS).all()
             )
         else:
             mhs = FLAREAID_MEDHISTORYS
@@ -152,7 +152,7 @@ def create_flareaid(
         mh_dets={MedHistoryTypes.CKD: {}},
         otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_otos=["dateofbirth"],
-        user=user,
+        patient=patient,
     ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 
@@ -169,11 +169,11 @@ class CustomFlareAidFactory(
     CustomFactoryGenderMixin,
     CustomFactoryMedAllergyMixin,
     CustomFactoryMedHistoryMixin,
-    CustomFactoryUserMixin,
+    CustomFactoryPatientMixin,
 ):
     def __init__(
         self,
-        user: Union["User", bool, None] = None,
+        patient: Union["User", bool, None] = None,
         flare: Union["Flare", bool, None] = None,
         flareaid: Union["FlareAid", bool, None] = None,
         angina: bool | MedHistory | None = Auto,
@@ -209,7 +209,7 @@ class CustomFlareAidFactory(
         naproxen_allergy: Union["MedAllergy", bool, None] = Auto,
         prednisone_allergy: Union["MedAllergy", bool, None] = Auto,
     ) -> None:
-        self.user = user
+        self.patient = patient
         self.flareaid = flareaid
         self.flare = flare
         self.angina = angina
@@ -251,7 +251,7 @@ class CustomFlareAidFactory(
         self.sequentially_update_attrs()
 
     def sequentially_update_attrs(self) -> None:
-        self.user = self.get_or_create_user()
+        self.patient = self.get_or_create_patient()
         self.flare = self.get_or_create_flare()
         self.dateofbirth = self.get_or_create_dateofbirth()
         self.gender = self.get_or_create_gender()
@@ -263,7 +263,7 @@ class CustomFlareAidFactory(
         def create_flare():
             raise ValueError("Not yet implemented, should not be called.")
 
-        if self.flare and self.user:
+        if self.flare and self.patient:
             raise ValueError("Cannot create a FlareAid with a Flare and a User.")
         return create_flare() if self.flare is True else self.flare
 
@@ -271,7 +271,7 @@ class CustomFlareAidFactory(
         flareaid_kwargs = {
             "dateofbirth": self.dateofbirth,
             "gender": self.gender,
-            "user": self.user,
+            "patient": self.patient,
         }
         if self.flareaid:
             flareaid = self.flareaid
@@ -286,8 +286,8 @@ class CustomFlareAidFactory(
             self.flareaid = FlareAid.objects.create(
                 **flareaid_kwargs,
             )
-        if self.user:
-            self.user.flareaid_qs = [self.flareaid]
+        if self.patient:
+            self.patient.flareaid_qs = [self.flareaid]
         self.update_related_object_attr(self.flareaid)
         self.update_related_objects_related_objects()
         self.update_medhistorys()

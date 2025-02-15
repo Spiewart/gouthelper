@@ -8,7 +8,12 @@ from .models import MedAllergy
 class MedAllergyHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "treatment",
+        "value",
+        "matype",
+        "other",
+        "patient",
         "created",
+        "updated",
         "pk",
     )
     history_list_display = ["status"]

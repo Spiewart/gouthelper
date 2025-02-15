@@ -1,12 +1,11 @@
 from django.urls import path
 
 from .views import (
-    pseudopatient_create_view,
-    pseudopatient_delete_view,
-    pseudopatient_detail_view,
-    pseudopatient_flare_create_view,
-    pseudopatient_list_view,
-    pseudopatient_update_view,
+    patient_create_view,
+    patient_delete_view,
+    patient_detail_view,
+    patient_list_view,
+    patient_update_view,
     user_delete_view,
     user_detail_view,
     user_redirect_view,
@@ -15,24 +14,16 @@ from .views import (
 
 app_name = "users"
 urlpatterns = [
-    path("pseudopatients/create/", view=pseudopatient_create_view, name="pseudopatient-create"),
+    path("patients/create/", view=patient_create_view, name="patient-create"),
+    path("patients/delete/<uuid:patient>/", view=patient_delete_view, name="patient-delete"),
     path(
-        "pseudopatients/create/<uuid:flare>/", view=pseudopatient_flare_create_view, name="pseudopatient-flare-create"
+        "patients/provider-create/<str:username>/",
+        view=patient_create_view,
+        name="provider-patient-create",
     ),
-    path("pseudopatients/delete/<uuid:pseudopatient>/", view=pseudopatient_delete_view, name="pseudopatient-delete"),
-    path(
-        "pseudopatients/provider-create/<str:username>/",
-        view=pseudopatient_create_view,
-        name="provider-pseudopatient-create",
-    ),
-    path(
-        "pseudopatients/provider-create/<str:username>/<uuid:flare>/",
-        view=pseudopatient_flare_create_view,
-        name="provider-pseudopatient-flare-create",
-    ),
-    path("pseudopatients/<uuid:pseudopatient>/", view=pseudopatient_detail_view, name="pseudopatient-detail"),
-    path("pseudopatients/<uuid:pseudopatient>/update/", view=pseudopatient_update_view, name="pseudopatient-update"),
-    path("<str:username>/pseudopatients/", view=pseudopatient_list_view, name="pseudopatients"),
+    path("patients/<uuid:patient>/", view=patient_detail_view, name="patient-detail"),
+    path("patients/<uuid:patient>/update/", view=patient_update_view, name="patient-update"),
+    path("<str:username>/patients/", view=patient_list_view, name="patients"),
     path("~redirect/", view=user_redirect_view, name="redirect"),
     path("~update/", view=user_update_view, name="update"),
     path("~delete/", view=user_delete_view, name="delete"),

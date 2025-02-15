@@ -18,13 +18,13 @@ fake = faker.Faker()
 class TestFlareManager(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_flare(user=create_psp() if fake.boolean() else None)
+            create_flare(patient=create_psp() if fake.boolean() else None)
 
     def test__related_objects(self):
         self.assertEqual(Flare.objects.count(), 10)
         with self.assertNumQueries(3):
             for flare in Flare.related_objects.all():
-                if flare.user:
+                if flare.patient:
                     self.assertIsNone(flare.dateofbirth)
                     self.assertIsNone(flare.gender)
                     self.assertTrue(hasattr(flare, "urate"))
@@ -32,7 +32,7 @@ class TestFlareManager(TestCase):
                         self.assertTrue(isinstance(flare.urate, Urate))
                     self.assertFalse(flare.medhistorys_qs)
                 else:
-                    self.assertIsNone(flare.user)
+                    self.assertIsNone(flare.patient)
                     self.assertTrue(getattr(flare, "dateofbirth"))
                     self.assertTrue(isinstance(flare.dateofbirth, DateOfBirth))
                     self.assertTrue(getattr(flare, "gender"))

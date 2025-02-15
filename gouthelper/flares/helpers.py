@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Union
 
 from ..genders.choices import Genders
 from ..medhistorys.choices import CVDiseases, MedHistoryTypes
-from ..medhistorys.helpers import medhistorys_get
+from ..medhistorys.helpers import get_medhistory, get_medhistorys
 from .choices import LessLikelys, Likelihoods, LimitedJointChoices, MoreLikelys, Prevalences
 from .lists import COMMON_GOUT_JOINTS
 
@@ -61,7 +61,7 @@ def flares_calculate_prevalence_points(
     points = 0.0
     if gender.value == Genders.MALE:
         points += 2.0
-    gout = medhistorys_get(medhistorys, medhistorytype=MedHistoryTypes.GOUT)
+    gout = get_medhistory(medhistorys, medhistorytype=MedHistoryTypes.GOUT)
     if gout:
         points += 2.0
     if onset is True:
@@ -70,7 +70,7 @@ def flares_calculate_prevalence_points(
         points += 1.0
     if LimitedJointChoices.MTP1L in joints or LimitedJointChoices.MTP1R in joints:
         points += 2.5
-    cvdiseases = medhistorys_get(medhistorys, CVDiseases.values + [MedHistoryTypes.HYPERTENSION])
+    cvdiseases = get_medhistorys(medhistorys, CVDiseases.values + [MedHistoryTypes.HYPERTENSION])
     if cvdiseases:
         points += 1.5
     if flares_diagnostic_rule_urate_high(urate):

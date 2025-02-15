@@ -14,7 +14,7 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorydetails.choices import Stages
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.helpers import medhistory_attr, medhistorys_get_ckd_3_or_higher
+from ..medhistorys.helpers import medhistorys_get_ckd_3_or_higher, set_medhistorys_qs
 from ..medhistorys.lists import ULT_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..utils.helpers import (
@@ -22,22 +22,18 @@ from ..utils.helpers import (
     link_to_2020_ACR_guidelines,
     wrap_in_samepage_links_anchor,
 )
-from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.models import AidMixin, GoutHelperModel
 from .choices import FlareFreqs, FlareNums, Indications
 from .managers import UltManager
 from .services import UltDecisionAid
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model
-
     from ..medhistorys.models import Ckd
-
-    User = get_user_model()
 
 
 class Ult(
     RulesModelMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -70,21 +66,6 @@ class Ult(
                     | (models.Q(num_flares=FlareNums.ZERO) & models.Q(freq_flares__isnull=True))
                 ),
             ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_valid",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        dateofbirth__isnull=True,
-                        gender__isnull=True,
-                        ultaid__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                        # dateofbirth and gender can be null because not all Ults will have a CkdDetail
-                    )
-                ),
-            ),
         ]
 
     FlareFreqs = FlareFreqs
@@ -92,12 +73,6 @@ class Ult(
     Indications = Indications
     Stages = Stages
 
-    dateofbirth = models.OneToOneField(
-        "dateofbirths.DateOfBirth",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
     freq_flares = models.IntegerField(
         _("Flares per Year"),
         validators=[MinValueValidator(0), MaxValueValidator(2)],
@@ -105,12 +80,6 @@ class Ult(
         help_text="How many gout flares to you have per year?",
         blank=True,
         null=True,
-    )
-    gender = models.OneToOneField(
-        "genders.Gender",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
     )
     indication = models.IntegerField(
         _("Indication"),
@@ -125,20 +94,14 @@ class Ult(
         validators=[MinValueValidator(0), MaxValueValidator(2)],
         help_text="How many gout flares have you had?",
     )
-    ultaid = models.OneToOneField(
-        "ultaids.UltAid",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = UltManager()
     related_models: list[Literal["ultaid"]] = ["ultaid"]
     req_otos: list[None] = []
-    decision_aid_service = UltDecisionAid
+    decisionaid = UltDecisionAid
 
     def __str__(self):
         return f"Ult: {self.get_indication_display()}"
@@ -175,13 +138,12 @@ the determination of whether {gender_subject} should be on ULT.</strong>"
         return mark_safe(ckd_interp_str)
 
     @cached_property
-    def ckd3(self) -> Union["Ckd", None]:
-        """Returns True if Ult or its user has CKD stage III or higher."""
-        return medhistory_attr(
-            medhistory=MedHistoryTypes.CKD,
-            obj=self,
-            select_related=["ckddetail", "baselinecreatinine"],
-            mh_get=medhistorys_get_ckd_3_or_higher,
+    def ckd3(self) -> Union["Ckd", bool]:
+        """Returns True if Ult or its patient has CKD stage III or higher."""
+        if not hasattr(self.patient, "medhistorys_qs"):
+            set_medhistorys_qs(self.patient)
+        return medhistorys_get_ckd_3_or_higher(
+            self.patient.medhistorys_qs,
         )
 
     @property
@@ -523,10 +485,7 @@ indication for ULT. <strong>{Subject_the} {pos if self.frequentflares else pos_n
         )
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-        else:
-            return reverse("ults:detail", kwargs={"pk": self.pk})
+        reverse("ults:detail", kwargs={"pk": self.pk})
 
     @cached_property
     def has_conditional_indication(self) -> bool:

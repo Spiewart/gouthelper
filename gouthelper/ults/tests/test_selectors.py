@@ -9,7 +9,8 @@ from ...medhistorydetails.tests.factories import CkdDetailFactory
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.tests.factories import CkdFactory, StrokeFactory, UratestonesFactory
 from ..choices import FlareFreqs, FlareNums
-from ..selectors import ult_userless_qs
+from ..models import Ult
+from ..selectors import ult_relations
 from .factories import create_ult
 
 pytestmark = pytest.mark.django_db
@@ -29,7 +30,7 @@ class TestUltUserlessQuerySet(TestCase):
         )
 
     def test__queryset_returns_correctly(self):
-        queryset = ult_userless_qs(pk=self.ult.pk)
+        queryset = ult_relations(Ult.objects.filter(pk=self.ult.pk))
         self.assertIsInstance(queryset, QuerySet)
         self.assertEqual(queryset.count(), 1)
         self.assertEqual(queryset.first(), self.ult)

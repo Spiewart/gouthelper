@@ -11,22 +11,18 @@ from simple_history.models import HistoricalRecords  # type: ignore
 
 from ..medhistorys.lists import GOALURATE_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
-from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.models import AidMixin, GoutHelperModel
 from .choices import GoalUrates
 from .managers import GoalUrateManager
 from .services import GoalUrateDecisionAid
 
 if TYPE_CHECKING:
-    from django.contrib.auth import get_user_model
-
     from ..medhistorys.choices import MedHistoryTypes
-
-    User = get_user_model()
 
 
 class GoalUrate(
     RulesModelMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -42,27 +38,14 @@ class GoalUrate(
         }
         constraints = [
             models.CheckConstraint(
-                name="%(app_label)s_%(class)s_goal_urate_valid",
-                check=models.Q(goal_urate__in=GoalUrates.values),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_valid",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        ultaid__isnull=True,
-                        ppx__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                    )
-                ),
+                name="%(app_label)s_%(class)s_goalurate_valid",
+                check=models.Q(goalurate__in=GoalUrates.values),
             ),
         ]
 
     GoalUrates = GoalUrates
 
-    goal_urate = models.DecimalField(
+    goalurate = models.DecimalField(
         max_digits=2,
         decimal_places=1,
         choices=GoalUrates.choices,
@@ -70,29 +53,17 @@ class GoalUrate(
         verbose_name="Goal Uric Acid",
         default=GoalUrates.SIX,
     )
-    ppx = models.OneToOneField(
-        "ppxs.Ppx",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    ultaid = models.OneToOneField(
-        "ultaids.UltAid",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = GoalUrateManager()
     related_models = ["ppx", "ultaid"]
     req_otos: list[None] = []
-    decision_aid_service = GoalUrateDecisionAid
+    decisionaid = GoalUrateDecisionAid
 
     def __str__(self):
-        return f"Goal Urate: {self.get_goal_urate_display()}"
+        return f"Goal Urate: {self.get_goalurate_display()}"
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -116,18 +87,15 @@ individuals who have erosions. This results in the treatment being slightly more
         ]
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-        else:
-            return reverse("goalurates:detail", kwargs={"pk": self.pk})
+        return reverse("goalurates:detail", kwargs={"pk": self.pk})
 
     def get_interpretation(self, samepage_links: bool = True) -> str:
-        """Interprets the GoalUrate goal_urate."""
+        """Interprets the GoalUrate goalurate."""
         Subject_the_pos, Gender_pos = self.get_str_attrs("Subject_the_pos", "Gender_pos")
-        interp_str = f"{Subject_the_pos} goal uric acid is {self.get_goal_urate_display()}."
+        interp_str = f"{Subject_the_pos} goal uric acid is {self.get_goalurate_display()}."
         erosions_str = "<a class='samepage-link' href='#erosions'>erosions</a>" if samepage_links else "erosions"
         tophi_str = "<a class='samepage-link' href='#tophi'>tophi</a>" if samepage_links else "tophi"
-        if self.goal_urate == self.GoalUrates.FIVE:
+        if self.goalurate == self.GoalUrates.FIVE:
             interp_str += f" {Gender_pos} goal is lower than the standard due to the presence of "
             if self.erosions and self.tophi:
                 interp_str += f"{erosions_str} and {tophi_str}."

@@ -22,7 +22,7 @@ class GoalUrateForm(
     class Meta:
         model = GoalUrate
         exclude = (
-            "goal_urate",
+            "goalurate",
             "medhistorys",
             "ultaid",
             "user",

@@ -1,5 +1,5 @@
 <div class="card card-body spacious-cards" id="goalurate">
-  <h4 class="card-title">Goal uric acid: {{ object.get_goal_urate_display }}</h4>
+  <h4 class="card-title">Goal uric acid: {{ object.get_goalurate_display }}</h4>
   <ul class="list-group list-group-horizontal minified-list-group">
     <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.erosions_detail }}</li>
     <li class="list-group-item flex-fill d-flex justify-content-center">{{ object.tophi_detail }}</li>
@@ -18,7 +18,7 @@
         {% else %}
           ULT
         {% endif %}
-        dose until serum uric acid is {{ object.get_goal_urate_display }} or less
+        dose until serum uric acid is {{ object.get_goalurate_display }} or less
       </li>
       <li>Once "at goal", a maintenance dose is prescribed to keep the uric acid at this level</li>
     </ul>

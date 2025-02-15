@@ -18,14 +18,8 @@ from rules.contrib.views import (  # pylint: disable=W0611, E0401  # type: ignor
 
 from ..contents.choices import Contexts
 from ..flares.models import Flare
-from ..users.models import Pseudopatient
-from ..utils.views import (
-    GoutHelperDetailMixin,
-    GoutHelperPseudopatientDetailMixin,
-    MedAllergyFormMixin,
-    MedHistoryFormMixin,
-    OneToOneFormMixin,
-)
+from ..users.models import Patient
+from ..utils.views import GoutHelperDetailMixin, MedAllergyFormMixin, MedHistoryFormMixin, OneToOneFormMixin
 from .dicts import (
     MEDALLERGY_FORMS,
     MEDHISTORY_DETAIL_FORMS,
@@ -36,7 +30,6 @@ from .dicts import (
 )
 from .forms import FlareAidForm
 from .models import FlareAid
-from .selectors import flareaid_user_relations
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -171,7 +164,7 @@ class FlareAidPatientEditBase(FlareAidEditBase):
     def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
         """Used to set the user attribute on the view, with associated related models
         select_related and prefetch_related."""
-        return Pseudopatient.objects.flareaid_qs(self.kwargs.get("flare", None)).filter(pk=pseudopatient)
+        return Patient.objects.flareaid_qs(self.kwargs.get("flare", None)).filter(pk=pseudopatient)
 
 
 class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMixin, CreateView, SuccessMessageMixin):
@@ -191,41 +184,6 @@ class FlareAidPseudopatientCreate(FlareAidPatientEditBase, PermissionRequiredMix
         return self.success_message % dict(cleaned_data, user=self.user)
 
     def post(self, request, *args, **kwargs):
-        super().post(request, *args, **kwargs)
-        if self.errors:
-            return self.errors
-        else:
-            return self.form_valid()
-
-
-class FlareAidPseudopatientDetail(GoutHelperPseudopatientDetailMixin):
-    model = FlareAid
-    object: FlareAid
-
-    def get_queryset(self, **kwargs) -> "QuerySet[Any]":
-        return flareaid_user_relations(
-            qs=Pseudopatient.objects.filter(pk=self.kwargs["pseudopatient"]), flare_id=self.kwargs.get("flare", None)
-        )
-
-
-class FlareAidPseudopatientUpdate(
-    FlareAidPatientEditBase, AutoPermissionRequiredMixin, UpdateView, SuccessMessageMixin
-):
-    success_message = "%(user)s's FlareAid successfully updated."
-
-    @cached_property
-    def flare(self) -> Flare | None:
-        return self.object.related_flare
-
-    def get_permission_object(self):
-        return self.object
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, user=self.user)
-
-    def post(self, request, *args, **kwargs):
-        """Overwritten to finish the post() method and avoid conflicts with the MRO.
-        For FlareAid, no additional processing is needed."""
         super().post(request, *args, **kwargs)
         if self.errors:
             return self.errors

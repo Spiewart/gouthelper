@@ -50,7 +50,7 @@ class CreateUltData(MedHistoryDataMixin, OneToOneDataMixin):
 
 
 def ult_data_factory(
-    user: "User" = None,
+    patient: "User" = None,
     ult: "Ult" = None,
     mhs: list[MedHistoryTypes] | None = None,
     mh_dets: dict[MedHistoryTypes : dict[str:Any]] | None = None,
@@ -59,8 +59,8 @@ def ult_data_factory(
     """Method to create data for a Ult to test forms.
 
     Args:
-        user: The user to create the data for (can't have with ult).
-        ult: The Ult to create the data for (can't have with user).
+        patient: The patient to create the data for (can't have with ult).
+        ult: The Ult to create the data for (can't have with patient).
         mhs: The MedHistorys to create the data for. Pass empty list to not create any.
         mh_dets: The MedHistoryDetails to create the data for.
         otos: The OneToOne to create the data for.
@@ -86,8 +86,8 @@ def ult_data_factory(
             "gender",
         ],
         otos=otos,
-        user_otos=["dateofbirth", "gender"],
-        user=user,
+        patient_otos=["dateofbirth", "gender"],
+        patient=patient,
         aid_obj=ult,
     ).create()
     num_flares = fake.random.choice(FlareNums.values)
@@ -108,7 +108,7 @@ class CreateUlt(MedHistoryCreatorMixin, OneToOneCreatorMixin):
     def create(self, **kwargs):
         kwargs = super().create(**kwargs)
         mhs_specified = kwargs.pop("mhs_specified", False)
-        ult = UltFactory.build(user=self.user, **kwargs)
+        ult = UltFactory.build(patient=self.patient, **kwargs)
         self.create_otos(ult)
         ult.save()
         self.create_mhs(ult, specified=mhs_specified)
@@ -116,17 +116,17 @@ class CreateUlt(MedHistoryCreatorMixin, OneToOneCreatorMixin):
 
 
 def create_ult(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", bool, None] = None,
     mhs: list[ULT_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> Ult:
-    """Creates a Ult with the given user, onetoones and medhistorys."""
+    """Creates a Ult with the given patient, onetoones and medhistorys."""
     if mhs is None:
-        if user and not isinstance(user, bool):
+        if patient and not isinstance(patient, bool):
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=ULT_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=ULT_MEDHISTORYS).all()
             )
         else:
             mhs = ULT_MEDHISTORYS
@@ -141,7 +141,7 @@ def create_ult(
             "dateofbirth": DateOfBirthFactory,
             "gender": GenderFactory,
         },
-        user=user,
+        patient=patient,
     ).create(mhs_specified=mhs_specified, **kwargs)
 
 

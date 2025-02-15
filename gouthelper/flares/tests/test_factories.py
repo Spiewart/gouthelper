@@ -31,7 +31,7 @@ fake = faker.Faker()
 
 
 def test__flare_data_factory():
-    # Test the method without a User *arg
+    # Test the method without a Patient *arg
     for _ in range(10):
         # Create some fake data to test against
         data = flare_data_factory()
@@ -86,7 +86,7 @@ def test__flare_data_factory():
             else:
                 assert data[f"{mh}-value"] in [True, False]
 
-    # Test the method with a User *arg
+    # Test the method with a Patient *arg
     for _ in range(10):
         psp = create_psp(plus=True)
         data = flare_data_factory(psp)
@@ -154,7 +154,6 @@ def test__create_flare():
         # Create Flare
         flare = create_flare()
         assert isinstance(flare, Flare)
-        assert not (flare.user)
 
         # Test Flare-specific fields
         assert hasattr(flare, "onset")
@@ -208,41 +207,41 @@ def test__create_flare():
         if flare.medhistorys_qs:
             for medhistory in flare.medhistorys_qs:
                 assert medhistory.medhistorytype in FLARE_MEDHISTORYS
-                assert medhistory.user is None
+                assert medhistory.patient is flare.patient
                 assert medhistory.flare == flare
 
-    # Test creating Flares with a User
+    # Test creating Flares with a Patient
     for _ in range(5):
-        # Create Flare with a User
+        # Create Flare with a Patient
         psp = create_psp(plus=True)
-        flare = create_flare(user=psp)
+        flare = create_flare(patient=psp)
         assert isinstance(flare, Flare)
-        assert hasattr(flare, "user")
-        assert flare.user == psp
+        assert hasattr(flare, "patient")
+        assert flare.patient == psp
 
-        # Test that the user has the right attrs and the flare does not
-        assert hasattr(flare.user, "dateofbirth")
-        assert isinstance(flare.user.dateofbirth, DateOfBirth)
-        assert hasattr(flare.user, "gender")
-        assert isinstance(flare.user.gender, Gender)
+        # Test that the patient has the right attrs and the flare does not
+        assert hasattr(flare.patient, "dateofbirth")
+        assert isinstance(flare.patient.dateofbirth, DateOfBirth)
+        assert hasattr(flare.patient, "gender")
+        assert isinstance(flare.patient.gender, Gender)
         assert not (flare.dateofbirth)
         assert not (flare.gender)
 
         # Test Menopause
-        age = age_calc(flare.user.dateofbirth.value)
+        age = age_calc(flare.patient.dateofbirth.value)
         menopause = [
             mh.medhistorytype for mh in flare.medhistorys_qs if mh.medhistorytype == MedHistoryTypes.MENOPAUSE
         ]
-        if flare.user.gender.value == Genders.FEMALE and age >= 60:
+        if flare.patient.gender.value == Genders.FEMALE and age >= 60:
             assert menopause
-        elif flare.user.gender.value == Genders.FEMALE and menopause:
+        elif flare.patient.gender.value == Genders.FEMALE and menopause:
             assert age >= 40
         else:
             assert not menopause
 
         # Test Aki
         if getattr(flare, "aki", None):
-            assert flare.aki.user == psp
+            assert flare.aki.patient == psp
         else:
             assert not psp.aki_set.exists()
 
@@ -251,8 +250,8 @@ def test__create_flare():
             assert isinstance(flare.urate, Urate)
             assert hasattr(flare.urate, "flare")
             assert flare.urate.flare == flare
-            assert hasattr(flare.urate, "user")
-            assert flare.urate.user == psp
+            assert hasattr(flare.urate, "patient")
+            assert flare.urate.patient == psp
 
         # Test Flare-specific fields
         assert hasattr(flare, "onset")
@@ -285,7 +284,7 @@ def test__create_flare():
         if flare.medhistorys_qs:
             for medhistory in flare.medhistorys_qs:
                 assert medhistory.medhistorytype in FLARE_MEDHISTORYS
-                assert medhistory.user is flare.user
+                assert medhistory.patient is flare.patient
                 assert medhistory.flare is None
 
 
@@ -314,18 +313,18 @@ def test__create_flare_with_medhistorys():
     assert MedHistoryTypes.CAD in mhtypes
     assert MedHistoryTypes.CKD in mhtypes
     for mh in flare.medhistorys_qs:
-        assert mh.user is None
+        assert mh.patient is None
         assert mh.flare == flare
     for mh in flare.medhistory_set.all():
-        assert mh.user is None
+        assert mh.patient is None
         assert mh.flare == flare
 
 
-def test__create_flare_with_medhistorys_and_user():
-    """Test that the MedHistorys are created with the User."""
-    flare = create_flare(user=True, mhs=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
+def test__create_flare_with_medhistorys_and_patient():
+    """Test that the MedHistorys are created with the Patient."""
+    flare = create_flare(mhs=[MedHistoryTypes.ANGINA, MedHistoryTypes.CAD, MedHistoryTypes.CKD])
     assert hasattr(flare, "medhistorys_qs")
-    if flare.user.gender.value == Genders.MALE:
+    if flare.patient.gender.value == Genders.MALE:
         assert len(flare.medhistorys_qs) == 3
     else:
         assert len(flare.medhistorys_qs) == 3 or len(flare.medhistorys_qs) == 4
@@ -334,25 +333,25 @@ def test__create_flare_with_medhistorys_and_user():
     assert MedHistoryTypes.CAD in mhtypes
     assert MedHistoryTypes.CKD in mhtypes
     for mh in flare.medhistorys_qs:
-        assert mh.user == flare.user
+        assert mh.patient == flare.patient
         assert mh.flare is None
-    for mh in flare.user.medhistory_set.all():
-        assert mh.user == flare.user
+    for mh in flare.patient.medhistory_set.all():
+        assert mh.patient == flare.patient
         assert mh.flare is None
 
 
-def test__create_flare_with_user():
-    flare = create_flare(user=True)
-    assert hasattr(flare, "user")
+def test__create_flare_with_patient():
+    flare = create_flare()
+    assert hasattr(flare, "patient")
     assert not getattr(flare, "dateofbirth", None)
-    assert hasattr(flare.user, "dateofbirth")
+    assert hasattr(flare.patient, "dateofbirth")
     assert not getattr(flare, "gender", None)
-    assert hasattr(flare.user, "gender")
+    assert hasattr(flare.patient, "gender")
     assert hasattr(flare, "medhistorys_qs")
-    user_mhs = flare.user.medhistory_set.all()
+    patient_mhs = flare.patient.medhistory_set.all()
     for mh in flare.medhistorys_qs:
-        assert mh.user == flare.user
-        assert mh in user_mhs
+        assert mh.patient == flare.patient
+        assert mh in patient_mhs
 
 
 class TestAki(TestCase):
@@ -361,9 +360,9 @@ class TestAki(TestCase):
         assert hasattr(flare, "aki")
         assert hasattr(flare.aki, "flare")
         assert flare.aki.flare == flare
-        if flare.user:
-            assert hasattr(flare.aki, "user")
-            assert flare.aki.user == flare.user
+        if flare.patient:
+            assert hasattr(flare.aki, "patient")
+            assert flare.aki.patient == flare.patient
 
 
 class TestFlareFactory(TestCase):
@@ -372,40 +371,40 @@ class TestFlareFactory(TestCase):
         flare = factory.create_object()
         self.assertTrue(isinstance(flare, Flare))
 
-    def test__user_created(self) -> None:
-        factory = CustomFlareFactory(user=True)
+    def test__patient_created(self) -> None:
+        factory = CustomFlareFactory()
         flare = factory.create_object()
-        self.assertTrue(hasattr(flare, "user"))
-        self.assertTrue(flare.user)
+        self.assertTrue(hasattr(flare, "patient"))
+        self.assertTrue(flare.patient)
 
-    def test__user_created_with_dateofbirth(self) -> None:
+    def test__patient_created_with_dateofbirth(self) -> None:
         dateofbirth: date = (timezone.now() - timedelta(days=365 * 30)).date()
-        factory = CustomFlareFactory(user=True, dateofbirth=dateofbirth)
+        factory = CustomFlareFactory(dateofbirth=dateofbirth)
         flare = factory.create_object()
-        self.assertTrue(hasattr(flare, "user"))
-        self.assertTrue(flare.user)
-        self.assertTrue(hasattr(flare.user, "dateofbirth"))
-        self.assertTrue(flare.user.dateofbirth)
-        self.assertEqual(flare.user.dateofbirth.value, dateofbirth)
+        self.assertTrue(hasattr(flare, "patient"))
+        self.assertTrue(flare.patient)
+        self.assertTrue(hasattr(flare.patient, "dateofbirth"))
+        self.assertTrue(flare.patient.dateofbirth)
+        self.assertEqual(flare.patient.dateofbirth.value, dateofbirth)
 
-    def test__ValueError_raised_with_user_and_dateofbirth(self) -> None:
-        user = create_psp()
+    def test__ValueError_raised_with_patient_and_dateofbirth(self) -> None:
+        patient = create_psp()
         with self.assertRaises(ValueError):
-            CustomFlareFactory(user=user, dateofbirth=True)
+            CustomFlareFactory(patient=patient, dateofbirth=True)
 
-    def test__user_created_with_gender(self) -> None:
-        factory = CustomFlareFactory(user=True, gender=Genders.FEMALE)
+    def test__patient_created_with_gender(self) -> None:
+        factory = CustomFlareFactory(gender=Genders.FEMALE)
         flare = factory.create_object()
-        self.assertTrue(hasattr(flare, "user"))
-        self.assertTrue(flare.user)
-        self.assertTrue(hasattr(flare.user, "gender"))
-        self.assertTrue(flare.user.gender)
-        self.assertEqual(flare.user.gender.value, Genders.FEMALE)
+        self.assertTrue(hasattr(flare, "patient"))
+        self.assertTrue(flare.patient)
+        self.assertTrue(hasattr(flare.patient, "gender"))
+        self.assertTrue(flare.patient.gender)
+        self.assertEqual(flare.patient.gender.value, Genders.FEMALE)
 
-    def test__ValueError_raised_with_user_and_gender(self) -> None:
-        user = create_psp()
+    def test__ValueError_raised_with_patient_and_gender(self) -> None:
+        patient = create_psp()
         with self.assertRaises(ValueError):
-            CustomFlareFactory(user=user, gender=True)
+            CustomFlareFactory(patient=patient, gender=True)
 
     def test__aki_created(self) -> None:
         factory = CustomFlareFactory(aki=Statuses.ONGOING)
@@ -414,15 +413,15 @@ class TestFlareFactory(TestCase):
         self.assertTrue(flare.aki)
         self.assertEqual(flare.aki.status, Statuses.ONGOING)
 
-    def test__aki_created_with_user(self) -> None:
-        factory = CustomFlareFactory(aki=Statuses.ONGOING, user=True)
+    def test__aki_created_with_patient(self) -> None:
+        factory = CustomFlareFactory(aki=Statuses.ONGOING)
         flare = factory.create_object()
         self.assertTrue(hasattr(flare, "aki"))
         self.assertTrue(flare.aki)
         self.assertEqual(flare.aki.status, Statuses.ONGOING)
-        self.assertTrue(hasattr(flare.aki, "user"))
-        self.assertTrue(flare.aki.user)
-        self.assertEqual(flare.aki.user, flare.user)
+        self.assertTrue(hasattr(flare.aki, "patient"))
+        self.assertTrue(flare.aki.patient)
+        self.assertEqual(flare.aki.patient, flare.patient)
 
     def test__aki_created_with_creatinines(self) -> None:
         factory = CustomFlareFactory(

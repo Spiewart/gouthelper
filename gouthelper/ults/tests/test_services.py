@@ -2,7 +2,7 @@ import pytest  # pylint:disable=E0401  # type: ignore
 from django.test import TestCase  # pylint:disable=E0401  # type: ignore
 from factory.faker import faker  # pylint:disable=E0401  # type: ignore
 
-from ...users.models import Pseudopatient
+from ...users.models import Patient
 from ...users.tests.factories import create_psp
 from ..choices import FlareFreqs, FlareNums, Indications
 from ..models import Ult
@@ -17,44 +17,10 @@ fake = faker.Faker()
 class TestUltDecisionAid(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_ult(user=create_psp() if fake.boolean() else None)
+            create_ult(patient=create_psp() if fake.boolean() else None)
 
-    def test___init__without_user(self):
-        for ult in Ult.related_objects.select_related("user").all():
-            if not ult.user:
-                aid = UltDecisionAid(ult)
-                self.assertEqual(aid.ult, ult)  # pylint:disable=no-member
-                if ult.ckd:
-                    self.assertEqual(aid.ckd, ult.ckd)
-                else:
-                    self.assertIsNone(aid.ckd)
-                if ult.ckddetail:
-                    self.assertEqual(aid.ckddetail, ult.ckddetail)
-                else:
-                    self.assertIsNone(aid.ckddetail)
-                if ult.baselinecreatinine:
-                    self.assertEqual(aid.baselinecreatinine, ult.baselinecreatinine)
-                else:
-                    self.assertIsNone(aid.baselinecreatinine)
-                if ult.erosions:
-                    self.assertEqual(aid.erosions, ult.erosions)
-                else:
-                    self.assertIsNone(aid.erosions)
-                if ult.hyperuricemia:
-                    self.assertEqual(aid.hyperuricemia, ult.hyperuricemia)
-                else:
-                    self.assertIsNone(aid.hyperuricemia)
-                if ult.tophi:
-                    self.assertEqual(aid.tophi, ult.tophi)
-                else:
-                    self.assertIsNone(aid.tophi)
-                if ult.uratestones:
-                    self.assertEqual(aid.uratestones, ult.uratestones)
-                else:
-                    self.assertIsNone(aid.uratestones)
-
-    def test___init__with_user(self):
-        for psp in Pseudopatient.objects.ult_qs().all():
+    def test___init__with_patient(self):
+        for psp in Patient.objects.ult_qs().all():
             if hasattr(psp, "ult"):
                 aid = UltDecisionAid(psp)
                 self.assertEqual(aid.ult, psp.ult)  # pylint:disable=no-member
@@ -87,8 +53,8 @@ class TestUltDecisionAid(TestCase):
                 else:
                     self.assertIsNone(aid.uratestones)
 
-    def test___init_with_ult_with_user(self):
-        for psp in Pseudopatient.objects.ult_qs().all():
+    def test___init_with_ult_with_patient(self):
+        for psp in Patient.objects.ult_qs().all():
             if hasattr(psp, "ult"):
                 ult = psp.ult
                 ult.medhistorys_qs = psp.medhistorys_qs
@@ -125,11 +91,11 @@ class TestUltDecisionAid(TestCase):
 
     def test___get_indication(self):
         # Test that get_indication works
-        for ult in Ult.related_objects.select_related("user").all():
-            if not ult.user:
+        for ult in Ult.related_objects.select_related("patient").all():
+            if not ult.patient:
                 aid = UltDecisionAid(ult)
             else:
-                aid = UltDecisionAid(Pseudopatient.objects.ult_qs().get(username=ult.user.username))
+                aid = UltDecisionAid(Patient.objects.ult_qs().get(username=ult.patient.username))
             indication = aid._get_indication()  # pylint:disable=protected-access
             if ult.freq_flares == FlareFreqs.TWOORMORE:
                 self.assertEqual(indication, Indications.INDICATED)

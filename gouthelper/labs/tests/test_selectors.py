@@ -13,7 +13,7 @@ from .factories import UrateFactory
 pytestmark = pytest.mark.django_db
 
 
-class TestUrateUserlessQuerySet(TestCase):
+class TestUrateQuerySet(TestCase):
     def setUp(self):
         self.urate1 = UrateFactory(value=Decimal(5.0), date_drawn=timezone.now())
         self.urate2 = UrateFactory(value=Decimal(6.0), date_drawn=timezone.now() - timedelta(days=23))

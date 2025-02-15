@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Union
 
+from django.db.models import ForeignKey, OneToOneField
 from django.utils import timezone  # type: ignore
 from django.utils.html import mark_safe  # type: ignore
 
@@ -16,8 +17,8 @@ if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
     from django.db.models import Model, QuerySet
 
-    from .models import GoutHelperAidModel, GoutHelperPatientModel
-    from .types import Aids
+    from ..users.models import Patient
+    from .types import Aids, GoutHelpers
 
     User = get_user_model()
 
@@ -195,19 +196,11 @@ def now_datetime() -> "datetime":
     return timezone.now()
 
 
-def get_str_attrs(
-    obj: Union["GoutHelperPatientModel", "GoutHelperAidModel", Genders, None] = None,
-    patient: Union["GoutHelperPatientModel", None] = None,
+def get_str_attrs_dict(
+    patient: Union["Patient", None] = None,
     request_user: Union["User", None] = None,
 ) -> dict[str, str]:
-    def get_obj_gender(obj: Any) -> Genders | None:
-        if obj in Genders.values:
-            return obj
-        else:
-            gender_obj = getattr(obj, "gender", None)
-            return gender_obj.value if gender_obj else None
-
-    gender = get_obj_gender(patient if patient else obj)
+    gender = patient.gender.value if patient and hasattr(patient, "gender") else None
 
     str_attrs = {}
     if patient:
@@ -366,12 +359,38 @@ def wrap_in_samepage_links_anchor(attr: str, display_val: str | None = None) -> 
     )
 
 
-def add_indicator_badge_and_samepage_link(self, attr: str, display_val: str | None = None) -> str:
+def add_indicator_badge_and_samepage_link(gouthelper: "GoutHelpers", attr: str, display_val: str | None = None) -> str:
     return mark_safe(
         f"<a class='samepage-link' href='#{attr}'>{display_val if display_val else attr.capitalize()}</a> \
-{add_indicator_badge(getattr(self, attr))}"
+{add_indicator_badge(getattr(gouthelper, attr))}"
     )
 
 
 def attr_is_in_model_fields(attr: str, obj: Union[type["Model"], "Model"]) -> bool:
     return attr in [field.name for field in obj._meta.get_fields()]
+
+
+def is_fetched(obj, relation_name) -> Any | bool:
+    """Determines if the relation indicated by relation_name for the object
+    has already been select_related."""
+
+    # https://stackoverflow.com/questions/36402129/is-there-a-way-to-check-whether-a-related-object-is-already-fetched
+
+    cache_name = f"_{relation_name}_cache"
+    return getattr(obj, cache_name, False)
+
+
+def get_model_onetoone_fields(model: "Model") -> list[OneToOneField]:
+    return [field for field in model._meta.get_fields() if isinstance(field, OneToOneField)]
+
+
+def get_model_onetoone_field_names(model: "Model") -> list[str]:
+    return [field.name for field in get_model_onetoone_fields(model)]
+
+
+def get_model_foreignkey_fields(model: "Model") -> list[ForeignKey]:
+    return [field for field in model._meta.get_fields() if isinstance(field, ForeignKey)]
+
+
+def get_model_foreignkey_field_names(model: "Model") -> list[str]:
+    return [field.name for field in get_model_foreignkey_fields(model)]

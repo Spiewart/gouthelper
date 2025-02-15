@@ -4,23 +4,18 @@ from django import forms  # type: ignore
 from django.utils.html import mark_safe
 
 from ..treatments.choices import Treatments
-from ..utils.helpers import get_str_attrs
+from ..utils.forms import ModelFormKwargMixin
 from .models import MedAllergy
 
 
-class MedAllergyTreatmentForm(forms.ModelForm):
+class MedAllergyTreatmentForm(ModelFormKwargMixin, forms.ModelForm):
     """Form for creating MedAllergy Objects."""
 
     class Meta:
         model = MedAllergy
-        exclude = ["flareaid", "matype", "ppxaid", "other", "sideeffects", "treatment", "ultaid", "user"]
+        exclude = ["matype", "other", "treatment"]
 
     def __init__(self, *args, **kwargs):
-        self.patient = kwargs.pop("patient", None)
-        self.request_user = kwargs.pop("request_user", None)
-        self.str_attrs = kwargs.pop("str_attrs", None)
-        if not self.str_attrs:
-            self.str_attrs = get_str_attrs(self, self.patient, self.request_user)
         self.treatment = kwargs.pop("treatment")
         super().__init__(*args, **kwargs)
         self.value = f"medallergy_{self.treatment}"

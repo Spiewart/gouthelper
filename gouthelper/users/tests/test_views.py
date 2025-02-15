@@ -1,5 +1,4 @@
 from datetime import timedelta
-from decimal import Decimal
 from urllib.parse import unquote
 
 import pytest
@@ -15,48 +14,41 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from ...akis.choices import Statuses
 from ...dateofbirths.forms import DateOfBirthForm
 from ...dateofbirths.helpers import age_calc, yearsago
 from ...ethnicitys.choices import Ethnicitys
 from ...ethnicitys.forms import EthnicityForm
-from ...flareaids.tests.factories import CustomFlareAidFactory
-from ...flares.models import Flare
-from ...flares.tests.factories import CustomFlareFactory
 from ...genders.choices import Genders
 from ...genders.forms import GenderForm
 from ...medhistorydetails.forms import GoutDetailForm
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import GoutForm, MenopauseForm
-from ...medhistorys.lists import FLARE_MEDHISTORYS
 from ...medhistorys.models import Menopause
 from ...medhistorys.tests.factories import MenopauseFactory
-from ...profiles.models import PseudopatientProfile
-from ...treatments.choices import Treatments
+from ...profiles.models import PatientProfile
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import Roles
-from ..forms import PseudopatientForm, UserAdminChangeForm
-from ..models import Pseudopatient, User
+from ..forms import PatientForm, UserAdminChangeForm
+from ..models import Patient, User
 from ..views import (
-    PseudopatientCreateView,
-    PseudopatientDeleteView,
-    PseudopatientFlareCreateView,
-    PseudopatientListView,
-    PseudopatientUpdateView,
+    PatientCreateView,
+    PatientDeleteView,
+    PatientListView,
+    PatientUpdateView,
     UserDeleteView,
     UserRedirectView,
     UserUpdateView,
     user_detail_view,
 )
 from .factories import UserFactory, create_psp
-from .factories_data import pseudopatient_form_data_factory
+from .factories_data import patient_form_data_factory
 
 pytestmark = pytest.mark.django_db
 
 
-class TestPseudopatientCreateView(TestCase):
-    """Tests for the PseudopatientCreateView, which is actually a View
+class TestPatientCreateView(TestCase):
+    """Tests for the PatientCreateView, which is actually a View
     with a post method, not a CreateView.
     """
 
@@ -68,10 +60,10 @@ class TestPseudopatientCreateView(TestCase):
 
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
-        view = PseudopatientCreateView()
+        view = PatientCreateView()
         view.set_forms()
-        assert view.model == Pseudopatient
-        assert view.form_class == PseudopatientForm
+        assert view.model == Patient
+        assert view.form_class == PatientForm
         assert view.MEDHISTORY_FORMS == {
             MedHistoryTypes.GOUT: GoutForm,
             MedHistoryTypes.MENOPAUSE: MenopauseForm,
@@ -95,7 +87,7 @@ class TestPseudopatientCreateView(TestCase):
 
     def test__get_context_data(self):
         """Tests that the required context data is passed to the template."""
-        response = self.client.get(reverse("users:pseudopatient-create"))
+        response = self.client.get(reverse("users:patient-create"))
         assert response.status_code == 200
         assert "dateofbirth_form" in response.context
         assert "ethnicity_form" in response.context
@@ -106,7 +98,7 @@ class TestPseudopatientCreateView(TestCase):
         """Test that the view's get_permission_object() method returns
         the username kwarg.
         """
-        view = PseudopatientCreateView()
+        view = PatientCreateView()
         request = self.rf.get("/fake-url/")
         view.request = request
         # Add the username kwarg
@@ -115,8 +107,8 @@ class TestPseudopatientCreateView(TestCase):
 
     def test__post_no_user(self):
         """Tests the post() method of the view."""
-        # Count the Pseudopatients
-        psp_count = Pseudopatient.objects.count()
+        # Count the Patients
+        psp_count = Patient.objects.count()
 
         data = {
             "dateofbirth-value": 50,
@@ -130,34 +122,34 @@ class TestPseudopatientCreateView(TestCase):
             "on_ult": True,
             "starting_ult": False,
         }
-        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
+        response = self.client.post(reverse("users:patient-create"), data=data)
         assert response.status_code == 302
 
-        # Assert that a Pseudopatient was created
-        assert Pseudopatient.objects.count() == psp_count + 1
-        pseudopatient = Pseudopatient.objects.last()
-        assert getattr(pseudopatient, "dateofbirth", None)
-        assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
-        assert getattr(pseudopatient, "ethnicity", None)
-        assert pseudopatient.ethnicity.value == data["ethnicity-value"]
-        assert getattr(pseudopatient, "gender", None)
-        assert pseudopatient.gender.value == data["gender-value"]
-        assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
-        assert profile.user == pseudopatient
+        # Assert that a Patient was created
+        assert Patient.objects.count() == psp_count + 1
+        patient = Patient.objects.last()
+        assert getattr(patient, "dateofbirth", None)
+        assert patient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
+        assert getattr(patient, "ethnicity", None)
+        assert patient.ethnicity.value == data["ethnicity-value"]
+        assert getattr(patient, "gender", None)
+        assert patient.gender.value == data["gender-value"]
+        assert PatientProfile.objects.exists()
+        profile = PatientProfile.objects.filter(user=patient).get()
+        assert profile.user == patient
         assert profile.provider is None
-        assert pseudopatient.medhistory_set.count() == 1
-        gout = pseudopatient.medhistory_set.get()
+        assert patient.medhistory_set.count() == 1
+        gout = patient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
         assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
-        # Assert that the Pseudopatient history was set correctly to track the creating User
-        assert User.history.filter(username=pseudopatient.username).first().history_user is None
+        # Assert that the Patient history was set correctly to track the creating User
+        assert User.history.filter(username=patient.username).first().history_user is None
         # Test that the view throws an error if a female between ages 40 and 60 doesn't have menopause data
         data.update({"gender-value": Genders.FEMALE})
-        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
+        response = self.client.post(reverse("users:patient-create"), data=data)
         forms_print_response_errors(response)
         assert response.status_code == 200
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"] == [
@@ -168,17 +160,17 @@ menopause status to evaluate their flare."
         ]
         # Test that menopause is created
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
-        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
+        response = self.client.post(reverse("users:patient-create"), data=data)
         assert response.status_code == 302
-        assert Pseudopatient.objects.order_by("created").last().menopause
+        assert Patient.objects.order_by("created").last().menopause
 
     def test__post_with_provider_no_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient with
+        """Test that the view's post() method creates a Patient with
         a unique username when called by a logged in Provider but with no provider
         kwarg in the url.
         """
-        # Count the Pseudopatients
-        psp_count = Pseudopatient.objects.count()
+        # Count the Patients
+        psp_count = Patient.objects.count()
 
         # Log in the provider
         self.client.force_login(self.provider)
@@ -194,38 +186,38 @@ menopause status to evaluate their flare."
             "on_ult": False,
             "starting_ult": False,
         }
-        response = self.client.post(reverse("users:pseudopatient-create"), data=data)
+        response = self.client.post(reverse("users:patient-create"), data=data)
         assert response.status_code == 302
-        # Assert that a Pseudopatient was created
-        assert Pseudopatient.objects.count() == psp_count + 1
-        pseudopatient = Pseudopatient.objects.last()
-        assert getattr(pseudopatient, "dateofbirth", None)
-        assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
-        assert getattr(pseudopatient, "ethnicity", None)
-        assert pseudopatient.ethnicity.value == data["ethnicity-value"]
-        assert getattr(pseudopatient, "gender", None)
-        assert pseudopatient.gender.value == data["gender-value"]
-        assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
-        assert profile.user == pseudopatient
+        # Assert that a Patient was created
+        assert Patient.objects.count() == psp_count + 1
+        patient = Patient.objects.last()
+        assert getattr(patient, "dateofbirth", None)
+        assert patient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
+        assert getattr(patient, "ethnicity", None)
+        assert patient.ethnicity.value == data["ethnicity-value"]
+        assert getattr(patient, "gender", None)
+        assert patient.gender.value == data["gender-value"]
+        assert PatientProfile.objects.exists()
+        profile = PatientProfile.objects.filter(user=patient).get()
+        assert profile.user == patient
         assert profile.provider is None
-        assert pseudopatient.medhistory_set.count() == 1
-        gout = pseudopatient.medhistory_set.get()
+        assert patient.medhistory_set.count() == 1
+        gout = patient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
         assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
-        # Assert that the Pseudopatient history was set correctly to track the creating User
-        assert User.history.filter(username=pseudopatient.username).first().history_user == self.provider
+        # Assert that the Patient history was set correctly to track the creating User
+        assert User.history.filter(username=patient.username).first().history_user == self.provider
 
     def test__post_with_provider_and_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient with
+        """Test that the view's post() method creates a Patient with
         a unique username when called by a logged in User and with a provider
         kwarg in the url.
         """
-        # Count the Pseudopatients
-        psp_count = Pseudopatient.objects.count()
+        # Count the Patients
+        psp_count = Patient.objects.count()
 
         # Log in the provider
         self.client.force_login(self.provider)
@@ -242,57 +234,57 @@ menopause status to evaluate their flare."
             "starting_ult": True,
         }
         response = self.client.post(
-            reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
+            reverse("users:provider-patient-create", kwargs={"username": self.provider.username}), data=data
         )
         assert response.status_code == 302
-        # Assert that a Pseudopatient was created
-        assert Pseudopatient.objects.count() == psp_count + 1
-        pseudopatient = (
-            Pseudopatient.objects.select_related("pseudopatientprofile")
-            .filter(pseudopatientprofile__provider=self.provider)
+        # Assert that a Patient was created
+        assert Patient.objects.count() == psp_count + 1
+        patient = (
+            Patient.objects.select_related("pseudopatientprofile")
+            .filter(patientprofile__provider=self.provider)
             .order_by("created")
             .last()
         )
-        assert getattr(pseudopatient, "dateofbirth", None)
-        assert pseudopatient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
-        assert getattr(pseudopatient, "ethnicity", None)
-        assert pseudopatient.ethnicity.value == data["ethnicity-value"]
-        assert getattr(pseudopatient, "gender", None)
-        assert pseudopatient.gender.value == data["gender-value"]
-        assert PseudopatientProfile.objects.exists()
-        profile = PseudopatientProfile.objects.filter(user=pseudopatient).get()
-        assert profile.user == pseudopatient
+        assert getattr(patient, "dateofbirth", None)
+        assert patient.dateofbirth.value == yearsago(data["dateofbirth-value"]).date()
+        assert getattr(patient, "ethnicity", None)
+        assert patient.ethnicity.value == data["ethnicity-value"]
+        assert getattr(patient, "gender", None)
+        assert patient.gender.value == data["gender-value"]
+        assert PatientProfile.objects.exists()
+        profile = PatientProfile.objects.filter(user=patient).get()
+        assert profile.user == patient
         # Need to check or id, not equivalence because of proxy model status (i.e. User vs Provider)
         assert profile.provider.id == self.provider.id
-        assert pseudopatient.medhistory_set.count() == 1
-        gout = pseudopatient.medhistory_set.get()
+        assert patient.medhistory_set.count() == 1
+        gout = patient.medhistory_set.get()
         assert getattr(gout, "goutdetail", None)
         assert gout.goutdetail.flaring == data["flaring"]
         assert gout.goutdetail.at_goal == data["at_goal"]
         assert gout.goutdetail.on_ppx == data["on_ppx"]
         assert gout.goutdetail.on_ult == data["on_ult"]
-        # Assert that the Pseudopatient history was set correctly to track the creating User
-        assert User.history.filter(username=pseudopatient.username).first().history_user == self.provider
+        # Assert that the Patient history was set correctly to track the creating User
+        assert User.history.filter(username=patient.username).first().history_user == self.provider
 
     def test__rules_provider_no_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient
+        """Test that the view's post() method creates a Patient
         with a unique username when no provider kwarg is passed in the url
         by a provider.
         """
-        view = PseudopatientCreateView
-        request = self.rf.get(reverse("users:pseudopatient-create"))
+        view = PatientCreateView
+        request = self.rf.get(reverse("users:patient-create"))
         request.user = self.provider
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request)
 
     def test__rules_provider_with_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient with
+        """Test that the view's post() method creates a Patient with
         a unique username when called by a logged in Provider and with a provider
         kwarg in the url.
         """
-        view = PseudopatientCreateView
+        view = PatientCreateView
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-patient-create", kwargs=kwargs))
         request.user = self.provider
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
@@ -302,34 +294,34 @@ menopause status to evaluate their flare."
         when called by a logged in User and with a provider
         kwarg in the url that is not the same as the logged in User.
         """
-        view = PseudopatientCreateView
+        view = PatientCreateView
         kwargs = {"username": self.patient.username}
-        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-patient-create", kwargs=kwargs))
         request.user = self.provider
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
     def test__rules_admin_no_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient
+        """Test that the view's post() method creates a Patient
         with a unique username when no provider kwarg is passed in the url
         by an Admin.
         """
-        view = PseudopatientCreateView
-        request = self.rf.get(reverse("users:pseudopatient-create"))
+        view = PatientCreateView
+        request = self.rf.get(reverse("users:patient-create"))
         request.user = self.admin
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request)
 
     def test__rules_admin_with_provider_kwarg(self):
-        """Test that the view's post() method creates a Pseudopatient with
+        """Test that the view's post() method creates a Patient with
         a unique username when called by a logged in Admin and with a provider
         kwarg in the url.
         """
-        view = PseudopatientCreateView
+        view = PatientCreateView
         kwargs = {"username": self.admin.username}
         request = self.rf.post(
-            reverse("users:provider-pseudopatient-create", kwargs=kwargs),
-            data=pseudopatient_form_data_factory(),
+            reverse("users:provider-patient-create", kwargs=kwargs),
+            data=patient_form_data_factory(),
         )
         request.user = self.admin
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -340,9 +332,9 @@ menopause status to evaluate their flare."
         when called by a logged in Admin and with a provider
         kwarg in the url that is not the same as the logged in User.
         """
-        view = PseudopatientCreateView
+        view = PatientCreateView
         kwargs = {"username": self.patient.username}
-        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-patient-create", kwargs=kwargs))
         request.user = self.admin
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -351,41 +343,41 @@ menopause status to evaluate their flare."
         """Test that the view's post() method raises PermissionDenied
         when called by a logged in User who is not a Provider or Admin.
         """
-        view = PseudopatientCreateView
+        view = PatientCreateView
         kwargs = {"username": "blahaha"}
-        request = self.rf.get(reverse("users:provider-pseudopatient-create", kwargs=kwargs))
+        request = self.rf.get(reverse("users:provider-patient-create", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_pseudopatient(self):
+    def test__rules_patient(self):
         """Test that the view's post() method raises PermissionDenied
-        when called by a logged in Pseudopatient.
+        when called by a logged in Patient.
         """
-        view = PseudopatientCreateView
-        request = self.rf.post(reverse("users:pseudopatient-create"))
+        view = PatientCreateView
+        request = self.rf.post(reverse("users:patient-create"))
         request.user = create_psp()
         with pytest.raises(PermissionDenied):
             view.as_view()(request)
 
-    def test__creates_pseudopatient_alias(self):
-        pseudopatient = create_psp()
+    def test__creates_patient_alias(self):
+        patient = create_psp()
         for x in range(3):
             create_psp(
                 provider=self.provider,
-                dateofbirth=pseudopatient.dateofbirth.value,
-                gender=Genders(pseudopatient.gender.value),
+                dateofbirth=patient.dateofbirth.value,
+                gender=Genders(patient.gender.value),
             )
-        assert Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).count() == 3
-        last_pseudopatient_before_create = (
-            Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).order_by("created").last()
+        assert Patient.objects.filter(patientprofile__provider=self.provider).count() == 3
+        last_patient_before_create = (
+            Patient.objects.filter(patientprofile__provider=self.provider).order_by("created").last()
         )
         self.client.force_login(self.provider)
-        pseudopatient_form_data_factory()
+        patient_form_data_factory()
         data = {
-            "dateofbirth-value": age_calc(pseudopatient.dateofbirth.value),
+            "dateofbirth-value": age_calc(patient.dateofbirth.value),
             "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
-            "gender-value": Genders(pseudopatient.gender.value),
+            "gender-value": Genders(patient.gender.value),
             f"{MedHistoryTypes.GOUT}-value": True,
             "flaring": True,
             "at_goal": True,
@@ -395,265 +387,95 @@ menopause status to evaluate their flare."
             "starting_ult": True,
         }
         if (
-            pseudopatient.gender.value
-            and age_calc(pseudopatient.dateofbirth.value) >= 40
-            and age_calc(pseudopatient.dateofbirth.value) < 60
+            patient.gender.value
+            and age_calc(patient.dateofbirth.value) >= 40
+            and age_calc(patient.dateofbirth.value) < 60
         ):
-            data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True if not pseudopatient.menopause else False})
+            data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True if not patient.menopause else False})
         response = self.client.post(
-            reverse("users:provider-pseudopatient-create", kwargs={"username": self.provider.username}), data=data
+            reverse("users:provider-patient-create", kwargs={"username": self.provider.username}), data=data
         )
         forms_print_response_errors(response)
         assert response.status_code == 302
-        assert Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).count() == 4
-        newest_pseudopatient = (
-            Pseudopatient.objects.filter(pseudopatientprofile__provider=self.provider).order_by("created").last()
-        )
-        assert newest_pseudopatient != last_pseudopatient_before_create
-        self.assertTrue(newest_pseudopatient.profile.provider_alias)
-        self.assertEqual(newest_pseudopatient.profile.provider_alias, 4)
+        assert Patient.objects.filter(patientprofile__provider=self.provider).count() == 4
+        newest_patient = Patient.objects.filter(patientprofile__provider=self.provider).order_by("created").last()
+        assert newest_patient != last_patient_before_create
+        self.assertTrue(newest_patient.profile.provider_alias)
+        self.assertEqual(newest_patient.profile.provider_alias, 4)
 
 
-class TestPseudopatientFlareCreateView(TestCase):
-    def setUp(self):
-        self.view = PseudopatientFlareCreateView
-        self.flare, self.response, self.pseudopatient = self.return_flare_response_user("POST")
-        self.flare.refresh_from_db()
-
-    def return_flare_response_user(
-        self, method: str = "POST", flare: Flare | None = None, data: dict | None = None
-    ) -> tuple[Flare, HttpResponseRedirect, User]:
-        if not flare:
-            flare = CustomFlareFactory(flareaid=True, urate=Decimal("9.0")).create_object()
-        self.flareaid = flare.flareaid
-        if not data:
-            data = {
-                "ethnicity-value": Ethnicitys.CAUCASIANAMERICAN,
-                f"{MedHistoryTypes.GOUT}-value": True,
-                "flaring": True,
-                "at_goal": True,
-                "at_goal_long_term": False,
-                "on_ppx": False,
-                "on_ult": True,
-                "starting_ult": False,
-            }
-        if method == "POST":
-            response = self.client.post(
-                reverse("users:pseudopatient-flare-create", kwargs={"flare": flare.pk}), data=data
-            )
-        else:
-            response = self.client.get(
-                reverse("users:pseudopatient-flare-create", kwargs={"flare": flare.pk}), data=data
-            )
-        pseudopatient = Pseudopatient.objects.order_by("created").last()
-        return flare, response, pseudopatient
-
-    def test__get_context_data(self):
-        """Test that the required context data is passed to the template."""
-        flare, response, _ = self.return_flare_response_user("GET")
-        assert response.status_code == 200
-        assert "age" in response.context
-        assert response.context["age"] == flare.age
-        assert "dateofbirth_form" not in response.context
-        assert "gender_form" not in response.context
-        assert "gender" in response.context
-        assert response.context["gender"] == flare.gender.value
-        assert "ethnicity_form" in response.context
-        assert "goutdetail_form" in response.context
-        assert "flare" in response.context
-        assert response.context["flare"] == flare
-
-    def test__goutdetail_form_initial_set(self) -> None:
-        _, response, _ = self.return_flare_response_user("GET")
-        goutdetail_form = response.context["goutdetail_form"]
-        assert goutdetail_form.initial["flaring"] is True
-        assert goutdetail_form.initial["at_goal"] is False
-        assert goutdetail_form.initial["on_ppx"] is None
-        assert goutdetail_form.initial["on_ult"] is None
-        assert goutdetail_form.initial["starting_ult"] is None
-
-    def test__flare(self):
-        """Test that the view's flare() method returns the flare object."""
-        view = PseudopatientFlareCreateView()
-        view.kwargs = {"flare": self.flare.pk}
-        assert view.flare == self.flare
-
-    def test__get_form_kwargs(self):
-        """Test that the view's get_form_kwargs() method returns the flare object."""
-        flare, response, _ = self.return_flare_response_user("GET")
-        assert response.status_code == 200
-        assert "form" in response.context
-        form = response.context["form"]
-        assert form.flare == flare
-
-    def test__related_objects(self):
-        """Test that the view's related_objects() method returns the flare object."""
-        view = PseudopatientFlareCreateView()
-        view.kwargs = {"flare": self.flare.pk}
-        assert view.related_object == self.flare
-
-    def test__post_returns_302_response(self):
-        assert self.response.status_code == 302
-
-    def test__post_creates_new_user(self) -> None:
-        assert Pseudopatient.objects.flares_qs(self.flare.pk).exists()
-
-    def test__flare_has_no_medhistory_set(self) -> None:
-        assert not self.flare.medhistory_set.exists()
-
-    def test__flare_medhistorys_are_set_to_user(self) -> None:
-        flare = CustomFlareFactory(cad=True, angina=True).create_object()
-        flare_medhistory_count = flare.medhistory_set.count()
-        flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
-        _, _, user = self.return_flare_response_user(flare=flare)
-        user = Pseudopatient.objects.flares_qs(flare.pk).filter(flare__pk=flare.pk).get()
-        assert (
-            user.medhistory_set.count() == flare_medhistory_count
-            if flare_has_gout_medhistory
-            else flare_medhistory_count + 1
-        )
-        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.CAD).exists()
-        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.ANGINA).exists()
-        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
-
-    def test__flare_has_no_otos(self) -> None:
-        assert not self.flare.dateofbirth
-        assert not self.flare.gender
-
-    def test__flare_has_user_updated(self) -> None:
-        assert self.flare.user == self.pseudopatient
-
-    def test__flareaid_has_no_medhistory_set(self) -> None:
-        self.flareaid.refresh_from_db()
-        assert not self.flareaid.medhistory_set.exists()
-
-    def test__flareaid_medhistorys_are_set_to_user(self) -> None:
-        flareaid = CustomFlareAidFactory(colchicineinteraction=True, ibd=True).create_object()
-        flare = CustomFlareFactory(flareaid=flareaid).create_object()
-        flare_medhistory_count = flare.medhistory_set.count()
-        flare_has_gout_medhistory = flare.medhistory_set.filter(medhistorytype=MedHistoryTypes.GOUT).exists()
-        flareaid_medhistory_count = flareaid.medhistory_set.exclude(medhistorytype__in=FLARE_MEDHISTORYS).count()
-        _, _, user = self.return_flare_response_user(flare=flare)
-
-        assert user.medhistory_set.count() == flareaid_medhistory_count + (
-            flare_medhistory_count if flare_has_gout_medhistory else flare_medhistory_count + 1
-        )
-        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.COLCHICINEINTERACTION).exists()
-        assert user.medhistory_set.filter(medhistorytype=MedHistoryTypes.IBD).exists()
-
-    def test__flareaid_medallergys_are_set_to_user(self) -> None:
-        flareaid = CustomFlareAidFactory(diclofenac_allergy=True, prednisone_allergy=True).create_object()
-        flare = CustomFlareFactory(flareaid=flareaid).create_object()
-        _, _, user = self.return_flare_response_user(flare=flare)
-        assert user.medallergy_set.exists()
-        assert user.medallergy_set.filter(treatment=Treatments.DICLOFENAC).exists()
-        assert user.medallergy_set.filter(treatment=Treatments.PREDNISONE).exists()
-
-    def test__flare_with_flareaid_and_aki_with_creatinines_sets_creatinines_user(self) -> None:
-        flareaid = CustomFlareAidFactory().create_object()
-        flare = CustomFlareFactory(
-            flareaid=flareaid,
-            aki=Statuses.IMPROVING,
-            date_started=(timezone.now() - timedelta(days=5)).date(),
-            creatinines=[
-                (Decimal("2.0"), (timezone.now() - timedelta(days=5)).date()),
-                (Decimal("1.4"), (timezone.now() - timedelta(days=3)).date()),
-            ],
-        ).create_object()
-        _, _, user = self.return_flare_response_user(flare=flare)
-        for creatinine in flare.aki.creatinine_set.all():
-            self.assertTrue(creatinine.user)
-            self.assertEqual(creatinine.user, user)
-
-
-class TestPseudopatientDetailView(TestCase):
+class TestPatientDetailView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.anon_pseudopatient = create_psp()
+        self.provider_patient = create_psp(provider=self.provider)
+        self.admin_patient = create_psp(provider=self.admin)
+        self.anon_patient = create_psp()
 
-    def test__rules_provider_can_see_own_pseudopatient(self):
-        """Test that a Provider can see his or her own Pseudopatient's detail."""
+    def test__rules_provider_can_see_own_patient(self):
+        """Test that a Provider can see his or her own Patient's detail."""
         self.client.force_login(self.provider)
-        assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
-        )
+        assert self.client.get(reverse("users:patient-detail", kwargs={"patient": self.provider_patient.pk}))
 
-    def test__rules_provider_cannot_see_admin_pseudopatient(self):
-        """Test that a Provider cannot see an Admin's Pseudopatient's detail."""
+    def test__rules_provider_cannot_see_admin_patient(self):
+        """Test that a Provider cannot see an Admin's Patient's detail."""
         self.client.force_login(self.provider)
-        response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.admin_pseudopatient.pk})
-        )
+        response = self.client.get(reverse("users:patient-detail", kwargs={"patient": self.admin_patient.pk}))
         assert response.status_code == 403
 
-    def test__rules_provider_can_see_anonymous_pseudopatient(self):
-        """Test that a Provider can see an Anonymous Pseudopatient's detail."""
+    def test__rules_provider_can_see_anonymous_patient(self):
+        """Test that a Provider can see an Anonymous Patient's detail."""
         self.client.force_login(self.provider)
-        assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
-        )
+        assert self.client.get(reverse("users:patient-detail", kwargs={"patient": self.anon_patient.pk}))
 
-    def test__rules_admin_can_see_own_pseudopatient(self):
-        """Test that an Admin can see his or her own Pseudopatient's detail."""
+    def test__rules_admin_can_see_own_patient(self):
+        """Test that an Admin can see his or her own Patient's detail."""
         self.client.force_login(self.admin)
-        assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.admin_pseudopatient.pk})
-        )
+        assert self.client.get(reverse("users:patient-detail", kwargs={"patient": self.admin_patient.pk}))
 
-    def test__rules_admin_cannot_see_provider_pseudopatient(self):
-        """Test that an Admin cannot see a Provider's Pseudopatient's detail."""
+    def test__rules_admin_cannot_see_provider_patient(self):
+        """Test that an Admin cannot see a Provider's Patient's detail."""
         self.client.force_login(self.admin)
-        response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
-        )
+        response = self.client.get(reverse("users:patient-detail", kwargs={"patient": self.provider_patient.pk}))
         assert response.status_code == 403
 
-    def test__rules_anonymous_cannot_see_provider_pseudopatient(self):
-        """Test that an Anonymous User cannot see a Provider's Pseudopatient's detail."""
-        response = self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
-        )
+    def test__rules_anonymous_cannot_see_provider_patient(self):
+        """Test that an Anonymous User cannot see a Provider's Patient's detail."""
+        response = self.client.get(reverse("users:patient-detail", kwargs={"patient": self.provider_patient.pk}))
         assert response.status_code == 302
-        url = reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
+        url = reverse("users:patient-detail", kwargs={"patient": self.provider_patient.pk})
         assert unquote(response.url) == f"/accounts/login/?next={url}"
 
-    def test__rules_admin_can_see_anonymous_pseudopatient(self):
-        """Test that an Admin can see an Anonymous Pseudopatient's detail."""
+    def test__rules_admin_can_see_anonymous_patient(self):
+        """Test that an Admin can see an Anonymous Patient's detail."""
         self.client.force_login(self.admin)
-        assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
-        )
+        assert self.client.get(reverse("users:patient-detail", kwargs={"patient": self.anon_patient.pk}))
 
-    def test__rules_anonymous_can_see_anonymous_pseudopatient(self):
-        """Test that an Anonymous User can see an Anonymous Pseudopatient's detail."""
-        assert self.client.get(
-            reverse("users:pseudopatient-detail", kwargs={"pseudopatient": self.anon_pseudopatient.pk})
-        )
+    def test__rules_anonymous_can_see_anonymous_patient(self):
+        """Test that an Anonymous User can see an Anonymous Patient's detail."""
+        assert self.client.get(reverse("users:patient-detail", kwargs={"patient": self.anon_patient.pk}))
 
 
-class TestPseudopatientListView(TestCase):
+class TestPatientListView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
+        self.provider_patient = create_psp()
+        self.provider_patient.profile.provider = self.provider
+        self.provider_patient.profile.save()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
+        self.admin_patient = create_psp()
+        self.admin_patient.profile.provider = self.admin
+        self.admin_patient.profile.save()
 
     def test__get_permission_object(self):
         """Test that the view's get_permission_object() method returns
         the username kwarg.
         """
-        view = PseudopatientListView()
+        view = PatientListView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
@@ -662,21 +484,21 @@ class TestPseudopatientListView(TestCase):
 
     def test__get_queryset(self):
         """Test that the view's get_queryset() method returns a queryset
-        of Pseudopatients whose provider is the requesting User.
+        of Patients whose provider is the requesting User.
         """
-        view = PseudopatientListView()
+        view = PatientListView()
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.provider
         view.request = request
         view.kwargs = kwargs
-        assert list(view.get_queryset()) == [self.provider_pseudopatient]
+        assert list(view.get_queryset()) == [self.provider_patient]
 
     def test__rules_providers_own_list(self):
         """Test that a Provider can see his or her own list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.provider
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
@@ -684,70 +506,70 @@ class TestPseudopatientListView(TestCase):
     def test__rules_provider_other_provider_list(self):
         """Test that a Provider cannot see another Provider's list."""
         provider2 = UserFactory()
-        provider2_pseudopatient = create_psp()
-        provider2_pseudopatient.profile.provider = provider2
-        provider2_pseudopatient.profile.save()
-        view = PseudopatientListView
+        provider2_patient = create_psp()
+        provider2_patient.profile.provider = provider2
+        provider2_patient.profile.save()
+        view = PatientListView
         kwargs = {"username": provider2.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.provider
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
     def tes__rules_provider_cannot_see_admin_list(self):
         """Test that a Provider cannot see an Admin's list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.admin.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.provider
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
     def test__rules_admin_can_see_own_list(self):
         """Test that an Admin can see his or her own list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.admin.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.admin
         SessionMiddleware(dummy_get_response).process_request(request)
         assert view.as_view()(request, **kwargs)
 
     def test__rules_admin_cannot_see_providers_list(self):
         """Test that an Admin cannot see a Provider's list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.admin
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
     def test__rules_patient_cannot_see_provider_list(self):
         """Test that a Patient cannot see either list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.provider.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
     def test__rules_patient_cannot_see_admin_list(self):
         """Test that a Patient cannot see either list."""
-        view = PseudopatientListView
+        view = PatientListView
         kwargs = {"username": self.admin.username}
-        request = self.rf.get(reverse("users:pseudopatients", kwargs=kwargs))
+        request = self.rf.get(reverse("users:patients", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
 
-class TestPseudopatientUpdateView(TestCase):
+class TestPatientUpdateView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
-        self.view = PseudopatientUpdateView
+        self.view = PatientUpdateView
         self.anon = AnonymousUser()
         self.provider = UserFactory()
         self.admin = UserFactory(role=Roles.ADMIN)
-        # Create a pseudopatient
+        # Create a patient
         self.psp = create_psp(provider=self.provider)
         self.admin_psp = create_psp(provider=self.admin)
         self.female = create_psp()
@@ -761,35 +583,35 @@ class TestPseudopatientUpdateView(TestCase):
 
     def test__dispatch(self):
         """Test that dispatch sets the object attr."""
-        view = PseudopatientUpdateView()
+        view = PatientUpdateView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
         SessionMiddleware(dummy_get_response).process_request(request)
-        view.kwargs = {"pseudopatient": self.psp.pk}
+        view.kwargs = {"patient": self.psp.pk}
         view.dispatch(request, **view.kwargs)
         assert view.object == self.psp
 
     def test__get_permission_object(self):
         """Test that the view's get_permission_object() method returns
         the view's object (intended User)."""
-        view = PseudopatientUpdateView()
+        view = PatientUpdateView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
         SessionMiddleware(dummy_get_response).process_request(request)
-        view.kwargs = {"pseudopatient": self.psp.pk}
+        view.kwargs = {"patient": self.psp.pk}
         view.dispatch(request, **view.kwargs)
         assert view.get_permission_object() == self.psp
 
     def test__get_queryset(self):
         """Test that the view's get_queryset() method returns the intended
-        Pseudopatient and the intended related models."""
-        view = PseudopatientUpdateView()
+        Patient and the intended related models."""
+        view = PatientUpdateView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {"pseudopatient": self.female.pk}
+        view.kwargs = {"patient": self.female.pk}
         with self.assertNumQueries(2):
             qs = view.get_queryset().get()
             assert qs == self.female
@@ -806,9 +628,9 @@ class TestPseudopatientUpdateView(TestCase):
 
     def test__view_attrs(self):
         """Test that the view's attrs are correct."""
-        view = PseudopatientUpdateView()
+        view = PatientUpdateView()
         view.set_forms()
-        assert view.form_class == PseudopatientForm
+        assert view.form_class == PatientForm
         assert view.MEDHISTORY_FORMS == {
             MedHistoryTypes.GOUT: GoutForm,
             MedHistoryTypes.MENOPAUSE: MenopauseForm,
@@ -834,7 +656,7 @@ class TestPseudopatientUpdateView(TestCase):
         """Tests that the required context data is passed to the template."""
         # Log in the provider
         self.client.force_login(self.provider)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.female.pk}))
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.female.pk}))
         assert response.status_code == 200
         assert f"{MedHistoryTypes.GOUT}_form" not in response.context
         assert "dateofbirth_form" in response.context
@@ -848,25 +670,25 @@ class TestPseudopatientUpdateView(TestCase):
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].instance == self.female.menopause
 
     def test__rules(self):
-        """Test rules for the PseudopatientUpdateView."""
-        # Anonymous User cannot update a Pseudopatient with a provider or a patient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
+        """Test rules for the PatientUpdateView."""
+        # Anonymous User cannot update a Patient with a provider or a patient
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.psp.pk}))
         assert response.status_code == 302
-        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
+        response = self.client.post(reverse("users:patient-update", kwargs={"patient": self.admin_psp.pk}))
         assert response.status_code == 302
-        # Provider can log in and update his or her own Pseudopatient
+        # Provider can log in and update his or her own Patient
         self.client.force_login(self.provider)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.psp.pk}))
         assert response.status_code == 200
-        # Provider cannot update another Provider's Pseudopatient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
+        # Provider cannot update another Provider's Patient
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.admin_psp.pk}))
         assert response.status_code == 403
-        # Admin can log in and update his or her own Pseudopatient
+        # Admin can log in and update his or her own Patient
         self.client.force_login(self.admin)
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.admin_psp.pk}))
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.admin_psp.pk}))
         assert response.status_code == 200
-        # Admin cannot update another Provider's Pseudopatient
-        response = self.client.get(reverse("users:pseudopatient-update", kwargs={"pseudopatient": self.psp.pk}))
+        # Admin cannot update another Provider's Patient
+        response = self.client.get(reverse("users:patient-update", kwargs={"patient": self.psp.pk}))
         assert response.status_code == 403
 
     def test__post(self):
@@ -896,7 +718,7 @@ class TestPseudopatientUpdateView(TestCase):
         }
         # Test that the view returns a ValidationError when the user is a woman aged 40-60
         # and the menopause form is not filled out
-        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
+        response = self.client.post(reverse("users:patient-update", kwargs={"patient": psp.pk}), data=data)
         assert response.status_code == 200
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"]
         assert response.context[f"{MedHistoryTypes.MENOPAUSE}_form"].errors[f"{MedHistoryTypes.MENOPAUSE}-value"][
@@ -907,12 +729,10 @@ menopause status to evaluate their flare."
         )
         # Update menopause value
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": True})
-        # Test that view runs post() without errors and redirects to the Pseudopatient DetailView
-        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
+        # Test that view runs post() without errors and redirects to the Patient DetailView
+        response = self.client.post(reverse("users:patient-update", kwargs={"patient": psp.pk}), data=data)
         assert response.status_code == 302
-        assert (
-            response.url == reverse("users:pseudopatient-detail", kwargs={"pseudopatient": psp.pk}) + "?updated=True"
-        )
+        assert response.url == reverse("users:patient-detail", kwargs={"patient": psp.pk}) + "?updated=True"
         # Need to delete both gout and goutdetail cached_properties because they are used
         # to fetch one another and will not be updated otherwise
         delattr(psp, "goutdetail")
@@ -929,78 +749,68 @@ menopause status to evaluate their flare."
         assert psp.menopause
         # Test that menopause can be deleted
         data.update({f"{MedHistoryTypes.MENOPAUSE}-value": False})
-        response = self.client.post(reverse("users:pseudopatient-update", kwargs={"pseudopatient": psp.pk}), data=data)
+        response = self.client.post(reverse("users:patient-update", kwargs={"patient": psp.pk}), data=data)
         assert response.status_code == 302
         assert not Menopause.objects.filter(user=psp).exists()
 
 
-class TestPseudopatientDeleteView(TestCase):
+class TestPatientDeleteView(TestCase):
     def setUp(self):
         self.rf = RequestFactory()
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.anon_pseudopatient = create_psp()
+        self.provider_patient = create_psp(provider=self.provider)
+        self.admin_patient = create_psp(provider=self.admin)
+        self.anon_patient = create_psp()
 
     def test__get_success_message(self):
-        view = PseudopatientDeleteView()
+        view = PatientDeleteView()
         request = self.rf.get("/fake-url/")
         view.request = request
-        view.object = self.provider_pseudopatient
+        view.object = self.provider_patient
         assert view.get_success_message(cleaned_data={}) == _("GoutPatient successfully deleted")
 
     def test__get_success_url(self):
-        view = PseudopatientDeleteView()
+        view = PatientDeleteView()
         request = self.rf.get("/fake-url/")
         view.request = request
         request.user = self.provider
-        view.object = self.provider_pseudopatient
-        assert view.get_success_url() == reverse("users:pseudopatients", kwargs={"username": self.provider.username})
+        view.object = self.provider_patient
+        assert view.get_success_url() == reverse("users:patients", kwargs={"username": self.provider.username})
 
     def test__get_object(self):
-        view = PseudopatientDeleteView()
+        view = PatientDeleteView()
         request = self.rf.get("/fake-url/")
         request.user = self.provider
         view.request = request
-        view.kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
-        assert view.get_object() == self.provider_pseudopatient
+        view.kwargs = {"patient": self.provider_patient.pk}
+        assert view.get_object() == self.provider_patient
 
-    def test__rules_provider_can_delete_own_pseudopatient(self):
-        """Test that a Provider can delete his or her own Pseudopatient."""
+    def test__rules_provider_can_delete_own_patient(self):
+        """Test that a Provider can delete his or her own Patient."""
         self.client.force_login(self.provider)
         user = auth.get_user(self.client)
         assert user.is_authenticated
         initial_response = self.client.get(
-            reverse("users:pseudopatient-delete", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
+            reverse("users:patient-delete", kwargs={"patient": self.provider_patient.pk})
         )
         assert initial_response.status_code == 200
 
         confirm_response = self.client.post(
-            reverse("users:pseudopatient-delete", kwargs={"pseudopatient": self.provider_pseudopatient.pk})
+            reverse("users:patient-delete", kwargs={"patient": self.provider_patient.pk})
         )
 
         assert confirm_response.status_code == 302
-        assert confirm_response.url == f"/users/{self.provider.username}/pseudopatients/"
+        assert confirm_response.url == f"/users/{self.provider.username}/patients/"
 
-        assert not Pseudopatient.objects.filter(pk=self.provider_pseudopatient.pk).exists()
+        assert not Patient.objects.filter(pk=self.provider_patient.pk).exists()
 
-    def test__rules_provider_cannot_delete_admins_pseudopatient(self):
-        """Test that a Provider cannot delete an Admin's Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
-
-        # Add the session/message middleware to the request
-        SessionMiddleware(dummy_get_response).process_request(request)
-        MessageMiddleware(dummy_get_response).process_request(request)
-
-        request.user = self.provider
-        with pytest.raises(PermissionDenied):
-            view.as_view()(request, **kwargs)
-
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_provider_cannot_delete_admins_patient(self):
+        """Test that a Provider cannot delete an Admin's Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.admin_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1010,11 +820,7 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_provider_cannot_delete_anonymous_pseudopatient(self):
-        """Test that a Provider cannot delete an Anonymous Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.anon_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1024,7 +830,11 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_provider_cannot_delete_anonymous_patient(self):
+        """Test that a Provider cannot delete an Anonymous Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.anon_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1034,11 +844,21 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_admin_can_delete_own_pseudopatient(self):
-        """Test that an Admin can delete his or her own Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
+
+        # Add the session/message middleware to the request
+        SessionMiddleware(dummy_get_response).process_request(request)
+        MessageMiddleware(dummy_get_response).process_request(request)
+
+        request.user = self.provider
+        with pytest.raises(PermissionDenied):
+            view.as_view()(request, **kwargs)
+
+    def test__rules_admin_can_delete_own_patient(self):
+        """Test that an Admin can delete his or her own Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.admin_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1047,7 +867,7 @@ class TestPseudopatientDeleteView(TestCase):
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1056,11 +876,11 @@ class TestPseudopatientDeleteView(TestCase):
         request.user = self.admin
         assert view.as_view()(request, **kwargs)
 
-    def test__rules_admin_cannot_delete_providers_pseudopatient(self):
-        """Test that an Admin cannot delete a Provider's Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_admin_cannot_delete_providers_patient(self):
+        """Test that an Admin cannot delete a Provider's Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.provider_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1070,7 +890,7 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1080,11 +900,11 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_admin_cannot_delete_anonymous_pseudopatient(self):
-        """Test that an Admin cannot delete an Anonymous Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.anon_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_admin_cannot_delete_anonymous_patient(self):
+        """Test that an Admin cannot delete an Anonymous Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.anon_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1094,7 +914,7 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
 
         # Add the session/message middleware to the request
         SessionMiddleware(dummy_get_response).process_request(request)
@@ -1104,30 +924,30 @@ class TestPseudopatientDeleteView(TestCase):
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_patient_cannot_delete_provider_pseudopatient(self):
-        """Test that a Patient cannot delete a Provider's Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.provider_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_patient_cannot_delete_provider_patient(self):
+        """Test that a Patient cannot delete a Provider's Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.provider_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-    def test__rules_patient_cannot_delete_admin_pseudopatient(self):
-        """Test that a Patient cannot delete an Admin's Pseudopatient."""
-        view = PseudopatientDeleteView
-        kwargs = {"pseudopatient": self.admin_pseudopatient.pk}
-        request = self.rf.get(reverse("users:pseudopatient-delete", kwargs=kwargs))
+    def test__rules_patient_cannot_delete_admin_patient(self):
+        """Test that a Patient cannot delete an Admin's Patient."""
+        view = PatientDeleteView
+        kwargs = {"patient": self.admin_patient.pk}
+        request = self.rf.get(reverse("users:patient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
 
-        request = self.rf.post(reverse("users:pseudopatient-delete", kwargs=kwargs))
+        request = self.rf.post(reverse("users:patient-delete", kwargs=kwargs))
         request.user = self.patient
         with pytest.raises(PermissionDenied):
             view.as_view()(request, **kwargs)
@@ -1258,13 +1078,13 @@ class TestUserUpdateView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = create_psp()
-        self.provider_pseudopatient.profile.provider = self.provider
-        self.provider_pseudopatient.profile.save()
-        self.admin_pseudopatient = create_psp()
-        self.admin_pseudopatient.profile.provider = self.admin
-        self.admin_pseudopatient.profile.save()
-        self.anon_pseudopatient = create_psp()
+        self.provider_patient = create_psp()
+        self.provider_patient.profile.provider = self.provider
+        self.provider_patient.profile.save()
+        self.admin_patient = create_psp()
+        self.admin_patient.profile.provider = self.admin
+        self.admin_patient.profile.save()
+        self.anon_patient = create_psp()
 
     def test_get_success_url(self):
         view = UserUpdateView()
@@ -1311,7 +1131,7 @@ class TestUserRedirectView:
         request.user = user
 
         view.request = request
-        assert view.get_redirect_url() == f"/users/{user.username}/pseudopatients/"
+        assert view.get_redirect_url() == f"/users/{user.username}/patients/"
 
 
 class TestUserDetailView(TestCase):
@@ -1320,9 +1140,9 @@ class TestUserDetailView(TestCase):
         self.provider = UserFactory()
         self.patient = UserFactory(role=Roles.PATIENT)
         self.admin = UserFactory(role=Roles.ADMIN)
-        self.provider_pseudopatient = create_psp(provider=self.provider)
-        self.admin_pseudopatient = create_psp(provider=self.admin)
-        self.anon_pseudopatient = create_psp()
+        self.provider_patient = create_psp(provider=self.provider)
+        self.admin_patient = create_psp(provider=self.admin)
+        self.anon_patient = create_psp()
 
     def test_authenticated(self):
         request = self.rf.get(f"users/{self.provider.username}/")
@@ -1332,18 +1152,16 @@ class TestUserDetailView(TestCase):
         assert response.status_code == 200
 
     def test__get(self):
-        """Test that the view redirects to pseudopatient-detail when the
-        User is a Pseudopatient.
+        """Test that the view redirects to patient-detail when the
+        User is a Patient.
         """
         view = user_detail_view
-        kwargs = {"username": self.provider_pseudopatient.username}
+        kwargs = {"username": self.provider_patient.username}
         request = self.rf.get(reverse("users:detail", kwargs=kwargs))
-        request.user = self.provider_pseudopatient
+        request.user = self.provider_patient
         response = view(request, **kwargs)
         assert response.status_code == 302
-        assert response.url == reverse(
-            "users:pseudopatient-detail", kwargs={"pseudopatient": self.provider_pseudopatient.pk}
-        )
+        assert response.url == reverse("users:patient-detail", kwargs={"patient": self.provider_patient.pk})
 
     def test_not_authenticated(self):
         request = self.rf.get("/fake-url/")

@@ -29,7 +29,7 @@
   {% endif %}
 {% elif id == "dateofbirth" or id == "demographics" or id == "age" %}
   {% if aidtype == "Flare" %}
-    {% if object.at_risk_for_gout %}
+    {% if object.demographic_risk %}
       (+)
     {% else %}
       (-)

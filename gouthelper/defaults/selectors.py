@@ -4,6 +4,7 @@ from django.apps import apps  # type: ignore
 from django.db.models import Q  # type: ignore
 
 from ..treatments.choices import TrtTypes
+from ..utils.helpers import is_fetched
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet  # type: ignore
@@ -17,11 +18,16 @@ def defaults_flareaidsettings(user: Union["User", None]) -> Any:
     GoutHelper's default FlareAidSettings.
 
     Returns: FlareAidSettings object"""
+    fetched = is_fetched(user, "flareaidsettings")
     return (
-        apps.get_model("defaults.FlareAidSettings")
-        .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user", "modified", "created")
-        .first()
+        fetched
+        if fetched
+        else (
+            apps.get_model("defaults.FlareAidSettings")
+            .objects.filter(Q(user=user) | Q(user__isnull=True))
+            .order_by("user", "modified", "created")
+            .first()
+        )
     )
 
 
@@ -30,11 +36,16 @@ def defaults_ppxaidsettings(user: Union["User", None]) -> Any:
     GoutHelper's default PpxAidSettings.
 
     Returns: PpxAidSettings object"""
+    fetched = is_fetched(user, "ppxaidsettings")
     return (
-        apps.get_model("defaults.PpxAidSettings")
-        .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user", "modified", "created")
-        .first()
+        fetched
+        if fetched
+        else (
+            apps.get_model("defaults.PpxAidSettings")
+            .objects.filter(Q(user=user) | Q(user__isnull=True))
+            .order_by("user", "modified", "created")
+            .first()
+        )
     )
 
 
@@ -43,11 +54,16 @@ def defaults_ultaidsettings(user: Union["User", None]) -> Any:
     GoutHelper's default UltAidSettings.
 
     Returns: UltAidSettings object"""
+    fetched = is_fetched(user, "ultaidsettings")
     return (
-        apps.get_model("defaults.UltAidSettings")
-        .objects.filter(Q(user=user) | Q(user__isnull=True))
-        .order_by("user", "modified", "created")
-        .first()
+        fetched
+        if fetched
+        else (
+            apps.get_model("defaults.UltAidSettings")
+            .objects.filter(Q(user=user) | Q(user__isnull=True))
+            .order_by("user", "modified", "created")
+            .first()
+        )
     )
 
 

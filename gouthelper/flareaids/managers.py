@@ -1,11 +1,11 @@
 from django.db.models import Manager, QuerySet  # type: ignore
 
-from .selectors import flareaid_userless_relations
+from .selectors import flareaid_relations
 
 
 class FlareAidQuerySet(QuerySet):
     def related_objects(self) -> QuerySet:
-        return flareaid_userless_relations(self)
+        return flareaid_relations(self)
 
 
 class FlareAidManager(Manager):

@@ -5,7 +5,7 @@ from django.contrib.auth import decorators, get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from .forms import UserAdminChangeForm, UserAdminCreationForm
-from .models import Provider, Pseudopatient
+from .models import Patient, Provider
 
 User = get_user_model()
 
@@ -45,8 +45,8 @@ class ProviderAdmin(UserAdmin):
     pass
 
 
-@admin.register(Pseudopatient)
-class PseudopatientAdmin(UserAdmin):
+@admin.register(Patient)
+class PatientAdmin(UserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
     fieldsets = (
@@ -69,5 +69,5 @@ class PseudopatientAdmin(UserAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        qs = qs.select_related("pseudopatientprofile__provider")
+        qs = qs.select_related("patientprofile__provider")
         return qs

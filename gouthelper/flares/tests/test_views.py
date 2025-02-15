@@ -34,23 +34,23 @@ from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.forms import AnginaForm, CadForm, ChfForm, CkdForm, GoutForm, HeartattackForm, PvdForm, StrokeForm
 from ...medhistorys.lists import FLARE_MEDHISTORYS, FLAREAID_MEDHISTORYS
 from ...medhistorys.models import Angina, MedHistory, Menopause
-from ...users.models import Pseudopatient
+from ...users.models import Patient
 from ...users.tests.factories import AdminFactory, UserFactory, create_psp
 from ...utils.factories import medhistory_diff_obj_data, oto_random_age, oto_random_gender, oto_random_urate_or_None
 from ...utils.forms import forms_print_response_errors
 from ...utils.test_helpers import dummy_get_response
 from ..choices import DiagnosedChoices, Likelihoods, LimitedJointChoices, Prevalences
 from ..models import Flare
-from ..selectors import flares_user_qs
+from ..selectors import flare_relations
 from ..views import (
     FlareAbout,
     FlareCreate,
+    FlareDelete,
     FlareDetail,
-    FlarePseudopatientCreate,
-    FlarePseudopatientDelete,
-    FlarePseudopatientDetail,
-    FlarePseudopatientList,
-    FlarePseudopatientUpdate,
+    FlarePatientCreate,
+    FlarePatientDetail,
+    FlarePatientList,
+    FlarePatientUpdate,
     FlareUpdate,
 )
 from .factories import create_flare, flare_data_factory
@@ -58,6 +58,8 @@ from .factories import create_flare, flare_data_factory
 User = get_user_model()
 
 pytestmark = pytest.mark.django_db
+
+flares_user_qs = flare_relations(Patient.objects.all())
 
 
 class TestFlareAbout(TestCase):
@@ -501,10 +503,10 @@ class TestFlareDetail(TestCase):
         self.assertIsNone(Flare.objects.get().prevalence)
 
 
-class TestFlarePseudopatientCreate(TestCase):
+class TestFlarePatientCreate(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
-        self.view = FlarePseudopatientCreate
+        self.view = FlarePatientCreate
         self.anon_user = AnonymousUser()
         self.user = create_psp(plus=True)
         for _ in range(10):
@@ -575,7 +577,7 @@ class TestFlarePseudopatientCreate(TestCase):
     def test__get_context_data_onetoones(self):
         """Test that the context data includes the user's
         related models."""
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             request = self.factory.get("/fake-url/")
             if user.profile.provider:
                 request.user = user.profile.provider
@@ -593,7 +595,7 @@ class TestFlarePseudopatientCreate(TestCase):
     def test__get_context_data_medhistorys(self):
         """Test that the context data includes the user's
         related models."""
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             request = self.factory.get("/fake-url/")
             if user.profile.provider:
                 request.user = user.profile.provider
@@ -1090,8 +1092,8 @@ If you don't know the value, please uncheck the Uric Acid Lab Check box.",
         self.assertIn("date_started", response.context_data["form"].errors)
 
 
-class TestFlarePseudopatientDelete(TestCase):
-    """Tests for the FlarePseudopatientDelete view."""
+class TestFlareDelete(TestCase):
+    """Tests for the FlareDelete view."""
 
     def setUp(self):
         # Create a Provider and Admin, each with their own Pseudopatient and an
@@ -1105,7 +1107,7 @@ class TestFlarePseudopatientDelete(TestCase):
         self.anon_psp = create_psp()
         self.anon_psp_flare = create_flare(user=self.anon_psp)
         self.factory = RequestFactory()
-        self.view = FlarePseudopatientDelete
+        self.view = FlareDelete
         self.anon_user = AnonymousUser()
 
     def test__dispatch_sets_user_and_object_attrs(self):
@@ -1230,15 +1232,15 @@ class TestFlarePseudopatientDelete(TestCase):
         assert response.url == reverse("flares:pseudopatient-list", kwargs={"pseudopatient": self.prov_psp.pk})
 
 
-class TestFlarePseudopatientDetail(TestCase):
-    """Test suite for the FlarePseudopatientDetail view."""
+class TestFlarePatientDetail(TestCase):
+    """Test suite for the FlarePatientDetail view."""
 
     def setUp(self):
         self.factory = RequestFactory()
-        self.view = FlarePseudopatientDetail
+        self.view = FlarePatientDetail
         self.anon_user = AnonymousUser()
         self.psp = create_psp(plus=True)
-        for psp in Pseudopatient.objects.all():
+        for psp in Patient.objects.all():
             create_flare(user=psp)
         self.empty_psp = create_psp(plus=True)
 
@@ -1446,8 +1448,8 @@ class TestFlarePseudopatientDetail(TestCase):
         assert response.status_code == 200
 
 
-class TestFlarePseudopatientList(TestCase):
-    """Tests for the FlarePseudopatientList view."""
+class TestFlarePatientList(TestCase):
+    """Tests for the FlarePatientList view."""
 
     def setUp(self):
         self.provider = UserFactory()
@@ -1468,7 +1470,7 @@ class TestFlarePseudopatientList(TestCase):
                 date_ended=timezone.now().date() - timedelta(days=4 * i),
             )
         self.empty_psp = create_psp(plus=True)
-        self.view = FlarePseudopatientList
+        self.view = FlarePatientList
 
     def test__dispatch(self):
         """Test that dispatch sets the userattr on the view."""
@@ -1557,7 +1559,7 @@ class TestFlarePseudopatientList(TestCase):
         qs = view.get_queryset()
         self.assertTrue(isinstance(qs, QuerySet))
         qs = qs.get()
-        self.assertTrue(isinstance(qs, Pseudopatient))
+        self.assertTrue(isinstance(qs, Patient))
         self.assertEqual(qs, self.psp)
         self.assertTrue(hasattr(qs, "flares_qs"))
         self.assertTrue(hasattr(qs, "pseudopatientprofile"))
@@ -1606,18 +1608,18 @@ class TestFlarePseudopatientList(TestCase):
         assert response.status_code == 200
 
 
-class TestFlarePseudopatientUpdate(TestCase):
+class TestFlarePatientUpdate(TestCase):
     """Test suite for the FlarePatientUpdate view."""
 
     def setUp(self):
         self.factory = RequestFactory()
-        self.view = FlarePseudopatientUpdate
+        self.view = FlarePatientUpdate
         self.anon_user = AnonymousUser()
         self.user = create_psp(plus=True)
         for _ in range(10):
             create_psp(plus=True)
         self.psp = create_psp()
-        for psp in Pseudopatient.objects.all():
+        for psp in Patient.objects.all():
             create_flare(
                 user=psp,
                 date_started=(timezone.now() - timedelta(days=50)).date(),
@@ -1660,7 +1662,7 @@ class TestFlarePseudopatientUpdate(TestCase):
 
     def test__get_context_data(self):
         """Test that the non-onetoone and non-medhistory context data is correct."""
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             flare = user.flare_set.first()
             request = self.factory.get("/fake-url/")
             if user.profile.provider:
@@ -1703,7 +1705,7 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__get_context_data_onetoones(self):
         """Test that the context data includes the user's
         related models."""
-        for user in Pseudopatient.objects.prefetch_related("flare_set").all():
+        for user in Patient.objects.prefetch_related("flare_set").all():
             flare = user.flare_set.first()
             request = self.factory.get("/fake-url/")
             if user.profile.provider:
@@ -1738,7 +1740,7 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__get_context_data_medhistorys(self):
         """Test that the context data includes the user's
         related models."""
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             flare = user.flare_set.first()
             request = self.factory.get("/fake-url/")
             if user.profile.provider:
@@ -1905,7 +1907,7 @@ class TestFlarePseudopatientUpdate(TestCase):
     def test__post_populate_oto_forms(self):
         """Test the post_populate_oto_forms() method for the view."""
         # Iterate over the Pseudopatients
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             # Fetch the Flare, each User will only have 1
             flare = user.flare_set.first()
             # Create a fake POST request
@@ -1940,7 +1942,7 @@ class TestFlarePseudopatientUpdate(TestCase):
             return True if val == "True" else False if val == "False" else val
 
         # Iterate over the Pseudopatients
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             # Fetch the Flare, each User will only have 1
             flare = user.flare_set.first()
             data = flare_data_factory(user=user, flare=flare)
@@ -2023,7 +2025,7 @@ class TestFlarePseudopatientUpdate(TestCase):
         """Test that the post() method updates the user's medhistorys
         correctly."""
         # Iterate over the Pseudopatients
-        for user in Pseudopatient.objects.all():
+        for user in Patient.objects.all():
             # Copy the user's medhistorys to a list
             medhistorys = list(user.medhistory_set.all())
             # Fetch the Flare, each User will only have 1

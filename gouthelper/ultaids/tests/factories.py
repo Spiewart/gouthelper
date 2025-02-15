@@ -49,7 +49,7 @@ class CreateUltAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMix
 
 
 def ultaid_data_factory(
-    user: "User" = None,
+    patient: "User" = None,
     ultaid: "UltAid" = None,
     mas: list[UltChoices.values] | None = None,
     mhs: list[MedHistoryTypes] | None = None,
@@ -59,8 +59,8 @@ def ultaid_data_factory(
     """Method to create data for a UltAid to test forms.
 
     Args:
-        user: The user to create the data for (can't have with ultaid).
-        ultaid: The UltAid to create the data for (can't have with user).
+        patient: The patient to create the data for (can't have with ultaid).
+        ultaid: The UltAid to create the data for (can't have with patient).
         mas: The MedAllergys to create the data for. Pass empty list to not create any.
         mhs: The MedHistorys to create the data for. Pass empty list to not create any.
         mh_dets: The MedHistoryDetails to create the data for.
@@ -85,8 +85,8 @@ def ultaid_data_factory(
         aid_otos=["dateofbirth", "ethnicity", "gender", "hlab5801"],
         otos=otos,
         req_otos=["ethnicity"],
-        user_otos=["dateofbirth", "ethnicity", "gender"],
-        user=user,
+        patient_otos=["dateofbirth", "ethnicity", "gender"],
+        patient=patient,
         aid_obj=ultaid,
     ).create()
 
@@ -98,7 +98,7 @@ class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
         kwargs = super().create(**kwargs)
         mas_specified = kwargs.pop("mas_specified", False)
         mhs_specified = kwargs.pop("mhs_specified", False)
-        ultaid = UltAidFactory.build(user=self.user)
+        ultaid = UltAidFactory.build(patient=self.patient)
         self.create_otos(ultaid)
         ultaid.save()
         self.create_mas(ultaid, specified=mas_specified)
@@ -107,26 +107,26 @@ class CreateUltAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 
 def create_ultaid(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", bool, None] = None,
     mas: list[UltChoices.values] | None = None,
     mhs: list[ULTAID_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> UltAid:
-    """Creates a UltAid with the given user, onetoones, medallergys, and medhistorys."""
+    """Creates a UltAid with the given patient, onetoones, medallergys, and medhistorys."""
     if mas is None:
-        if user:
-            mas = user.medallergys_qs if hasattr(user, "medallergys_qs") else user.medallergy_set.all()
+        if patient:
+            mas = patient.medallergys_qs if hasattr(patient, "medallergys_qs") else patient.medallergy_set.all()
         else:
             mas = UltChoices.values
         mas_specified = False
     else:
         mas_specified = True
     if mhs is None:
-        if user:
+        if patient:
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=ULTAID_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=ULTAID_MEDHISTORYS).all()
             )
         else:
             mhs = ULTAID_MEDHISTORYS
@@ -145,7 +145,7 @@ def create_ultaid(
             "hlab5801": Hlab5801Factory,
         },
         req_otos=["ethnicity"],
-        user=user,
+        patient=patient,
     ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 

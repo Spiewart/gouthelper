@@ -15,7 +15,7 @@ fake = faker.Faker()
 class TestGoalUrateManager(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_goalurate(user=create_psp() if fake.boolean() else None)
+            create_goalurate(patient=create_psp() if fake.boolean() else None)
 
     def test__related_objects(self):
         with self.assertNumQueries(2):

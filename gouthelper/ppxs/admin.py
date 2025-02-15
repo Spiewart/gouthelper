@@ -8,6 +8,9 @@ from .models import Ppx
 class PpxHistoryAdmin(SimpleHistoryAdmin):
     list_display = (
         "__str__",
+        "indication",
+        "patient",
         "created",
+        "modified",
         "pk",
     )

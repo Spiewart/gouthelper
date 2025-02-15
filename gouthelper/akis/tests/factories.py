@@ -1,12 +1,13 @@
 from decimal import Decimal
 
-from factory import post_generation  # type: ignore
-from factory.django import DjangoModelFactory  # type: ignore
+from factory import SubFactory, post_generation
+from factory.django import DjangoModelFactory
 from factory.fuzzy import FuzzyChoice
 
 from ...labs.helpers import labs_sort_list_by_date_drawn
 from ...labs.models import Creatinine
 from ...labs.tests.factories import CreatinineFactory
+from ...users.tests.factories import PatientFactory
 from ...utils.helpers import get_or_create_qs_attr
 from ..choices import Statuses
 
@@ -16,7 +17,7 @@ class AkiFactory(DjangoModelFactory):
         model = "akis.Aki"
 
     status = FuzzyChoice(choices=Statuses.values)
-    user = None
+    patient = SubFactory(PatientFactory)
 
     @post_generation
     def creatinines(self, create, extracted, **kwargs):

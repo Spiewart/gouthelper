@@ -1,11 +1,13 @@
 from typing import TYPE_CHECKING, Union
 
 import pytest  # type: ignore
+from factory import SubFactory
 from factory.django import DjangoModelFactory  # type: ignore
 from factory.faker import faker  # type: ignore
 
 from ...medhistorys.choices import MedHistoryTypes
 from ...medhistorys.lists import GOALURATE_MEDHISTORYS
+from ...users.tests.factories import PatientFactory
 from ...utils.factories import MedHistoryCreatorMixin, MedHistoryDataMixin
 from ..models import GoalUrate
 
@@ -29,7 +31,7 @@ class CreateGoalUrateData(MedHistoryDataMixin):
 
 
 def goalurate_data_factory(
-    user: Union["User", None] = None,
+    patient: Union["User", None] = None,
     goalurate: GoalUrate | None = None,
     mhs: list[GOALURATE_MEDHISTORYS] | None = None,
 ) -> dict[str, str]:
@@ -41,7 +43,7 @@ def goalurate_data_factory(
             MedHistoryTypes.EROSIONS,
             MedHistoryTypes.TOPHI,
         ],
-        user=user,
+        patient=patient,
         aid_obj=goalurate,
     ).create()
 
@@ -52,23 +54,23 @@ class CreateGoalUrate(MedHistoryCreatorMixin):
     def create(self, **kwargs):
         # Pop the mhs_specified from the kwargs so it don't get passed to the GoalUrate constructor
         mhs_specified = kwargs.pop("mhs_specified", False)
-        # Need to add user to the Factory because we aren't setting the user attr with the OneToOneCreatorMixin
-        goalurate = GoalUrateFactory(**kwargs, user=self.user)
+        # Need to add patient to the Factory because we aren't setting the patient attr with the OneToOneCreatorMixin
+        goalurate = GoalUrateFactory(**kwargs, patient=self.patient)
         self.create_mhs(goalurate, specified=mhs_specified)
         return goalurate
 
 
 def create_goalurate(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", None] = None,
     mhs: list[GOALURATE_MEDHISTORYS] | None = None,
     **kwargs,
 ) -> GoalUrate:
     if mhs is None:
-        if user and not isinstance(user, bool):
+        if patient:
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=GOALURATE_MEDHISTORYS).all()
             )
         else:
             mhs = GOALURATE_MEDHISTORYS
@@ -78,10 +80,13 @@ def create_goalurate(
     # Call the constructor Class Method
     return CreateGoalUrate(
         mhs=mhs,
-        user=user,
+        patient=patient,
     ).create(mhs_specified=mhs_specified, **kwargs)
 
 
 class GoalUrateFactory(DjangoModelFactory):
     class Meta:
         model = GoalUrate
+
+    goalurate = fake.random_element(elements=GoalUrate.GoalUrates.values)
+    patient = SubFactory(PatientFactory)

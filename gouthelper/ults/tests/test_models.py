@@ -19,27 +19,27 @@ fake = faker.Faker()
 class TestUlt(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_ult(user=create_psp() if fake.boolean() else None)
-        self.ult_without_user = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
-        self.ult_with_user = Ult.related_objects.filter(user__isnull=False).first()
+            create_ult(patient=create_psp() if fake.boolean() else None)
+        self.ult_without_patient = create_ult(num_flares=FlareNums.TWOPLUS, freq_flares=FlareFreqs.TWOORMORE)
+        self.ult_with_patient = Ult.related_objects.filter(patient__isnull=False).first()
         self.ults = Ult.related_objects.all()
 
     def test__num_flares_valid_constraint(self):
-        self.ult_without_user.num_flares = 100
+        self.ult_without_patient.num_flares = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult_without_user.save()
+            self.ult_without_patient.save()
         self.assertIn("num_flares_valid", str(e.exception))
 
     def test__freq_flares_valid_constraint(self):
-        self.ult_without_user.freq_flares = 100
+        self.ult_without_patient.freq_flares = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult_without_user.save()
+            self.ult_without_patient.save()
         self.assertIn("freq_flares_valid", str(e.exception))
 
     def test__indication_valid_constraint(self):
-        self.ult_without_user.indication = 100
+        self.ult_without_patient.indication = 100
         with self.assertRaises(IntegrityError) as e:
-            self.ult_without_user.save()
+            self.ult_without_patient.save()
         self.assertIn("indication_valid", str(e.exception))
 
     def test__freq_num_flares_valid_constraint_1(self):
@@ -58,13 +58,14 @@ class TestUlt(TestCase):
         self.assertIn("freq_num_flares_valid", str(e.exception))
 
     def test__aid_medhistorys(self):
-        self.assertEqual(self.ult_without_user.aid_medhistorys(), ULT_MEDHISTORYS)
+        self.assertEqual(self.ult_without_patient.aid_medhistorys(), ULT_MEDHISTORYS)
 
     def test__ckd(self):
         for ult in self.ults:
-            if getattr(ult, "user"):
+            if getattr(ult, "patient"):
                 if next(
-                    iter(mh for mh in ult.user.medhistory_set.all() if mh.medhistorytype == MedHistoryTypes.CKD), None
+                    iter(mh for mh in ult.patient.medhistory_set.all() if mh.medhistorytype == MedHistoryTypes.CKD),
+                    None,
                 ):
                     self.assertTrue(ult.ckd)
                 else:
@@ -77,11 +78,11 @@ class TestUlt(TestCase):
 
     def test__ckd3(self):
         for ult in self.ults:
-            if getattr(ult, "user"):
+            if getattr(ult, "patient"):
                 if next(
                     iter(
                         mh
-                        for mh in ult.user.medhistory_set.select_related("ckddetail").all()
+                        for mh in ult.patient.medhistory_set.select_related("ckddetail").all()
                         if mh.medhistorytype == MedHistoryTypes.CKD
                         and mh.ckddetail
                         and mh.ckddetail.stage >= Stages.THREE
@@ -147,10 +148,10 @@ class TestUlt(TestCase):
 
     def test__get_absolute_url(self):
         for ult in self.ults:
-            if ult.user:
-                self.assertEqual(ult.get_absolute_url(), f"/ults/goutpatient-detail/{ult.user.pk}/")
+            if ult.patient:
+                self.assertEqual(ult.get_absolute_url(), f"/ults/goutpatient-detail/{ult.patient.pk}/")
             else:
-                self.assertEqual(self.ult_without_user.get_absolute_url(), f"/ults/{self.ult_without_user.pk}/")
+                self.assertEqual(self.ult_without_patient.get_absolute_url(), f"/ults/{self.ult_without_patient.pk}/")
 
     def test__indicated(self):
         for ult in self.ults:
@@ -174,8 +175,8 @@ class TestUlt(TestCase):
                 self.assertFalse(ult.noflares)
 
     def test___str__(self):
-        self.assertEqual(str(self.ult_without_user), f"Ult: {self.ult_without_user.get_indication_display()}")
-        self.assertEqual(str(self.ult_with_user), f"Ult: {self.ult_with_user.get_indication_display()}")
+        self.assertEqual(str(self.ult_without_patient), f"Ult: {self.ult_without_patient.get_indication_display()}")
+        self.assertEqual(str(self.ult_with_patient), f"Ult: {self.ult_with_patient.get_indication_display()}")
 
     def test__strong_indication(self):
         for ult in self.ults:

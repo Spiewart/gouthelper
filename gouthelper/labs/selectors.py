@@ -37,7 +37,7 @@ def urates_qs() -> "QuerySet":
 
 def urates_dated_qs() -> "QuerySet":
     """QuerySet for dated Urate objects."""
-    return dated_urates(urates_qs())
+    return dated_urates(apps.get_model("labs.Urate").objects.all())
 
 
 def urates_prefetch(dated: bool = True) -> Prefetch:
@@ -60,7 +60,7 @@ def hyperuricemia_urates_prefetch(dated: bool = True) -> Prefetch:
     else:
         queryset = apps.get_model("labs.Urate").objects.filter(value__gte=Decimal("9.0"))
     return Prefetch(
-        "urate_set",
+        "patient__urate_set",
         queryset=queryset,
         to_attr="hyperuricemia_urates",
     )

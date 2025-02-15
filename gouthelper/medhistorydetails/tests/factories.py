@@ -12,7 +12,7 @@ from ...choices import BOOL_CHOICES
 from ...dateofbirths.helpers import age_calc
 from ...labs.helpers import labs_eGFR_calculator, labs_stage_calculator
 from ...labs.tests.factories import BaselineCreatinineFactory
-from ...medhistorys.tests.factories import CkdFactory, GoutFactory
+from ...users.tests.factories import PatientFactory
 from ..choices import DialysisChoices, DialysisDurations, Stages
 from ..models import CkdDetail, GoutDetail
 
@@ -35,7 +35,7 @@ class CkdDetailFactory(DjangoModelFactory):
     class Meta:
         model = CkdDetail
 
-    medhistory = SubFactory(CkdFactory)
+    patient = SubFactory(PatientFactory)
     stage = fuzzy.FuzzyChoice(Stages)
 
     class Params:
@@ -150,7 +150,7 @@ class GoutDetailFactory(DjangoModelFactory):
     class Meta:
         model = GoutDetail
 
-    medhistory = SubFactory(GoutFactory)
+    patient = SubFactory(PatientFactory)
     flaring = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
     at_goal = factory.fuzzy.FuzzyChoice(BOOL_CHOICES, getter=lambda c: c[0])
     at_goal_long_term = factory.LazyAttribute(lambda o: fake.boolean() if o.at_goal else False)

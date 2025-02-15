@@ -47,7 +47,7 @@ class CreatePpxAidData(MedAllergyDataMixin, MedHistoryDataMixin, OneToOneDataMix
 
 
 def ppxaid_data_factory(
-    user: "User" = None,
+    patient: "User" = None,
     ppxaid: "PpxAid" = None,
     mas: list[FlarePpxChoices.values] | None = None,
     mhs: list[MedHistoryTypes] | None = None,
@@ -57,8 +57,8 @@ def ppxaid_data_factory(
     """Method to create data for a PpxAid to test forms.
 
     Args:
-        user: The user to create the data for (can't have with ppxaid).
-        ppxaid: The PpxAid to create the data for (can't have with user).
+        patient: The patient to create the data for (can't have with ppxaid).
+        ppxaid: The PpxAid to create the data for (can't have with patient).
         mas: The MedAllergys to create the data for. Pass empty list to not create any.
         mhs: The MedHistorys to create the data for. Pass empty list to not create any.
         mh_dets: The MedHistoryDetails to create the data for.
@@ -83,8 +83,8 @@ def ppxaid_data_factory(
         aid_otos=["dateofbirth", "gender"],
         otos=otos,
         req_otos=["dateofbirth"],
-        user_otos=["dateofbirth", "gender"],
-        user=user,
+        patient_otos=["dateofbirth", "gender"],
+        patient=patient,
         aid_obj=ppxaid,
     ).create()
 
@@ -115,7 +115,7 @@ class CreatePpxAid(MedAllergyCreatorMixin, MedHistoryCreatorMixin, OneToOneCreat
 
 
 def create_ppxaid(
-    user: Union["User", bool, None] = None,
+    patient: Union["User", bool, None] = None,
     mas: list[FlarePpxChoices.values, "MedAllergy"] | None = None,
     mhs: list[PPXAID_MEDHISTORYS, "MedHistory"] | None = None,
     **kwargs,
@@ -130,11 +130,11 @@ def create_ppxaid(
     else:
         mas_specified = True
     if mhs is None:
-        if user and not isinstance(user, bool):
+        if patient and not isinstance(patient, bool):
             mhs = (
-                user.medhistorys_qs
-                if hasattr(user, "medhistorys_qs")
-                else user.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS).all()
+                patient.medhistorys_qs
+                if hasattr(patient, "medhistorys_qs")
+                else patient.medhistory_set.filter(medhistorytype__in=PPXAID_MEDHISTORYS).all()
             )
         else:
             mhs = PPXAID_MEDHISTORYS
@@ -148,7 +148,7 @@ def create_ppxaid(
         mh_dets={MedHistoryTypes.CKD: {}},
         otos={"dateofbirth": DateOfBirthFactory, "gender": GenderFactory},
         req_otos=["dateofbirth"],
-        user=user,
+        patient=patient,
     ).create(mas_specified=mas_specified, mhs_specified=mhs_specified, **kwargs)
 
 

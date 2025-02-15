@@ -24,7 +24,7 @@ class PpxForm(
         model = Ppx
         exclude = (
             "indication",
-            "user",
+            "patient",
         )
 
     def __init__(self, *args, **kwargs):

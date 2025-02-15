@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django.apps import apps  # type: ignore
 from django.contrib.messages.views import SuccessMessageMixin  # type: ignore
@@ -10,19 +10,10 @@ from rules.contrib.views import AutoPermissionRequiredMixin, PermissionRequiredM
 from ..contents.choices import Contexts
 from ..ppxs.models import Ppx
 from ..ultaids.models import UltAid
-from ..users.models import Pseudopatient
-from ..utils.views import GoutHelperDetailMixin, GoutHelperPseudopatientDetailMixin, MedHistoryFormMixin
+from ..utils.views import GoutHelperDetailMixin, MedHistoryFormMixin
 from .dicts import MEDHISTORY_FORMS
 from .forms import GoalUrateForm
 from .models import GoalUrate
-
-if TYPE_CHECKING:
-    from uuid import UUID
-
-    from django.contrib.auth import get_user_model  # type: ignore
-    from django.db.models import QuerySet  # type: ignore
-
-    User = get_user_model()
 
 
 class GoalUrateAbout(TemplateView):
@@ -113,58 +104,6 @@ class GoalUrateCreate(GoalUrateEditBase, PermissionRequiredMixin, CreateView, Su
 class GoalUrateDetail(GoutHelperDetailMixin):
     model = GoalUrate
     object: GoalUrate
-
-
-class GoalUratePatientBase(GoalUrateEditBase):
-    """Abstract base class for attrs and methods that GoalUratePseudopatientCreate/Update
-    inherit from."""
-
-    class Meta:
-        abstract = True
-
-    def get_user_queryset(self, pseudopatient: "UUID") -> "QuerySet[Any]":
-        return Pseudopatient.objects.goalurate_qs().filter(pk=pseudopatient)
-
-
-class GoalUratePseudopatientCreate(
-    GoalUratePatientBase,
-    PermissionRequiredMixin,
-    CreateView,
-    SuccessMessageMixin,
-):
-    """View for creating a GoalUrate for a Pseudopatient."""
-
-    permission_required = "goalurates.can_add_goalurate"
-    success_message = "%(user)s's GoalUrate successfully created."
-
-    def get_permission_object(self):
-        # TODO: figure out if this is needed
-        self.ultaid = None  # pylint: disable=W0201
-        return self.user
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, user=self.user)
-
-
-class GoalUratePseudopatientDetail(GoutHelperPseudopatientDetailMixin):
-    model = GoalUrate
-    object: GoalUrate
-
-
-class GoalUratePseudopatientUpdate(
-    GoalUratePatientBase,
-    AutoPermissionRequiredMixin,
-    UpdateView,
-    SuccessMessageMixin,
-):
-    success_message = "%(user)s's GoalUrate successfully updated."
-
-    def get_permission_object(self):
-        self.ultaid = None  # pylint: disable=W0201
-        return self.object
-
-    def get_success_message(self, cleaned_data) -> str:
-        return self.success_message % dict(cleaned_data, user=self.user)
 
 
 class GoalUrateUpdate(

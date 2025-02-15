@@ -81,7 +81,7 @@ class UltForm(
 
     def clean(self):
         """Overwritten to raise ValidationError if the form indicates a
-        User has only had one (or zero) flares but reported a frequency of flares or
+        Patient has only had one (or zero) flares but reported a frequency of flares or
         that they have had two or more flares but did not report a frequency of flares
         , either of which would violate one of the Ult model CheckConstraints and raise
         a nonsensical error."""

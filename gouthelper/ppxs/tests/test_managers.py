@@ -4,7 +4,7 @@ from factory.faker import faker  # type: ignore
 
 from ...labs.models import Urate
 from ...medhistorys.lists import PPX_MEDHISTORYS
-from ...users.tests.factories import create_psp
+from ...patients.tests.factories import create_psp
 from ..models import Ppx
 from .factories import create_ppx
 
@@ -16,16 +16,16 @@ fake = faker.Faker()
 class TestPpxManager(TestCase):
     def setUp(self):
         for _ in range(10):
-            create_ppx(user=create_psp() if fake.boolean() else None)
+            create_ppx(patient=create_psp() if fake.boolean() else None)
 
     def test__related_objects(self):
         self.assertEqual(Ppx.objects.count(), 10)
         with self.assertNumQueries(3):
             for ppx in Ppx.related_objects.all():
-                if ppx.user:
+                if ppx.patient:
                     self.assertFalse(ppx.medhistorys_qs)
                 else:
-                    self.assertIsNone(ppx.user)
+                    self.assertIsNone(ppx.patient)
                     for medhistory in ppx.medhistorys_qs:
                         self.assertIn(medhistory.medhistorytype, PPX_MEDHISTORYS)
                     self.assertTrue(getattr(ppx, "goutdetail", False))

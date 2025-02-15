@@ -421,7 +421,7 @@ def forms_helper_insert_other_nsaid_contras(layout: "Layout", subject_the: str =
                     css_class="col",
                 ),
                 css_class="row",
-                css_id="other_nsaid_contras",
+                css_id="nsaids_other_contras",
             ),
             css_class="sub-form",
         ),

@@ -14,13 +14,13 @@ from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..goalurates.helpers import goalurates_get_object_goal_urate
+from ..goalurates.helpers import goalurates_get_object_goalurate
 from ..labs.helpers import labs_urate_within_90_days
 from ..labs.models import Urate
 from ..medhistorys.lists import PPX_MEDHISTORYS
 from ..rules import add_object, change_object, delete_object, view_object
 from ..ults.choices import Indications
-from ..utils.models import GoutHelperAidModel, GoutHelperModel
+from ..utils.models import AidMixin, GoutHelperModel
 from .helpers import ppxs_check_urate_at_goal_discrepant
 from .managers import PpxManager
 from .services import PpxDecisionAid
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 class Ppx(
     RulesModelMixin,
-    GoutHelperAidModel,
+    AidMixin,
     GoutHelperModel,
     TimeStampedModel,
     metaclass=RulesModelBase,
@@ -49,12 +49,7 @@ class Ppx(
             "delete": delete_object,
             "view": view_object,
         }
-        # Make a CheckConstraing for the user and ppxaid fields
         constraints = [
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_user_xor_ppxaid",
-                check=models.Q(user__isnull=False, ppxaid__isnull=True) | models.Q(user__isnull=True),
-            ),
             models.CheckConstraint(
                 check=models.Q(indication__gte=0) & models.Q(indication__lte=2),
                 name="%(app_label)s_%(class)s_indication_gte_0_lte_2",
@@ -68,20 +63,14 @@ class Ppx(
         help_text="Does the patient have an indication for prophylaxis?",
         default=Indications.NOTINDICATED,
     )
-    ppxaid = models.OneToOneField(
-        "ppxaids.PpxAid",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
 
     objects = models.Manager()
     related_objects = PpxManager()
     related_models: list[Literal["ppxaid"]] = ["ppxaid"]
     req_otos: list[None] = []
-    decision_aid_service = PpxDecisionAid
+    decisionaid = PpxDecisionAid
 
     @classmethod
     def aid_medhistorys(cls) -> list["MedHistoryTypes"]:
@@ -112,16 +101,16 @@ defaults to six months.
             pos,
             "" if self.at_goal_long_term else "not ",
             (
-                reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-                if self.user
-                else reverse("goalurates:create")
+                reverse("goalurates:detail", kwargs={"pk": self.patient.goalurate.pk})
+                if self.patient and hasattr(self.patient, "goalurate")
+                else reverse("goalurates:patient-create", kwargs={"patient": self.patient.pk})
             ),
         )
         return mark_safe(at_goal_str)
 
     @cached_property
     def at_goal_long_term_urates_discrepant(self) -> bool:
-        """Returns True if the GoutDetail at_goal_long_term field and the Ppx/User's urates are discrepant."""
+        """Returns True if the GoutDetail at_goal_long_term field and the Ppx/Patient's urates are discrepant."""
         return (
             self.at_goal_long_term
             and not self.urates_at_goal_long_term
@@ -141,16 +130,16 @@ defaults to six months.
             Subject_the_pos,
             "" if self.at_goal else "not ",
             (
-                reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-                if self.user
+                reverse("goalurates:pseudopatient-detail", kwargs={"pseudopatient": self.patient.pk})
+                if self.patient
                 else reverse("goalurates:create")
             ),
         )
         return mark_safe(at_goal_str)
 
     @cached_property
-    def at_goal_urates_discrepant(self) -> bool:
-        """Returns True if the GoutDetail at_goal field and the Ppx/User's urates are discrepant."""
+    def at_goalurates_discrepant(self) -> bool:
+        """Returns True if the GoutDetail at_goal field and the Ppx/Patient's urates are discrepant."""
         return self.at_goal and not self.urates_at_goal or not self.at_goal and self.urates_at_goal
 
     @property
@@ -167,8 +156,8 @@ urate-lowering therapy (<a target='_next' href={}>ULT</a>). Long-term flare prev
 is not recommended. Instead, ULT should be utilized.""",
                     Subject_the,
                     (
-                        reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-                        if self.user
+                        reverse("ults:pseudopatient-detail", kwargs={"pseudopatient": self.patient.pk})
+                        if self.patient
                         else reverse("ults:create")
                     ),
                 )
@@ -270,16 +259,13 @@ Continued flare prophylaxis is recommended."
         return self.goutdetail.flaring if self.goutdetail else None  # pylint: disable=W0125, E1101
 
     def get_absolute_url(self):
-        if self.user:
-            return reverse("ppxs:pseudopatient-detail", kwargs={"pseudopatient": self.user.pk})
-        else:
-            return reverse("ppxs:detail", kwargs={"pk": self.pk})
+        return reverse("ppxs:detail", kwargs={"pk": self.pk})
 
     @cached_property
-    def goal_urate(self) -> "GoalUrates":
-        """Fetches the Ppx objects associated GoalUrate.goal_urate if it exists, otherwise
+    def goalurate(self) -> "GoalUrates":
+        """Fetches the Ppx objects associated GoalUrate.goalurate if it exists, otherwise
         returns the GoutHelper default GoalUrates.SIX enum object"""
-        return goalurates_get_object_goal_urate(self)
+        return goalurates_get_object_goalurate(self)
 
     @property
     def hyperuricemic(self) -> bool | None:
@@ -332,8 +318,8 @@ therapy (<a href={}>ULT</a>) or having gout flares, as well as trends in {} seru
     @cached_property
     def has_urates(self) -> bool:
         """Returns True if the Ppx or Patient has urates, else False."""
-        if self.user:
-            return self.user.urates_qs if hasattr(self.user, "urates_qs") else self.user.urate_set.exists()
+        if self.patient:
+            return self.patient.urates_qs if hasattr(self.patient, "urates_qs") else self.patient.urate_set.exists()
         else:
             return self.urates_qs if hasattr(self, "urates_qs") else self.urate_set.exists()
 
@@ -635,7 +621,7 @@ until {} has been at goal uric acid ({}) or lower for 6 months.""",
     @cached_property
     def should_update_urates(self) -> bool:
         """Returns True if a Ppx/Patient should update its urates."""
-        return self.at_goal_urates_discrepant or self.at_goal_long_term_urates_discrepant
+        return self.at_goalurates_discrepant or self.at_goal_long_term_urates_discrepant
 
     def starting_ult_interp(self) -> str:
         """Returns HTML-formatted str explaining the starting_ult field for the Ppx."""
@@ -697,11 +683,11 @@ goal the last time it was checked and that {gender_subject} {pos} {'' if self.at
 been at goal uric acid for six months or longer, but "
         if self.dated_urates:
             at_goal_str += f"{gender_pos} reported uric acids indicate "
-            if self.at_goal_urates_discrepant:
+            if self.at_goalurates_discrepant:
                 at_goal_str += f"{gender_subject} {tobe} {'not ' if self.at_goal else ''} \
 at goal"
             if self.at_goal_long_term_urates_discrepant:
-                if self.at_goal_urates_discrepant:
+                if self.at_goalurates_discrepant:
                     at_goal_str += " and "
                 at_goal_str += f"{gender_subject} {pos} {'not ' if self.at_goal_long_term else ''} been at goal uric \
 acid for six months or longer"
@@ -808,6 +794,6 @@ generally continued until the uric acid has been at goal for six months or longe
             return ppxs_check_urate_at_goal_discrepant(
                 urate=self.dated_urates[0],
                 goutdetail=self.goutdetail,  # type: ignore
-                goal_urate=self.goal_urate,
+                goalurate=self.goalurate,
             )
         return False

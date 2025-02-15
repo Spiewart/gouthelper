@@ -145,7 +145,7 @@
                              role="button">Update Goal Urate</a>
                         {% endif %}
                       {% else %}
-                        {% if not object.has_goalurate %}
+                        {% if not object.goalurate %}
                           <a type="button"
                              class="btn btn-primary btn-lg"
                              hx-get="{% url 'goalurates:ppx-create' ppx=object.pk %}"
@@ -225,7 +225,7 @@
                           <td>{{ urate.value }}</td>
                           <td>{{ urate.date.date }}</td>
                           <td>
-                            {% if urate.value > object.user.goal_urate %}
+                            {% if urate.value > object.user.goalurate %}
                               No
                             {% else %}
                               Yes
@@ -240,7 +240,7 @@
                           <td>{{ urate.value }}</td>
                           <td>{{ urate.date.date }}</td>
                           <td>
-                            {% if urate.value > object.goal_urate %}
+                            {% if urate.value > object.goalurate %}
                               No
                             {% else %}
                               Yes

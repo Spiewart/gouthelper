@@ -1,22 +1,11 @@
 from django.apps import apps  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
+from django.conf import settings  # type: ignore
 from django.db import models  # type: ignore
-from django.db.models.functions import Now  # type: ignore
-from django.utils import timezone  # type: ignore
 from django.utils.translation import gettext_lazy as _  # type: ignore
 from django_extensions.db.models import TimeStampedModel  # type: ignore
 from rules.contrib.models import RulesModelBase, RulesModelMixin  # type: ignore
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from ..medhistorys.lists import (
-    FLARE_MEDHISTORYS,
-    FLAREAID_MEDHISTORYS,
-    GOALURATE_MEDHISTORYS,
-    PPX_MEDHISTORYS,
-    PPXAID_MEDHISTORYS,
-    ULT_MEDHISTORYS,
-    ULTAID_MEDHISTORYS,
-)
 from ..utils.models import DecisionAidRelation, GoutHelperModel, TreatmentAidRelation
 from .choices import MedHistoryTypes
 from .helpers import medhistorys_get_default_medhistorytype
@@ -50,8 +39,6 @@ from .managers import (
     XoiinteractionManager,
 )
 
-User = get_user_model()
-
 
 class MedHistory(
     RulesModelMixin,
@@ -67,167 +54,15 @@ class MedHistory(
 
     class Meta:
         constraints = [
-            # If there's a User, there can be no associated Aid objects
-            # Likewise, if there's an Aid object, there can be no User
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_user_aid_exclusive",
-                check=(
-                    models.Q(
-                        user__isnull=False,
-                        flare__isnull=True,
-                        flareaid__isnull=True,
-                        goalurate__isnull=True,
-                        ppxaid__isnull=True,
-                        ppx__isnull=True,
-                        ultaid__isnull=True,
-                        ult__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                    )
-                    | models.Q(
-                        user__isnull=True,
-                        flare__isnull=True,
-                        flareaid__isnull=True,
-                        goalurate__isnull=True,
-                        ppxaid__isnull=True,
-                        ppx__isnull=True,
-                        ultaid__isnull=True,
-                        ult__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_set_date_valid",
-                check=(
-                    models.Q(set_date__isnull=False) & models.Q(set_date__lte=Now()) | models.Q(set_date__isnull=True)
-                ),
-            ),
             # Check that medhistorytype is in MedHistoryTypes.choices
             models.CheckConstraint(
                 name="%(app_label)s_%(class)s_medhistorytype_valid",
                 check=models.Q(medhistorytype__in=MedHistoryTypes.values),
             ),
-            # A User can only have one of each type of MedHistory
+            # A Patient can only have one of each type of MedHistory
             models.UniqueConstraint(
-                fields=["user", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_user",
-            ),
-            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
-            # MedHistory objects with medhistorytypes that are in their respective lists
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_flare_mhtype",
-                check=(
-                    models.Q(
-                        flare__isnull=False,
-                        medhistorytype__in=FLARE_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        flare__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_flareaid_mhtype",
-                check=(
-                    models.Q(
-                        flareaid__isnull=False,
-                        medhistorytype__in=FLAREAID_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        flareaid__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_goalurate_mhtype",
-                check=(
-                    models.Q(
-                        goalurate__isnull=False,
-                        medhistorytype__in=GOALURATE_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        goalurate__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_ppx_mhtype",
-                check=(
-                    models.Q(
-                        ppx__isnull=False,
-                        medhistorytype__in=PPX_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        ppx__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_ppxaid_mhtype",
-                check=(
-                    models.Q(
-                        ppxaid__isnull=False,
-                        medhistorytype__in=PPXAID_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        ppxaid__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_ult_mhtype",
-                check=(
-                    models.Q(
-                        ult__isnull=False,
-                        medhistorytype__in=ULT_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        ult__isnull=True,
-                    )
-                ),
-            ),
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_ultaid_mhtype",
-                check=(
-                    models.Q(
-                        ultaid__isnull=False,
-                        medhistorytype__in=ULTAID_MEDHISTORYS,
-                    )
-                    | models.Q(
-                        ultaid__isnull=True,
-                    )
-                ),
-            ),
-            # Each type of Aid inherited from DecisionAidRelation and TreatmentAidRelation can only have
-            # one of each type of MedHistory
-            models.UniqueConstraint(
-                fields=["flare", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_flare",
-            ),
-            models.UniqueConstraint(
-                fields=["flareaid", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_flareaid",
-            ),
-            models.UniqueConstraint(
-                fields=["goalurate", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_goalurate",
-            ),
-            models.UniqueConstraint(
-                fields=["ppxaid", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_ppxaid",
-            ),
-            models.UniqueConstraint(
-                fields=["ppx", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_ppx",
-            ),
-            models.UniqueConstraint(
-                fields=["ultaid", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_ultaid",
-            ),
-            models.UniqueConstraint(
-                fields=["ult", "medhistorytype"],
-                name="%(app_label)s_%(class)s_unique_ult",
+                fields=["patient", "medhistorytype"],
+                name="%(app_label)s_%(class)s_unique_patient",
             ),
         ]
 
@@ -239,14 +74,12 @@ class MedHistory(
         choices=MedHistoryTypes.choices,
         editable=False,
     )
-    set_date = models.DateTimeField(
-        _("Date MedHistory Created or Modified"),
-        help_text="What date this MedHistory was last created or modified?",
-        default=None,
-        null=True,
-        blank=True,
+    value = models.BooleanField(
+        _("Value"),
+        help_text="Does the patient have this medical history?",
+        default=False,
     )
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, editable=False)
     history = HistoricalRecords()
     objects = models.Manager()
 
@@ -291,12 +124,6 @@ class MedHistory(
         self.__class__ = MedHistory
         super().save(*args, **kwargs)
         self.__class__ = apps.get_model(f"medhistorys.{self.medhistorytype}")
-
-    def update_set_date_and_save(self, commit: bool = True) -> None:
-        """Update the set_date field to the current date and time."""
-        self.set_date = timezone.now()
-        if commit:
-            self.save()
 
 
 class Angina(MedHistory):

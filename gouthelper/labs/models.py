@@ -13,7 +13,6 @@ from simple_history.models import HistoricalRecords  # type: ignore
 from ..choices import BOOL_CHOICES
 from ..dateofbirths.helpers import age_calc
 from ..medhistorys.choices import MedHistoryTypes
-from ..medhistorys.helpers import medhistory_attr, medhistorys_get_or_none
 from ..utils.models import GoalUrateMixin, GoutHelperModel
 from .choices import Abnormalitys, LowerLimits, Units, UpperLimits
 from .helpers import (
@@ -24,11 +23,8 @@ from .helpers import (
 )
 
 if TYPE_CHECKING:
-    from ..dateofbirths.models import DateOfBirth
-    from ..genders.models import Gender
     from ..medhistorydetails.choices import Stages
     from ..medhistorydetails.models import CkdDetail
-    from ..medhistorys.models import Ckd
 
 
 class CreatinineBase(models.Model):
@@ -123,11 +119,10 @@ class Lab(LabBase):
         ]
 
     date_drawn = models.DateTimeField(help_text="What day was this lab drawn?", default=timezone.now, blank=True)
-    user = models.ForeignKey(
+    patient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
+        editable=False,
     )
     history = HistoricalRecords(inherit=True)
     objects = models.Manager()
@@ -211,29 +206,9 @@ class Creatinine(CreatinineBase, Lab):
         return age_calc(date_of_birth=self.dateofbirth.value) if self.dateofbirth else None
 
     @cached_property
-    def ckd(self) -> Union["Ckd", None]:
-        if self.user:
-            return medhistory_attr(
-                MedHistoryTypes.CKD, self.user, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
-            )
-        elif self.aki and hasattr(self.aki, "flare"):
-            return medhistory_attr(
-                MedHistoryTypes.CKD, self.aki.flare, ["ckddetail", "baselinecreatinine"], medhistorys_get_or_none
-            )
-        else:
-            return None
-
-    @cached_property
     def ckddetail(self) -> Union["CkdDetail", None]:
         if self.ckd:
             return getattr(self.ckd, "ckddetail", None)
-        else:
-            return None
-
-    @cached_property
-    def baselinecreatinine(self) -> Union["BaselineCreatinine", None]:
-        if self.ckd:
-            return getattr(self.ckd, "baselinecreatinine", None)
         else:
             return None
 
@@ -254,24 +229,6 @@ class Creatinine(CreatinineBase, Lab):
     @cached_property
     def current_stage(self) -> "Stages":
         return self.calculate_stage(age=self.age, gender=self.gender)
-
-    @cached_property
-    def dateofbirth(self) -> Union["DateOfBirth", None]:
-        if self.user:
-            return self.user.dateofbirth
-        elif self.aki and hasattr(self.aki, "flare"):
-            return self.aki.flare.dateofbirth
-        else:
-            return None
-
-    @cached_property
-    def gender(self) -> Union["Gender", None]:
-        if self.user:
-            return self.user.gender
-        elif self.aki and hasattr(self.aki, "flare"):
-            return self.aki.flare.gender
-        else:
-            return None
 
     @cached_property
     def is_at_baseline(self) -> bool:
@@ -309,15 +266,6 @@ class Creatinine(CreatinineBase, Lab):
 class Urate(Lab, GoalUrateMixin):
     class Meta(Lab.Meta):
         constraints = Lab.Meta.constraints + [
-            # If there's a User, there can be no associated Ppx objects
-            models.CheckConstraint(
-                name="%(app_label)s_%(class)s_user_ppx_exclusive",
-                check=(
-                    models.Q(user__isnull=False, ppx__isnull=True)
-                    | models.Q(user__isnull=True, ppx__isnull=False)
-                    | models.Q(user__isnull=True, ppx__isnull=True)
-                ),
-            ),
             models.CheckConstraint(
                 check=(
                     models.Q(lower_limit=LowerLimits.URATEMGDL)
@@ -354,7 +302,7 @@ class Urate(Lab, GoalUrateMixin):
 
     @cached_property
     def at_goal(self) -> bool:
-        return self.value <= self.goal_urate
+        return self.value <= self.goalurate
 
     @cached_property
     def flare_date_or_date_drawn(self):
@@ -393,11 +341,10 @@ class Hlab5801(RulesModelMixin, GoutHelperModel, TimeStampedModel, metaclass=Rul
         verbose_name=_("HLA-B*5801"),
         help_text=_("HLA-B*5801 genotype present?"),
     )
-    user = models.OneToOneField(
+    patient = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
+        editable=False,
     )
 
     history = HistoricalRecords()

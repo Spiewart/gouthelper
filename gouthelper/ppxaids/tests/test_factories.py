@@ -130,7 +130,7 @@ def test__create_ppxaid():
     for _ in range(5):
         ppxaid = create_ppxaid()
         assert isinstance(ppxaid, PpxAid)
-        assert not (ppxaid.user)
+        assert not (ppxaid.patient)
         assert hasattr(ppxaid, "dateofbirth")
         assert isinstance(ppxaid.dateofbirth, DateOfBirth)
         assert hasattr(ppxaid, "gender")
@@ -141,13 +141,13 @@ def test__create_ppxaid():
         if ppxaid.medhistorys_qs:
             for medhistory in ppxaid.medhistorys_qs:
                 assert medhistory.medhistorytype in PPXAID_MEDHISTORYS
-                assert medhistory.user is None
+                assert medhistory.patient is None
                 assert medhistory.ppxaid == ppxaid
         assert hasattr(ppxaid, "medallergys_qs")
         if ppxaid.medallergys_qs:
             for medallergy in ppxaid.medallergys_qs:
                 assert medallergy.treatment in FlarePpxChoices.values
-                assert medallergy.user is None
+                assert medallergy.patient is None
                 assert medallergy.ppxaid == ppxaid
 
 
@@ -176,11 +176,11 @@ def test__create_ppxaid_with_medallergys():
     assert len(ppxaid.medallergys_qs) == 2
     for ma in ppxaid.medallergys_qs:
         assert ma.treatment in [FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE]
-        assert ma.user is None
+        assert ma.patient is None
         assert ma.ppxaid == ppxaid
     for ma in ppxaid.medallergy_set.all():
         assert ma.treatment in [FlarePpxChoices.NAPROXEN, FlarePpxChoices.COLCHICINE]
-        assert ma.user is None
+        assert ma.patient is None
         assert ma.ppxaid == ppxaid
 
 
@@ -190,11 +190,11 @@ def test__create_ppxaid_with_medhistorys():
     assert len(ppxaid.medhistorys_qs) == 2
     for mh in ppxaid.medhistorys_qs:
         assert mh.medhistorytype in [MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION]
-        assert mh.user is None
+        assert mh.patient is None
         assert mh.ppxaid == ppxaid
     for mh in ppxaid.medhistory_set.all():
         assert mh.medhistorytype in [MedHistoryTypes.CKD, MedHistoryTypes.COLCHICINEINTERACTION]
-        assert mh.user is None
+        assert mh.patient is None
         assert mh.ppxaid == ppxaid
 
 
@@ -206,20 +206,20 @@ def test__create_ppxaid_with_ckd_and_ckddetail():
 
 
 def test__create_ppxaid_with_user():
-    ppxaid = create_ppxaid(user=True)
-    assert hasattr(ppxaid, "user")
+    ppxaid = create_ppxaid(patient=True)
+    assert hasattr(ppxaid, "patient")
     assert not getattr(ppxaid, "dateofbirth", None)
-    assert hasattr(ppxaid.user, "dateofbirth")
+    assert hasattr(ppxaid.patient, "dateofbirth")
     assert not getattr(ppxaid, "gender", None)
-    if hasattr(ppxaid.user, "gender"):
-        assert isinstance(ppxaid.user.gender, Gender)
+    if hasattr(ppxaid.patient, "gender"):
+        assert isinstance(ppxaid.patient.gender, Gender)
     assert hasattr(ppxaid, "medallergys_qs")
-    user_mas = ppxaid.user.medallergy_set.all()
+    user_mas = ppxaid.patient.medallergy_set.all()
     for ma in ppxaid.medallergys_qs:
-        assert ma.user == ppxaid.user
+        assert ma.patient == ppxaid.patient
         assert ma in user_mas
     assert hasattr(ppxaid, "medhistorys_qs")
-    user_mhs = ppxaid.user.medhistory_set.all()
+    user_mhs = ppxaid.patient.medhistory_set.all()
     for mh in ppxaid.medhistorys_qs:
-        assert mh.user == ppxaid.user
+        assert mh.patient == ppxaid.patient
         assert mh in user_mhs

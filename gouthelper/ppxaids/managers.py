@@ -1,11 +1,11 @@
 from django.db.models import Manager, QuerySet  # type: ignore
 
-from .selectors import ppxaid_userless_relations
+from .selectors import ppxaid_relations
 
 
 class PpxAidQuerySet(QuerySet):
     def related_objects(self) -> QuerySet:
-        return ppxaid_userless_relations(self)
+        return ppxaid_relations(self)
 
 
 class PpxAidManager(Manager):
